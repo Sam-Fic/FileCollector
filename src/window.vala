@@ -601,6 +601,52 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         refresh_list ();
     }
 
+    private void populate_phrases_picker_list (Gtk.ListBox list_box, Adw.Window window, bool above) {
+        while (list_box.get_first_child () != null) {
+            list_box.remove (list_box.get_first_child ());
+        }
+
+        if (common_phrases.length == 0) {
+            var empty_label = new Gtk.Label (_("暂无常用语"));
+            empty_label.set_halign (Gtk.Align.CENTER);
+            list_box.append (empty_label);
+        } else {
+            for (int i = 0; i < common_phrases.length; i++) {
+                var phrase = common_phrases.get (i);
+                var row = new Adw.ActionRow ();
+                if (phrase.length > 40) {
+                    row.set_title (phrase.substring (0, 40) + "...");
+                } else {
+                    row.set_title (phrase);
+                }
+                row.set_subtitle (phrase);
+                row.set_activatable (true);
+
+                var delete_btn = new Gtk.Button ();
+                delete_btn.set_icon_name ("user-trash-symbolic");
+                delete_btn.add_css_class ("destructive-action");
+                delete_btn.add_css_class ("flat");
+                delete_btn.set_valign (Gtk.Align.CENTER);
+                int captured_index = i;
+                delete_btn.clicked.connect (() => {
+                    common_phrases.remove_index (captured_index);
+                    save_common_phrases ();
+                    populate_phrases_picker_list (list_box, window, above);
+                });
+                row.add_suffix (delete_btn);
+
+                int phrase_index = i;
+                row.activated.connect (() => {
+                    var selected_phrase = common_phrases.get (phrase_index);
+                    do_insert_text (selected_phrase, above);
+                    window.close ();
+                });
+
+                list_box.append (row);
+            }
+        }
+    }
+
     private void show_phrases_picker (bool above) {
         var window = new Adw.Window ();
         window.set_transient_for (this);
@@ -641,60 +687,20 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         scrolled.set_vexpand (true);
         toolbar_view.set_content (scrolled);
 
-        if (common_phrases.length == 0) {
-            var empty_label = new Gtk.Label (_("暂无常用语"));
-            empty_label.set_halign (Gtk.Align.CENTER);
-            list_box.append (empty_label);
-        } else {
-            for (int i = 0; i < common_phrases.length; i++) {
-                var phrase = common_phrases.get (i);
-                var row = new Adw.ActionRow ();
-                if (phrase.length > 40) {
-                    row.set_title (phrase.substring (0, 40) + "...");
-                } else {
-                    row.set_title (phrase);
-                }
-                row.set_subtitle (phrase);
-                row.set_activatable (true);
-
-                var delete_btn = new Gtk.Button ();
-                delete_btn.set_icon_name ("user-trash-symbolic");
-                delete_btn.add_css_class ("destructive-action");
-                delete_btn.add_css_class ("flat");
-                delete_btn.set_valign (Gtk.Align.CENTER);
-                int captured_index = i;
-                delete_btn.clicked.connect (() => {
-                    common_phrases.remove_index (captured_index);
-                    save_common_phrases ();
-                    window.close ();
-                    show_phrases_picker (above);
-                });
-                row.add_suffix (delete_btn);
-
-                int phrase_index = i;
-                row.activated.connect (() => {
-                    var selected_phrase = common_phrases.get (phrase_index);
-                    do_insert_text (selected_phrase, above);
-                    window.close ();
-                });
-
-                list_box.append (row);
-            }
-        }
+        populate_phrases_picker_list (list_box, window, above);
 
         cancel_btn.clicked.connect (() => {
             window.close ();
         });
 
         add_btn.clicked.connect (() => {
-            window.close ();
-            show_add_phrase_dialog (above);
+            show_add_phrase_dialog (above, list_box, window);
         });
 
         window.present ();
     }
 
-    private void show_add_phrase_dialog (bool above) {
+    private void show_add_phrase_dialog (bool above, Gtk.ListBox? list_box = null, Adw.Window? picker_window = null) {
         var dialog = new Adw.AlertDialog (_("添加常用语"), null);
         dialog.set_default_response ("add");
         dialog.add_response ("cancel", _("取消"));
@@ -715,11 +721,15 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             }
             dialog.destroy ();
             if (resp == "add") {
-                show_phrases_picker (above);
+                if (list_box != null && picker_window != null) {
+                    populate_phrases_picker_list (list_box, picker_window, above);
+                } else {
+                    show_phrases_picker (above);
+                }
             }
         });
 
-        dialog.present (this);
+        dialog.present (picker_window != null ? picker_window : this as Gtk.Widget);
     }
 
     private void on_move_up () {
