@@ -14,7 +14,7 @@ add_project_arguments('-DGETTEXT_PACKAGE="' + meson.project_name() + '"', langua
 
 # 编译 Blueprint 为 UI 资源文件
 gnome = import('gnome')
-wen tiblueprint_compiler = find_program('blueprint-compiler', required: true)
+blueprint_compiler = find_program('blueprint-compiler', required: true)
 
 window_ui = custom_target('window-blp',
   input: 'src/window.blp',

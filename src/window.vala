@@ -31,6 +31,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private HashTable<string, bool> checked_paths;
     private GenericArray<string> common_phrases;
 
+    private Adw.WindowTitle? _title_widget;
+
     private const int COL_NAME = 0;
     private const int COL_PATH = 1;
     private const int COL_IS_DIR = 2;
@@ -352,15 +354,50 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             tree_model.append (out dummy, root_iter);
             tree_model.set (dummy, COL_NAME, "正在加载...", -1);
 
-            var root_path = new Gtk.TreePath.from_indices (0);
-            dir_tree.expand_row (root_path, false);
+            Idle.add (() => {
+                var root_path = new Gtk.TreePath.from_indices (0);
+                dir_tree.expand_row (root_path, false);
+                return false;
+            });
         } catch (Error e) {
             warning ("文件夹选择失败: %s", e.message);
         }
     }
 
     private void update_subtitle (string? text) {
-        title = text ?? _("FileCollector");
+        string subtitle = text ?? _("未设置工作目录");
+
+        // 更新窗口标题（兜底）
+        title = (text != null) ? text : _("FileCollector");
+
+        // 查找并更新 Adw.WindowTitle 的副标题
+        if (_title_widget == null) {
+            var header = get_titlebar () as Adw.HeaderBar;
+            if (header != null && header.title_widget is Adw.WindowTitle) {
+                _title_widget = (Adw.WindowTitle) header.title_widget;
+            } else {
+                _title_widget = find_window_title (this);
+            }
+        }
+        if (_title_widget != null) {
+            _title_widget.set_subtitle (subtitle);
+        }
+    }
+
+    private Adw.WindowTitle? find_window_title (Gtk.Widget root) {
+        if (root is Adw.WindowTitle) {
+            return (Adw.WindowTitle) root;
+        }
+
+        var child = root.get_first_child ();
+        while (child != null) {
+            var found = find_window_title (child);
+            if (found != null) {
+                return found;
+            }
+            child = child.get_next_sibling ();
+        }
+        return null;
     }
 
     private void on_tree_row_expanded (Gtk.TreeIter iter, Gtk.TreePath path) {
