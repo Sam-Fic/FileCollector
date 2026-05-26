@@ -1,6 +1,7 @@
 # Build directories
 builddir/
 build-dir/
+build-flatpak/
 _build/
 *.swp
 *.swo
@@ -10,6 +11,7 @@ _build/
 export-dir/
 *.flatpak
 repo/
+flatpak-repo/
 
 # Meson/Ninja build files
 .ninja_deps
