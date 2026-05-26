@@ -13,7 +13,7 @@ It provides a checkable directory tree, flexible organization list, text inserti
 
 ## UI Preview
 
-![FileCollector Screenshot](screenshot.png)
+![FileCollector Screenshot](./screenshots/screenshot.png)
 
 ## Features
 
