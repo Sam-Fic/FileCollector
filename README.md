@@ -8,7 +8,7 @@
 
 ## 界面预览
 
-![FileCollector Screenshot](https://github.com/Sam-Fic/filecollector-gnome/assets/your-user-id/your-image-id)
+![FileCollector Screenshot](https://github.com/Sam-Fic/filecollector-gnome/blob/main/screenshot.png)
 
 ## 功能特性
 
