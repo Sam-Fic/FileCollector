@@ -4,28 +4,28 @@ using Adw 1;
 template $FileCollectorWindow : Adw.ApplicationWindow {
   default-width: 1200;
   default-height: 750;
-  title: _("FileCollector - 文件收集与编排工具");
+title: _("FileCollector - 文件收集与编排工具");
 
-  content: Adw.ToolbarView {
-    [top]
-    Adw.HeaderBar {
-      Button open_folder_btn {
-        icon-name: "folder-open-symbolic";
-        tooltip-text: _("打开工作目录");
+     content: Adw.ToolbarView {
+      [top]
+      Adw.HeaderBar {
+        Button open_folder_btn {
+          icon-name: "folder-open-symbolic";
+          tooltip-text: _("打开工作目录");
+        }
+
+        title-widget: Adw.WindowTitle {
+          title: _("FileCollector");
+          subtitle: _("未设置工作目录");
+        };
+
+        Gtk.MenuButton menu_btn {
+          icon-name: "open-menu-symbolic";
+          menu-model: primary_menu;
+        }
       }
 
-      title-widget: Adw.WindowTitle {
-        title: _("FileCollector");
-        subtitle: _("未设置工作目录");
-      };
-
-      Gtk.MenuButton menu_btn {
-        icon-name: "open-menu-symbolic";
-        menu-model: primary_menu;
-      }
-    }
-
-    content: Paned {
+     content: Paned {
       orientation: horizontal;
       margin-top: 12;
       margin-bottom: 12;
@@ -125,14 +125,14 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                 Box {
                   spacing: 4;
                   Image { icon-name: "go-up-symbolic"; }
-                  Label { label: _("上方插入"); }
+                  Label { label: _("上方插入文本"); }
                 }
               }
               Button btn_add_text_below {
                 Box {
                   spacing: 4;
                   Image { icon-name: "go-down-symbolic"; }
-                  Label { label: _("下方插入"); }
+                  Label { label: _("下方插入文本"); }
                 }
               }
             }

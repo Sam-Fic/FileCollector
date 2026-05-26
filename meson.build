@@ -14,20 +14,23 @@ add_project_arguments('-DGETTEXT_PACKAGE="' + meson.project_name() + '"', langua
 
 # 编译 Blueprint 为 UI 资源文件
 gnome = import('gnome')
+wen tiblueprint_compiler = find_program('blueprint-compiler', required: true)
 
-# 编译 Blueprint 到建输出目录
 window_ui = custom_target('window-blp',
-  output: 'window.ui',
   input: 'src/window.blp',
-  command: ['sh', '-c', 'blueprint-compiler compile --typelib-path /usr/lib/x86_64-linux-gnu/girepository-1.0 @INPUT@ --output @OUT@'],
-  build_by_default: true
+  output: 'window.ui',
+  command: [
+    blueprint_compiler, 'compile',
+    '--output', '@OUTPUT@',
+    '@INPUT@'
+  ],
+  build_by_default: true,
 )
 
-# 使用 gnome.compile_resources 来生成资源文件（兼容 Vala GtkTemplate）
 resources = gnome.compile_resources('filecollector-resources',
   'data/filecollector.gresource.xml',
-  source_dir: ['data', meson.current_build_dir()],
-  dependencies: window_ui
+  source_dir: [meson.current_build_dir(), 'data'],
+  dependencies: window_ui,
 )
 
 sources = files(
