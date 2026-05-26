@@ -167,8 +167,12 @@ title: _("FileCollector - 文件收集与编排工具");
                 }
               }
               Button btn_clear {
-                label: _("清空");
                 css-classes: ["destructive-action"];
+                Box {
+                  spacing: 4;
+                  Image { icon-name: "edit-clear-symbolic"; }
+                  Label { label: _("清空"); }
+                }
               }
             }
 
@@ -183,12 +187,31 @@ title: _("FileCollector - 文件收集与编排工具");
             }
 
             // 生成按钮
-            Button btn_generate {
-              label: _("生成合并文本");
-              css-classes: ["suggested-action"];
+            Box {
+              orientation: horizontal;
+              halign: center;
+              spacing: 6;
               margin-start: 12;
               margin-end: 12;
               margin-bottom: 12;
+              Button btn_generate {
+                css-classes: ["suggested-action"];
+                hexpand: true;
+                Box {
+                  spacing: 4;
+                  Image { icon-name: "document-save-symbolic"; }
+                  Label { label: _("生成合并文本"); }
+                }
+              }
+              Button btn_generate_clipboard {
+                css-classes: ["suggested-action"];
+                hexpand: true;
+                Box {
+                  spacing: 4;
+                  Image { icon-name: "edit-copy-symbolic"; }
+                  Label { label: _("生成合并文本到剪贴板"); }
+                }
+              }
             }
           }
         }

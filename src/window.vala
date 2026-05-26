@@ -10,6 +10,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.TextView preview_view;
     [GtkChild] private unowned Gtk.Button open_folder_btn;
     [GtkChild] private unowned Gtk.Button btn_generate;
+    [GtkChild] private unowned Gtk.Button btn_generate_clipboard;
     [GtkChild] private unowned Gtk.Button btn_add_ext;
     [GtkChild] private unowned Gtk.Button btn_add_text_above;
     [GtkChild] private unowned Gtk.Button btn_add_text_below;
@@ -156,6 +157,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         btn_delete.clicked.connect (on_delete_item);
         btn_clear.clicked.connect (on_clear_items);
         btn_generate.clicked.connect (on_generate_clicked);
+        btn_generate_clipboard.clicked.connect (on_generate_to_clipboard_clicked);
         check_absolute_path.notify["active"].connect (on_path_mode_changed);
         check_write_header.notify["active"].connect (on_header_check_changed);
 
@@ -913,49 +915,81 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         });
     }
 
+    private void write_items_to_stream (DataOutputStream dis) throws Error {
+        if (!use_absolute && show_header && work_dir != null) {
+            var header = "# 工作目录绝对路径: %s\n\n".printf (work_dir.get_path ());
+            dis.put_string (header);
+        }
+
+        for (int i = 0; i < items.length; i++) {
+            if (i > 0) dis.put_string ("\n\n");
+            var data = items.get (i);
+            if (data.item_type == "file") {
+                var f = File.new_for_path (data.file_path);
+                if (!f.query_exists ()) {
+                    dis.put_string ("[文件不存在: %s]\n".printf (data.file_path));
+                    continue;
+                }
+                string display;
+                if (data.force_absolute || use_absolute || work_dir == null) {
+                    display = data.file_path;
+                } else {
+                    var wd_path = work_dir.get_path () + "/";
+                    if (data.file_path.has_prefix (wd_path)) {
+                        display = data.file_path.substring (wd_path.length);
+                    } else {
+                        display = data.file_path;
+                    }
+                }
+                dis.put_string ("%s:\n".printf (display));
+                string content;
+                size_t len;
+                FileUtils.get_contents (data.file_path, out content, out len);
+                dis.put_string (content);
+            } else {
+                dis.put_string (data.content);
+            }
+        }
+    }
+
     private void generate_file (string file_path) {
         try {
             var dis = new DataOutputStream (File.new_for_path (file_path).create (FileCreateFlags.REPLACE_DESTINATION));
-
-            if (!use_absolute && show_header && work_dir != null) {
-                var header = "# 工作目录绝对路径: %s\n\n".printf (work_dir.get_path ());
-                dis.put_string (header);
-            }
-
-            for (int i = 0; i < items.length; i++) {
-                if (i > 0) dis.put_string ("\n\n");
-                var data = items.get (i);
-                if (data.item_type == "file") {
-                    var f = File.new_for_path (data.file_path);
-                    if (!f.query_exists ()) {
-                        dis.put_string ("[文件不存在: %s]\n".printf (data.file_path));
-                        continue;
-                    }
-                    string display;
-                    if (data.force_absolute || use_absolute || work_dir == null) {
-                        display = data.file_path;
-                    } else {
-                        var wd_path = work_dir.get_path () + "/";
-                        if (data.file_path.has_prefix (wd_path)) {
-                            display = data.file_path.substring (wd_path.length);
-                        } else {
-                            display = data.file_path;
-                        }
-                    }
-                    dis.put_string ("%s:\n".printf (display));
-                    string content;
-                    size_t len;
-                    FileUtils.get_contents (data.file_path, out content, out len);
-                    dis.put_string (content);
-                } else {
-                    dis.put_string (data.content);
-                }
-            }
-
+            write_items_to_stream (dis);
             dis.close ();
             show_info (_("生成成功"), _("合并文本已保存到:\n%s").printf (file_path));
         } catch (Error e) {
             show_error (_("生成失败"), e.message);
+        }
+    }
+
+    private void on_generate_to_clipboard_clicked () {
+        if (items.length == 0) {
+            show_warning (_("编排列表为空"), _("请先勾选文件或添加文字内容。"));
+            return;
+        }
+
+        try {
+            var tmp_dir = Environment.get_tmp_dir ();
+            var rand = Random.next_int ();
+            var tmp_path = GLib.Path.build_filename (tmp_dir, "filecollector_%u.txt".printf (rand));
+
+            var dis = new DataOutputStream (File.new_for_path (tmp_path).create (FileCreateFlags.REPLACE_DESTINATION));
+            write_items_to_stream (dis);
+            dis.close ();
+
+            var file = File.new_for_path (tmp_path);
+            var uri = file.get_uri ();
+            var uri_list = "%s\r\n".printf (uri);
+            var bytes = new Bytes (uri_list.data);
+            var provider = new Gdk.ContentProvider.for_bytes ("text/uri-list", bytes);
+
+            var display = this.get_display ();
+            display.get_clipboard ().set_content (provider);
+
+            show_info (_("已复制到剪贴板"), _("文件已复制到剪贴板:\n%s").printf (tmp_path));
+        } catch (Error e) {
+            show_error (_("复制失败"), e.message);
         }
     }
 
