@@ -52,6 +52,10 @@ sudo ninja install
 filecollector
 ```
 
+## 预编译 Flatpak 包
+
+预编译好的 Flatpak 包发布在 [Releases](https://github.com/Sam-Fic/filecollector/releases) 页面。如果您不想自行编译，可直接下载 `.flatpak` 文件安装使用。
+
 ## Flatpak 构建
 
 ```bash

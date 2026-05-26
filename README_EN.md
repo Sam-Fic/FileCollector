@@ -52,6 +52,10 @@ sudo ninja install
 filecollector
 ```
 
+## Pre-built Flatpak
+
+Pre-built Flatpak packages are available in the [Releases](https://github.com/Sam-Fic/filecollector/releases) section. If you prefer not to build from source, you can directly download the `.flatpak` files from there.
+
 ## Flatpak Build
 
 ```bash
