@@ -9,6 +9,7 @@ _build/
 .flatpak-builder/
 export-dir/
 *.flatpak
+repo/
 
 # Meson/Ninja build files
 .ninja_deps
@@ -48,4 +49,3 @@ __pycache__/
 
 # Package management
 *.egg-info/
-data/window.ui

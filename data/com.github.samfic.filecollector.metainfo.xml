@@ -23,6 +23,18 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="2.0.2" date="2026-05-26">
+      <description>
+        <p>改进与修复：</p>
+        <ul>
+          <li>修复选择工作目录后标题栏仍显示“未设置工作目录”的问题</li>
+          <li>打开工作目录后，左侧文件树最上层文件夹默认自动展开</li>
+          <li>主界面三栏卡片顶部直接贴边（去除与标题栏之间的多余间距）</li>
+          <li>修复构建流程（Blueprint 编译现在可靠生成 UI）</li>
+          <li>其他小优化</li>
+        </ul>
+      </description>
+    </release>
     <release version="2.0.1" date="2026-05-26"/>
   </releases>
 </component>
