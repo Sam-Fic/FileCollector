@@ -23,6 +23,15 @@ It provides a checkable directory tree, flexible organization list, text inserti
 
 > **Tip**: If you are on a non-GNOME platform (such as Windows or macOS), please check out the [PySide6 version repository](https://github.com/Sam-Fic/filecollector). This version supports Windows, macOS, and Linux, and is built with PySide6.
 
+## Pre-built Flatpak (Recommended)
+
+Pre-built Flatpak packages are available in the [Releases](https://github.com/Sam-Fic/filecollector-gnome/releases) section. If you prefer not to build from source, you can directly download and install the `.flatpak` files.
+
+```bash
+flatpak install --user --allow-signed <the-downloaded.flatpak-file>
+flatpak run com.github.samfic.filecollector
+```
+
 ## Install Dependencies
 
 ### Debian/Ubuntu
@@ -51,10 +60,6 @@ sudo ninja install
 ```bash
 filecollector
 ```
-
-## Pre-built Flatpak
-
-Pre-built Flatpak packages are available in the [Releases](https://github.com/Sam-Fic/filecollector/releases) section. If you prefer not to build from source, you can directly download the `.flatpak` files from there.
 
 ## Flatpak Build
 

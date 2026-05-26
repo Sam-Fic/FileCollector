@@ -23,6 +23,15 @@ FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排
 
 > **提示**：如果您使用的是非 GNOME 平台（如 Windows 或 macOS），请移步 [PySide6 版本仓库](https://github.com/Sam-Fic/filecollector)。该版本跨平台支持 Windows、macOS 和 Linux，基于 PySide6 构建。
 
+## 预编译 Flatpak 包（推荐）
+
+预编译好的 Flatpak 包发布在 [Releases](https://github.com/Sam-Fic/filecollector-gnome/releases) 页面。如果您不想自行编译，可直接下载 `.flatpak` 文件安装使用。
+
+```bash
+flatpak install --user --allow-signed <下载的.flatpak文件>
+flatpak run com.github.samfic.filecollector
+```
+
 ## 安装依赖
 
 ### Debian/Ubuntu
@@ -51,10 +60,6 @@ sudo ninja install
 ```bash
 filecollector
 ```
-
-## 预编译 Flatpak 包
-
-预编译好的 Flatpak 包发布在 [Releases](https://github.com/Sam-Fic/filecollector/releases) 页面。如果您不想自行编译，可直接下载 `.flatpak` 文件安装使用。
 
 ## Flatpak 构建
 
