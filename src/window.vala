@@ -1245,7 +1245,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     public void on_about () {
         var about = new Adw.AboutDialog ();
         about.application_name = _("FileCollector");
-        about.version = "2.0.2";
+        about.version = "2.0.3";
         about.application_icon = "com.github.samfic.filecollector";
         about.comments = _("文件收集与编排工具");
         about.developers = { "Sam-Fic" };

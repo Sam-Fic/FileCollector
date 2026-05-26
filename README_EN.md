@@ -29,6 +29,11 @@ Pre-built Flatpak packages are available in the [Releases](https://github.com/Sa
 
 ```bash
 flatpak install --user --allow-signed <the-downloaded.flatpak-file>
+```
+
+Then run:
+
+```bash
 flatpak run com.github.samfic.filecollector
 ```
 

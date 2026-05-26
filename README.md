@@ -29,6 +29,11 @@ FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排
 
 ```bash
 flatpak install --user --allow-signed <下载的.flatpak文件>
+```
+
+运行：
+
+```bash
 flatpak run com.github.samfic.filecollector
 ```
 
