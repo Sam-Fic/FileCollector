@@ -1,6 +1,14 @@
 # FileCollector
 
+<div align="center">
+  <img src="data/com.github.samfic.filecollector.svg" alt="FileCollector" width="128" height="128">
+</div>
+
 一个基于 GNOME 平台的文件收集工具，使用 Vala 语言编写，采用 GTK4 和 libadwaita 构建现代化的用户界面。
+
+## 界面预览
+
+![FileCollector Screenshot](https://github.com/Sam-Fic/filecollector-gnome/assets/your-user-id/your-image-id)
 
 ## 功能特性
 

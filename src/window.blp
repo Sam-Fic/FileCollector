@@ -24,12 +24,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
         menu-model: primary_menu;
       }
     }
-# 重新构建并安装
-flatpak-builder --user --install --force-clean build-dir com.github.samfic.filecollector.json
 
-# 或者导出为可分发的 .flatpak 文件
-flatpak build-export export-dir build-dir
-flatpak build-bundle export-dir filecollector.flatpak com.github.samfic.filecollector
     content: Paned {
       orientation: horizontal;
       margin-top: 12;
