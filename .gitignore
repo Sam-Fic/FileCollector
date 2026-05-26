@@ -27,6 +27,9 @@ meson-logs/
 *-resources.c
 *-resources.h
 
+# Generated UI from blueprint (data/window.ui is stale and should not be committed)
+data/window.ui
+
 # Debug symbols
 *.debug
 
@@ -45,3 +48,4 @@ __pycache__/
 
 # Package management
 *.egg-info/
+data/window.ui
