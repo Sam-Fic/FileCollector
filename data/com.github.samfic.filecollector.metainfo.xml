@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.github.samfic.filecollector</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>FileCollector</name>
+  <summary>文件收集与编排工具</summary>
+  <description>
+    <p>FileCollector 是一款桌面工具，能够帮助用户快速收集和编排文件内容。</p>
+    <p>主要功能：</p>
+    <ul>
+      <li>通过目录树浏览并勾选需要收集的文件</li>
+      <li>灵活编排文件输出顺序</li>
+      <li>在文件之间插入自定义文字或常用语</li>
+      <li>一键合并生成文本文件</li>
+      <li>支持项目文件的保存与加载</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">com.github.samfic.filecollector.desktop</launchable>
+  <url type="homepage">https://github.com/Sam-Fic/filecollector</url>
+  <developer id="com.github.samfic">
+    <name>Sam-Fic</name>
+  </developer>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="2.0.1" date="2026-05-26"/>
+  </releases>
+</component>

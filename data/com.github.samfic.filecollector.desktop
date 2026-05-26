@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=FileCollector
+Comment=文件收集与编排工具
+Comment[en]=File collection and organization tool
+Exec=filecollector
+Icon=com.github.samfic.filecollector
+Categories=Utility;TextTools;FileTools;
+Terminal=false
+StartupNotify=true
+X-GNOME-UsesNotifications=true

@@ -1,0 +1,242 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $FileCollectorWindow : Adw.ApplicationWindow {
+  default-width: 1200;
+  default-height: 750;
+  title: _("FileCollector - 文件收集与编排工具");
+
+  content: Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {
+      Button open_folder_btn {
+        icon-name: "folder-open-symbolic";
+        tooltip-text: _("打开工作目录");
+      }
+
+      title-widget: Adw.WindowTitle {
+        title: _("FileCollector");
+        subtitle: _("未设置工作目录");
+      };
+
+      Gtk.MenuButton menu_btn {
+        icon-name: "open-menu-symbolic";
+        menu-model: primary_menu;
+      }
+    }
+# 重新构建并安装
+flatpak-builder --user --install --force-clean build-dir com.github.samfic.filecollector.json
+
+# 或者导出为可分发的 .flatpak 文件
+flatpak build-export export-dir build-dir
+flatpak build-bundle export-dir filecollector.flatpak com.github.samfic.filecollector
+    content: Paned {
+      orientation: horizontal;
+      margin-top: 12;
+      margin-bottom: 12;
+      margin-start: 12;
+      margin-end: 12;
+      position: 300;
+      shrink-start-child: false;
+      shrink-end-child: false;
+      css-classes: ["paned-no-handle"];
+
+      // 左栏 - 目录树
+      Frame {
+        hexpand: true;
+        vexpand: true;
+        width-request: 200;
+        margin-top: 6;
+        margin-bottom: 6;
+        margin-start: 6;
+        margin-end: 6;
+        Box {
+          styles ["card"]
+          hexpand: true;
+          vexpand: true;
+          ScrolledWindow {
+            hexpand: true;
+            vexpand: true;
+            margin-top: 12;
+            margin-bottom: 12;
+            margin-start: 12;
+            margin-end: 12;
+            TreeView dir_tree {
+              headers-visible: false;
+              activate-on-single-click: true;
+            }
+          }
+        }
+      }
+
+      Paned {
+        orientation: horizontal;
+        position: 500;
+        shrink-start-child: false;
+        shrink-end-child: false;
+        css-classes: ["paned-no-handle"];
+
+        // 中栏 - 输出编排
+        Frame {
+          hexpand: true;
+          vexpand: true;
+          width-request: 400;
+          margin-top: 6;
+          margin-bottom: 6;
+          margin-start: 6;
+          margin-end: 6;
+          Box {
+            styles ["card"]
+            orientation: vertical;
+            spacing: 12;
+            hexpand: true;
+            vexpand: true;
+
+            // 标题区
+            Label {
+              label: _("输出编排列表");
+              halign: center;
+              styles ["heading"]
+              margin-top: 12;
+            }
+
+            // 队列列表区
+            ScrolledWindow {
+              vexpand: true;
+              margin-start: 12;
+              margin-end: 12;
+              margin-top: 6;
+              margin-bottom: 6;
+              ListBox queue_list {
+                selection-mode: single;
+              }
+            }
+
+            // 按钮区 - 添加文件/文字
+            Box {
+              orientation: horizontal;
+              halign: center;
+              spacing: 6;
+              margin-start: 12;
+              margin-end: 12;
+              Button btn_add_ext {
+                Box {
+                  spacing: 4;
+                  Image { icon-name: "document-open-symbolic"; }
+                  Label { label: _("添加外部文件"); }
+                }
+              }
+              Button btn_add_text_above {
+                Box {
+                  spacing: 4;
+                  Image { icon-name: "go-up-symbolic"; }
+                  Label { label: _("上方插入"); }
+                }
+              }
+              Button btn_add_text_below {
+                Box {
+                  spacing: 4;
+                  Image { icon-name: "go-down-symbolic"; }
+                  Label { label: _("下方插入"); }
+                }
+              }
+            }
+
+            // 按钮区 - 移动/删除
+            Box {
+              orientation: horizontal;
+              halign: center;
+              spacing: 6;
+              margin-start: 12;
+              margin-end: 12;
+              Button btn_move_up {
+                Box {
+                  spacing: 4;
+                  Image { icon-name: "go-up-symbolic"; }
+                  Label { label: _("上移"); }
+                }
+              }
+              Button btn_move_down {
+                Box {
+                  spacing: 4;
+                  Image { icon-name: "go-down-symbolic"; }
+                  Label { label: _("下移"); }
+                }
+              }
+              Button btn_delete {
+                css-classes: ["destructive-action"];
+                Box {
+                  spacing: 4;
+                  Image { icon-name: "user-trash-symbolic"; }
+                  Label { label: _("删除"); }
+                }
+              }
+              Button btn_clear {
+                label: _("清空");
+                css-classes: ["destructive-action"];
+              }
+            }
+
+            // 选项区
+            Box {
+              orientation: vertical;
+              spacing: 4;
+              margin-start: 12;
+              margin-end: 12;
+              CheckButton check_absolute_path { label: _("使用绝对路径"); }
+              CheckButton check_write_header { label: _("在文件头部标注工作目录信息"); }
+            }
+
+            // 生成按钮
+            Button btn_generate {
+              label: _("生成合并文本");
+              css-classes: ["suggested-action"];
+              margin-start: 12;
+              margin-end: 12;
+              margin-bottom: 12;
+            }
+          }
+        }
+
+        // 右栏 - 预览
+        Frame {
+          hexpand: true;
+          vexpand: true;
+          width-request: 200;
+          margin-top: 6;
+          margin-bottom: 6;
+          margin-start: 6;
+          margin-end: 6;
+          Box {
+            styles ["card"]
+            hexpand: true;
+            vexpand: true;
+            ScrolledWindow {
+              hexpand: true;
+              vexpand: true;
+              margin-top: 12;
+              margin-bottom: 12;
+              margin-start: 12;
+              margin-end: 12;
+              TextView preview_view {
+                editable: false;
+                monospace: true;
+                left-margin: 12;
+                right-margin: 12;
+                top-margin: 12;
+                bottom-margin: 12;
+              }
+            }
+          }
+        }
+      }
+    };
+  };
+}
+
+menu primary_menu {
+  item (_("打开项目..."), "app.open_project")
+  item (_("保存项目"), "app.save_project")
+  item (_("常用语管理"), "app.manage_phrases")
+  item (_("关于 FileCollector"), "app.about")
+}

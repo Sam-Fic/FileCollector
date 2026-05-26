@@ -1,0 +1,47 @@
+# Build directories
+builddir/
+build-dir/
+_build/
+*.swp
+*.swo
+
+# Flatpak builder files
+.flatpak-builder/
+export-dir/
+*.flatpak
+
+# Meson/Ninja build files
+.ninja_deps
+.ninja_log
+compile_commands.json
+meson-private/
+meson-info/
+meson-logs/
+*.o
+
+# Vala compiler generated files
+*.c
+*.h
+
+# GTK resource files
+*-resources.c
+*-resources.h
+
+# Debug symbols
+*.debug
+
+# Backup files
+*~
+*.bak
+*.orig
+
+# IDE/editor files
+.vscode/
+.idea/
+*.iml
+*.project
+*.pyc
+__pycache__/
+
+# Package management
+*.egg-info/

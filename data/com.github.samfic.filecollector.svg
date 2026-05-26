@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3584e4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1a5fb4;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect x="8" y="24" width="112" height="88" rx="8" ry="8" fill="url(#bg)"/>
+  <rect x="8" y="24" width="112" height="20" rx="8" ry="8" fill="#1a5fb4"/>
+  <rect x="8" y="36" width="112" height="8" fill="#1a5fb4"/>
+  <rect x="28" y="12" width="72" height="16" rx="3" ry="3" fill="#ffa348"/>
+  <line x1="28" y1="62" x2="100" y2="62" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round"/>
+  <line x1="28" y1="74" x2="90" y2="74" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round"/>
+  <line x1="28" y1="86" x2="80" y2="86" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="100" cy="84" r="18" fill="#33d17a" stroke="#fff" stroke-width="2"/>
+  <path d="M94 84 l4 4 l8 -8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>
