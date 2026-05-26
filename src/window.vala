@@ -350,15 +350,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             tree_model.set (root_iter, COL_NAME, folder.get_basename (), COL_PATH, folder.get_path (),
                             COL_IS_DIR, true, COL_CHECKED, false, COL_INCONSISTENT, false, -1);
 
-            Gtk.TreeIter dummy;
-            tree_model.append (out dummy, root_iter);
-            tree_model.set (dummy, COL_NAME, "正在加载...", -1);
+            // Preload first-level children immediately (so expand will stick)
+            load_directory_children (root_iter, folder);
 
-            Idle.add (() => {
-                var root_path = new Gtk.TreePath.from_indices (0);
-                dir_tree.expand_row (root_path, false);
-                return false;
-            });
+            var root_path = new Gtk.TreePath.from_indices (0);
+            dir_tree.expand_row (root_path, false);
         } catch (Error e) {
             warning ("文件夹选择失败: %s", e.message);
         }
@@ -1018,10 +1014,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 tree_model.append (out root_iter, null);
                 tree_model.set (root_iter, COL_NAME, work_dir.get_basename (), COL_PATH, work_dir.get_path (),
                             COL_IS_DIR, true, COL_CHECKED, false, COL_INCONSISTENT, false, -1);
-                Gtk.TreeIter dummy;
-                tree_model.append (out dummy, root_iter);
-                tree_model.set (dummy, COL_NAME, "正在加载...", -1);
-                dir_tree.expand_row (new Gtk.TreePath.from_indices (0), false);
+                // Preload first-level children immediately (so expand will stick)
+                load_directory_children (root_iter, work_dir);
+
+                var root_path = new Gtk.TreePath.from_indices (0);
+                dir_tree.expand_row (root_path, false);
             }
 
             use_absolute = root.get_boolean_member_with_default ("use_absolute", false);
