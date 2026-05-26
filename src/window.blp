@@ -25,26 +25,26 @@ title: _("FileCollector - 文件收集与编排工具");
         }
       }
 
-     content: Paned {
-      orientation: horizontal;
-      margin-top: 12;
-      margin-bottom: 12;
-      margin-start: 12;
-      margin-end: 12;
-      position: 300;
-      shrink-start-child: false;
-      shrink-end-child: false;
-      css-classes: ["paned-no-handle"];
+      content: Paned {
+       orientation: horizontal;
+       margin-top: 0;
+       margin-bottom: 12;
+       margin-start: 12;
+       margin-end: 12;
+       position: 300;
+       shrink-start-child: false;
+       shrink-end-child: false;
+       css-classes: ["paned-no-handle"];
 
       // 左栏 - 目录树
-      Frame {
-        hexpand: true;
-        vexpand: true;
-        width-request: 200;
-        margin-top: 6;
-        margin-bottom: 6;
-        margin-start: 6;
-        margin-end: 6;
+       Frame {
+         hexpand: true;
+         vexpand: true;
+         width-request: 200;
+         margin-top: 0;
+         margin-bottom: 6;
+         margin-start: 6;
+         margin-end: 6;
         Box {
           styles ["card"]
           hexpand: true;
@@ -72,14 +72,14 @@ title: _("FileCollector - 文件收集与编排工具");
         css-classes: ["paned-no-handle"];
 
         // 中栏 - 输出编排
-        Frame {
-          hexpand: true;
-          vexpand: true;
-          width-request: 400;
-          margin-top: 6;
-          margin-bottom: 6;
-          margin-start: 6;
-          margin-end: 6;
+         Frame {
+           hexpand: true;
+           vexpand: true;
+           width-request: 400;
+           margin-top: 0;
+           margin-bottom: 6;
+           margin-start: 6;
+           margin-end: 6;
           Box {
             styles ["card"]
             orientation: vertical;
@@ -194,14 +194,14 @@ title: _("FileCollector - 文件收集与编排工具");
         }
 
         // 右栏 - 预览
-        Frame {
-          hexpand: true;
-          vexpand: true;
-          width-request: 200;
-          margin-top: 6;
-          margin-bottom: 6;
-          margin-start: 6;
-          margin-end: 6;
+         Frame {
+           hexpand: true;
+           vexpand: true;
+           width-request: 200;
+           margin-top: 0;
+           margin-bottom: 6;
+           margin-start: 6;
+           margin-end: 6;
           Box {
             styles ["card"]
             hexpand: true;
