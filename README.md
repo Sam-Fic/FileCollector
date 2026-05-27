@@ -37,21 +37,23 @@ flatpak install --user <下载的.flatpak文件>
 flatpak run com.github.samfic.filecollector
 ```
 
-## 安装依赖
+## 自行构建
 
-### Debian/Ubuntu
+### 安装依赖
+
+#### Debian/Ubuntu
 
 ```bash
 sudo apt install meson valac libgtk-4-dev libadwaita-1-dev libjson-glib-dev blueprint-compiler
 ```
 
-### Fedora
+#### Fedora
 
 ```bash
 sudo dnf install meson vala gtk4-devel libadwaita-devel json-glib-devel blueprint-compiler
 ```
 
-## 构建与安装
+### 构建与安装
 
 ```bash
 mkdir -p build && cd build
@@ -62,13 +64,13 @@ sudo meson install
 
 > **提示**：如果之前已经构建过，修改源码后只需在 `build/` 目录下重新运行 `meson compile` 即可增量编译。
 
-## 运行
+### 运行
 
 ```bash
 filecollector
 ```
 
-## Flatpak 构建
+### Flatpak 构建
 
 ```bash
 flatpak-builder build-dir com.github.samfic.filecollector.json --user --install --force-clean
@@ -93,6 +95,7 @@ flatpak run com.github.samfic.filecollector
 ├── BUILD_FLATPAK.md                      # Flatpak 构建指南（供 AI 助手参考）
 ├── meson.build                           # Meson 构建配置
 └── com.github.samfic.filecollector.json  # Flatpak 构建清单
+```
 
 ## 为什么使用此工具？
 

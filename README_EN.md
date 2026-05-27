@@ -37,21 +37,23 @@ Then run:
 flatpak run com.github.samfic.filecollector
 ```
 
-## Install Dependencies
+## Build from Source
 
-### Debian/Ubuntu
+### Install Dependencies
+
+#### Debian/Ubuntu
 
 ```bash
 sudo apt install meson valac libgtk-4-dev libadwaita-1-dev libjson-glib-dev blueprint-compiler
 ```
 
-### Fedora
+#### Fedora
 
 ```bash
 sudo dnf install meson vala gtk4-devel libadwaita-devel json-glib-devel blueprint-compiler
 ```
 
-## Build & Install
+### Build & Install
 
 ```bash
 mkdir -p build && cd build
@@ -62,13 +64,13 @@ sudo meson install
 
 > **Tip**: If you have built before, simply re-run `meson compile` inside the `build/` directory after modifying source code for incremental compilation.
 
-## Run
+### Run
 
 ```bash
 filecollector
 ```
 
-## Flatpak Build
+### Flatpak Build
 
 ```bash
 flatpak-builder build-dir com.github.samfic.filecollector.json --user --install --force-clean
@@ -93,6 +95,7 @@ flatpak run com.github.samfic.filecollector
 ├── BUILD_FLATPAK.md                      # Flatpak build guide (for AI assistants)
 ├── meson.build                           # Meson build configuration
 └── com.github.samfic.filecollector.json  # Flatpak build manifest
+```
 
 ## Why Use This Tool?
 
