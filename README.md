@@ -28,7 +28,7 @@ FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排
 预编译好的 Flatpak 包发布在 [Releases](https://github.com/Sam-Fic/filecollector-gnome/releases) 页面。如果您不想自行编译，可直接下载 `.flatpak` 文件安装使用。
 
 ```bash
-flatpak install --user --allow-signed <下载的.flatpak文件>
+flatpak install --user <下载的.flatpak文件>
 ```
 
 运行：

@@ -28,7 +28,7 @@ It provides a checkable directory tree, flexible organization list, text inserti
 Pre-built Flatpak packages are available in the [Releases](https://github.com/Sam-Fic/filecollector-gnome/releases) section. If you prefer not to build from source, you can directly download and install the `.flatpak` files.
 
 ```bash
-flatpak install --user --allow-signed <the-downloaded.flatpak-file>
+flatpak install --user <the-downloaded.flatpak-file>
 ```
 
 Then run:
