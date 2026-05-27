@@ -22,6 +22,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.CheckButton check_write_header;
     [GtkChild] private unowned Gtk.MenuButton menu_btn;
     [GtkChild] private unowned Adw.ToastOverlay toast_overlay;
+    [GtkChild] private unowned Gtk.Paned outer_paned;
+    [GtkChild] private unowned Gtk.Paned inner_paned;
 
     private Gtk.TreeStore tree_model;
     private File? work_dir = null;
@@ -55,6 +57,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         setup_tree_view ();
         setup_signals ();
+        setup_pane_sizes ();
     }
 
     private void load_css () {
@@ -163,6 +166,75 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         queue_list.row_selected.connect (on_queue_selection_changed);
         queue_list.row_activated.connect (on_queue_row_activated);
+    }
+
+    private void setup_pane_sizes () {
+        outer_paned.notify["position"].connect (clamp_outer_paned_position);
+        inner_paned.notify["position"].connect (clamp_inner_paned_position);
+
+        GLib.Idle.add (() => {
+            measure_pane_minimums ();
+            clamp_outer_paned_position ();
+            clamp_inner_paned_position ();
+            return Source.REMOVE;
+        });
+    }
+
+    private const int PANED_SEP = 6;
+
+    private int left_min_width = 0;
+    private int center_min_width = 0;
+    private int right_min_width = 0;
+
+    private void measure_pane_minimums () {
+        int min, nat;
+
+        var left_child = outer_paned.get_start_child ();
+        if (left_child != null) {
+            left_child.measure (Gtk.Orientation.HORIZONTAL, -1, out min, out nat, null, null);
+            left_min_width = int.max (min, 200);
+        }
+
+        var center_child = inner_paned.get_start_child ();
+        if (center_child != null) {
+            center_child.measure (Gtk.Orientation.HORIZONTAL, -1, out min, out nat, null, null);
+            center_min_width = int.max (min, 400);
+        }
+
+        var right_child = inner_paned.get_end_child ();
+        if (right_child != null) {
+            right_child.measure (Gtk.Orientation.HORIZONTAL, -1, out min, out nat, null, null);
+            right_min_width = int.max (min, 200);
+        }
+    }
+
+    private void clamp_outer_paned_position () {
+        var pw = outer_paned.get_width ();
+        if (pw <= 0) return;
+        var pos = outer_paned.position;
+        var min_pos = left_min_width;
+        var cw = pw - outer_paned.get_margin_start () - outer_paned.get_margin_end ();
+        var inner_needed = inner_paned.get_margin_start () + center_min_width + PANED_SEP + right_min_width;
+        var max_pos = int.max (min_pos, cw - PANED_SEP - inner_needed);
+        if (pos < min_pos) {
+            outer_paned.position = min_pos;
+        } else if (pos > max_pos) {
+            outer_paned.position = max_pos;
+        }
+    }
+
+    private void clamp_inner_paned_position () {
+        var pw = inner_paned.get_width ();
+        if (pw <= 0) return;
+        var pos = inner_paned.position;
+        var min_pos = center_min_width;
+        var cw = pw - inner_paned.get_margin_start () - inner_paned.get_margin_end ();
+        var max_pos = int.max (min_pos, cw - PANED_SEP - right_min_width);
+        if (pos < min_pos) {
+            inner_paned.position = min_pos;
+        } else if (pos > max_pos) {
+            inner_paned.position = max_pos;
+        }
     }
 
     private void on_tree_toggle_toggled (string path_str) {
