@@ -21,6 +21,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.CheckButton check_absolute_path;
     [GtkChild] private unowned Gtk.CheckButton check_write_header;
     [GtkChild] private unowned Gtk.MenuButton menu_btn;
+    [GtkChild] private unowned Adw.ToastOverlay toast_overlay;
 
     private Gtk.TreeStore tree_model;
     private File? work_dir = null;
@@ -131,17 +132,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var toggle_renderer = new Gtk.CellRendererToggle ();
         toggle_renderer.activatable = true;
         toggle_renderer.toggled.connect (on_tree_toggle_toggled);
-        var toggle_col = new Gtk.TreeViewColumn ();
-        toggle_col.pack_start (toggle_renderer, false);
-        toggle_col.add_attribute (toggle_renderer, "active", COL_CHECKED);
-        toggle_col.add_attribute (toggle_renderer, "inconsistent", COL_INCONSISTENT);
-        dir_tree.append_column (toggle_col);
 
         var text_renderer = new Gtk.CellRendererText ();
-        var text_col = new Gtk.TreeViewColumn ();
-        text_col.pack_start (text_renderer, true);
-        text_col.add_attribute (text_renderer, "text", COL_NAME);
-        dir_tree.append_column (text_col);
+
+        var col = new Gtk.TreeViewColumn ();
+        col.pack_start (toggle_renderer, false);
+        col.pack_start (text_renderer, true);
+        col.add_attribute (toggle_renderer, "active", COL_CHECKED);
+        col.add_attribute (toggle_renderer, "inconsistent", COL_INCONSISTENT);
+        col.add_attribute (text_renderer, "text", COL_NAME);
+        dir_tree.append_column (col);
 
         dir_tree.row_expanded.connect (on_tree_row_expanded);
         dir_tree.get_selection ().mode = Gtk.SelectionMode.NONE;
@@ -200,7 +200,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             }
         }
         refresh_list ();
-        update_ancestor_states (path.copy ());
+        var _child_path = path.copy ();
+        GLib.Idle.add (() => {
+            update_ancestor_states (_child_path);
+            return Source.REMOVE;
+        });
     }
 
     private void toggle_directory_recursive (Gtk.TreeIter parent_iter, bool checked) {
@@ -426,31 +430,53 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE,
                 FileQueryInfoFlags.NONE
             );
+
+            var dirs = new GenericArray<FileInfo> ();
+            var files = new GenericArray<FileInfo> ();
+
             FileInfo info;
             while ((info = enumerator.next_file ()) != null) {
                 if (info.get_name ().has_prefix (".")) continue;
+                if (info.get_file_type () == FileType.DIRECTORY) {
+                    dirs.add (info);
+                } else {
+                    files.add (info);
+                }
+            }
 
-                var file = dir.get_child (info.get_name ());
-                bool is_dir = (info.get_file_type () == FileType.DIRECTORY);
+            dirs.sort ((a, b) => a.get_name ().collate (b.get_name ()));
+            files.sort ((a, b) => a.get_name ().collate (b.get_name ()));
 
+            foreach (var dir_info in dirs) {
+                var file = dir.get_child (dir_info.get_name ());
                 Gtk.TreeIter iter;
                 tree_model.append (out iter, parent);
                 var file_path_str = file.get_path ();
                 bool is_checked = (file_path_str in checked_paths);
-                tree_model.set (iter, COL_NAME, info.get_name (), COL_PATH, file_path_str,
-                                 COL_IS_DIR, is_dir, COL_CHECKED, is_checked, COL_INCONSISTENT, false, -1);
+                tree_model.set (iter, COL_NAME, dir_info.get_name (), COL_PATH, file_path_str,
+                                 COL_IS_DIR, true, COL_CHECKED, is_checked, COL_INCONSISTENT, false, -1);
 
-                if (is_dir) {
-                    Gtk.TreeIter dummy;
-                    tree_model.append (out dummy, iter);
-                    tree_model.set (dummy, COL_NAME, "正在加载...", -1);
-                }
+                Gtk.TreeIter dummy;
+                tree_model.append (out dummy, iter);
+                tree_model.set (dummy, COL_NAME, "正在加载...", -1);
             }
 
-            // 加载完后更新父级状态
+            foreach (var file_info in files) {
+                var file = dir.get_child (file_info.get_name ());
+                Gtk.TreeIter iter;
+                tree_model.append (out iter, parent);
+                var file_path_str = file.get_path ();
+                bool is_checked = (file_path_str in checked_paths);
+                tree_model.set (iter, COL_NAME, file_info.get_name (), COL_PATH, file_path_str,
+                                 COL_IS_DIR, false, COL_CHECKED, is_checked, COL_INCONSISTENT, false, -1);
+            }
+
             var parent_path = tree_model.get_path (parent);
             if (parent_path != null) {
-                update_ancestor_states (parent_path);
+                GLib.Idle.add (() => {
+                    update_ancestor_states (parent_path);
+                    return Source.REMOVE;
+                });
             }
         } catch (Error e) {
             warning ("无法读取目录: %s", e.message);
@@ -917,6 +943,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             try {
                 var file = dialog.save.end (res);
                 var path = file.get_path ();
+                if (!path.has_suffix (".txt")) {
+                    path += ".txt";
+                }
                 generate_file (path);
             } catch (Error e) {
                 if (e is GLib.IOError.CANCELLED || "Dismissed" in e.message) return;
@@ -988,16 +1017,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             write_items_to_stream (dis);
             dis.close ();
 
-            var file = File.new_for_path (tmp_path);
-            var uri = file.get_uri ();
-            var uri_list = "%s\r\n".printf (uri);
-            var bytes = new Bytes (uri_list.data);
-            var provider = new Gdk.ContentProvider.for_bytes ("text/uri-list", bytes);
+            string content;
+            size_t len;
+            FileUtils.get_contents (tmp_path, out content, out len);
+
+            File.new_for_path (tmp_path).delete ();
+
+            var bytes = new Bytes (content.data);
+            var provider = new Gdk.ContentProvider.for_bytes ("text/plain", bytes);
 
             var display = this.get_display ();
             display.get_clipboard ().set_content (provider);
 
-            show_info (_("已复制到剪贴板"), _("文件已复制到剪贴板:\n%s").printf (tmp_path));
+            show_toast (_("合并文本已复制到剪贴板"));
         } catch (Error e) {
             show_error (_("复制失败"), e.message);
         }
@@ -1263,6 +1295,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var d = new Adw.AlertDialog (title, msg);
         d.add_response ("ok", _("确定"));
         d.present (this);
+    }
+
+    private void show_toast (string title) {
+        var toast = new Adw.Toast (title);
+        toast.timeout = 2;
+        toast_overlay.add_toast (toast);
     }
 
     private void show_info (string title, string msg) {

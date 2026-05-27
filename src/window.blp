@@ -5,8 +5,8 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
   default-width: 1200;
   default-height: 750;
 title: _("FileCollector - 文件收集与编排工具");
-
-     content: Adw.ToolbarView {
+     content: Adw.ToastOverlay toast_overlay {
+      Adw.ToolbarView {
       [top]
       Adw.HeaderBar {
         Button open_folder_btn {
@@ -58,7 +58,6 @@ title: _("FileCollector - 文件收集与编排工具");
             margin-end: 12;
             TreeView dir_tree {
               headers-visible: false;
-              activate-on-single-click: true;
             }
           }
         }
@@ -249,6 +248,7 @@ title: _("FileCollector - 文件收集与编排工具");
         }
       }
     };
+  }
   };
 }
 
