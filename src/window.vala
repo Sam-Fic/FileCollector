@@ -996,7 +996,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             var dis = new DataOutputStream (File.new_for_path (file_path).create (FileCreateFlags.REPLACE_DESTINATION));
             write_items_to_stream (dis);
             dis.close ();
-            show_info (_("生成成功"), _("合并文本已保存到:\n%s").printf (file_path));
+            show_toast (_("合并文本已保存"));
         } catch (Error e) {
             show_error (_("生成失败"), e.message);
         }
@@ -1302,12 +1302,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var toast = new Adw.Toast (title);
         toast.timeout = 2;
         toast_overlay.add_toast (toast);
-    }
-
-    private void show_info (string title, string msg) {
-        var d = new Adw.AlertDialog (title, msg);
-        d.add_response ("ok", _("确定"));
-        d.present (this);
     }
 
     public void on_manage_phrases () {
