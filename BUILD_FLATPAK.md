@@ -28,17 +28,17 @@ flatpak install --user flathub org.gnome.Platform//50 org.gnome.Sdk//50
 |---|---|
 | `meson.build` | 第 2 行 `version: 'x.y.z'`（此为唯一版本源，`configure_file` 自动生成 `Config.VERSION` 供 `window.vala` 使用） |
 
-`metainfo.xml` 需在 `<releases>` 内新增 `<release>` 条目。
+`metainfo.xml` 需在 `<releases>` 内新增 `<release>` 条目。请查看 git 提交记录，获取上版本到新版本之间的变更内容，简要描述在 `<description>` 中。
 
 `metainfo.xml` 新增条目的格式示例：
 
 ```xml
 <release version="2.0.4" date="2026-05-27">
   <description>
-    <p>新特性与改进：</p>
+    <p>新特性与修复：</p>
     <ul>
-      <li>具体变更 1</li>
-      <li>具体变更 2</li>
+      <li>简单描述：具体变更 1</li>
+      <li>简单描述：具体变更 2</li>
     </ul>
   </description>
 </release>
