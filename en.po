@@ -208,3 +208,35 @@ msgstr "Project file is corrupted or in wrong format:\n%s"
 #: src/window.vala:1281
 msgid "文件收集与编排工具"
 msgstr "File Collection & Organization Tool"
+
+#: src/window.blp:260 src/window.vala:1413
+msgid "设置"
+msgstr "Settings"
+
+#: src/window.vala:1415
+msgid "选择界面语言："
+msgstr "Select Interface Language:"
+
+#: src/window.vala:1419
+msgid "跟随系统"
+msgstr "Follow System"
+
+#: src/window.vala:1442
+msgid "应用"
+msgstr "Apply"
+
+#: src/window.vala:1458
+msgid "提示"
+msgstr "Notice"
+
+#: src/window.vala:1459
+msgid "语言设置已保存，重启应用后生效。是否现在重启？"
+msgstr "Language setting saved. It will take effect after restart. Restart now?"
+
+#: src/window.vala:1462
+msgid "稍后"
+msgstr "Later"
+
+#: src/window.vala:1463
+msgid "立即重启"
+msgstr "Restart Now"

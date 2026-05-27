@@ -3,6 +3,7 @@ public class FileCollectorApp : Adw.Application {
     public signal void save_project_request ();
     public signal void about_request ();
     public signal void manage_phrases_request ();
+    public signal void settings_request ();
 
     public FileCollectorApp () {
         Object (
@@ -18,6 +19,7 @@ public class FileCollectorApp : Adw.Application {
         save_project_request.connect (() => window.on_save_project ());
         about_request.connect (() => window.on_about ());
         manage_phrases_request.connect (() => window.on_manage_phrases ());
+        settings_request.connect (() => window.on_settings ());
 
         window.present ();
     }
@@ -40,9 +42,20 @@ public class FileCollectorApp : Adw.Application {
         var phrases_action = new GLib.SimpleAction ("manage_phrases", null);
         phrases_action.activate.connect (() => manage_phrases_request ());
         add_action (phrases_action);
+
+        var settings_action = new GLib.SimpleAction ("settings", null);
+        settings_action.activate.connect (() => settings_request ());
+        add_action (settings_action);
     }
 
     public static int main (string[] args) {
+        var lang_setting = FileCollectorWindow.load_settings_language ();
+        if (lang_setting == "en") {
+            GLib.Environment.set_variable ("LANGUAGE", "en", true);
+        } else if (lang_setting == "zh") {
+            GLib.Environment.set_variable ("LANGUAGE", "zh_CN", true);
+        }
+
         Intl.setlocale (LocaleCategory.ALL, "");
         Intl.bindtextdomain (Config.GETTEXT_PACKAGE, Config.LOCALE_DIR);
         Intl.bind_textdomain_codeset (Config.GETTEXT_PACKAGE, "UTF-8");

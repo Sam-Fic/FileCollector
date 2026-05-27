@@ -128,6 +128,50 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
     }
 
+    private string get_settings_file () {
+        return GLib.Path.build_filename (get_config_dir (), "settings.json");
+    }
+
+    public static string load_settings_language () {
+        var dir = Environment.get_user_config_dir ();
+        var config_dir = GLib.Path.build_filename (dir, "filecollector");
+        var file = GLib.Path.build_filename (config_dir, "settings.json");
+        if (!FileUtils.test (file, FileTest.EXISTS)) {
+            return "";
+        }
+        try {
+            string content;
+            size_t len;
+            FileUtils.get_contents (file, out content, out len);
+            var parser = new Json.Parser ();
+            parser.load_from_data (content);
+            var root = parser.get_root ().get_object ();
+            return root.get_string_member_with_default ("language", "");
+        } catch (Error e) {
+            warning ("Failed to load settings: %s", e.message);
+            return "";
+        }
+    }
+
+    private void save_language_setting (string lang) {
+        try {
+            var builder = new Json.Builder ();
+            builder.begin_object ();
+            builder.set_member_name ("language");
+            builder.add_string_value (lang);
+            builder.end_object ();
+
+            var generator = new Json.Generator ();
+            generator.set_root (builder.get_root ());
+            generator.pretty = true;
+
+            var file = get_settings_file ();
+            generator.to_file (file);
+        } catch (Error e) {
+            warning ("Failed to save language setting: %s", e.message);
+        }
+    }
+
     private void setup_tree_view () {
         tree_model = new Gtk.TreeStore (5, typeof (string), typeof (string), typeof (bool), typeof (bool), typeof (bool));
         dir_tree.set_model (tree_model);
@@ -170,6 +214,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void setup_pane_sizes () {
         outer_paned.notify["position"].connect (clamp_outer_paned_position);
+        outer_paned.notify["width"].connect (clamp_outer_paned_position);
         inner_paned.notify["position"].connect (clamp_inner_paned_position);
 
         GLib.Idle.add (() => {
@@ -181,6 +226,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private const int PANED_SEP = 6;
+
+    private bool _clamping_inner_from_outer = false;
 
     private int left_min_width = 0;
     private int center_min_width = 0;
@@ -221,9 +268,23 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         } else if (pos > max_pos) {
             outer_paned.position = max_pos;
         }
+
+        var inner_width = cw - PANED_SEP - outer_paned.position;
+        var icw = inner_width - inner_paned.get_margin_start () - inner_paned.get_margin_end ();
+        var ipos = inner_paned.position;
+        var imin = center_min_width;
+        var imax = int.max (imin, icw - PANED_SEP - right_min_width);
+        _clamping_inner_from_outer = true;
+        if (ipos < imin) {
+            inner_paned.position = imin;
+        } else if (ipos > imax) {
+            inner_paned.position = imax;
+        }
+        _clamping_inner_from_outer = false;
     }
 
     private void clamp_inner_paned_position () {
+        if (_clamping_inner_from_outer) return;
         var pw = inner_paned.get_width ();
         if (pw <= 0) return;
         var pos = inner_paned.position;
@@ -1358,6 +1419,95 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         about.website = "https://github.com/Sam-Fic/filecollector-gnome";
         about.license_type = Gtk.License.MIT_X11;
         about.present (this);
+    }
+
+    public void on_settings () {
+        var current_lang = load_settings_language ();
+
+        var dialog = new Adw.AlertDialog (
+            _("设置"),
+            _("选择界面语言：")
+        );
+
+        var group = new Gtk.CheckButton ();
+
+        var system_btn = new Gtk.CheckButton.with_label (_("跟随系统"));
+        var zh_btn = new Gtk.CheckButton.with_label ("中文");
+        var en_btn = new Gtk.CheckButton.with_label ("English");
+
+        system_btn.set_group (group);
+        zh_btn.set_group (group);
+        en_btn.set_group (group);
+
+        if (current_lang == "" || current_lang == "system") {
+            system_btn.active = true;
+        } else if (current_lang == "zh") {
+            zh_btn.active = true;
+        } else if (current_lang == "en") {
+            en_btn.active = true;
+        }
+
+        var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+        box.set_margin_start (12);
+        box.set_margin_end (12);
+        box.set_margin_top (12);
+        box.set_margin_bottom (12);
+        box.append (system_btn);
+        box.append (zh_btn);
+        box.append (en_btn);
+
+        dialog.set_extra_child (box);
+        dialog.add_response ("cancel", _("取消"));
+        dialog.add_response ("apply", _("应用"));
+        dialog.set_default_response ("apply");
+        dialog.set_close_response ("cancel");
+
+        dialog.response.connect ((resp) => {
+            if (resp == "apply") {
+                string new_lang;
+                if (system_btn.active) {
+                    new_lang = "system";
+                } else if (zh_btn.active) {
+                    new_lang = "zh";
+                } else {
+                    new_lang = "en";
+                }
+                save_language_setting (new_lang);
+
+                var restart_dialog = new Adw.AlertDialog (
+                    _("提示"),
+                    _("语言设置已保存，重启应用后生效。是否现在重启？")
+                );
+                restart_dialog.add_response ("later", _("稍后"));
+                restart_dialog.add_response ("restart", _("立即重启"));
+                restart_dialog.set_default_response ("restart");
+                restart_dialog.set_close_response ("later");
+
+                restart_dialog.response.connect ((r) => {
+                    if (r == "restart") {
+                        try {
+                            var app = (FileCollectorApp) this.application;
+                            app.quit ();
+                            Process.spawn_async (
+                                null,
+                                {"filecollector"},
+                                null,
+                                SpawnFlags.SEARCH_PATH,
+                                null,
+                                null
+                            );
+                        } catch (Error e) {
+                            warning ("Failed to restart: %s", e.message);
+                        }
+                    }
+                    restart_dialog.destroy ();
+                });
+                restart_dialog.present (this);
+            }
+            dialog.destroy ();
+        });
+
+        dialog.present (this);
     }
 
     private void show_warning (string title, string msg) {
