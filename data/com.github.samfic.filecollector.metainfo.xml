@@ -23,6 +23,21 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="2.0.4" date="2026-05-27">
+      <description>
+        <p>新特性与改进：</p>
+        <ul>
+          <li>重构窗口布局，添加 ToastOverlay 消息提示组件</li>
+          <li>目录树文件与文件夹分开排序（文件夹在前，按字母排序）</li>
+          <li>目录树复选框列与名称列合并为单列，优化渲染逻辑</li>
+          <li>勾选状态变更使用 Idle 回调更新祖先节点，提升稳定性</li>
+          <li>生成文件名自动补全 .txt 后缀</li>
+          <li>合并文本复制到剪贴板改为纯文本格式，确保兼容性</li>
+          <li>使用 Adw.Toast 替代旧式对话框显示操作结果提示</li>
+          <li>移除了目录树的 activate-on-single-click 属性</li>
+        </ul>
+      </description>
+    </release>
     <release version="2.0.2" date="2026-05-26">
       <description>
         <p>改进与修复：</p>
