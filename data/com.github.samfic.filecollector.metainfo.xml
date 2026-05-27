@@ -17,7 +17,7 @@
     </ul>
   </description>
   <launchable type="desktop-id">com.github.samfic.filecollector.desktop</launchable>
-  <url type="homepage">https://github.com/Sam-Fic/filecollector</url>
+  <url type="homepage">https://github.com/Sam-Fic/filecollector-gnome</url>
   <developer id="com.github.samfic">
     <name>Sam-Fic</name>
   </developer>
@@ -25,28 +25,33 @@
   <releases>
     <release version="2.0.4" date="2026-05-27">
       <description>
-        <p>新特性与改进：</p>
+        <p>新特性与修复：</p>
         <ul>
-          <li>重构窗口布局，添加 ToastOverlay 消息提示组件</li>
-          <li>目录树文件与文件夹分开排序（文件夹在前，按字母排序）</li>
-          <li>目录树复选框列与名称列合并为单列，优化渲染逻辑</li>
-          <li>勾选状态变更使用 Idle 回调更新祖先节点，提升稳定性</li>
-          <li>生成文件名自动补全 .txt 后缀</li>
-          <li>合并文本复制到剪贴板改为纯文本格式，确保兼容性</li>
-          <li>使用 Adw.Toast 替代旧式对话框显示操作结果提示</li>
-          <li>移除了目录树的 activate-on-single-click 属性</li>
+          <li>目录树排序：文件夹与文件分开排序，文件夹在前且按字母排序</li>
+          <li>列渲染优化：复选框列与名称列合并为单列</li>
+          <li>自动生成后缀：输出文件名自动补全 .txt 后缀</li>
+          <li>剪贴板格式：合并文本复制到剪贴板改为纯文本格式</li>
+          <li>Toast 提示：使用 Adw.Toast 替代旧式对话框显示操作结果</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.0.3" date="2026-05-27">
+      <description>
+        <p>新特性与修复：</p>
+        <ul>
+          <li>一键复制到剪贴板：新增按钮，生成的文件名列表可一键粘贴到任何地方</li>
+          <li>常用语选择器重构：提取为独立方法，大幅提升代码可读性和可维护性</li>
+          <li>对话框层级修复：确保新建常用语对话框正确显示在最顶层</li>
         </ul>
       </description>
     </release>
     <release version="2.0.2" date="2026-05-26">
       <description>
-        <p>改进与修复：</p>
+        <p>新特性与修复：</p>
         <ul>
-          <li>修复选择工作目录后标题栏仍显示“未设置工作目录”的问题</li>
-          <li>打开工作目录后，左侧文件树最上层文件夹默认自动展开</li>
-          <li>主界面三栏卡片顶部直接贴边（去除与标题栏之间的多余间距）</li>
-          <li>修复构建流程（Blueprint 编译现在可靠生成 UI）</li>
-          <li>其他小优化</li>
+          <li>标题显示修复：修复选择工作目录后标题栏仍显示"未设置工作目录"的问题</li>
+          <li>自动展开优化：打开工作目录后左侧文件树最上层文件夹默认自动展开</li>
+          <li>卡片边距调整：主界面三栏卡片顶部直接贴边（去除与标题栏之间的多余间距）</li>
         </ul>
       </description>
     </release>

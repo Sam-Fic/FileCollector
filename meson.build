@@ -33,6 +33,15 @@ resources = gnome.compile_resources('filecollector-resources',
   dependencies: window_ui,
 )
 
+# 生成版本号配置（从唯一版本源 meson.project_version() 自动生成）
+config = configure_file(
+  input: 'src/config.vala.in',
+  output: 'config.vala',
+  configuration: {
+    'VERSION': meson.project_version()
+  }
+)
+
 sources = files(
   'src/main.vala',
   'src/window.vala'
@@ -40,6 +49,7 @@ sources = files(
 
 executable('filecollector',
   sources,
+  config,
   resources,
   dependencies: [
     dependency('glib-2.0'),

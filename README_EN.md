@@ -54,11 +54,13 @@ sudo dnf install meson vala gtk4-devel libadwaita-devel json-glib-devel blueprin
 ## Build & Install
 
 ```bash
-mkdir builddir && cd builddir
+mkdir -p build && cd build
 meson setup ..
-ninja
-sudo ninja install
+meson compile
+sudo meson install
 ```
+
+> **Tip**: If you have built before, simply re-run `meson compile` inside the `build/` directory after modifying source code for incremental compilation.
 
 ## Run
 
@@ -69,7 +71,7 @@ filecollector
 ## Flatpak Build
 
 ```bash
-flatpak-builder build-dir com.github.samfic.filecollector.json --user --install
+flatpak-builder build-dir com.github.samfic.filecollector.json --user --install --force-clean
 flatpak run com.github.samfic.filecollector
 ```
 
@@ -83,13 +85,14 @@ flatpak run com.github.samfic.filecollector
 │   ├── com.github.samfic.filecollector.svg
 │   ├── filecollector.gresource.xml
 │   └── style.css
+├── screenshots/    # Screenshots
 ├── src/            # Source code
 │   ├── main.vala   # Application entry point
 │   ├── window.vala # Main window logic
 │   └── window.blp  # Blueprint UI description
-├── meson.build     # Meson build configuration
-└── com.github.samfic.filecollector.json  # Flatpak build configuration
-```
+├── BUILD_FLATPAK.md                      # Flatpak build guide (for AI assistants)
+├── meson.build                           # Meson build configuration
+└── com.github.samfic.filecollector.json  # Flatpak build manifest
 
 ## Why Use This Tool?
 

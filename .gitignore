@@ -51,3 +51,4 @@ __pycache__/
 
 # Package management
 *.egg-info/
+BUILD_FLATPAK.md

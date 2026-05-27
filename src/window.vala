@@ -1277,10 +1277,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     public void on_about () {
         var about = new Adw.AboutDialog ();
         about.application_name = _("FileCollector");
-        about.version = "2.0.3";
+        about.version = Config.VERSION;
         about.application_icon = "com.github.samfic.filecollector";
         about.comments = _("文件收集与编排工具");
         about.developers = { "Sam-Fic" };
+        about.website = "https://github.com/Sam-Fic/filecollector-gnome";
         about.license_type = Gtk.License.MIT_X11;
         about.present (this);
     }

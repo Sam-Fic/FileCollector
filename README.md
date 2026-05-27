@@ -54,11 +54,13 @@ sudo dnf install meson vala gtk4-devel libadwaita-devel json-glib-devel blueprin
 ## 构建与安装
 
 ```bash
-mkdir builddir && cd builddir
+mkdir -p build && cd build
 meson setup ..
-ninja
-sudo ninja install
+meson compile
+sudo meson install
 ```
+
+> **提示**：如果之前已经构建过，修改源码后只需在 `build/` 目录下重新运行 `meson compile` 即可增量编译。
 
 ## 运行
 
@@ -69,7 +71,7 @@ filecollector
 ## Flatpak 构建
 
 ```bash
-flatpak-builder build-dir com.github.samfic.filecollector.json --user --install
+flatpak-builder build-dir com.github.samfic.filecollector.json --user --install --force-clean
 flatpak run com.github.samfic.filecollector
 ```
 
@@ -83,13 +85,14 @@ flatpak run com.github.samfic.filecollector
 │   ├── com.github.samfic.filecollector.svg
 │   ├── filecollector.gresource.xml
 │   └── style.css
+├── screenshots/    # 截图文件
 ├── src/            # 源代码
 │   ├── main.vala   # 应用程序入口
 │   ├── window.vala # 主窗口逻辑
 │   └── window.blp  # Blueprint UI 描述
-├── meson.build     # Meson 构建配置
-└── com.github.samfic.filecollector.json  # Flatpak 构建配置
-```
+├── BUILD_FLATPAK.md                      # Flatpak 构建指南（供 AI 助手参考）
+├── meson.build                           # Meson 构建配置
+└── com.github.samfic.filecollector.json  # Flatpak 构建清单
 
 ## 为什么使用此工具？
 
