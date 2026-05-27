@@ -993,7 +993,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void generate_file (string file_path) {
         try {
-            var dis = new DataOutputStream (File.new_for_path (file_path).create (FileCreateFlags.REPLACE_DESTINATION));
+            var file = File.new_for_path (file_path);
+            var os = file.replace (null, false, FileCreateFlags.NONE);
+            var dis = new DataOutputStream (os);
             write_items_to_stream (dis);
             dis.close ();
             show_toast (_("合并文本已保存"));
