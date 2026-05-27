@@ -9,8 +9,11 @@ dependency('gtk4', version: '>= 4.10')
 dependency('libadwaita-1', version: '>= 1.4')
 dependency('json-glib-1.0')
 
+gettext_package = meson.project_name ()
+locale_dir = join_paths (get_option ('prefix'), get_option ('localedir'))
+
 # 添加 C 编译器定义
-add_project_arguments('-DGETTEXT_PACKAGE="' + meson.project_name() + '"', language: 'c')
+add_project_arguments('-DGETTEXT_PACKAGE="' + gettext_package + '"', language: 'c')
 
 # 编译 Blueprint 为 UI 资源文件
 gnome = import('gnome')
@@ -33,18 +36,31 @@ resources = gnome.compile_resources('filecollector-resources',
   dependencies: window_ui,
 )
 
-# 生成版本号配置（从唯一版本源 meson.project_version() 自动生成）
+# 生成配置（版本号、gettext 包名、locale 目录）
 config = configure_file(
   input: 'src/config.vala.in',
   output: 'config.vala',
   configuration: {
-    'VERSION': meson.project_version()
+    'VERSION': meson.project_version (),
+    'GETTEXT_PACKAGE': gettext_package,
+    'LOCALE_DIR': locale_dir
   }
 )
 
 sources = files(
   'src/main.vala',
   'src/window.vala'
+)
+
+# 国际化
+i18n = import ('i18n')
+i18n.gettext (gettext_package,
+  preset: 'glib',
+  languages: ['en'],
+  args: [
+    '--from-code=UTF-8',
+    '--add-comments=TRANSLATORS'
+  ]
 )
 
 executable('filecollector',

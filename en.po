@@ -1,0 +1,210 @@
+# English translations for FileCollector.
+# Copyright (C) 2024 Sam-Fic
+# This file is distributed under the MIT license.
+# Sam-Fic <>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: filecollector\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-01-01 00:00+0800\n"
+"PO-Revision-Date: 2024-01-01 00:00+0800\n"
+"Last-Translator: Sam-Fic\n"
+"Language-Team: English\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: src/window.blp:7
+msgid "FileCollector - 文件收集与编排工具"
+msgstr "FileCollector - File Collection & Organization Tool"
+
+#: src/window.blp:14
+msgid "打开工作目录"
+msgstr "Open Working Directory"
+
+#: src/window.blp:18 src/window.vala:373
+msgid "FileCollector"
+msgstr "FileCollector"
+
+#: src/window.blp:19 src/window.vala:369
+msgid "未设置工作目录"
+msgstr "No Working Directory Set"
+
+#: src/window.blp:93
+msgid "输出编排列表"
+msgstr "Output Queue List"
+
+#: src/window.blp:122
+msgid "添加外部文件"
+msgstr "Add External Files"
+
+#: src/window.blp:129
+msgid "上方插入文本"
+msgstr "Insert Text Above"
+
+#: src/window.blp:136
+msgid "下方插入文本"
+msgstr "Insert Text Below"
+
+#: src/window.blp:151
+msgid "上移"
+msgstr "Move Up"
+
+#: src/window.blp:158
+msgid "下移"
+msgstr "Move Down"
+
+#: src/window.blp:165
+msgid "删除"
+msgstr "Delete"
+
+#: src/window.blp:173
+msgid "清空"
+msgstr "Clear"
+
+#: src/window.blp:185
+msgid "使用绝对路径"
+msgstr "Use Absolute Paths"
+
+#: src/window.blp:186
+msgid "在文件头部标注工作目录信息"
+msgstr "Annotate Working Directory Info in File Header"
+
+#: src/window.blp:204
+msgid "生成合并文本"
+msgstr "Generate Merged Text"
+
+#: src/window.blp:212
+msgid "生成合并文本到剪贴板"
+msgstr "Generate Merged Text to Clipboard"
+
+#: src/window.blp:257
+msgid "打开项目..."
+msgstr "Open Project..."
+
+#: src/window.blp:258 src/window.vala:1183
+msgid "保存项目"
+msgstr "Save Project"
+
+#: src/window.blp:259 src/window.vala:1314 src/window.vala:1320
+msgid "常用语管理"
+msgstr "Manage Common Phrases"
+
+#: src/window.blp:260
+msgid "关于 FileCollector"
+msgstr "About FileCollector"
+
+#: src/window.vala:344
+msgid "选择工作文件夹"
+msgstr "Select Working Folder"
+
+#: src/window.vala:523
+msgid "选择外部文件"
+msgstr "Select External Files"
+
+#: src/window.vala:545
+msgid "插入自定义文字"
+msgstr "Insert Custom Text"
+
+#: src/window.vala:555 src/window.vala:693 src/window.vala:732 src/window.vala:876 src/window.vala:1293 src/window.vala:1299 src/window.vala:1358
+msgid "取消"
+msgstr "Cancel"
+
+#: src/window.vala:559 src/window.vala:877
+msgid "确定"
+msgstr "OK"
+
+#: src/window.vala:564
+msgid "常用语"
+msgstr "Common Phrases"
+
+#: src/window.vala:681 src/window.vala:687
+msgid "选择常用语"
+msgstr "Select Common Phrase"
+
+#: src/window.vala:636
+msgid "暂无常用语"
+msgstr "No Common Phrases Yet"
+
+#: src/window.vala:696 src/window.vala:1348
+msgid "添加"
+msgstr "Add"
+
+#: src/window.vala:730 src/window.vala:1357
+msgid "添加常用语"
+msgstr "Add Common Phrase"
+
+#: src/window.vala:736 src/window.vala:1363
+msgid "输入常用语"
+msgstr "Enter Common Phrase"
+
+#: src/window.vala:872
+msgid "编辑文字"
+msgstr "Edit Text"
+
+#: src/window.vala:872
+msgid "修改文字内容："
+msgstr "Modify Text Content:"
+
+#: src/window.vala:929 src/window.vala:1009
+msgid "编排列表为空"
+msgstr "Queue is Empty"
+
+#: src/window.vala:929 src/window.vala:1009
+msgid "请先勾选文件或添加文字内容。"
+msgstr "Please select files or add text content first."
+
+#: src/window.vala:934
+msgid "保存合并文本"
+msgstr "Save Merged Text"
+
+#: src/window.vala:936 src/window.vala:1044 src/window.vala:1185
+msgid "文本文件 (*.txt)"
+msgstr "Text File (*.txt)"
+
+#: src/window.vala:1001
+msgid "合并文本已保存"
+msgstr "Merged Text Saved"
+
+#: src/window.vala:953 src/window.vala:1003 src/window.vala:1198 src/window.vala:1275
+msgid "保存失败"
+msgstr "Save Failed"
+
+#: src/window.vala:1003 src/window.vala:1036
+msgid "生成失败"
+msgstr "Generate Failed"
+
+#: src/window.vala:1034
+msgid "合并文本已复制到剪贴板"
+msgstr "Merged Text Copied to Clipboard"
+
+#: src/window.vala:1036
+msgid "复制失败"
+msgstr "Copy Failed"
+
+#: src/window.vala:1042
+msgid "打开项目"
+msgstr "Open Project"
+
+#: src/window.vala:1044
+msgid "项目文件 (*.project.json)"
+msgstr "Project File (*.project.json)"
+
+#: src/window.vala:1055 src/window.vala:1197
+msgid "打开失败"
+msgstr "Open Failed"
+
+#: src/window.vala:1149
+msgid "加载失败"
+msgstr "Load Failed"
+
+#: src/window.vala:1149
+msgid "项目文件损坏或格式不正确:\n%s"
+msgstr "Project file is corrupted or in wrong format:\n%s"
+
+#: src/window.vala:1281
+msgid "文件收集与编排工具"
+msgstr "File Collection & Organization Tool"

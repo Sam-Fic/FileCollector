@@ -19,6 +19,7 @@ FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排
 
 - 项目管理：打开和保存项目
 - 短语管理：管理和组织常用短语
+- 国际化：支持中文和英文界面，跟随系统语言自动切换
 - 现代化界面：采用 GNOME Human Interface Guidelines 设计
 
 > **提示**：如果您使用的是非 GNOME 平台（如 Windows 或 macOS），请移步 [PySide6 版本仓库](https://github.com/Sam-Fic/filecollector)。该版本跨平台支持 Windows、macOS 和 Linux，基于 PySide6 构建。
@@ -44,13 +45,13 @@ flatpak run com.github.samfic.filecollector
 #### Debian/Ubuntu
 
 ```bash
-sudo apt install meson valac libgtk-4-dev libadwaita-1-dev libjson-glib-dev blueprint-compiler
+sudo apt install meson valac libgtk-4-dev libadwaita-1-dev libjson-glib-dev blueprint-compiler gettext
 ```
 
 #### Fedora
 
 ```bash
-sudo dnf install meson vala gtk4-devel libadwaita-devel json-glib-devel blueprint-compiler
+sudo dnf install meson vala gtk4-devel libadwaita-devel json-glib-devel blueprint-compiler gettext
 ```
 
 ### 构建与安装
@@ -69,6 +70,8 @@ sudo meson install
 ```bash
 filecollector
 ```
+
+> **提示**：程序默认跟随系统语言显示中文或英文界面。如需临时切换语言，可使用环境变量，例如 `LANGUAGE=en filecollector` 强制显示英文。您也可以编辑 `en.po` 文件修改英文翻译文本。
 
 ### Flatpak 构建
 
@@ -92,8 +95,11 @@ flatpak run com.github.samfic.filecollector
 │   ├── main.vala   # 应用程序入口
 │   ├── window.vala # 主窗口逻辑
 │   └── window.blp  # Blueprint UI 描述
-├── BUILD_FLATPAK.md                      # Flatpak 构建指南（供 AI 助手参考）
-├── meson.build                           # Meson 构建配置
+├── en.po                                # 英文界面翻译文件
+├── POTFILES                             # 可翻译源文件列表（供 gettext 使用）
+├── LINGUAS                              # 支持的语言列表
+├── BUILD_FLATPAK.md                     # Flatpak 构建指南（供 AI 助手参考）
+├── meson.build                          # Meson 构建配置
 └── com.github.samfic.filecollector.json  # Flatpak 构建清单
 ```
 

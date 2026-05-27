@@ -1,0 +1,216 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the filecollector package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: filecollector\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-05-28 01:58+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: src/window.vala:344
+msgid "选择工作文件夹"
+msgstr ""
+
+#: src/window.vala:370 src/window.blp:19
+msgid "未设置工作目录"
+msgstr ""
+
+#: src/window.vala:373 src/window.vala:1281 src/window.blp:18
+msgid "FileCollector"
+msgstr ""
+
+#: src/window.vala:523
+msgid "选择外部文件"
+msgstr ""
+
+#: src/window.vala:545
+msgid "插入自定义文字"
+msgstr ""
+
+#: src/window.vala:555 src/window.vala:692 src/window.vala:732
+#: src/window.vala:876 src/window.vala:1325 src/window.vala:1358
+msgid "取消"
+msgstr ""
+
+#: src/window.vala:559 src/window.vala:877 src/window.vala:1293
+#: src/window.vala:1299
+msgid "确定"
+msgstr ""
+
+#: src/window.vala:564
+msgid "常用语"
+msgstr ""
+
+#: src/window.vala:636
+msgid "暂无常用语"
+msgstr ""
+
+#: src/window.vala:681 src/window.vala:687
+msgid "选择常用语"
+msgstr ""
+
+#: src/window.vala:696 src/window.vala:733 src/window.vala:1348
+#: src/window.vala:1359
+msgid "添加"
+msgstr ""
+
+#: src/window.vala:730 src/window.vala:1357
+msgid "添加常用语"
+msgstr ""
+
+#: src/window.vala:736 src/window.vala:1363
+msgid "输入常用语"
+msgstr ""
+
+#: src/window.vala:872
+msgid "编辑文字"
+msgstr ""
+
+#: src/window.vala:872
+msgid "修改文字内容："
+msgstr ""
+
+#: src/window.vala:929 src/window.vala:1009
+msgid "编排列表为空"
+msgstr ""
+
+#: src/window.vala:929 src/window.vala:1009
+msgid "请先勾选文件或添加文字内容。"
+msgstr ""
+
+#: src/window.vala:934
+msgid "保存合并文本"
+msgstr ""
+
+#: src/window.vala:936
+msgid "文本文件 (*.txt)"
+msgstr ""
+
+#: src/window.vala:952 src/window.vala:1198 src/window.vala:1275
+msgid "保存失败"
+msgstr ""
+
+#: src/window.vala:1001
+msgid "合并文本已保存"
+msgstr ""
+
+#: src/window.vala:1003
+msgid "生成失败"
+msgstr ""
+
+#: src/window.vala:1034
+msgid "合并文本已复制到剪贴板"
+msgstr ""
+
+#: src/window.vala:1036
+msgid "复制失败"
+msgstr ""
+
+#: src/window.vala:1042
+msgid "打开项目"
+msgstr ""
+
+#: src/window.vala:1044 src/window.vala:1185
+msgid "项目文件 (*.project.json)"
+msgstr ""
+
+#: src/window.vala:1056
+msgid "打开失败"
+msgstr ""
+
+#: src/window.vala:1149
+msgid "加载失败"
+msgstr ""
+
+#: src/window.vala:1149
+#, c-format
+msgid ""
+"项目文件损坏或格式不正确:\n"
+"%s"
+msgstr ""
+
+#: src/window.vala:1183 src/window.blp:258
+msgid "保存项目"
+msgstr ""
+
+#: src/window.vala:1284
+msgid "文件收集与编排工具"
+msgstr ""
+
+#: src/window.vala:1314 src/window.vala:1320 src/window.blp:259
+msgid "常用语管理"
+msgstr ""
+
+#: src/window.blp:7
+msgid "FileCollector - 文件收集与编排工具"
+msgstr ""
+
+#: src/window.blp:14
+msgid "打开工作目录"
+msgstr ""
+
+#: src/window.blp:92
+msgid "输出编排列表"
+msgstr ""
+
+#: src/window.blp:121
+msgid "添加外部文件"
+msgstr ""
+
+#: src/window.blp:128
+msgid "上方插入文本"
+msgstr ""
+
+#: src/window.blp:135
+msgid "下方插入文本"
+msgstr ""
+
+#: src/window.blp:151
+msgid "上移"
+msgstr ""
+
+#: src/window.blp:158
+msgid "下移"
+msgstr ""
+
+#: src/window.blp:166
+msgid "删除"
+msgstr ""
+
+#: src/window.blp:174
+msgid "清空"
+msgstr ""
+
+#: src/window.blp:185
+msgid "使用绝对路径"
+msgstr ""
+
+#: src/window.blp:186
+msgid "在文件头部标注工作目录信息"
+msgstr ""
+
+#: src/window.blp:203
+msgid "生成合并文本"
+msgstr ""
+
+#: src/window.blp:212
+msgid "生成合并文本到剪贴板"
+msgstr ""
+
+#: src/window.blp:257
+msgid "打开项目..."
+msgstr ""
+
+#: src/window.blp:260
+msgid "关于 FileCollector"
+msgstr ""

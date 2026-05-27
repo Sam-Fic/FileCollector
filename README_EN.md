@@ -19,6 +19,7 @@ It provides a checkable directory tree, flexible organization list, text inserti
 
 - **Project Management**: Open and save projects
 - **Phrase Management**: Manage and organize common phrases
+- **Internationalization**: Supports Chinese and English UI, automatically follows system language
 - **Modern UI**: Designed following GNOME Human Interface Guidelines
 
 > **Tip**: If you are on a non-GNOME platform (such as Windows or macOS), please check out the [PySide6 version repository](https://github.com/Sam-Fic/filecollector). This version supports Windows, macOS, and Linux, and is built with PySide6.
@@ -44,13 +45,13 @@ flatpak run com.github.samfic.filecollector
 #### Debian/Ubuntu
 
 ```bash
-sudo apt install meson valac libgtk-4-dev libadwaita-1-dev libjson-glib-dev blueprint-compiler
+sudo apt install meson valac libgtk-4-dev libadwaita-1-dev libjson-glib-dev blueprint-compiler gettext
 ```
 
 #### Fedora
 
 ```bash
-sudo dnf install meson vala gtk4-devel libadwaita-devel json-glib-devel blueprint-compiler
+sudo dnf install meson vala gtk4-devel libadwaita-devel json-glib-devel blueprint-compiler gettext
 ```
 
 ### Build & Install
@@ -69,6 +70,8 @@ sudo meson install
 ```bash
 filecollector
 ```
+
+> **Tip**: The application automatically uses Chinese or English UI based on your system language. To temporarily switch languages, use the `LANGUAGE` environment variable, e.g. `LANGUAGE=en filecollector` to force English display. You can also edit the `en.po` file to modify the English translations.
 
 ### Flatpak Build
 
@@ -92,8 +95,11 @@ flatpak run com.github.samfic.filecollector
 │   ├── main.vala   # Application entry point
 │   ├── window.vala # Main window logic
 │   └── window.blp  # Blueprint UI description
-├── BUILD_FLATPAK.md                      # Flatpak build guide (for AI assistants)
-├── meson.build                           # Meson build configuration
+├── en.po                                # English UI translation file
+├── POTFILES                             # List of translatable source files (for gettext)
+├── LINGUAS                              # List of supported languages
+├── BUILD_FLATPAK.md                     # Flatpak build guide (for AI assistants)
+├── meson.build                          # Meson build configuration
 └── com.github.samfic.filecollector.json  # Flatpak build manifest
 ```
 
