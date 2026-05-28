@@ -27,12 +27,10 @@
       <description>
         <p>新特性与修复：</p>
         <ul>
-          <li>核心功能完善：添加 ItemData 类、ConfigManager、FileGenerator、ProjectManager 等核心模块</li>
           <li>国际化支持：添加 gettext 支持，支持中英文切换（跟随系统、中文、英文）</li>
           <li>UI 改进：按钮状态优化（仅在选择状态下可编辑）、Paned 布局限制、分隔器样式调整</li>
           <li>错误修复：修复文件替换时的覆盖逻辑问题</li>
           <li>代码优化：Toast 提示替代冗余弹窗，统一消息反馈</li>
-          <li>文档完善：更新 README 和构建指南</li>
         </ul>
       </description>
     </release>
