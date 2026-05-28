@@ -33,7 +33,7 @@ git commit -m "release: v2.0.4"
 git tag v2.0.4
 ```
 
-> 标签名称格式必须为 `v` + 版本号（如 `v2.0.4`），与 `metainfo.xml` 中的 `version` 属性一致。
+> Git 标签格式为 `v` + 版本号（如 `v2.0.4`），`metainfo.xml` 中的 `version` 属性为纯版本号（如 `2.0.4`），不含 `v` 前缀。
 
 ---
 
@@ -63,16 +63,14 @@ git log v2.0.3..HEAD --stat --name-only
 
 ### 2.3 更新版本号
 
-需要修改 **1 个文件**：
+需要修改 **2 个文件**：
 
 | 文件 | 修改内容 |
 |---|---|
-| `meson.build` | 第 2 行 `version: 'x.y.z'`（此为唯一版本源，`configure_file` 自动生成 `Config.VERSION` 供 `window.vala` 使用） |
+| `meson.build` | 第 2 行 `version: 'x.y.z'`（此为唯一版本源） |
+| `metainfo.xml` | 在 `<releases>` 内新增 `<release>` 条目，按版本号**从新到旧**排列 |
 
-`metainfo.xml` 需在 `<releases>` 内新增 `<release>` 条目。请查看 git 提交记录，
-获取上版本到新版本之间的变更内容，简要描述在 `<description>` 中。
-
-`metainfo.xml` 新增条目的格式示例（请严格遵守规范）：
+`metainfo.xml` 新增条目的格式示例：
 
 ```xml
 <release version="2.0.4" date="2026-05-27">
@@ -85,8 +83,6 @@ git log v2.0.3..HEAD --stat --name-only
   </description>
 </release>
 ```
-
-> ⚠️ 注意：`<release>` 条目应按版本号**从新到旧**排列，最新的在最上面。
 
 ### 2.4 提交并打标签
 
@@ -111,6 +107,12 @@ flatpak-builder build-dir com.github.samfic.filecollector.json --user --install 
 - `--user --install` 构建完成后自动安装到当前用户环境
 
 #### 方式 B：构建可分发的 .flatpak 文件（用于发布）
+
+> ⚠️ **重要说明**：`flatpak-builder --repo=flatpak-repo build-dir ...` 会创建两个独立的目录：
+> - `build-dir/` — **构建目录**，存放编译产物（可被 `--force-clean` 清理，已在 `.gitignore` 中忽略）
+> - `flatpak-repo/` — **仓库目录**，由 `--repo` 指定的地方，`build-bundle` 必须从此读取仓库数据
+>
+> 如果将 `build-dir` 误用作 `build-bundle` 的参数会报错：
 
 ```bash
 # 步骤 1：构建到本地仓库
@@ -139,15 +141,35 @@ flatpak run com.github.samfic.filecollector
 grep "release version" build-dir/files/share/metainfo/com.github.samfic.filecollector.metainfo.xml
 ```
 
-> ⚠️ **安装失败处理**：如果已安装同版本 bundle，需使用 `--or-update` 覆盖，或先卸载再安装：
+> 💡 **交互式确认**：`flatpak install` 可能弹出确认提示 `[Y/n]`，在脚本中可添加 `--noninteractive` 标志：
+> ```bash
+> flatpak install --noninteractive --user --or-update filecollector-2.0.4.flatpak
+> ```
+>
+> 💡 **验证构建结果**：
+> ```bash
+> # 检查 bundle 文件大小
+> ls -lh filecollector-*.flatpak
+> 
+> # 验证 metainfo 中的版本号
+> flatpak info com.github.samfic.filecollector  # 安装后
+> ```
 > ```bash
 > flatpak uninstall --user -y com.github.samfic.filecollector
 > flatpak install --user filecollector-2.0.4.flatpak
 > ```
 
-### 2.7 修改源码后重新构建
+### 2.7 构建可分发 .flatpak 文件
 
-如果在构建 flatpak **之后**又修改了源码（如添加 Website 链接、修正版本号等），**必须重新执行 2.5 节的完整构建流程**（flatpak-builder + build-bundle），否则安装的仍是旧构建。仅重新 `meson compile` 不会影响已安装的 flatpak 包。
+构建完成后，从仓库导出单文件 bundle：
+
+```bash
+flatpak build-bundle flatpak-repo filecollector-2.0.x.flatpak com.github.samfic.filecollector
+```
+
+### 2.8 修改源码后重新构建
+
+如果在构建 flatpak **之后**又修改了源码（如添加 Website 链接、修正版本号等），**必须重新执行完整构建流程**（`flatpak-builder --repo=...` + `build-bundle`），否则安装的仍是旧构建。仅重新 `meson compile` 不会影响已安装的 flatpak 包。
 
 ## 三、项目结构说明
 
@@ -250,7 +272,36 @@ flatpak build-bundle flatpak-repo filecollector-2.0.x.flatpak com.github.samfic.
 # 2. 编辑 meson.build 更新版本号
 # 3. 编辑 metainfo.xml 添加发布记录
 # 4. git add -A && git commit -m "release: vX.Y.Z"
-# 5. git tag vX.Y.Z
-# 6. 执行上面的构建 + bundle 命令
-# 7. 上传 .flatpak 文件到 GitHub Releases
+# 5. git tag vX.Y.Z  （git tag 带 v 前缀，metainfo.xml 不含 v）
+# 6. flatpak-builder --repo=flatpak-repo build-dir ... --force-clean
+# 7. flatpak build-bundle flatpak-repo filecollector-X.Y.Z.flatpak ...
+# 8. flatpak install --user --or-update filecollector-X.Y.Z.flatpak
+# 9. 验证并上传到 GitHub Releases
 ```
+
+---
+
+## 七、生成 GitHub Releases 内容
+
+构建完成后，要按照以下模板生成 GitHub Releases 页面描述内容给用户：
+
+```markdown
+# FileCollector v2.0.4
+
+### 主要改进
+
+- **简洁描述**：详细内容
+- **简洁描述**：详细内容
+- **简洁描述**：详细内容
+
+### Improvements
+
+- **Brief description**: Detailed content
+- **Brief description**: Detailed content
+- **Brief description**: Detailed content
+
+---
+
+> 将 `2.0.4` 替换为当前版本号。
+
+> 英文部分可翻译自中文内容，确保信息一致性。
