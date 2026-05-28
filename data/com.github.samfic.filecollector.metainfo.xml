@@ -23,6 +23,17 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="3.0.1" date="2026-05-28">
+      <description>
+        <p>新特性与修复：</p>
+        <ul>
+          <li>编辑常用语功能：允许用户修改已保存的短语内容</li>
+          <li>优化队列按钮状态更新逻辑，保持界面响应一致性</li>
+          <li>更新语言设置逻辑，优化多语言切换流程</li>
+          <li>更新版本发布流程文档，完善版本号说明和构建细节</li>
+        </ul>
+      </description>
+    </release>
     <release version="3.0.0" date="2026-05-28">
       <description>
         <p>新特性与修复：</p>
