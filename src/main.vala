@@ -48,6 +48,12 @@ public class FileCollectorApp : Adw.Application {
     }
 
     public static int main (string[] args) {
+        if (CliController.is_cli_mode (args)) {
+            Intl.setlocale (LocaleCategory.ALL, "");
+            var cli = new CliController ();
+            return cli.run (args);
+        }
+
         var lang_setting = FileCollectorWindow.load_settings_language ();
         if (lang_setting == "en") {
             GLib.Environment.set_variable ("LANGUAGE", "en", true);

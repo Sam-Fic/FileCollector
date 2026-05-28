@@ -49,6 +49,7 @@ config = configure_file(
 
 sources = files(
   'src/main.vala',
+  'src/cli.vala',
   'src/window.vala',
   'src/models/item_data.vala',
   'src/services/config_manager.vala',
