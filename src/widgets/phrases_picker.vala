@@ -156,7 +156,6 @@ public class PhrasesPicker : GLib.Object {
                 } else {
                     row.set_title (phrase);
                 }
-                row.set_subtitle (phrase);
                 row.set_activatable (true);
 
                 var delete_btn = new Gtk.Button ();
@@ -230,6 +229,7 @@ public class PhrasesPicker : GLib.Object {
             } else {
                 row.set_title (phrase);
             }
+            row.set_activatable (true);
 
             var delete_btn = new Gtk.Button ();
             delete_btn.set_icon_name ("user-trash-symbolic");
@@ -244,7 +244,33 @@ public class PhrasesPicker : GLib.Object {
                 phrases_changed ();
             });
             row.add_suffix (delete_btn);
-            row.set_activatable_widget (delete_btn);
+
+            int phrase_index = i;
+            row.activated.connect (() => {
+                var edit_dialog = new Adw.AlertDialog (_("编辑常用语"), null);
+                edit_dialog.add_response ("cancel", _("取消"));
+                edit_dialog.add_response ("ok", _("确定"));
+                edit_dialog.set_default_response ("ok");
+
+                var entry = new Gtk.Entry ();
+                entry.set_text (common_phrases.get (phrase_index));
+                entry.set_hexpand (true);
+                edit_dialog.set_extra_child (entry);
+
+                edit_dialog.response.connect ((r) => {
+                    if (r == "ok") {
+                        var new_text = entry.get_text ().strip ();
+                        if (new_text != "") {
+                            common_phrases.set (phrase_index, new_text);
+                            ConfigManager.save_common_phrases (common_phrases);
+                            refresh_phrases_list (list_box);
+                            phrases_changed ();
+                        }
+                    }
+                    edit_dialog.destroy ();
+                });
+                edit_dialog.present ((Gtk.Widget) list_box.get_root ());
+            });
 
             list_box.append (row);
         }

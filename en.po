@@ -137,6 +137,10 @@ msgstr "Add"
 msgid "添加常用语"
 msgstr "Add Common Phrase"
 
+#: src/widgets/phrases_picker.vala:236
+msgid "编辑常用语"
+msgstr "Edit Common Phrase"
+
 #: src/window.vala:736 src/window.vala:1363
 msgid "输入常用语"
 msgstr "Enter Common Phrase"
