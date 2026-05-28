@@ -171,11 +171,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         queue_selection.selection_changed.connect (on_queue_selection_changed);
         queue_list.activate.connect (on_queue_row_activated);
 
-        btn_add_text_above.sensitive = false;
-        btn_add_text_below.sensitive = false;
-        btn_move_up.sensitive = false;
-        btn_move_down.sensitive = false;
-        btn_delete.sensitive = false;
+        update_queue_buttons ();
     }
 
     private void setup_pane_sizes () {
@@ -538,6 +534,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // ─── Queue List ──────────────────────────────────────────────────────
 
     private void refresh_list () {
+        bool had_selection = (int)queue_selection.selected >= 0;
         uint old_selected = queue_selection.selected;
 
         uint n = queue_store.get_n_items ();
@@ -549,9 +546,23 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             queue_store.append (items.get (i));
         }
 
-        if (old_selected < items.length) {
+        if (had_selection && old_selected < items.length) {
             queue_selection.selected = old_selected;
+        } else if (items.length > 0) {
+            queue_selection.selected = 0;
         }
+
+        update_queue_buttons ();
+    }
+
+    private void update_queue_buttons () {
+        int sel = (int)queue_selection.selected;
+        bool has_selection = sel >= 0 && sel < items.length;
+        btn_add_text_above.sensitive = has_selection;
+        btn_add_text_below.sensitive = has_selection;
+        btn_move_up.sensitive = has_selection;
+        btn_move_down.sensitive = has_selection;
+        btn_delete.sensitive = has_selection;
     }
 
     private void on_add_external_files () {
@@ -712,20 +723,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_queue_selection_changed (uint position, uint n_items) {
-        bool has_selection = queue_selection.selected >= 0;
-        btn_add_text_above.sensitive = has_selection;
-        btn_add_text_below.sensitive = has_selection;
-        btn_move_up.sensitive = has_selection;
-        btn_move_down.sensitive = has_selection;
-        btn_delete.sensitive = has_selection;
+        update_queue_buttons ();
 
-        if (!has_selection) {
+        int sel = (int)queue_selection.selected;
+        if (sel < 0 || sel >= items.length) {
             preview_view.get_buffer ().set_text ("", -1);
             return;
         }
-        int index = (int)queue_selection.selected;
-        if (index < 0 || index >= items.length) return;
-        update_preview (items.get (index));
+        update_preview (items.get (sel));
     }
 
     private void on_queue_row_activated (uint position) {
