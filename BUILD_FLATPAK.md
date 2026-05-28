@@ -28,11 +28,13 @@ flatpak install --user flathub org.gnome.Platform//50 org.gnome.Sdk//50
 2. **发布提交**：修改版本号
 
 **版本发布 commit 格式**：
+
 ```bash
 git commit -m "release: v2.0.4"
 ```
 
 > `metainfo.xml` 中的 `version` 属性为纯版本号（如 `2.0.4`），不含 `v` 前缀。
+
 ### 2.2 确定更新内容范围
 
 在填写版本更新日志时，需要通过 Git 提交历史来确定新版本包含的变更：
@@ -47,10 +49,10 @@ git log v2.0.3..HEAD --stat --name-only
 
 **版本阶段示例**（基于项目历史）：
 
-| 版本 | 包含的提交（从旧到新） | 变更内容摘要 |
-|------|----------------------|-------------|
-| v2.0.2 | `2505ddc` | 初始版本发布 |
-| v2.0.3 | `2403273`, `ca99c89` | 添加剪贴板功能、重构常用语选择器 |
+| 版本   | 包含的提交（从旧到新）                     | 变更内容摘要                                       |
+| ------ | ------------------------------------------ | -------------------------------------------------- |
+| v2.0.2 | `2505ddc`                                  | 初始版本发布                                       |
+| v2.0.3 | `2403273`, `ca99c89`                       | 添加剪贴板功能、重构常用语选择器                   |
 | v2.0.4 | `c646de4`, `0dd54d6`, `4b6572e`, `fc586d0` | 添加 Flatpak 包下载、优化窗口布局、添加 Toast 提示 |
 
 > 💡 **提示**：当 Git 提交记录中没有明确的版本标记时，请查看最近 20-50 条提交历史，结合 README 和代码变更来判断版本边界。通常版本号更新提交会包含 `meson.build` 和 `metainfo.xml` 的修改。
@@ -61,9 +63,9 @@ git log v2.0.3..HEAD --stat --name-only
 
 需要修改 **2 个文件**：
 
-| 文件 | 修改内容 |
-|---|---|
-| `meson.build` | 第 2 行 `version: 'x.y.z'`（此为唯一版本源） |
+| 文件           | 修改内容                                                          |
+| -------------- | ----------------------------------------------------------------- |
+| `meson.build`  | 第 2 行 `version: 'x.y.z'`（此为唯一版本源）                      |
 | `metainfo.xml` | 在 `<releases>` 内新增 `<release>` 条目，按版本号**从新到旧**排列 |
 
 `metainfo.xml` 新增条目的格式示例：
@@ -104,6 +106,7 @@ flatpak-builder build-dir com.github.samfic.filecollector.json --user --install 
 #### 方式 B：构建可分发的 .flatpak 文件（用于发布）
 
 > ⚠️ **重要说明**：`flatpak-builder --repo=flatpak-repo build-dir ...` 会创建两个独立的目录：
+>
 > - `build-dir/` — **构建目录**，存放编译产物（可被 `--force-clean` 清理，已在 `.gitignore` 中忽略）
 > - `flatpak-repo/` — **仓库目录**，由 `--repo` 指定的地方，`build-bundle` 必须从此读取仓库数据
 >
@@ -118,6 +121,7 @@ flatpak build-bundle flatpak-repo filecollector-2.0.4.flatpak com.github.samfic.
 ```
 
 > ⚠️ **常见错误**：`build-bundle` 的第一个参数必须是 **本地仓库目录**（即 `--repo=` 指定的目录），**不是**构建目录 `build-dir/`。如果传入 `build-dir/` 会报错：
+>
 > ```
 > error: 'build-dir' is not a valid repository: opening repo: opendir(objects): No such file or directory
 > ```
@@ -137,18 +141,21 @@ grep "release version" build-dir/files/share/metainfo/com.github.samfic.filecoll
 ```
 
 > 💡 **交互式确认**：`flatpak install` 可能弹出确认提示 `[Y/n]`，在脚本中可添加 `--noninteractive` 标志：
+>
 > ```bash
 > flatpak install --noninteractive --user --or-update filecollector-2.0.4.flatpak
 > ```
 >
 > 💡 **验证构建结果**：
+>
 > ```bash
 > # 检查 bundle 文件大小
 > ls -lh filecollector-*.flatpak
-> 
+>
 > # 验证 metainfo 中的版本号
 > flatpak info com.github.samfic.filecollector  # 安装后
 > ```
+>
 > ```bash
 > flatpak uninstall --user -y com.github.samfic.filecollector
 > flatpak install --user filecollector-2.0.4.flatpak
@@ -192,6 +199,7 @@ data/
 当前使用 `org.gnome.Platform` **runtime-version: 50**（对应 GNOME 50）。
 
 如果需要升级运行时版本（例如 GNOME 51 发布后），需要同时更新：
+
 - `com.github.samfic.filecollector.json` 中的 `runtime-version`
 - CI/CD 中安装的运行时版本
 
@@ -208,6 +216,7 @@ data/
 ### 4.3 清理规则（cleanup）
 
 构建后的文件中，以下内容会被删除以减小包体积：
+
 - `/include`、`/man`、`*.vapi` 等开发文件
 - `/lib/pkgconfig` 等 pkg-config 文件
 - `/share/vala` 等 Vala 相关文件
@@ -293,3 +302,4 @@ flatpak build-bundle flatpak-repo filecollector-2.0.x.flatpak com.github.samfic.
 - **Brief description**: Detailed content
 - **Brief description**: Detailed content
 - **Brief description**: Detailed content
+```
