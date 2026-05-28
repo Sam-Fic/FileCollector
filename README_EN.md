@@ -9,7 +9,7 @@
 ---
 
 FileCollector is a cross-platform desktop tool for efficiently collecting, organizing files from your working directory, and generating merged text.  
-It provides a checkable directory tree, flexible organization list, text insertion, drag-and-drop sorting, and automatic encoding detection, making it ideal for quickly consolidating key code or documents from a project into a single TXT file for further analysis or submission to large language models.
+It provides a checkable directory tree, flexible organization list, text insertion and automatic encoding detection, making it ideal for quickly consolidating key code or documents from a project into a single TXT file for further analysis or submission to large language models.
 
 ## UI Preview
 
