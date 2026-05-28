@@ -23,6 +23,18 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="3.0.2" date="2026-05-28">
+      <description>
+        <p>新特性与修复：</p>
+        <ul>
+          <li>预览功能优化：改进文本处理和显示逻辑</li>
+          <li>队列选择预览：优化选择时的预览显示</li>
+          <li>图标更新：调整图标中圆形位置和路径坐标</li>
+          <li>截图更新：更新中英文版本截图</li>
+          <li>文档优化：移除拖放排序功能描述</li>
+        </ul>
+      </description>
+    </release>
     <release version="3.0.1" date="2026-05-28">
       <description>
         <p>新特性与修复：</p>
