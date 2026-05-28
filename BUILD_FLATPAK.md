@@ -293,9 +293,3 @@ flatpak build-bundle flatpak-repo filecollector-2.0.x.flatpak com.github.samfic.
 - **Brief description**: Detailed content
 - **Brief description**: Detailed content
 - **Brief description**: Detailed content
-
----
-
-> 将 `2.0.4` 替换为当前版本号。
-
-> 英文部分可翻译自中文内容，确保信息一致性。
