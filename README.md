@@ -17,10 +17,11 @@ FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排
 
 ## 功能特性
 
-- 项目管理：打开和保存项目
-- 短语管理：管理和组织常用短语
-- 国际化：支持中文和英文界面，跟随系统语言自动切换
-- 现代化界面：采用 GNOME Human Interface Guidelines 设计
+- **命令行模式 (CLI)**：支持通过终端命令完成所有核心操作，便于脚本化和自动化
+- **项目管理**：打开和保存项目
+- **短语管理**：管理和组织常用短语
+- **国际化**：支持中文和英文界面，跟随系统语言自动切换
+- **现代化界面**：采用 GNOME Human Interface Guidelines 设计
 
 > **提示**：如果您使用的是非 GNOME 平台（如 Windows 或 macOS），请移步 [PySide6 版本仓库](https://github.com/Sam-Fic/filecollector)。该版本跨平台支持 Windows、macOS 和 Linux，基于 PySide6 构建。
 
@@ -68,10 +69,14 @@ sudo meson install
 ### 运行
 
 ```bash
-filecollector
+filecollector       # 启动图形界面
+filecollector --help  # 查看 CLI 命令行帮助
 ```
 
-> **提示**：程序默认跟随系统语言显示中文或英文界面。如需临时切换语言，可使用环境变量，例如 `LANGUAGE=en filecollector` 强制显示英文。您也可以编辑 `en.po` 文件修改英文翻译文本。
+> **提示**：
+>
+> - 程序默认跟随系统语言显示中文或英文界面。如需临时切换语言，可使用环境变量，例如 `LANGUAGE=en filecollector` 强制显示英文。您也可以编辑 `en.po` 文件修改英文翻译文本。
+> - 如需使用 CLI 命令行模式，请参见下方的 [CLI 命令行模式](#cli-命令行模式) 章节。
 
 ### Flatpak 构建
 
@@ -92,7 +97,8 @@ flatpak run com.github.samfic.filecollector
 │   └── style.css
 ├── screenshots/                           # 截图文件
 ├── src/                                   # 源代码
-│   ├── main.vala                          # 应用程序入口
+│   ├── main.vala                          # 应用程序入口（自动检测 CLI 或 GUI 模式）
+│   ├── cli.vala                           # CLI 命令行控制器
 │   ├── window.vala                        # 主窗口逻辑
 │   ├── window.blp                         # Blueprint UI 描述
 │   ├── config.vala.in                     # 版本号等配置模板
@@ -103,7 +109,8 @@ flatpak run com.github.samfic.filecollector
 │   │   ├── file_generator.vala            # 文件合并生成与剪贴板复制
 │   │   └── project_manager.vala           # 项目保存与加载
 │   ├── utils/
-│   │   └── tree_helper.vala               # 目录树操作工具函数
+│   │   ├── tree_helper.vala               # 目录树操作工具函数
+│   │   └── encoding_helper.vala           # 编码自动检测与转换
 │   └── widgets/
 │       ├── settings_dialog.vala           # 设置对话框
 │       └── phrases_picker.vala            # 常用语选择器与管理
@@ -114,6 +121,75 @@ flatpak run com.github.samfic.filecollector
 ├── meson.build                            # Meson 构建配置
 └── com.github.samfic.filecollector.json   # Flatpak 构建清单
 ```
+
+## CLI 命令行模式
+
+FileCollector 内置命令行模式，无需启动图形界面即可通过终端完成所有核心操作，适合脚本化和自动化集成。
+
+### 使用方式
+
+在终端中运行 `filecollector` 并附加 CLI 参数即可进入命令行模式。若未检测到 CLI 参数，则正常启动图形界面。
+
+```bash
+filecollector [选项...]
+```
+
+### 命令列表
+
+| 选项                 | 说明                              |
+| -------------------- | --------------------------------- |
+| `--work-dir DIR`     | 设置工作目录                      |
+| `--select-file PATH` | 添加文件到编排列表（可多次使用）  |
+| `--add-text "TEXT"`  | 添加自定义文字（可多次使用）      |
+| `--move FROM TO`     | 将索引 FROM 处的项目移动到索引 TO |
+| `--remove INDEX`     | 删除索引 INDEX 处的项目           |
+| `--clear`            | 清空编排列表                      |
+| `--list-items`       | 列出当前编排列表                  |
+| `--export PATH`      | 导出合并文本到文件                |
+| `--absolute`         | 使用绝对路径                      |
+| `--header`           | 添加头部信息（工作目录路径）      |
+| `--load FILE`        | 从项目文件加载状态                |
+| `--save FILE`        | 将当前状态保存到项目文件          |
+| `--help`, `-h`       | 显示帮助信息                      |
+
+### 完整工作流示例
+
+**构建并导出：**
+
+```bash
+filecollector --work-dir ./project \
+    --select-file src/main.vala \
+    --select-file src/utils/helper.vala \
+    --add-text "=== 以下为配置文件 ===" \
+    --select-file config.ini \
+    --move 3 2 \
+    --header \
+    --export output.txt
+```
+
+**从项目文件导出：**
+
+```bash
+filecollector --load my.project.json --export output.txt
+```
+
+**构建并保存项目（供 GUI 使用）：**
+
+```bash
+filecollector --work-dir ./project \
+    --select-file file1.txt --select-file file2.txt \
+    --save my.project.json
+```
+
+**查看编排列表：**
+
+```bash
+filecollector --load my.project.json --list-items
+```
+
+### 设计说明
+
+CLI 模式与 GUI 模式共享同一套数据模型和业务服务（`ItemData`、`FileGenerator`、`ProjectManager`），但 CLI 模式不依赖 GTK/Adw 图形库，启动更快。核心代码集中在独立的 [cli.vala](src/cli.vala) 文件中。
 
 ## 为什么使用此工具？
 

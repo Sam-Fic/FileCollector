@@ -17,6 +17,7 @@ It provides a checkable directory tree, flexible organization list, text inserti
 
 ## Features
 
+- **CLI Mode**: Complete all core operations via terminal commands, ideal for scripting and automation
 - **Project Management**: Open and save projects
 - **Phrase Management**: Manage and organize common phrases
 - **Internationalization**: Supports Chinese and English UI, automatically follows system language
@@ -68,10 +69,13 @@ sudo meson install
 ### Run
 
 ```bash
-filecollector
+filecollector          # Launch GUI
+filecollector --help   # Show CLI help
 ```
 
-> **Tip**: The application automatically uses Chinese or English UI based on your system language. To temporarily switch languages, use the `LANGUAGE` environment variable, e.g. `LANGUAGE=en filecollector` to force English display. You can also edit the `en.po` file to modify the English translations.
+> **Tip**:
+> - The application automatically uses Chinese or English UI based on your system language. To temporarily switch languages, use the `LANGUAGE` environment variable, e.g. `LANGUAGE=en filecollector` to force English display. You can also edit the `en.po` file to modify the English translations.
+> - For CLI mode usage, see the [CLI Mode](#cli-mode) section below.
 
 ### Flatpak Build
 
@@ -92,7 +96,8 @@ flatpak run com.github.samfic.filecollector
 │   └── style.css
 ├── screenshots/                           # Screenshots
 ├── src/                                   # Source code
-│   ├── main.vala                          # Application entry point
+│   ├── main.vala                          # Application entry point (auto-detects CLI or GUI)
+│   ├── cli.vala                           # CLI controller
 │   ├── window.vala                        # Main window logic
 │   ├── window.blp                         # Blueprint UI description
 │   ├── config.vala.in                     # Config template (version, etc.)
@@ -103,7 +108,8 @@ flatpak run com.github.samfic.filecollector
 │   │   ├── file_generator.vala            # File merging and clipboard copy
 │   │   └── project_manager.vala           # Project save and load
 │   ├── utils/
-│   │   └── tree_helper.vala               # Directory tree utility functions
+│   │   ├── tree_helper.vala               # Directory tree utility functions
+│   │   └── encoding_helper.vala           # Encoding auto-detection and conversion
 │   └── widgets/
 │       ├── settings_dialog.vala           # Settings dialog
 │       └── phrases_picker.vala            # Common phrases picker and management
@@ -114,6 +120,75 @@ flatpak run com.github.samfic.filecollector
 ├── meson.build                            # Meson build configuration
 └── com.github.samfic.filecollector.json   # Flatpak build manifest
 ```
+
+## CLI Mode
+
+FileCollector features a built-in CLI mode that allows you to perform all core operations through the terminal without launching the GUI, making it ideal for scripting and automation.
+
+### Usage
+
+Simply run `filecollector` with CLI arguments to enter command-line mode. If no CLI arguments are detected, the GUI starts normally.
+
+```bash
+filecollector [options...]
+```
+
+### Command Reference
+
+| Option | Description |
+|---|---|
+| `--work-dir DIR` | Set the working directory |
+| `--select-file PATH` | Add a file to the queue (can be used multiple times) |
+| `--add-text "TEXT"` | Add custom text (can be used multiple times) |
+| `--move FROM TO` | Move item at index FROM to index TO |
+| `--remove INDEX` | Remove item at INDEX |
+| `--clear` | Clear all items from the queue |
+| `--list-items` | List all items in the current queue |
+| `--export PATH` | Export merged text to file |
+| `--absolute` | Use absolute paths |
+| `--header` | Add header with working directory info |
+| `--load FILE` | Load state from a project file |
+| `--save FILE` | Save current state to a project file |
+| `--help`, `-h` | Show this help message |
+
+### Workflow Examples
+
+**Build and export:**
+
+```bash
+filecollector --work-dir ./project \
+    --select-file src/main.vala \
+    --select-file src/utils/helper.vala \
+    --add-text "=== Configuration Files ===" \
+    --select-file config.ini \
+    --move 3 2 \
+    --header \
+    --export output.txt
+```
+
+**Export from a project file:**
+
+```bash
+filecollector --load my.project.json --export output.txt
+```
+
+**Build and save a project (for use in GUI):**
+
+```bash
+filecollector --work-dir ./project \
+    --select-file file1.txt --select-file file2.txt \
+    --save my.project.json
+```
+
+**List the current queue:**
+
+```bash
+filecollector --load my.project.json --list-items
+```
+
+### Design Notes
+
+CLI mode shares the same data model and business services (`ItemData`, `FileGenerator`, `ProjectManager`) with GUI mode, but does not depend on the GTK/Adw graphics libraries, making startup faster. The core CLI code resides in the standalone [cli.vala](src/cli.vala) file.
 
 ## Why Use This Tool?
 
