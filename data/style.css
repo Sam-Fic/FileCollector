@@ -10,56 +10,54 @@
     min-width: 200px;
 }
 
+.panel-frame {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 9px;
+}
+
+.panel-frame > box {
+    border-radius: 9px;
+}
+
+.card scrolledwindow,
+.card treeview,
+.card treeview.view,
+.card listview,
+.card textview,
+.card textview text,
+.card textview.view,
+.card textview.view text {
+    background: transparent;
+    background-color: transparent;
+    border: none;
+    border-radius: 9px;
+}
+
+.card textview,
+.card textview text {
+    caret-color: @caret_color;
+}
+
+.card listview row {
+    border-radius: 9px;
+}
+
 .paned-no-handle {
     background: none;
 }
 
-.paned-no-handle separator {
-    min-width: 6px;
-    min-height: 6px;
-    border: none;
+paned {
     background: transparent;
-    opacity: 0;
-    padding: 0;
-    margin: 0;
-    box-shadow: none;
 }
 
-.paned-no-handle separator:hover {
-    min-width: 6px;
-    min-height: 6px;
-    border: none;
+paned separator {
     background: transparent;
-    opacity: 0;
+    min-width: 0;
+    min-height: 0;
 }
 
-GtkPaned.paned-no-handle {
-    background: none;
-}
-
-GtkPaned.paned-no-handle > separator {
-    min-width: 6px;
-    min-height: 6px;
-    border: none;
+paned > separator {
     background: transparent;
-    opacity: 0;
-}
-
-#preview_view text {
-    font-family: unset;
-}
-
-listview row {
-    margin: 2px 6px;
-    border-radius: 9px;
-}
-
-listview row:selected {
-    background-color: @accent_bg_color;
-    border-radius: 9px;
-}
-
-listview row:selected label,
-listview row:selected image {
-    color: @accent_fg_color;
 }

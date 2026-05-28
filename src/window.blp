@@ -37,7 +37,7 @@ title: _("FileCollector - 文件收集与编排工具");
        css-classes: ["paned-no-handle"];
 
        // 左栏 - 目录树
-        Frame {
+       Frame {
           hexpand: true;
           vexpand: true;
           width-request: 200;
@@ -45,7 +45,7 @@ title: _("FileCollector - 文件收集与编排工具");
           margin-bottom: 6;
           margin-start: 6;
           margin-end: 6;
-          css-classes: ["left-panel"];
+          css-classes: ["left-panel", "panel-frame"];
          Box {
            styles ["card"]
            orientation: vertical;
@@ -81,7 +81,7 @@ title: _("FileCollector - 文件收集与编排工具");
         css-classes: ["paned-no-handle"];
 
         // 中栏 - 输出编排
-         Frame {
+        Frame {
            hexpand: true;
            vexpand: true;
            width-request: 400;
@@ -89,7 +89,7 @@ title: _("FileCollector - 文件收集与编排工具");
            margin-bottom: 6;
            margin-start: 0;
            margin-end: 6;
-           css-classes: ["middle-panel"];
+           css-classes: ["middle-panel", "panel-frame"];
           Box {
             styles ["card"]
             orientation: vertical;
@@ -226,7 +226,7 @@ title: _("FileCollector - 文件收集与编排工具");
         }
 
         // 右栏 - 预览
-         Frame {
+        Frame {
            hexpand: true;
            vexpand: true;
            width-request: 200;
@@ -234,7 +234,7 @@ title: _("FileCollector - 文件收集与编排工具");
            margin-bottom: 6;
            margin-start: 6;
            margin-end: 6;
-           css-classes: ["right-panel"];
+           css-classes: ["right-panel", "panel-frame"];
            Box {
              styles ["card"]
              orientation: vertical;
