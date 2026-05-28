@@ -212,5 +212,13 @@ msgid "打开项目..."
 msgstr ""
 
 #: src/window.blp:260
+msgid "语言设置"
+msgstr ""
+
+#: src/window.blp:260
 msgid "关于 FileCollector"
+msgstr ""
+
+#: src/widgets/settings_dialog.vala:15
+msgid "设置界面语言"
 msgstr ""

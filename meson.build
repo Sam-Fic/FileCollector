@@ -49,7 +49,14 @@ config = configure_file(
 
 sources = files(
   'src/main.vala',
-  'src/window.vala'
+  'src/window.vala',
+  'src/models/item_data.vala',
+  'src/services/config_manager.vala',
+  'src/services/file_generator.vala',
+  'src/services/project_manager.vala',
+  'src/utils/tree_helper.vala',
+  'src/widgets/settings_dialog.vala',
+  'src/widgets/phrases_picker.vala'
 )
 
 # 国际化

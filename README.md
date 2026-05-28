@@ -84,23 +84,35 @@ flatpak run com.github.samfic.filecollector
 
 ```
 .
-├── data/           # 应用程序数据文件
+├── data/                                  # 应用程序数据文件
 │   ├── com.github.samfic.filecollector.desktop
 │   ├── com.github.samfic.filecollector.metainfo.xml
 │   ├── com.github.samfic.filecollector.svg
 │   ├── filecollector.gresource.xml
 │   └── style.css
-├── screenshots/    # 截图文件
-├── src/            # 源代码
-│   ├── main.vala   # 应用程序入口
-│   ├── window.vala # 主窗口逻辑
-│   └── window.blp  # Blueprint UI 描述
-├── en.po                                # 英文界面翻译文件
-├── POTFILES                             # 可翻译源文件列表（供 gettext 使用）
-├── LINGUAS                              # 支持的语言列表
-├── BUILD_FLATPAK.md                     # Flatpak 构建指南（供 AI 助手参考）
-├── meson.build                          # Meson 构建配置
-└── com.github.samfic.filecollector.json  # Flatpak 构建清单
+├── screenshots/                           # 截图文件
+├── src/                                   # 源代码
+│   ├── main.vala                          # 应用程序入口
+│   ├── window.vala                        # 主窗口逻辑
+│   ├── window.blp                         # Blueprint UI 描述
+│   ├── config.vala.in                     # 版本号等配置模板
+│   ├── models/
+│   │   └── item_data.vala                 # 队列项数据模型
+│   ├── services/
+│   │   ├── config_manager.vala            # 配置/设置/常用语持久化
+│   │   ├── file_generator.vala            # 文件合并生成与剪贴板复制
+│   │   └── project_manager.vala           # 项目保存与加载
+│   ├── utils/
+│   │   └── tree_helper.vala               # 目录树操作工具函数
+│   └── widgets/
+│       ├── settings_dialog.vala           # 设置对话框
+│       └── phrases_picker.vala            # 常用语选择器与管理
+├── en.po                                  # 英文界面翻译文件
+├── POTFILES                               # 可翻译源文件列表（供 gettext 使用）
+├── LINGUAS                                # 支持的语言列表
+├── BUILD_FLATPAK.md                       # Flatpak 构建指南（供 AI 助手参考）
+├── meson.build                            # Meson 构建配置
+└── com.github.samfic.filecollector.json   # Flatpak 构建清单
 ```
 
 ## 为什么使用此工具？

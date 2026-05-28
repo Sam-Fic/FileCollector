@@ -84,23 +84,35 @@ flatpak run com.github.samfic.filecollector
 
 ```
 .
-├── data/           # Application data files
+├── data/                                  # Application data files
 │   ├── com.github.samfic.filecollector.desktop
 │   ├── com.github.samfic.filecollector.metainfo.xml
 │   ├── com.github.samfic.filecollector.svg
 │   ├── filecollector.gresource.xml
 │   └── style.css
-├── screenshots/    # Screenshots
-├── src/            # Source code
-│   ├── main.vala   # Application entry point
-│   ├── window.vala # Main window logic
-│   └── window.blp  # Blueprint UI description
-├── en.po                                # English UI translation file
-├── POTFILES                             # List of translatable source files (for gettext)
-├── LINGUAS                              # List of supported languages
-├── BUILD_FLATPAK.md                     # Flatpak build guide (for AI assistants)
-├── meson.build                          # Meson build configuration
-└── com.github.samfic.filecollector.json  # Flatpak build manifest
+├── screenshots/                           # Screenshots
+├── src/                                   # Source code
+│   ├── main.vala                          # Application entry point
+│   ├── window.vala                        # Main window logic
+│   ├── window.blp                         # Blueprint UI description
+│   ├── config.vala.in                     # Config template (version, etc.)
+│   ├── models/
+│   │   └── item_data.vala                 # Queue item data model
+│   ├── services/
+│   │   ├── config_manager.vala            # Config/settings/phrases persistence
+│   │   ├── file_generator.vala            # File merging and clipboard copy
+│   │   └── project_manager.vala           # Project save and load
+│   ├── utils/
+│   │   └── tree_helper.vala               # Directory tree utility functions
+│   └── widgets/
+│       ├── settings_dialog.vala           # Settings dialog
+│       └── phrases_picker.vala            # Common phrases picker and management
+├── en.po                                  # English UI translation file
+├── POTFILES                               # List of translatable source files (for gettext)
+├── LINGUAS                                # List of supported languages
+├── BUILD_FLATPAK.md                       # Flatpak build guide (for AI assistants)
+├── meson.build                            # Meson build configuration
+└── com.github.samfic.filecollector.json   # Flatpak build manifest
 ```
 
 ## Why Use This Tool?

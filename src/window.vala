@@ -20,7 +20,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.Button btn_clear;
     [GtkChild] private unowned Gtk.CheckButton check_absolute_path;
     [GtkChild] private unowned Gtk.CheckButton check_write_header;
-    [GtkChild] private unowned Gtk.MenuButton menu_btn;
     [GtkChild] private unowned Adw.ToastOverlay toast_overlay;
     [GtkChild] private unowned Gtk.Paned outer_paned;
     [GtkChild] private unowned Gtk.Paned inner_paned;
@@ -37,11 +36,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private Adw.WindowTitle? _title_widget;
 
-    private const int COL_NAME = 0;
-    private const int COL_PATH = 1;
-    private const int COL_IS_DIR = 2;
-    private const int COL_CHECKED = 3;
-    private const int COL_INCONSISTENT = 4;
+    private PhrasesPicker? phrases_picker_instance = null;
+
+
 
     public FileCollectorWindow (Adw.Application app) {
         GLib.Object (application: app);
@@ -52,7 +49,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         checked_paths = new HashTable<string, bool> (str_hash, str_equal);
         common_phrases = new GenericArray<string> ();
 
-        load_common_phrases ();
+        ConfigManager.load_common_phrases (common_phrases);
         load_css ();
 
         setup_tree_view ();
@@ -70,106 +67,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
     }
 
-    private string get_config_dir () {
-        var dir = Environment.get_user_config_dir ();
-        var config_dir = GLib.Path.build_filename (dir, "filecollector");
-        try {
-            var config_file = File.new_for_path (config_dir);
-            if (!config_file.query_exists ()) {
-                config_file.make_directory_with_parents (null);
-            }
-        } catch (Error e) {
-            warning ("Failed to create config dir: %s", e.message);
-        }
-        return config_dir;
-    }
-
-    private string get_phrases_file () {
-        return GLib.Path.build_filename (get_config_dir (), "common_phrases.json");
-    }
-
-    private void load_common_phrases () {
-        var file = get_phrases_file ();
-        if (!FileUtils.test (file, FileTest.EXISTS)) {
-            return;
-        }
-        try {
-            string content;
-            size_t len;
-            FileUtils.get_contents (file, out content, out len);
-            var parser = new Json.Parser ();
-            parser.load_from_data (content);
-            var root = parser.get_root ().get_array ();
-            for (int i = 0; i < root.get_length (); i++) {
-                common_phrases.add (root.get_string_element (i));
-            }
-        } catch (Error e) {
-            warning ("Failed to load common phrases: %s", e.message);
-        }
-    }
-
-    private void save_common_phrases () {
-        try {
-            var builder = new Json.Builder ();
-            builder.begin_array ();
-            for (int i = 0; i < common_phrases.length; i++) {
-                builder.add_string_value (common_phrases.get (i));
-            }
-            builder.end_array ();
-
-            var generator = new Json.Generator ();
-            generator.set_root (builder.get_root ());
-            generator.pretty = true;
-
-            var file = get_phrases_file ();
-            generator.to_file (file);
-        } catch (Error e) {
-            warning ("Failed to save common phrases: %s", e.message);
-        }
-    }
-
-    private string get_settings_file () {
-        return GLib.Path.build_filename (get_config_dir (), "settings.json");
-    }
-
     public static string load_settings_language () {
-        var dir = Environment.get_user_config_dir ();
-        var config_dir = GLib.Path.build_filename (dir, "filecollector");
-        var file = GLib.Path.build_filename (config_dir, "settings.json");
-        if (!FileUtils.test (file, FileTest.EXISTS)) {
-            return "";
-        }
-        try {
-            string content;
-            size_t len;
-            FileUtils.get_contents (file, out content, out len);
-            var parser = new Json.Parser ();
-            parser.load_from_data (content);
-            var root = parser.get_root ().get_object ();
-            return root.get_string_member_with_default ("language", "");
-        } catch (Error e) {
-            warning ("Failed to load settings: %s", e.message);
-            return "";
-        }
-    }
-
-    private void save_language_setting (string lang) {
-        try {
-            var builder = new Json.Builder ();
-            builder.begin_object ();
-            builder.set_member_name ("language");
-            builder.add_string_value (lang);
-            builder.end_object ();
-
-            var generator = new Json.Generator ();
-            generator.set_root (builder.get_root ());
-            generator.pretty = true;
-
-            var file = get_settings_file ();
-            generator.to_file (file);
-        } catch (Error e) {
-            warning ("Failed to save language setting: %s", e.message);
-        }
+        return ConfigManager.load_settings_language ();
     }
 
     private void setup_tree_view () {
@@ -185,9 +84,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var col = new Gtk.TreeViewColumn ();
         col.pack_start (toggle_renderer, false);
         col.pack_start (text_renderer, true);
-        col.add_attribute (toggle_renderer, "active", COL_CHECKED);
-        col.add_attribute (toggle_renderer, "inconsistent", COL_INCONSISTENT);
-        col.add_attribute (text_renderer, "text", COL_NAME);
+        col.add_attribute (toggle_renderer, "active", TreeHelper.COL_CHECKED);
+        col.add_attribute (toggle_renderer, "inconsistent", TreeHelper.COL_INCONSISTENT);
+        col.add_attribute (text_renderer, "text", TreeHelper.COL_NAME);
         dir_tree.append_column (col);
 
         dir_tree.row_expanded.connect (on_tree_row_expanded);
@@ -298,29 +197,31 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
     }
 
+    // ─── Tree View ───────────────────────────────────────────────────────
+
     private void on_tree_toggle_toggled (string path_str) {
         Gtk.TreeIter iter;
         var path = new Gtk.TreePath.from_string (path_str);
         if (!tree_model.get_iter (out iter, path)) return;
 
         bool checked;
-        tree_model.get (iter, COL_CHECKED, out checked, -1);
+        tree_model.get (iter, TreeHelper.COL_CHECKED, out checked, -1);
         checked = !checked;
-        tree_model.set (iter, COL_CHECKED, checked, COL_INCONSISTENT, false, -1);
+        tree_model.set (iter, TreeHelper.COL_CHECKED, checked, TreeHelper.COL_INCONSISTENT, false, -1);
 
         bool is_dir;
-        tree_model.get (iter, COL_IS_DIR, out is_dir, -1);
+        tree_model.get (iter, TreeHelper.COL_IS_DIR, out is_dir, -1);
 
         if (is_dir) {
             string dir_path;
-            tree_model.get (iter, COL_PATH, out dir_path, -1);
+            tree_model.get (iter, TreeHelper.COL_PATH, out dir_path, -1);
             toggle_directory_recursive (iter, checked);
             if (dir_path != null) {
                 toggle_filesystem_recursive (dir_path, checked);
             }
         } else {
             string file_path;
-            tree_model.get (iter, COL_PATH, out file_path, -1);
+            tree_model.get (iter, TreeHelper.COL_PATH, out file_path, -1);
 
             if (checked) {
                 if (!(file_path in checked_paths)) {
@@ -346,8 +247,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         do {
             bool child_is_dir;
-            tree_model.get (child, COL_IS_DIR, out child_is_dir, -1);
-            tree_model.set (child, COL_CHECKED, checked, COL_INCONSISTENT, false, -1);
+            tree_model.get (child, TreeHelper.COL_IS_DIR, out child_is_dir, -1);
+            tree_model.set (child, TreeHelper.COL_CHECKED, checked, TreeHelper.COL_INCONSISTENT, false, -1);
             if (child_is_dir) {
                 toggle_directory_recursive (child, checked);
             }
@@ -400,14 +301,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         do {
             string path;
-            tree_model.get (child_iter, COL_PATH, out path, -1);
-            // 跳过占位条目（无路径的）
+            tree_model.get (child_iter, TreeHelper.COL_PATH, out path, -1);
             if (path == null) continue;
 
             bool is_dir;
-            tree_model.get (child_iter, COL_IS_DIR, out is_dir, -1);
+            tree_model.get (child_iter, TreeHelper.COL_IS_DIR, out is_dir, -1);
             bool child_checked;
-            tree_model.get (child_iter, COL_CHECKED, out child_checked, -1);
+            tree_model.get (child_iter, TreeHelper.COL_CHECKED, out child_checked, -1);
 
             if (is_dir) {
                 var child_state = calculate_folder_state (child_iter);
@@ -415,10 +315,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     checked++;
                 }
                 total++;
-                if (!child_state.all_checked) {
-                    // 如果子文件夹不是全选，则整个文件夹也不是全选
-                    // 但我们仍然需要计数
-                }
             } else {
                 if (child_checked) {
                     checked++;
@@ -443,22 +339,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         Gtk.TreeIter iter;
         if (!tree_model.get_iter (out iter, child_path)) return;
 
-        // 从子节点开始，向上遍历每一级父节点
         while (tree_model.iter_parent (out iter, iter)) {
-            // 计算该文件夹状态
             var state = calculate_folder_state (iter);
 
-            // 更新 TreeModel
             bool should_checked = state.all_checked;
             bool should_inconsistent = state.any_checked && !state.all_checked;
 
             bool current_checked;
-            tree_model.get (iter, COL_CHECKED, out current_checked, -1);
+            tree_model.get (iter, TreeHelper.COL_CHECKED, out current_checked, -1);
             bool current_inconsistent;
-            tree_model.get (iter, COL_INCONSISTENT, out current_inconsistent, -1);
+            tree_model.get (iter, TreeHelper.COL_INCONSISTENT, out current_inconsistent, -1);
 
             if (current_checked != should_checked || current_inconsistent != should_inconsistent) {
-                tree_model.set (iter, COL_CHECKED, should_checked, COL_INCONSISTENT, should_inconsistent, -1);
+                tree_model.set (iter, TreeHelper.COL_CHECKED, should_checked, TreeHelper.COL_INCONSISTENT, should_inconsistent, -1);
             }
         }
     }
@@ -486,11 +379,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
             Gtk.TreeIter root_iter;
             tree_model.append (out root_iter, null);
-            tree_model.set (root_iter, COL_NAME, folder.get_basename (), COL_PATH, folder.get_path (),
-                            COL_IS_DIR, true, COL_CHECKED, false, COL_INCONSISTENT, false, -1);
+            tree_model.set (root_iter, TreeHelper.COL_NAME, folder.get_basename (), TreeHelper.COL_PATH, folder.get_path (),
+                            TreeHelper.COL_IS_DIR, true, TreeHelper.COL_CHECKED, false, TreeHelper.COL_INCONSISTENT, false, -1);
 
-            // Preload first-level children immediately (so expand will stick)
-            load_directory_children (root_iter, folder);
+            load_directory_children_with_ancestor_update (root_iter, folder);
 
             var root_path = new Gtk.TreePath.from_indices (0);
             dir_tree.expand_row (root_path, false);
@@ -499,45 +391,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
     }
 
-    private void update_subtitle (string? text) {
-        string subtitle = text ?? _("未设置工作目录");
-
-        // 更新窗口标题（兜底）
-        title = (text != null) ? text : _("FileCollector");
-
-        // 查找并更新 Adw.WindowTitle 的副标题
-        if (_title_widget == null) {
-            var header = get_titlebar () as Adw.HeaderBar;
-            if (header != null && header.title_widget is Adw.WindowTitle) {
-                _title_widget = (Adw.WindowTitle) header.title_widget;
-            } else {
-                _title_widget = find_window_title (this);
-            }
-        }
-        if (_title_widget != null) {
-            _title_widget.set_subtitle (subtitle);
-        }
-    }
-
-    private Adw.WindowTitle? find_window_title (Gtk.Widget root) {
-        if (root is Adw.WindowTitle) {
-            return (Adw.WindowTitle) root;
-        }
-
-        var child = root.get_first_child ();
-        while (child != null) {
-            var found = find_window_title (child);
-            if (found != null) {
-                return found;
-            }
-            child = child.get_next_sibling ();
-        }
-        return null;
-    }
-
     private void on_tree_row_expanded (Gtk.TreeIter iter, Gtk.TreePath path) {
         string dir_path;
-        tree_model.get (iter, COL_PATH, out dir_path, -1);
+        tree_model.get (iter, TreeHelper.COL_PATH, out dir_path, -1);
         if (dir_path == null) return;
 
         var dir = File.new_for_path (dir_path);
@@ -546,75 +402,73 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         Gtk.TreeIter child;
         if (tree_model.iter_children (out child, iter)) {
             string name;
-            tree_model.get (child, COL_NAME, out name, -1);
-            if (name == "正在加载..." || name == "") {
+            tree_model.get (child, TreeHelper.COL_NAME, out name, -1);
+            if (name == _("正在加载...") || name == "") {
                 tree_model.remove (ref child);
             } else {
                 return;
             }
         }
 
-        load_directory_children (iter, dir);
+        load_directory_children_with_ancestor_update (iter, dir);
     }
 
-    private void load_directory_children (Gtk.TreeIter parent, File dir) {
-        try {
-            var enumerator = dir.enumerate_children (
-                FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE,
-                FileQueryInfoFlags.NONE
-            );
-
-            var dirs = new GenericArray<FileInfo> ();
-            var files = new GenericArray<FileInfo> ();
-
-            FileInfo info;
-            while ((info = enumerator.next_file ()) != null) {
-                if (info.get_name ().has_prefix (".")) continue;
-                if (info.get_file_type () == FileType.DIRECTORY) {
-                    dirs.add (info);
-                } else {
-                    files.add (info);
-                }
-            }
-
-            dirs.sort ((a, b) => a.get_name ().collate (b.get_name ()));
-            files.sort ((a, b) => a.get_name ().collate (b.get_name ()));
-
-            foreach (var dir_info in dirs) {
-                var file = dir.get_child (dir_info.get_name ());
-                Gtk.TreeIter iter;
-                tree_model.append (out iter, parent);
-                var file_path_str = file.get_path ();
-                bool is_checked = (file_path_str in checked_paths);
-                tree_model.set (iter, COL_NAME, dir_info.get_name (), COL_PATH, file_path_str,
-                                 COL_IS_DIR, true, COL_CHECKED, is_checked, COL_INCONSISTENT, false, -1);
-
-                Gtk.TreeIter dummy;
-                tree_model.append (out dummy, iter);
-                tree_model.set (dummy, COL_NAME, "正在加载...", -1);
-            }
-
-            foreach (var file_info in files) {
-                var file = dir.get_child (file_info.get_name ());
-                Gtk.TreeIter iter;
-                tree_model.append (out iter, parent);
-                var file_path_str = file.get_path ();
-                bool is_checked = (file_path_str in checked_paths);
-                tree_model.set (iter, COL_NAME, file_info.get_name (), COL_PATH, file_path_str,
-                                 COL_IS_DIR, false, COL_CHECKED, is_checked, COL_INCONSISTENT, false, -1);
-            }
-
-            var parent_path = tree_model.get_path (parent);
-            if (parent_path != null) {
-                GLib.Idle.add (() => {
-                    update_ancestor_states (parent_path);
-                    return Source.REMOVE;
-                });
-            }
-        } catch (Error e) {
-            warning ("无法读取目录: %s", e.message);
+    private void load_directory_children_with_ancestor_update (Gtk.TreeIter parent, File dir) {
+        TreeHelper.load_directory_children (parent, dir, tree_model, checked_paths);
+        var parent_path = tree_model.get_path (parent);
+        if (parent_path != null) {
+            GLib.Idle.add (() => {
+                update_ancestor_states (parent_path);
+                return Source.REMOVE;
+            });
         }
     }
+
+    private void set_tree_item_check (string abs_path, bool checked) {
+        Gtk.TreeIter? iter = null;
+        if (tree_model.get_iter_first (out iter)) {
+            set_tree_item_check_recursive (iter, abs_path, checked);
+        }
+    }
+
+    private bool set_tree_item_check_recursive (Gtk.TreeIter iter, string abs_path, bool checked) {
+        do {
+            string path;
+            tree_model.get (iter, TreeHelper.COL_PATH, out path, -1);
+            if (path == abs_path) {
+                tree_model.set (iter, TreeHelper.COL_CHECKED, checked, TreeHelper.COL_INCONSISTENT, false, -1);
+                var current_path = tree_model.get_path (iter);
+                if (current_path != null) {
+                    update_ancestor_states (current_path);
+                }
+                return true;
+            }
+            Gtk.TreeIter child;
+            if (tree_model.iter_children (out child, iter)) {
+                if (set_tree_item_check_recursive (child, abs_path, checked))
+                    return true;
+            }
+        } while (tree_model.iter_next (ref iter));
+        return false;
+    }
+
+    private void unchecked_all_tree () {
+        Gtk.TreeIter iter;
+        if (!tree_model.get_iter_first (out iter)) return;
+        unchecked_all_tree_recursive (iter);
+    }
+
+    private void unchecked_all_tree_recursive (Gtk.TreeIter iter) {
+        do {
+            tree_model.set (iter, TreeHelper.COL_CHECKED, false, TreeHelper.COL_INCONSISTENT, false, -1);
+            Gtk.TreeIter child;
+            if (tree_model.iter_children (out child, iter)) {
+                unchecked_all_tree_recursive (child);
+            }
+        } while (tree_model.iter_next (ref iter));
+    }
+
+    // ─── Queue List ──────────────────────────────────────────────────────
 
     private void refresh_list () {
         while (true) {
@@ -741,7 +595,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         phrases_btn.clicked.connect (() => {
             window.destroy ();
-            show_phrases_picker (above);
+            get_phrases_picker ().show_picker (above);
         });
 
         window.present ();
@@ -758,137 +612,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
         items.insert (index, new ItemData ("text", null, text, false));
         refresh_list ();
-    }
-
-    private void populate_phrases_picker_list (Gtk.ListBox list_box, Adw.Window window, bool above) {
-        while (list_box.get_first_child () != null) {
-            list_box.remove (list_box.get_first_child ());
-        }
-
-        if (common_phrases.length == 0) {
-            var empty_label = new Gtk.Label (_("暂无常用语"));
-            empty_label.set_halign (Gtk.Align.CENTER);
-            list_box.append (empty_label);
-        } else {
-            for (int i = 0; i < common_phrases.length; i++) {
-                var phrase = common_phrases.get (i);
-                var row = new Adw.ActionRow ();
-                if (phrase.length > 40) {
-                    row.set_title (phrase.substring (0, 40) + "...");
-                } else {
-                    row.set_title (phrase);
-                }
-                row.set_subtitle (phrase);
-                row.set_activatable (true);
-
-                var delete_btn = new Gtk.Button ();
-                delete_btn.set_icon_name ("user-trash-symbolic");
-                delete_btn.add_css_class ("destructive-action");
-                delete_btn.add_css_class ("flat");
-                delete_btn.set_valign (Gtk.Align.CENTER);
-                int captured_index = i;
-                delete_btn.clicked.connect (() => {
-                    common_phrases.remove_index (captured_index);
-                    save_common_phrases ();
-                    populate_phrases_picker_list (list_box, window, above);
-                });
-                row.add_suffix (delete_btn);
-
-                int phrase_index = i;
-                row.activated.connect (() => {
-                    var selected_phrase = common_phrases.get (phrase_index);
-                    do_insert_text (selected_phrase, above);
-                    window.close ();
-                });
-
-                list_box.append (row);
-            }
-        }
-    }
-
-    private void show_phrases_picker (bool above) {
-        var window = new Adw.Window ();
-        window.set_transient_for (this);
-        window.set_modal (true);
-        window.set_default_size (400, 400);
-        window.set_title (_("选择常用语"));
-
-        var toolbar_view = new Adw.ToolbarView ();
-        window.set_content (toolbar_view);
-
-        var header_bar = new Adw.HeaderBar ();
-        header_bar.set_title_widget (new Adw.WindowTitle (_("选择常用语"), null));
-        header_bar.set_decoration_layout ("");
-        toolbar_view.add_top_bar (header_bar);
-
-        var cancel_btn = new Gtk.Button ();
-        cancel_btn.set_label (_("取消"));
-        header_bar.pack_start (cancel_btn);
-
-        var add_btn = new Gtk.Button ();
-        add_btn.set_label (_("添加"));
-        header_bar.pack_end (add_btn);
-
-        var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 12);
-        box.set_margin_top (12);
-        box.set_margin_start (12);
-        box.set_margin_end (12);
-        box.set_margin_bottom (12);
-
-        var list_box = new Gtk.ListBox ();
-        list_box.set_selection_mode (Gtk.SelectionMode.NONE);
-        list_box.add_css_class ("boxed-list");
-        list_box.set_vexpand (true);
-        box.append (list_box);
-
-        var scrolled = new Gtk.ScrolledWindow ();
-        scrolled.set_child (box);
-        scrolled.set_vexpand (true);
-        toolbar_view.set_content (scrolled);
-
-        populate_phrases_picker_list (list_box, window, above);
-
-        cancel_btn.clicked.connect (() => {
-            window.close ();
-        });
-
-        add_btn.clicked.connect (() => {
-            show_add_phrase_dialog (above, list_box, window);
-        });
-
-        window.present ();
-    }
-
-    private void show_add_phrase_dialog (bool above, Gtk.ListBox? list_box = null, Adw.Window? picker_window = null) {
-        var dialog = new Adw.AlertDialog (_("添加常用语"), null);
-        dialog.set_default_response ("add");
-        dialog.add_response ("cancel", _("取消"));
-        dialog.add_response ("add", _("添加"));
-
-        var entry = new Gtk.Entry ();
-        entry.set_placeholder_text (_("输入常用语"));
-        entry.set_hexpand (true);
-        dialog.set_extra_child (entry);
-
-        dialog.response.connect ((resp) => {
-            if (resp == "add") {
-                var text = entry.get_text ().strip ();
-                if (text != "") {
-                    common_phrases.add (text);
-                    save_common_phrases ();
-                }
-            }
-            dialog.destroy ();
-            if (resp == "add") {
-                if (list_box != null && picker_window != null) {
-                    populate_phrases_picker_list (list_box, picker_window, above);
-                } else {
-                    show_phrases_picker (above);
-                }
-            }
-        });
-
-        dialog.present (picker_window != null ? picker_window : this as Gtk.Widget);
     }
 
     private void on_move_up () {
@@ -940,51 +663,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void select_queue_row (int index) {
         var row = queue_list.get_row_at_index (index);
         if (row != null) queue_list.select_row (row);
-    }
-
-    private void set_tree_item_check (string abs_path, bool checked) {
-        Gtk.TreeIter? iter = null;
-        if (tree_model.get_iter_first (out iter)) {
-            set_tree_item_check_recursive (iter, abs_path, checked);
-        }
-    }
-
-    private bool set_tree_item_check_recursive (Gtk.TreeIter iter, string abs_path, bool checked) {
-        do {
-            string path;
-            tree_model.get (iter, COL_PATH, out path, -1);
-            if (path == abs_path) {
-                tree_model.set (iter, COL_CHECKED, checked, COL_INCONSISTENT, false, -1);
-                // 更新父级
-                var current_path = tree_model.get_path (iter);
-                if (current_path != null) {
-                    update_ancestor_states (current_path);
-                }
-                return true;
-            }
-            Gtk.TreeIter child;
-            if (tree_model.iter_children (out child, iter)) {
-                if (set_tree_item_check_recursive (child, abs_path, checked))
-                    return true;
-            }
-        } while (tree_model.iter_next (ref iter));
-        return false;
-    }
-
-    private void unchecked_all_tree () {
-        Gtk.TreeIter iter;
-        if (!tree_model.get_iter_first (out iter)) return;
-        unchecked_all_tree_recursive (iter);
-    }
-
-    private void unchecked_all_tree_recursive (Gtk.TreeIter iter) {
-        do {
-            tree_model.set (iter, COL_CHECKED, false, COL_INCONSISTENT, false, -1);
-            Gtk.TreeIter child;
-            if (tree_model.iter_children (out child, iter)) {
-                unchecked_all_tree_recursive (child);
-            }
-        } while (tree_model.iter_next (ref iter));
     }
 
     private void on_queue_selection_changed (Gtk.ListBoxRow? row) {
@@ -1042,6 +720,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
     }
 
+    // ─── Options ─────────────────────────────────────────────────────────
+
     private void on_path_mode_changed () {
         use_absolute = check_absolute_path.active;
         if (use_absolute) {
@@ -1056,6 +736,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void on_header_check_changed () {
         show_header = check_write_header.active;
     }
+
+    // ─── Generate ────────────────────────────────────────────────────────
 
     private void on_generate_clicked () {
         if (items.length == 0) {
@@ -1079,62 +761,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 if (!path.has_suffix (".txt")) {
                     path += ".txt";
                 }
-                generate_file (path);
+                FileGenerator.generate_file (path, items, use_absolute, show_header, work_dir);
+                show_toast (_("合并文本已保存"));
             } catch (Error e) {
                 if (e is GLib.IOError.CANCELLED || "Dismissed" in e.message) return;
                 show_error (_("保存失败"), e.message);
             }
         });
-    }
-
-    private void write_items_to_stream (DataOutputStream dis) throws Error {
-        if (!use_absolute && show_header && work_dir != null) {
-            var header = "# 工作目录绝对路径: %s\n\n".printf (work_dir.get_path ());
-            dis.put_string (header);
-        }
-
-        for (int i = 0; i < items.length; i++) {
-            if (i > 0) dis.put_string ("\n\n");
-            var data = items.get (i);
-            if (data.item_type == "file") {
-                var f = File.new_for_path (data.file_path);
-                if (!f.query_exists ()) {
-                    dis.put_string ("[文件不存在: %s]\n".printf (data.file_path));
-                    continue;
-                }
-                string display;
-                if (data.force_absolute || use_absolute || work_dir == null) {
-                    display = data.file_path;
-                } else {
-                    var wd_path = work_dir.get_path () + "/";
-                    if (data.file_path.has_prefix (wd_path)) {
-                        display = data.file_path.substring (wd_path.length);
-                    } else {
-                        display = data.file_path;
-                    }
-                }
-                dis.put_string ("%s:\n".printf (display));
-                string content;
-                size_t len;
-                FileUtils.get_contents (data.file_path, out content, out len);
-                dis.put_string (content);
-            } else {
-                dis.put_string (data.content);
-            }
-        }
-    }
-
-    private void generate_file (string file_path) {
-        try {
-            var file = File.new_for_path (file_path);
-            var os = file.replace (null, false, FileCreateFlags.NONE);
-            var dis = new DataOutputStream (os);
-            write_items_to_stream (dis);
-            dis.close ();
-            show_toast (_("合并文本已保存"));
-        } catch (Error e) {
-            show_error (_("生成失败"), e.message);
-        }
     }
 
     private void on_generate_to_clipboard_clicked () {
@@ -1144,31 +777,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
 
         try {
-            var tmp_dir = Environment.get_tmp_dir ();
-            var rand = Random.next_int ();
-            var tmp_path = GLib.Path.build_filename (tmp_dir, "filecollector_%u.txt".printf (rand));
-
-            var dis = new DataOutputStream (File.new_for_path (tmp_path).create (FileCreateFlags.REPLACE_DESTINATION));
-            write_items_to_stream (dis);
-            dis.close ();
-
-            string content;
-            size_t len;
-            FileUtils.get_contents (tmp_path, out content, out len);
-
-            File.new_for_path (tmp_path).delete ();
-
-            var bytes = new Bytes (content.data);
-            var provider = new Gdk.ContentProvider.for_bytes ("text/plain", bytes);
-
-            var display = this.get_display ();
-            display.get_clipboard ().set_content (provider);
-
+            FileGenerator.generate_to_clipboard (items, use_absolute, show_header, work_dir, this.get_display ());
             show_toast (_("合并文本已复制到剪贴板"));
         } catch (Error e) {
             show_error (_("复制失败"), e.message);
         }
     }
+
+    // ─── Project ─────────────────────────────────────────────────────────
 
     public void on_open_project () {
         var dialog = new Gtk.FileDialog ();
@@ -1183,7 +799,38 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         dialog.open.begin (this, null, (obj, res) => {
             try {
                 var file = dialog.open.end (res);
-                load_project_file (file.get_path ());
+                File? loaded_work_dir;
+                string? loaded_project_file;
+                bool loaded_use_absolute;
+                bool loaded_show_header;
+
+                ProjectManager.load_project_file (
+                    file.get_path (),
+                    items,
+                    checked_paths,
+                    common_phrases,
+                    tree_model,
+                    dir_tree,
+                    out loaded_work_dir,
+                    out loaded_project_file,
+                    out loaded_use_absolute,
+                    out loaded_show_header
+                );
+
+                work_dir = loaded_work_dir;
+                project_file = loaded_project_file;
+                use_absolute = loaded_use_absolute;
+                show_header = loaded_show_header;
+
+                if (work_dir != null) {
+                    update_subtitle (work_dir.get_path ());
+                } else {
+                    update_subtitle (null);
+                }
+
+                check_absolute_path.active = use_absolute;
+                check_write_header.active = show_header;
+                refresh_list ();
             } catch (Error e) {
                 if (e is GLib.IOError.CANCELLED || "Dismissed" in e.message) return;
                 show_error (_("打开失败"), e.message);
@@ -1191,124 +838,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         });
     }
 
-    private void load_project_file (string file_path) {
-        try {
-            string content;
-            size_t len;
-            FileUtils.get_contents (file_path, out content, out len);
-            var parser = new Json.Parser ();
-            parser.load_from_data (content);
-
-            var root = parser.get_root ().get_object ();
-
-            var wd_str = root.get_string_member_with_default ("work_dir", "");
-            if (wd_str != "") {
-                var wd = File.new_for_path (wd_str);
-                if (wd.query_exists ()) {
-                    work_dir = wd;
-                    update_subtitle (wd.get_path ());
-                } else {
-                    work_dir = null;
-                    update_subtitle (null);
-                }
-            } else {
-                work_dir = null;
-                update_subtitle (null);
-            }
-
-            tree_model.clear ();
-            checked_paths.remove_all ();
-            items.remove_range (0, items.length);
-
-            if (work_dir != null) {
-                Gtk.TreeIter root_iter;
-                tree_model.append (out root_iter, null);
-                tree_model.set (root_iter, COL_NAME, work_dir.get_basename (), COL_PATH, work_dir.get_path (),
-                            COL_IS_DIR, true, COL_CHECKED, false, COL_INCONSISTENT, false, -1);
-                // Preload first-level children immediately (so expand will stick)
-                load_directory_children (root_iter, work_dir);
-
-                var root_path = new Gtk.TreePath.from_indices (0);
-                dir_tree.expand_row (root_path, false);
-            }
-
-            use_absolute = root.get_boolean_member_with_default ("use_absolute", false);
-            show_header = root.get_boolean_member_with_default ("show_header", false);
-            check_absolute_path.active = use_absolute;
-            check_write_header.active = show_header;
-
-            var checked_arr = root.get_array_member ("checked_files");
-            if (checked_arr != null) {
-                for (int i = 0; i < checked_arr.get_length (); i++) {
-                    var p = checked_arr.get_string_element (i);
-                    if (File.new_for_path (p).query_exists ()) {
-                        checked_paths.insert (p, true);
-                    }
-                }
-            }
-
-            var items_arr = root.get_array_member ("items");
-            if (items_arr != null) {
-                for (int i = 0; i < items_arr.get_length (); i++) {
-                    var obj = items_arr.get_object_element (i);
-                    var type = obj.get_string_member ("type");
-                    if (type == "file") {
-                        var p = obj.get_string_member ("path");
-                        var fa = obj.get_boolean_member_with_default ("force_absolute", false);
-                        if (File.new_for_path (p).query_exists ()) {
-                            items.add (new ItemData ("file", p, null, fa));
-                        } else {
-                            items.add (new ItemData ("text", null, "[缺失文件: %s]".printf (p), false));
-                        }
-                    } else {
-                        var c = obj.get_string_member_with_default ("content", "");
-                        items.add (new ItemData ("text", null, c, false));
-                    }
-                }
-            }
-
-            common_phrases.remove_range (0, common_phrases.length);
-            var phrases_arr = root.get_array_member ("common_phrases");
-            if (phrases_arr != null) {
-                for (int i = 0; i < phrases_arr.get_length (); i++) {
-                    common_phrases.add (phrases_arr.get_string_element (i));
-                }
-            }
-
-            restore_tree_checks ();
-            project_file = file_path;
-            refresh_list ();
-        } catch (Error e) {
-            show_error (_("加载失败"), _("项目文件损坏或格式不正确:\n%s").printf (e.message));
-        }
-    }
-
-    private void restore_tree_checks () {
-        Gtk.TreeIter iter;
-        if (!tree_model.get_iter_first (out iter)) return;
-        restore_tree_checks_recursive (iter);
-    }
-
-    private void restore_tree_checks_recursive (Gtk.TreeIter iter) {
-        do {
-            string path;
-            tree_model.get (iter, COL_PATH, out path, -1);
-            if (path != null && path in checked_paths) {
-                tree_model.set (iter, COL_CHECKED, true, COL_INCONSISTENT, false, -1);
-            }
-            Gtk.TreeIter child;
-            if (tree_model.iter_children (out child, iter)) {
-                restore_tree_checks_recursive (child);
-            }
-        } while (tree_model.iter_next (ref iter));
-    }
-
     public void on_save_project () {
         if (project_file == null) {
             save_project_as ();
             return;
         }
-        write_project_file (project_file);
+        try {
+            ProjectManager.write_project_file (
+                project_file, work_dir, use_absolute, show_header,
+                items, checked_paths, common_phrases
+            );
+        } catch (Error e) {
+            show_error (_("保存失败"), e.message);
+        }
     }
 
     private void save_project_as () {
@@ -1325,7 +867,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             try {
                 var file = dialog.save.end (res);
                 project_file = file.get_path ();
-                write_project_file (project_file);
+                ProjectManager.write_project_file (
+                    project_file, work_dir, use_absolute, show_header,
+                    items, checked_paths, common_phrases
+                );
             } catch (Error e) {
                 if (e is GLib.IOError.CANCELLED || "Dismissed" in e.message) return;
                 show_error (_("保存失败"), e.message);
@@ -1333,81 +878,43 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         });
     }
 
-    private void write_project_file (string file_path) {
-        try {
-            var builder = new Json.Builder ();
-            builder.begin_object ();
+    // ─── Subtitle ────────────────────────────────────────────────────────
 
-            builder.set_member_name ("work_dir");
-            if (work_dir != null) {
-                builder.add_string_value (work_dir.get_path ());
+    private void update_subtitle (string? text) {
+        string subtitle = text ?? _("未设置工作目录");
+
+        title = (text != null) ? text : _("FileCollector");
+
+        if (_title_widget == null) {
+            var header = get_titlebar () as Adw.HeaderBar;
+            if (header != null && header.title_widget is Adw.WindowTitle) {
+                _title_widget = (Adw.WindowTitle) header.title_widget;
             } else {
-                builder.add_null_value ();
+                _title_widget = find_window_title (this);
             }
-
-            builder.set_member_name ("use_absolute");
-            builder.add_boolean_value (use_absolute);
-
-            builder.set_member_name ("show_header");
-            builder.add_boolean_value (show_header);
-
-            builder.set_member_name ("checked_files");
-            builder.begin_array ();
-            var checked_list = new GenericArray<string> ();
-            checked_paths.foreach ((key, val) => {
-                checked_list.add (key);
-            });
-            for (int ci = 0; ci < checked_list.length; ci++) {
-                builder.add_string_value (checked_list.get (ci));
-            }
-            builder.end_array ();
-
-            builder.set_member_name ("items");
-            builder.begin_array ();
-            for (int i = 0; i < items.length; i++) {
-                var data = items.get (i);
-                builder.begin_object ();
-                builder.set_member_name ("type");
-                builder.add_string_value (data.item_type);
-                if (data.item_type == "file") {
-                    builder.set_member_name ("path");
-                    builder.add_string_value (data.file_path);
-                    builder.set_member_name ("force_absolute");
-                    builder.add_boolean_value (data.force_absolute);
-                } else {
-                    builder.set_member_name ("content");
-                    builder.add_string_value (data.content);
-                }
-                builder.end_object ();
-            }
-            builder.end_array ();
-
-            builder.set_member_name ("common_phrases");
-            builder.begin_array ();
-            for (int i = 0; i < common_phrases.length; i++) {
-                builder.add_string_value (common_phrases.get (i));
-            }
-            builder.end_array ();
-
-            builder.end_object ();
-
-            var generator = new Json.Generator ();
-            generator.set_root (builder.get_root ());
-            generator.pretty = true;
-
-            try {
-                var file_stream = File.new_for_path (file_path).replace (null, false, FileCreateFlags.NONE);
-                generator.to_stream (file_stream, null);
-            } catch (Error e) {
-                var str = generator.to_data (null);
-                FileUtils.set_contents (file_path, str);
-            }
-
-            project_file = file_path;
-        } catch (Error e) {
-            show_error (_("保存失败"), e.message);
+        }
+        if (_title_widget != null) {
+            _title_widget.set_subtitle (subtitle);
         }
     }
+
+    private Adw.WindowTitle? find_window_title (Gtk.Widget root) {
+        if (root is Adw.WindowTitle) {
+            return (Adw.WindowTitle) root;
+        }
+
+        var child = root.get_first_child ();
+        while (child != null) {
+            var found = find_window_title (child);
+            if (found != null) {
+                return found;
+            }
+            child = child.get_next_sibling ();
+        }
+        return null;
+    }
+
+    // ─── Dialogs ─────────────────────────────────────────────────────────
 
     public void on_about () {
         var about = new Adw.AboutDialog ();
@@ -1422,92 +929,28 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     public void on_settings () {
-        var current_lang = load_settings_language ();
-
-        var dialog = new Adw.AlertDialog (
-            _("设置"),
-            _("选择界面语言：")
-        );
-
-        var group = new Gtk.CheckButton ();
-
-        var system_btn = new Gtk.CheckButton.with_label (_("跟随系统"));
-        var zh_btn = new Gtk.CheckButton.with_label ("中文");
-        var en_btn = new Gtk.CheckButton.with_label ("English");
-
-        system_btn.set_group (group);
-        zh_btn.set_group (group);
-        en_btn.set_group (group);
-
-        if (current_lang == "" || current_lang == "system") {
-            system_btn.active = true;
-        } else if (current_lang == "zh") {
-            zh_btn.active = true;
-        } else if (current_lang == "en") {
-            en_btn.active = true;
-        }
-
-        var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
-        box.set_margin_start (12);
-        box.set_margin_end (12);
-        box.set_margin_top (12);
-        box.set_margin_bottom (12);
-        box.append (system_btn);
-        box.append (zh_btn);
-        box.append (en_btn);
-
-        dialog.set_extra_child (box);
-        dialog.add_response ("cancel", _("取消"));
-        dialog.add_response ("apply", _("应用"));
-        dialog.set_default_response ("apply");
-        dialog.set_close_response ("cancel");
-
-        dialog.response.connect ((resp) => {
-            if (resp == "apply") {
-                string new_lang;
-                if (system_btn.active) {
-                    new_lang = "system";
-                } else if (zh_btn.active) {
-                    new_lang = "zh";
-                } else {
-                    new_lang = "en";
-                }
-                save_language_setting (new_lang);
-
-                var restart_dialog = new Adw.AlertDialog (
-                    _("提示"),
-                    _("语言设置已保存，重启应用后生效。是否现在重启？")
+        var settings_dialog = new SettingsDialog (this);
+        settings_dialog.restart_requested.connect (() => {
+            try {
+                var app = (FileCollectorApp) this.application;
+                app.quit ();
+                Process.spawn_async (
+                    null,
+                    {"filecollector"},
+                    null,
+                    SpawnFlags.SEARCH_PATH,
+                    null,
+                    null
                 );
-                restart_dialog.add_response ("later", _("稍后"));
-                restart_dialog.add_response ("restart", _("立即重启"));
-                restart_dialog.set_default_response ("restart");
-                restart_dialog.set_close_response ("later");
-
-                restart_dialog.response.connect ((r) => {
-                    if (r == "restart") {
-                        try {
-                            var app = (FileCollectorApp) this.application;
-                            app.quit ();
-                            Process.spawn_async (
-                                null,
-                                {"filecollector"},
-                                null,
-                                SpawnFlags.SEARCH_PATH,
-                                null,
-                                null
-                            );
-                        } catch (Error e) {
-                            warning ("Failed to restart: %s", e.message);
-                        }
-                    }
-                    restart_dialog.destroy ();
-                });
-                restart_dialog.present (this);
+            } catch (Error e) {
+                warning ("Failed to restart: %s", e.message);
             }
-            dialog.destroy ();
         });
+        settings_dialog.present ();
+    }
 
-        dialog.present (this);
+    public void on_manage_phrases () {
+        get_phrases_picker ().show_manage_window ();
     }
 
     private void show_warning (string title, string msg) {
@@ -1528,133 +971,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         toast_overlay.add_toast (toast);
     }
 
-    public void on_manage_phrases () {
-        var window = new Adw.Window ();
-        window.set_transient_for (this);
-        window.set_modal (true);
-        window.set_default_size (400, 400);
-        window.set_title (_("常用语管理"));
-
-        var toolbar_view = new Adw.ToolbarView ();
-        window.set_content (toolbar_view);
-
-        var header_bar = new Adw.HeaderBar ();
-        header_bar.set_title_widget (new Adw.WindowTitle (_("常用语管理"), null));
-        header_bar.set_decoration_layout ("");
-        toolbar_view.add_top_bar (header_bar);
-
-        var cancel_btn = new Gtk.Button ();
-        cancel_btn.set_label (_("取消"));
-        header_bar.pack_start (cancel_btn);
-
-        var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 12);
-        box.set_margin_top (12);
-        box.set_margin_start (12);
-        box.set_margin_end (12);
-        box.set_margin_bottom (12);
-
-        var list_box = new Gtk.ListBox ();
-        list_box.set_selection_mode (Gtk.SelectionMode.SINGLE);
-        list_box.add_css_class ("boxed-list");
-        list_box.set_vexpand (true);
-        box.append (list_box);
-
-        var scrolled = new Gtk.ScrolledWindow ();
-        scrolled.set_child (box);
-        scrolled.set_vexpand (true);
-        toolbar_view.set_content (scrolled);
-
-        refresh_phrases_list (list_box);
-
-        var add_btn = new Gtk.Button ();
-        add_btn.set_label (_("添加"));
-        add_btn.add_css_class ("suggested-action");
-        header_bar.pack_end (add_btn);
-
-        cancel_btn.clicked.connect (() => {
-            window.close ();
-        });
-
-        add_btn.clicked.connect (() => {
-            var add_dialog = new Adw.AlertDialog (_("添加常用语"), null);
-            add_dialog.add_response ("cancel", _("取消"));
-            add_dialog.add_response ("add", _("添加"));
-            add_dialog.set_default_response ("add");
-
-            var entry = new Gtk.Entry ();
-            entry.set_placeholder_text (_("输入常用语"));
-            add_dialog.set_extra_child (entry);
-
-            add_dialog.response.connect ((r) => {
-                if (r == "add") {
-                    var text = entry.get_text ().strip ();
-                    if (text != "") {
-                        common_phrases.add (text);
-                        save_common_phrases ();
-                        refresh_phrases_list (list_box);
-                    }
-                }
-                add_dialog.destroy ();
+    private PhrasesPicker get_phrases_picker () {
+        if (phrases_picker_instance == null) {
+            phrases_picker_instance = new PhrasesPicker (this, common_phrases);
+            phrases_picker_instance.phrase_selected.connect ((phrase, above) => {
+                do_insert_text (phrase, above);
             });
-            add_dialog.present (window);
-        });
-
-        window.present ();
-    }
-
-    private void refresh_phrases_list (Gtk.ListBox list_box) {
-        while (list_box.get_first_child () != null) {
-            list_box.remove (list_box.get_first_child ());
         }
-        for (int i = 0; i < common_phrases.length; i++) {
-            var phrase = common_phrases.get (i);
-            var row = new Adw.ActionRow ();
-            if (phrase.length > 40) {
-                row.set_title (phrase.substring (0, 40) + "...");
-            } else {
-                row.set_title (phrase);
-            }
-
-            var delete_btn = new Gtk.Button ();
-            delete_btn.set_icon_name ("user-trash-symbolic");
-            delete_btn.add_css_class ("destructive-action");
-            delete_btn.add_css_class ("flat");
-            delete_btn.set_valign (Gtk.Align.CENTER);
-            int captured_index = i;
-            delete_btn.clicked.connect (() => {
-                common_phrases.remove_index (captured_index);
-                save_common_phrases ();
-                refresh_phrases_list (list_box);
-            });
-            row.add_suffix (delete_btn);
-            row.set_activatable_widget (delete_btn);
-
-            list_box.append (row);
-        }
-    }
-
-    private void insert_text_above (string content) {
-        var sel = queue_list.get_selected_row ();
-        int current = (sel != null) ? sel.get_index () : -1;
-        int index = (current >= 0) ? current : items.length;
-        items.insert (index, new ItemData ("text", null, content, false));
-        refresh_list ();
-        select_queue_row (index);
-    }
-}
-
-public class ItemData : GLib.Object {
-    public string item_type { get; set; }
-    public string? file_path { get; set; }
-    public string? content { get; set; }
-    public bool force_absolute { get; set; }
-
-    public ItemData (string type, string? path, string? content, bool force_abs) {
-        GLib.Object (
-            item_type: type,
-            file_path: path,
-            content: content,
-            force_absolute: force_abs
-        );
+        return phrases_picker_instance;
     }
 }

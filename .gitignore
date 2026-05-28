@@ -1,4 +1,5 @@
 # Build directories
+build/
 builddir/
 build-dir/
 build-flatpak/

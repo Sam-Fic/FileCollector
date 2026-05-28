@@ -1,10 +1,4 @@
 public class FileCollectorApp : Adw.Application {
-    public signal void open_project_request ();
-    public signal void save_project_request ();
-    public signal void about_request ();
-    public signal void manage_phrases_request ();
-    public signal void settings_request ();
-
     public FileCollectorApp () {
         Object (
             application_id: "com.github.samfic.filecollector",
@@ -15,11 +9,30 @@ public class FileCollectorApp : Adw.Application {
     protected override void activate () {
         var window = new FileCollectorWindow (this);
 
-        open_project_request.connect (() => window.on_open_project ());
-        save_project_request.connect (() => window.on_save_project ());
-        about_request.connect (() => window.on_about ());
-        manage_phrases_request.connect (() => window.on_manage_phrases ());
-        settings_request.connect (() => window.on_settings ());
+        var open_action = lookup_action ("open_project");
+        if (open_action != null) {
+            ((GLib.SimpleAction) open_action).activate.connect (() => window.on_open_project ());
+        }
+
+        var save_action = lookup_action ("save_project");
+        if (save_action != null) {
+            ((GLib.SimpleAction) save_action).activate.connect (() => window.on_save_project ());
+        }
+
+        var about_action = lookup_action ("about");
+        if (about_action != null) {
+            ((GLib.SimpleAction) about_action).activate.connect (() => window.on_about ());
+        }
+
+        var phrases_action = lookup_action ("manage_phrases");
+        if (phrases_action != null) {
+            ((GLib.SimpleAction) phrases_action).activate.connect (() => window.on_manage_phrases ());
+        }
+
+        var settings_action = lookup_action ("settings");
+        if (settings_action != null) {
+            ((GLib.SimpleAction) settings_action).activate.connect (() => window.on_settings ());
+        }
 
         window.present ();
     }
@@ -27,25 +40,11 @@ public class FileCollectorApp : Adw.Application {
     protected override void startup () {
         base.startup ();
 
-        var open_action = new GLib.SimpleAction ("open_project", null);
-        open_action.activate.connect (() => open_project_request ());
-        add_action (open_action);
-
-        var save_action = new GLib.SimpleAction ("save_project", null);
-        save_action.activate.connect (() => save_project_request ());
-        add_action (save_action);
-
-        var about_action = new GLib.SimpleAction ("about", null);
-        about_action.activate.connect (() => about_request ());
-        add_action (about_action);
-
-        var phrases_action = new GLib.SimpleAction ("manage_phrases", null);
-        phrases_action.activate.connect (() => manage_phrases_request ());
-        add_action (phrases_action);
-
-        var settings_action = new GLib.SimpleAction ("settings", null);
-        settings_action.activate.connect (() => settings_request ());
-        add_action (settings_action);
+        add_action (new GLib.SimpleAction ("open_project", null));
+        add_action (new GLib.SimpleAction ("save_project", null));
+        add_action (new GLib.SimpleAction ("about", null));
+        add_action (new GLib.SimpleAction ("manage_phrases", null));
+        add_action (new GLib.SimpleAction ("settings", null));
     }
 
     public static int main (string[] args) {

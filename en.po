@@ -209,13 +209,13 @@ msgstr "Project file is corrupted or in wrong format:\n%s"
 msgid "文件收集与编排工具"
 msgstr "File Collection & Organization Tool"
 
-#: src/window.blp:260 src/window.vala:1413
-msgid "设置"
-msgstr "Settings"
+#: src/window.blp:260
+msgid "语言设置"
+msgstr "Language Settings"
 
-#: src/window.vala:1415
-msgid "选择界面语言："
-msgstr "Select Interface Language:"
+#: src/widgets/settings_dialog.vala:15
+msgid "设置界面语言"
+msgstr "Set Interface Language"
 
 #: src/window.vala:1419
 msgid "跟随系统"
