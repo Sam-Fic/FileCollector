@@ -985,13 +985,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var settings_dialog = new SettingsDialog (this);
         settings_dialog.restart_requested.connect (() => {
             try {
+                string exec_path = FileUtils.read_link ("/proc/self/exe");
                 var app = (FileCollectorApp) this.application;
                 app.quit ();
                 Process.spawn_async (
                     null,
-                    {"filecollector"},
+                    {exec_path},
                     null,
-                    SpawnFlags.SEARCH_PATH,
+                    0,
                     null,
                     null
                 );

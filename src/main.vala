@@ -53,6 +53,8 @@ public class FileCollectorApp : Adw.Application {
             GLib.Environment.set_variable ("LANGUAGE", "en", true);
         } else if (lang_setting == "zh") {
             GLib.Environment.set_variable ("LANGUAGE", "zh_CN", true);
+        } else {
+            GLib.Environment.unset_variable ("LANGUAGE");
         }
 
         Intl.setlocale (LocaleCategory.ALL, "");
