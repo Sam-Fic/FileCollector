@@ -764,13 +764,18 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void update_preview (ItemData item) {
         var buffer = preview_view.get_buffer ();
         if (item.item_type == "text") {
-            buffer.set_text (item.content, -1);
+            buffer.set_text (item.content.make_valid (), -1);
         } else {
             try {
-                string content;
-                size_t length;
-                FileUtils.get_contents (item.file_path, out content, out length);
-                var preview = content.length > 2000 ? content.substring (0, 2000) + "\n\n... [预览截断]" : content;
+                uint8[] file_data;
+                FileUtils.get_data (item.file_path, out file_data);
+                file_data += (uint8)'\0';
+                string content = (string)file_data;
+                var preview = content.make_valid ();
+                if (preview.length > 2000) {
+                    preview = preview.substring (0, 2000).make_valid ();
+                    preview += "\n\n... [预览截断]";
+                }
                 buffer.set_text (preview, -1);
             } catch (Error e) {
                 buffer.set_text ("[读取错误: " + e.message + "]", -1);

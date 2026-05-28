@@ -45,6 +45,10 @@ GtkPaned.paned-no-handle > separator {
     opacity: 0;
 }
 
+#preview_view text {
+    font-family: unset;
+}
+
 listview row {
     margin: 2px 6px;
     border-radius: 9px;
