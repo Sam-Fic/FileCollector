@@ -553,6 +553,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
 
         update_queue_buttons ();
+
+        int sel = (int)queue_selection.selected;
+        if (sel >= 0 && sel < items.length) {
+            update_preview (items.get (sel));
+        } else {
+            preview_view.get_buffer ().set_text ("", -1);
+        }
     }
 
     private void update_queue_buttons () {
