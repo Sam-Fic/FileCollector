@@ -6,7 +6,7 @@ using Json;
 [GtkTemplate (ui = "/com/github/samfic/filecollector/window.ui")]
 public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.TreeView dir_tree;
-    [GtkChild] private unowned Gtk.ListBox queue_list;
+    [GtkChild] private unowned Gtk.ListView queue_list;
     [GtkChild] private unowned Gtk.TextView preview_view;
     [GtkChild] private unowned Gtk.Button open_folder_btn;
     [GtkChild] private unowned Gtk.Button btn_generate;
@@ -30,6 +30,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private bool use_absolute = false;
     private bool show_header = false;
 
+    private GLib.ListStore queue_store;
+    private Gtk.SingleSelection queue_selection;
+
     private GenericArray<ItemData> items;
     private HashTable<string, bool> checked_paths;
     private GenericArray<string> common_phrases;
@@ -52,6 +55,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         ConfigManager.load_common_phrases (common_phrases);
         load_css ();
 
+        setup_queue_list ();
         setup_tree_view ();
         setup_signals ();
         setup_pane_sizes ();
@@ -69,6 +73,63 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     public static string load_settings_language () {
         return ConfigManager.load_settings_language ();
+    }
+
+    private void setup_queue_list () {
+        queue_store = new GLib.ListStore (typeof (ItemData));
+        queue_selection = new Gtk.SingleSelection (queue_store);
+
+        var factory = new Gtk.SignalListItemFactory ();
+        factory.setup.connect ((obj) => {
+            var list_item = obj as Gtk.ListItem;
+
+            var icon = new Gtk.Image ();
+            icon.add_css_class ("dim-label");
+
+            var label = new Gtk.Label ("");
+            label.ellipsize = Pango.EllipsizeMode.END;
+            label.xalign = 0;
+            label.hexpand = true;
+
+            var box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
+            box.margin_top = 6;
+            box.margin_bottom = 6;
+            box.margin_start = 8;
+            box.margin_end = 8;
+            box.append (icon);
+            box.append (label);
+
+            list_item.set_child (box);
+        });
+
+        factory.bind.connect ((obj) => {
+            var list_item = obj as Gtk.ListItem;
+            var data = list_item.get_item () as ItemData;
+            var box = list_item.get_child () as Gtk.Box;
+
+            var icon = box.get_first_child () as Gtk.Image;
+            var label = icon.get_next_sibling () as Gtk.Label;
+
+            string display_name;
+            string icon_name;
+            if (data.item_type == "file") {
+                var file = File.new_for_path (data.file_path);
+                display_name = file.get_basename ();
+                icon_name = data.force_absolute ? "pin-symbolic" : "text-x-generic-symbolic";
+            } else {
+                var preview = data.content;
+                if (preview.length > 40) preview = preview.substring (0, 40) + "...";
+                display_name = preview;
+                icon_name = "edit-symbolic";
+            }
+
+            var pos = list_item.get_position ();
+            label.set_text ("%d. %s".printf ((int)pos + 1, display_name));
+            icon.icon_name = icon_name;
+        });
+
+        queue_list.model = queue_selection;
+        queue_list.factory = factory;
     }
 
     private void setup_tree_view () {
@@ -107,8 +168,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         check_absolute_path.notify["active"].connect (on_path_mode_changed);
         check_write_header.notify["active"].connect (on_header_check_changed);
 
-        queue_list.row_selected.connect (on_queue_selection_changed);
-        queue_list.row_activated.connect (on_queue_row_activated);
+        queue_selection.selection_changed.connect (on_queue_selection_changed);
+        queue_list.activate.connect (on_queue_row_activated);
 
         btn_add_text_above.sensitive = false;
         btn_add_text_below.sensitive = false;
@@ -477,37 +538,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // ─── Queue List ──────────────────────────────────────────────────────
 
     private void refresh_list () {
-        while (true) {
-            var row = queue_list.get_first_child ();
-            if (row == null) break;
-            queue_list.remove (row);
+        uint old_selected = queue_selection.selected;
+
+        uint n = queue_store.get_n_items ();
+        if (n > 0) {
+            queue_store.splice (0, n, null);
         }
 
         for (int i = 0; i < items.length; i++) {
-            var data = items.get (i);
-            var row = new Adw.ActionRow ();
+            queue_store.append (items.get (i));
+        }
 
-            string display_name;
-            string icon_name;
-            if (data.item_type == "file") {
-                var file = File.new_for_path (data.file_path);
-                display_name = file.get_basename ();
-                icon_name = data.force_absolute ? "pin-symbolic" : "text-x-generic-symbolic";
-            } else {
-                var preview = data.content;
-                if (preview.length > 40) preview = preview.substring (0, 40) + "...";
-                display_name = preview;
-                icon_name = "edit-symbolic";
-            }
-
-            row.set_title ("%d. %s".printf (i + 1, display_name));
-
-            var icon = new Gtk.Image.from_icon_name (icon_name);
-            icon.add_css_class ("dim-label");
-            row.add_prefix (icon);
-
-            row.set_activatable (true);
-            queue_list.append (row);
+        if (old_selected < items.length) {
+            queue_selection.selected = old_selected;
         }
     }
 
@@ -608,8 +651,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void do_insert_text (string text, bool above) {
-        var sel = queue_list.get_selected_row ();
-        int current = (sel != null) ? sel.get_index () : -1;
+        int current = (int)queue_selection.selected;
         int index;
         if (current < 0) {
             index = above ? 0 : (int) items.length;
@@ -621,9 +663,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_move_up () {
-        var row = queue_list.get_selected_row ();
-        if (row == null) return;
-        int index = row.get_index ();
+        int index = (int)queue_selection.selected;
+        if (index < 0) return;
         if (index <= 0) return;
         var tmp = items.get (index);
         items.set (index, items.get (index - 1));
@@ -633,9 +674,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_move_down () {
-        var row = queue_list.get_selected_row ();
-        if (row == null) return;
-        int index = row.get_index ();
+        int index = (int)queue_selection.selected;
+        if (index < 0) return;
         if (index >= items.length - 1) return;
         var tmp = items.get (index);
         items.set (index, items.get (index + 1));
@@ -645,9 +685,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_delete_item () {
-        var row = queue_list.get_selected_row ();
-        if (row == null) return;
-        int index = row.get_index ();
+        int index = (int)queue_selection.selected;
+        if (index < 0) return;
         var data = items.get (index);
         if (data.item_type == "file" && !data.force_absolute) {
             if (data.file_path in checked_paths) {
@@ -667,29 +706,30 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void select_queue_row (int index) {
-        var row = queue_list.get_row_at_index (index);
-        if (row != null) queue_list.select_row (row);
+        if (index >= 0 && index < items.length) {
+            queue_selection.selected = index;
+        }
     }
 
-    private void on_queue_selection_changed (Gtk.ListBoxRow? row) {
-        bool has_selection = row != null;
+    private void on_queue_selection_changed (uint position, uint n_items) {
+        bool has_selection = queue_selection.selected >= 0;
         btn_add_text_above.sensitive = has_selection;
         btn_add_text_below.sensitive = has_selection;
         btn_move_up.sensitive = has_selection;
         btn_move_down.sensitive = has_selection;
         btn_delete.sensitive = has_selection;
 
-        if (row == null) {
+        if (!has_selection) {
             preview_view.get_buffer ().set_text ("", -1);
             return;
         }
-        int index = row.get_index ();
+        int index = (int)queue_selection.selected;
         if (index < 0 || index >= items.length) return;
         update_preview (items.get (index));
     }
 
-    private void on_queue_row_activated (Gtk.ListBoxRow row) {
-        int index = row.get_index ();
+    private void on_queue_row_activated (uint position) {
+        int index = (int)position;
         if (index < 0 || index >= items.length) return;
         var data = items.get (index);
         if (data.item_type == "text") {

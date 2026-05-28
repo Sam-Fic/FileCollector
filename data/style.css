@@ -44,3 +44,18 @@ GtkPaned.paned-no-handle > separator {
     background: transparent;
     opacity: 0;
 }
+
+listview row {
+    margin: 2px 6px;
+    border-radius: 9px;
+}
+
+listview row:selected {
+    background-color: @accent_bg_color;
+    border-radius: 9px;
+}
+
+listview row:selected label,
+listview row:selected image {
+    color: @accent_fg_color;
+}
