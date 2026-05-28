@@ -20,7 +20,48 @@ flatpak install --user flathub org.gnome.Platform//50 org.gnome.Sdk//50
 
 ## 二、版本发布完整流程
 
-### 2.1 更新版本号
+### 2.1 版本发布提交规范
+
+**每个版本发布需要两个 commit**：
+
+1. **功能提交**：将代码变更提交到主分支
+2. **发布提交**：修改版本号并打标签（格式见下文）
+
+**版本发布 commit 格式**：
+```bash
+git commit -m "release: v2.0.4"
+git tag v2.0.4
+```
+
+> 标签名称格式必须为 `v` + 版本号（如 `v2.0.4`），与 `metainfo.xml` 中的 `version` 属性一致。
+
+---
+
+### 2.2 确定更新内容范围
+
+在填写版本更新日志时，需要通过 Git 提交历史来确定新版本包含的变更：
+
+```bash
+# 查看当前版本与上一版本之间的所有提交
+git log v2.0.3..HEAD --oneline
+
+# 查看详细变更内容（用于总结更新日志）
+git log v2.0.3..HEAD --stat --name-only
+```
+
+**版本阶段示例**（基于项目历史）：
+
+| 版本 | 包含的提交（从旧到新） | 变更内容摘要 |
+|------|----------------------|-------------|
+| v2.0.2 | `2505ddc` | 初始版本发布 |
+| v2.0.3 | `2403273`, `ca99c89` | 添加剪贴板功能、重构常用语选择器 |
+| v2.0.4 | `c646de4`, `0dd54d6`, `4b6572e`, `fc586d0` | 添加 Flatpak 包下载、优化窗口布局、添加 Toast 提示 |
+
+> 💡 **提示**：当 Git 提交记录中没有明确的版本标记时，请查看最近 20-50 条提交历史，结合 README 和代码变更来判断版本边界。通常版本号更新提交会包含 `meson.build` 和 `metainfo.xml` 的修改。
+
+---
+
+### 2.3 更新版本号
 
 需要修改 **1 个文件**：
 
@@ -28,9 +69,10 @@ flatpak install --user flathub org.gnome.Platform//50 org.gnome.Sdk//50
 |---|---|
 | `meson.build` | 第 2 行 `version: 'x.y.z'`（此为唯一版本源，`configure_file` 自动生成 `Config.VERSION` 供 `window.vala` 使用） |
 
-`metainfo.xml` 需在 `<releases>` 内新增 `<release>` 条目。请查看 git 提交记录，获取上版本到新版本之间的变更内容，简要描述在 `<description>` 中。
+`metainfo.xml` 需在 `<releases>` 内新增 `<release>` 条目。请查看 git 提交记录，
+获取上版本到新版本之间的变更内容，简要描述在 `<description>` 中。
 
-`metainfo.xml` 新增条目的格式示例：
+`metainfo.xml` 新增条目的格式示例（请严格遵守规范）：
 
 ```xml
 <release version="2.0.4" date="2026-05-27">
@@ -46,7 +88,7 @@ flatpak install --user flathub org.gnome.Platform//50 org.gnome.Sdk//50
 
 > ⚠️ 注意：`<release>` 条目应按版本号**从新到旧**排列，最新的在最上面。
 
-### 2.2 提交并打标签
+### 2.4 提交并打标签
 
 ```bash
 git add -A
@@ -54,11 +96,9 @@ git commit -m "release: v2.0.4"
 git tag v2.0.4
 ```
 
-> 标签名称格式必须为 `v` + 版本号（如 `v2.0.4`），与 `metainfo.xml` 中的 `version` 属性一致。
-
 > 💡 **发布到 GitHub Releases 时**：`metainfo.xml` 里的发布描述不会自动同步到 GitHub。创建 Release 时，记得把 `<release>` 中的 `<description>` 内容复制到 Release notes 中，这样用户可以在 GitHub 页面上直接看到更新日志。
 
-### 2.3 构建 Flatpak 包
+### 2.5 构建 Flatpak 包
 
 #### 方式 A：仅本地安装（快速验证）
 
@@ -85,7 +125,7 @@ flatpak build-bundle flatpak-repo filecollector-2.0.4.flatpak com.github.samfic.
 > error: 'build-dir' is not a valid repository: opening repo: opendir(objects): No such file or directory
 > ```
 
-### 2.4 验证构建结果
+### 2.6 验证构建结果
 
 ```bash
 # 检查 bundle 文件大小
@@ -105,9 +145,9 @@ grep "release version" build-dir/files/share/metainfo/com.github.samfic.filecoll
 > flatpak install --user filecollector-2.0.4.flatpak
 > ```
 
-### 2.5 修改源码后重新构建
+### 2.7 修改源码后重新构建
 
-如果在构建 flatpak **之后**又修改了源码（如添加 Website 链接、修正版本号等），**必须重新执行 2.3 节的完整构建流程**（flatpak-builder + build-bundle），否则安装的仍是旧构建。仅重新 `meson compile` 不会影响已安装的 flatpak 包。
+如果在构建 flatpak **之后**又修改了源码（如添加 Website 链接、修正版本号等），**必须重新执行 2.5 节的完整构建流程**（flatpak-builder + build-bundle），否则安装的仍是旧构建。仅重新 `meson compile` 不会影响已安装的 flatpak 包。
 
 ## 三、项目结构说明
 
@@ -206,10 +246,11 @@ flatpak build-bundle flatpak-repo filecollector-2.0.x.flatpak com.github.samfic.
 # ──────────────────────────────────────
 # 完整的版本发布流程
 # ──────────────────────────────────────
-# 1. 编辑 meson.build 更新版本号
-# 2. 编辑 metainfo.xml 添加发布记录
-# 3. git add -A && git commit -m "release: vX.Y.Z"
-# 4. git tag vX.Y.Z
-# 5. 执行上面的构建 + bundle 命令
-# 6. 上传 .flatpak 文件到 GitHub Releases
+# 1. git log 查看上一版本到现在的提交，总结更新内容
+# 2. 编辑 meson.build 更新版本号
+# 3. 编辑 metainfo.xml 添加发布记录
+# 4. git add -A && git commit -m "release: vX.Y.Z"
+# 5. git tag vX.Y.Z
+# 6. 执行上面的构建 + bundle 命令
+# 7. 上传 .flatpak 文件到 GitHub Releases
 ```
