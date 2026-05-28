@@ -109,6 +109,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         queue_list.row_selected.connect (on_queue_selection_changed);
         queue_list.row_activated.connect (on_queue_row_activated);
+
+        btn_add_text_above.sensitive = false;
+        btn_add_text_below.sensitive = false;
+        btn_move_up.sensitive = false;
+        btn_move_down.sensitive = false;
+        btn_delete.sensitive = false;
     }
 
     private void setup_pane_sizes () {
@@ -666,6 +672,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_queue_selection_changed (Gtk.ListBoxRow? row) {
+        bool has_selection = row != null;
+        btn_add_text_above.sensitive = has_selection;
+        btn_add_text_below.sensitive = has_selection;
+        btn_move_up.sensitive = has_selection;
+        btn_move_down.sensitive = has_selection;
+        btn_delete.sensitive = has_selection;
+
         if (row == null) {
             preview_view.get_buffer ().set_text ("", -1);
             return;
