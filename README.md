@@ -13,7 +13,7 @@ FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排
 
 ## 界面预览
 
-![FileCollector Screenshot](./screenshots/screenshot.png)
+![FileCollector Screenshot](./screenshots/screenshot_ch.png)
 
 ## 功能特性
 
