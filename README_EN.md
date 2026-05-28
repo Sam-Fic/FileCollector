@@ -63,7 +63,7 @@ meson compile
 sudo meson install
 ```
 
-> **Tip**: If you have built before, simply re-run `meson compile` inside the `build/` directory after modifying source code for incremental compilation.
+> **Tip**: If you have built before, re-run `meson compile` inside the `build/` directory for incremental compilation of the binary. If you modified translation files (`en.po` or `_()` strings in UI), also re-run `sudo meson install` to deploy the updated `.mo` file to the system path.
 
 ### Run
 

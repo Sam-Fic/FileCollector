@@ -63,7 +63,7 @@ meson compile
 sudo meson install
 ```
 
-> **提示**：如果之前已经构建过，修改源码后只需在 `build/` 目录下重新运行 `meson compile` 即可增量编译。
+> **提示**：如果之前已经构建过，修改源码后只需在 `build/` 目录下重新运行 `meson compile` 即可增量编译二进制。若修改了翻译文件（`en.po` 或 UI 中的 `_()` 字符串），则需要重新运行 `sudo meson install` 以更新翻译文件到系统路径。
 
 ### 运行
 
