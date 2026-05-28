@@ -55,6 +55,7 @@ sources = files(
   'src/services/file_generator.vala',
   'src/services/project_manager.vala',
   'src/utils/tree_helper.vala',
+  'src/utils/encoding_helper.vala',
   'src/widgets/settings_dialog.vala',
   'src/widgets/phrases_picker.vala'
 )

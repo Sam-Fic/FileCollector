@@ -33,9 +33,17 @@ msgstr "FileCollector"
 msgid "未设置工作目录"
 msgstr "No Working Directory Set"
 
+#: src/window.blp:41
+msgid "资源管理器"
+msgstr "File Browser"
+
 #: src/window.blp:93
 msgid "输出编排列表"
 msgstr "Output Queue List"
+
+#: src/window.blp:233
+msgid "预览"
+msgstr "Preview"
 
 #: src/window.blp:122
 msgid "添加外部文件"

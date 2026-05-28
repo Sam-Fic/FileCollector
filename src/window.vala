@@ -776,9 +776,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             try {
                 uint8[] file_data;
                 FileUtils.get_data (item.file_path, out file_data);
-                file_data += (uint8)'\0';
-                string content = (string)file_data;
-                var preview = content.make_valid ();
+                var preview = EncodingHelper.decode_to_utf8 (file_data);
                 if (preview.length > 2000) {
                     preview = preview.substring (0, 2000).make_valid ();
                     preview += "\n\n... [预览截断]";
