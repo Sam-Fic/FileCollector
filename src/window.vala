@@ -1280,11 +1280,84 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         toast_overlay.add_toast (toast);
     }
 
+    private void show_edit_phrase_dialog (string old_text, int index) {
+        var picker = get_phrases_picker ();
+        var window = new Adw.Window ();
+        window.set_transient_for (this);
+        window.set_modal (true);
+        window.set_default_size (450, 350);
+        window.set_title (_("编辑常用语"));
+
+        var toolbar_view = new Adw.ToolbarView ();
+        window.set_content (toolbar_view);
+
+        var header_bar = new Adw.HeaderBar ();
+        header_bar.set_decoration_layout ("");
+        toolbar_view.add_top_bar (header_bar);
+
+        var cancel_btn = new Gtk.Button ();
+        cancel_btn.set_label (_("取消"));
+        header_bar.pack_start (cancel_btn);
+
+        var ok_btn = new Gtk.Button ();
+        ok_btn.set_label (_("确定"));
+        ok_btn.add_css_class ("suggested-action");
+        header_bar.pack_end (ok_btn);
+
+        var content = new Gtk.Box (Gtk.Orientation.VERTICAL, 12);
+        content.set_margin_top (12);
+        content.set_margin_start (12);
+        content.set_margin_end (12);
+        content.set_margin_bottom (12);
+
+        var frame = new Gtk.Frame (null);
+        frame.add_css_class ("card");
+
+        var scrolled = new Gtk.ScrolledWindow ();
+        scrolled.set_vexpand (true);
+        scrolled.set_min_content_height (120);
+
+        var text_view = new Gtk.TextView ();
+        text_view.set_wrap_mode (Gtk.WrapMode.WORD_CHAR);
+        text_view.set_top_margin (12);
+        text_view.set_bottom_margin (12);
+        text_view.set_left_margin (12);
+        text_view.set_right_margin (12);
+        text_view.get_buffer ().set_text (old_text, -1);
+
+        scrolled.set_child (text_view);
+        frame.set_child (scrolled);
+        content.append (frame);
+
+        toolbar_view.set_content (content);
+
+        cancel_btn.clicked.connect (() => {
+            window.destroy ();
+        });
+
+        ok_btn.clicked.connect (() => {
+            var buffer = text_view.get_buffer ();
+            Gtk.TextIter start, end;
+            buffer.get_start_iter (out start);
+            buffer.get_end_iter (out end);
+            var text = buffer.get_text (start, end, false);
+            if (text != null && text.strip () != "") {
+                picker.update_phrase (index, text);
+            }
+            window.destroy ();
+        });
+
+        window.present ();
+    }
+
     private PhrasesPicker get_phrases_picker () {
         if (phrases_picker_instance == null) {
             phrases_picker_instance = new PhrasesPicker (this, common_phrases);
             phrases_picker_instance.phrase_selected.connect ((phrase, above) => {
                 do_insert_text (phrase, above);
+            });
+            phrases_picker_instance.edit_phrase_requested.connect ((old_text, index) => {
+                show_edit_phrase_dialog (old_text, index);
             });
         }
         return phrases_picker_instance;
