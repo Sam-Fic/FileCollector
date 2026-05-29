@@ -60,13 +60,12 @@ title: _("FileCollector - 文件收集与编排工具");
               css-classes: ["panel-title"];
             }
 
-            Gtk.SearchEntry search_entry {
-              placeholder-text: _("搜索…");
-              margin-top: 6;
-              margin-bottom: 6;
-              margin-start: 12;
-              margin-end: 12;
-            }
+             Gtk.SearchEntry search_entry {
+               placeholder-text: _("搜索…");
+               margin-bottom: 6;
+               margin-start: 12;
+               margin-end: 12;
+             }
 
             ScrolledWindow {
              hexpand: true;
@@ -120,7 +119,7 @@ title: _("FileCollector - 文件收集与编排工具");
                vexpand: true;
                margin-start: 12;
                margin-end: 12;
-               margin-top: 6;
+               margin-top: 0;
                margin-bottom: 6;
               ListView queue_list {
               }
@@ -245,20 +244,20 @@ title: _("FileCollector - 文件收集与编排工具");
            margin-start: 6;
            margin-end: 6;
            css-classes: ["right-panel", "panel-frame"];
-           Box {
-             styles ["card"]
-             orientation: vertical;
-             spacing: 8;
-             hexpand: true;
-             vexpand: true;
+            Box {
+              styles ["card"]
+              orientation: vertical;
+              spacing: 0;
+              hexpand: true;
+              vexpand: true;
 
-             Label {
-              label: _("预览");
-              halign: center;
-              css-classes: ["panel-title"];
-            }
+              Label {
+               label: _("预览");
+               halign: center;
+               css-classes: ["panel-title"];
+             }
 
-             ScrolledWindow {
+              ScrolledWindow {
                hexpand: true;
                vexpand: true;
                margin-start: 12;
