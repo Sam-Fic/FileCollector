@@ -78,6 +78,26 @@ public class FileCollectorApp : Adw.Application {
         set_accels_for_action ("app.quit", {"<Control>q"});
     }
 
+    private static void setup_i18n (string locale_dir) {
+        Intl.bindtextdomain (Config.GETTEXT_PACKAGE, locale_dir);
+        Intl.bind_textdomain_codeset (Config.GETTEXT_PACKAGE, "UTF-8");
+        Intl.textdomain (Config.GETTEXT_PACKAGE);
+    }
+
+    private static void setup_i18n_default () {
+        string locale_dir = Config.LOCALE_DIR;
+        var mo_path = Path.build_filename (locale_dir, "en", "LC_MESSAGES", Config.GETTEXT_PACKAGE + ".mo");
+        if (!FileUtils.test (mo_path, FileTest.EXISTS)) {
+            try {
+                string exe_path = FileUtils.read_link ("/proc/self/exe");
+                locale_dir = Path.get_dirname (exe_path);
+            } catch (Error e) {
+                // keep default locale_dir
+            }
+        }
+        setup_i18n (locale_dir);
+    }
+
     public static int main (string[] args) {
         // Check for --gui flag: forces GUI mode even with other CLI args
         bool force_gui = false;
@@ -94,6 +114,7 @@ public class FileCollectorApp : Adw.Application {
 
         if (!force_gui && CliController.is_cli_mode (filtered_args)) {
             Intl.setlocale (LocaleCategory.ALL, "");
+            setup_i18n_default ();
             var cli = new CliController ();
             return cli.run (filtered_args);
         }
@@ -108,20 +129,7 @@ public class FileCollectorApp : Adw.Application {
         }
 
         Intl.setlocale (LocaleCategory.ALL, "");
-
-        string locale_dir = Config.LOCALE_DIR;
-        var mo_path = Path.build_filename (locale_dir, "en", "LC_MESSAGES", Config.GETTEXT_PACKAGE + ".mo");
-        if (!FileUtils.test (mo_path, FileTest.EXISTS)) {
-            try {
-                string exe_path = FileUtils.read_link ("/proc/self/exe");
-                locale_dir = Path.get_dirname (exe_path);
-            } catch (Error e) {
-                // keep default locale_dir
-            }
-        }
-        Intl.bindtextdomain (Config.GETTEXT_PACKAGE, locale_dir);
-        Intl.bind_textdomain_codeset (Config.GETTEXT_PACKAGE, "UTF-8");
-        Intl.textdomain (Config.GETTEXT_PACKAGE);
+        setup_i18n_default ();
 
         var app = new FileCollectorApp ();
 

@@ -1175,7 +1175,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var dialog = new Gtk.FileDialog ();
         dialog.title = _("打开项目");
         var filter = new Gtk.FileFilter ();
-        filter.name = _("项目文件 (*.project.json)");
+        filter.name = _("项目文件 (*.fcol, *.fcol.json, *.project.json)");
+        filter.add_pattern ("*.fcol");
+        filter.add_pattern ("*.fcol.json");
         filter.add_pattern ("*.project.json");
         var filters_list = new GLib.ListStore (typeof (Gtk.FileFilter));
         filters_list.append (filter);
@@ -1257,8 +1259,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var dialog = new Gtk.FileDialog ();
         dialog.title = _("保存项目");
         var filter = new Gtk.FileFilter ();
-        filter.name = _("项目文件 (*.project.json)");
-        filter.add_pattern ("*.project.json");
+        filter.name = _("项目文件 (*.fcol)");
+        filter.add_pattern ("*.fcol");
         var filters_list = new GLib.ListStore (typeof (Gtk.FileFilter));
         filters_list.append (filter);
         dialog.set_filters (filters_list);
@@ -1266,7 +1268,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         dialog.save.begin (this, null, (obj, res) => {
             try {
                 var file = dialog.save.end (res);
-                project_file = file.get_path ();
+                var path = file.get_path ();
+                if (!path.has_suffix (".fcol")) {
+                    path += ".fcol";
+                }
+                project_file = path;
                 ProjectManager.write_project_file (
                     project_file, work_dir, use_absolute, show_header,
                     items, checked_paths, common_phrases

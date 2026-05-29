@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: filecollector\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-28 01:58+0800\n"
+"POT-Creation-Date: 2026-05-30 01:38+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,142 +17,535 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/window.vala:344
+#: src/cli.vala:85
+#, c-format
+msgid "错误: 未知参数: %s\n"
+msgstr ""
+
+#: src/cli.vala:86
+msgid "使用 --help 查看帮助信息\n"
+msgstr ""
+
+#: src/cli.vala:105
+#, c-format
+msgid "项目已保存到: %s\n"
+msgstr ""
+
+#: src/cli.vala:107
+#, c-format
+msgid "保存项目失败: %s\n"
+msgstr ""
+
+#: src/cli.vala:114
+msgid "错误: 编排列表为空，无法导出\n"
+msgstr ""
+
+#: src/cli.vala:119
+#, c-format
+msgid "合并文本已导出到: %s\n"
+msgstr ""
+
+#: src/cli.vala:121
+#, c-format
+msgid "导出失败: %s\n"
+msgstr ""
+
+#: src/cli.vala:130
+#, c-format
+msgid "错误: 参数 '%s' 缺少必要的值\n"
+msgstr ""
+
+#: src/cli.vala:134
+#, c-format
+msgid "FileCollector %s — CLI 命令行模式\n"
+msgstr ""
+
+#: src/cli.vala:136
+msgid "用法: filecollector [选项...] [--gui]"
+msgstr ""
+
+#: src/cli.vala:139
+msgid "工作目录:"
+msgstr ""
+
+#: src/cli.vala:140
+msgid "设置工作目录"
+msgstr ""
+
+#: src/cli.vala:142
+msgid "文件选择:"
+msgstr ""
+
+#: src/cli.vala:143
+msgid "添加文件到编排列表 (可多次使用)"
+msgstr ""
+
+#: src/cli.vala:144
+msgid "添加自定义文字 (可多次使用)"
+msgstr ""
+
+#: src/cli.vala:146
+msgid "编排调整:"
+msgstr ""
+
+#: src/cli.vala:147
+msgid "将索引 FROM 处的项目移动到索引 TO"
+msgstr ""
+
+#: src/cli.vala:148
+msgid "删除索引 INDEX 处的项目"
+msgstr ""
+
+#: src/cli.vala:149
+msgid "清空编排列表"
+msgstr ""
+
+#: src/cli.vala:150
+msgid "列出当前编排列表"
+msgstr ""
+
+#: src/cli.vala:152
+msgid "导出设置:"
+msgstr ""
+
+#: src/cli.vala:153
+msgid "导出合并文本到 PATH"
+msgstr ""
+
+#: src/cli.vala:154 src/window.blp:195
+msgid "使用绝对路径"
+msgstr ""
+
+#: src/cli.vala:155
+msgid "添加头部信息 (工作目录路径)"
+msgstr ""
+
+#: src/cli.vala:157
+msgid "项目文件:"
+msgstr ""
+
+#: src/cli.vala:158
+msgid "从项目文件加载状态"
+msgstr ""
+
+#: src/cli.vala:159
+msgid "将当前状态保存到项目文件"
+msgstr ""
+
+#: src/cli.vala:161
+msgid "GUI 模式:"
+msgstr ""
+
+#: src/cli.vala:162
+msgid "使用其他 CLI 参数初始化后打开图形界面"
+msgstr ""
+
+#: src/cli.vala:164
+msgid "其他:"
+msgstr ""
+
+#: src/cli.vala:165
+msgid "显示此帮助信息"
+msgstr ""
+
+#: src/cli.vala:167
+msgid "示例:"
+msgstr ""
+
+#: src/cli.vala:169
+msgid "构建并导出:"
+msgstr ""
+
+#: src/cli.vala:173
+msgid "配置文件"
+msgstr ""
+
+#: src/cli.vala:178
+msgid "从项目文件导出:"
+msgstr ""
+
+#: src/cli.vala:181
+msgid "构建并保存项目:"
+msgstr ""
+
+#: src/cli.vala:186
+msgid "查看编排列表:"
+msgstr ""
+
+#: src/cli.vala:189
+msgid "加载项目后打开 GUI 手动调整:"
+msgstr ""
+
+#: src/cli.vala:192
+msgid "用 CLI 参数初始化状态后打开 GUI:"
+msgstr ""
+
+#: src/cli.vala:200
+#, c-format
+msgid "错误: 目录不存在: %s\n"
+msgstr ""
+
+#: src/cli.vala:204
+#, c-format
+msgid "✓ 工作目录已设置: %s\n"
+msgstr ""
+
+#: src/cli.vala:211
+#, c-format
+msgid "错误: 文件不存在: %s\n"
+msgstr ""
+
+#: src/cli.vala:217
+#, c-format
+msgid "✓ 已添加文件 [%d]: %s\n"
+msgstr ""
+
+#: src/cli.vala:223
+#, c-format
+msgid "✓ 已添加文字 [%d]: %s\n"
+msgstr ""
+
+#: src/cli.vala:228
+#, c-format
+msgid "错误: 源索引 %d 超出范围 (0-%d)\n"
+msgstr ""
+
+#: src/cli.vala:232
+#, c-format
+msgid "错误: 目标索引 %d 超出范围 (0-%d)\n"
+msgstr ""
+
+#: src/cli.vala:239
+#, c-format
+msgid "✓ 已将项目从索引 %d 移动到 %d\n"
+msgstr ""
+
+#: src/cli.vala:245
+#, c-format
+msgid "错误: 索引 %d 超出范围 (0-%d)\n"
+msgstr ""
+
+#: src/cli.vala:253
+#, c-format
+msgid "✓ 已删除索引 %d 处的项目\n"
+msgstr ""
+
+#: src/cli.vala:260
+msgid "✓ 已清空编排列表\n"
+msgstr ""
+
+#: src/cli.vala:265
+msgid "编排列表为空\n"
+msgstr ""
+
+#: src/cli.vala:271
+#, c-format
+msgid "当前编排列表 (%d 项):\n"
+msgstr ""
+
+#: src/cli.vala:276
+msgid "文件"
+msgstr ""
+
+#: src/cli.vala:280
+msgid "文字"
+msgstr ""
+
+#: src/cli.vala:284
+#, c-format
+msgid "配置: 绝对路径=%s  头部=%s\n"
+msgstr ""
+
+#: src/cli.vala:287
+#, c-format
+msgid "工作目录: %s\n"
+msgstr ""
+
+#: src/cli.vala:294
+#, c-format
+msgid "错误: 项目文件不存在: %s\n"
+msgstr ""
+
+#: src/cli.vala:353
+#, c-format
+msgid "✓ 已从项目文件加载: %s (共 %d 项)\n"
+msgstr ""
+
+#: src/cli.vala:356
+#, c-format
+msgid "加载项目失败: %s\n"
+msgstr ""
+
+#: src/window.vala:727
 msgid "选择工作文件夹"
 msgstr ""
 
-#: src/window.vala:370 src/window.blp:19
-msgid "未设置工作目录"
-msgstr ""
-
-#: src/window.vala:373 src/window.vala:1281 src/window.blp:18
-msgid "FileCollector"
-msgstr ""
-
-#: src/window.vala:523
+#: src/window.vala:899
 msgid "选择外部文件"
 msgstr ""
 
-#: src/window.vala:545
-msgid "插入自定义文字"
-msgstr ""
-
-#: src/window.vala:555 src/window.vala:692 src/window.vala:732
-#: src/window.vala:876 src/window.vala:1325 src/window.vala:1358
-msgid "取消"
-msgstr ""
-
-#: src/window.vala:559 src/window.vala:877 src/window.vala:1293
-#: src/window.vala:1299
-msgid "确定"
-msgstr ""
-
-#: src/window.vala:564
-msgid "常用语"
-msgstr ""
-
-#: src/window.vala:636
-msgid "暂无常用语"
-msgstr ""
-
-#: src/window.vala:681 src/window.vala:687
-msgid "选择常用语"
-msgstr ""
-
-#: src/window.vala:696 src/window.vala:733 src/window.vala:1348
-#: src/window.vala:1359
-msgid "添加"
-msgstr ""
-
-#: src/window.vala:730 src/window.vala:1357
-msgid "添加常用语"
-msgstr ""
-
-#: src/widgets/phrases_picker.vala:236
-msgid "编辑常用语"
-msgstr ""
-
-#: src/window.vala:736 src/window.vala:1363
-msgid "输入常用语"
-msgstr ""
-
-#: src/window.vala:872
+#: src/window.vala:921
 msgid "编辑文字"
 msgstr ""
 
-#: src/window.vala:872
-msgid "修改文字内容："
+#: src/window.vala:921
+msgid "插入自定义文字"
 msgstr ""
 
-#: src/window.vala:929 src/window.vala:1009
+#: src/window.vala:931 src/window.vala:1483 src/widgets/settings_dialog.vala:47
+#: src/widgets/phrases_picker.vala:41 src/widgets/phrases_picker.vala:94
+#: src/widgets/phrases_picker.vala:193
+msgid "取消"
+msgstr ""
+
+#: src/window.vala:935 src/window.vala:1451 src/window.vala:1457
+#: src/window.vala:1487
+msgid "确定"
+msgstr ""
+
+#: src/window.vala:940
+msgid "常用语"
+msgstr ""
+
+#: src/window.vala:1129 src/window.vala:1160
 msgid "编排列表为空"
 msgstr ""
 
-#: src/window.vala:929 src/window.vala:1009
+#: src/window.vala:1129 src/window.vala:1160
 msgid "请先勾选文件或添加文字内容。"
 msgstr ""
 
-#: src/window.vala:934
+#: src/window.vala:1134
 msgid "保存合并文本"
 msgstr ""
 
-#: src/window.vala:936
+#: src/window.vala:1136
 msgid "文本文件 (*.txt)"
 msgstr ""
 
-#: src/window.vala:952 src/window.vala:1198 src/window.vala:1275
-msgid "保存失败"
-msgstr ""
-
-#: src/window.vala:1001
+#: src/window.vala:1150
 msgid "合并文本已保存"
 msgstr ""
 
-#: src/window.vala:1003
-msgid "生成失败"
+#: src/window.vala:1153 src/window.vala:1252 src/window.vala:1276
+msgid "保存失败"
 msgstr ""
 
-#: src/window.vala:1034
+#: src/window.vala:1166
 msgid "合并文本已复制到剪贴板"
 msgstr ""
 
-#: src/window.vala:1036
+#: src/window.vala:1168
 msgid "复制失败"
 msgstr ""
 
-#: src/window.vala:1042
+#: src/window.vala:1176 src/window.vala:1376
 msgid "打开项目"
 msgstr ""
 
-#: src/window.vala:1044 src/window.vala:1185
+#: src/window.vala:1178 src/window.vala:1260
 msgid "项目文件 (*.project.json)"
 msgstr ""
 
-#: src/window.vala:1056
+#: src/window.vala:1236
 msgid "打开失败"
 msgstr ""
 
-#: src/window.vala:1149
-msgid "加载失败"
-msgstr ""
-
-#: src/window.vala:1149
-#, c-format
-msgid ""
-"项目文件损坏或格式不正确:\n"
-"%s"
-msgstr ""
-
-#: src/window.vala:1183 src/window.blp:258
+#: src/window.vala:1258 src/window.vala:1377 src/window.blp:277
 msgid "保存项目"
 msgstr ""
 
-#: src/window.vala:1284
+#: src/window.vala:1284 src/window.blp:19
+msgid "未设置工作目录"
+msgstr ""
+
+#: src/window.vala:1286 src/window.vala:1321 src/window.blp:18
+msgid "FileCollector"
+msgstr ""
+
+#: src/window.vala:1324
 msgid "文件收集与编排工具"
 msgstr ""
 
-#: src/window.vala:1314 src/window.vala:1320 src/window.blp:259
-msgid "常用语管理"
+#: src/window.vala:1329 src/window.vala:1355 src/window.vala:1388
+#: src/window.blp:284
+msgid "键盘快捷键"
+msgstr ""
+
+#: src/window.vala:1330
+msgid "Ctrl+O    打开项目"
+msgstr ""
+
+#: src/window.vala:1331
+msgid "Ctrl+S    保存项目"
+msgstr ""
+
+#: src/window.vala:1332
+msgid "Ctrl+N    清空列表"
+msgstr ""
+
+#: src/window.vala:1333
+msgid "Ctrl+E    添加外部文件"
+msgstr ""
+
+#: src/window.vala:1334
+msgid "Ctrl+I    上方插入文本"
+msgstr ""
+
+#: src/window.vala:1335
+msgid "Ctrl+Shift+I    下方插入文本"
+msgstr ""
+
+#: src/window.vala:1336
+msgid "Ctrl+↑    上移"
+msgstr ""
+
+#: src/window.vala:1337
+msgid "Ctrl+↓    下移"
+msgstr ""
+
+#: src/window.vala:1338
+msgid "Delete    删除"
+msgstr ""
+
+#: src/window.vala:1339
+msgid "Ctrl+G    生成合并文本"
+msgstr ""
+
+#: src/window.vala:1340
+msgid "Ctrl+Shift+C    生成到剪贴板"
+msgstr ""
+
+#: src/window.vala:1341
+msgid "Ctrl+,    语言设置"
+msgstr ""
+
+#: src/window.vala:1342
+msgid "Ctrl+/    键盘快捷键"
+msgstr ""
+
+#: src/window.vala:1343
+msgid "F1    关于"
+msgstr ""
+
+#: src/window.vala:1344
+msgid "Ctrl+Q    退出"
+msgstr ""
+
+#: src/window.vala:1376
+msgid "Ctrl+O"
+msgstr ""
+
+#: src/window.vala:1377
+msgid "Ctrl+S"
+msgstr ""
+
+#: src/window.vala:1378
+msgid "清空列表"
+msgstr ""
+
+#: src/window.vala:1378
+msgid "Ctrl+N"
+msgstr ""
+
+#: src/window.vala:1379 src/window.blp:131
+msgid "添加外部文件"
+msgstr ""
+
+#: src/window.vala:1379
+msgid "Ctrl+E"
+msgstr ""
+
+#: src/window.vala:1380 src/window.blp:138
+msgid "上方插入文本"
+msgstr ""
+
+#: src/window.vala:1380
+msgid "Ctrl+I"
+msgstr ""
+
+#: src/window.vala:1381 src/window.blp:145
+msgid "下方插入文本"
+msgstr ""
+
+#: src/window.vala:1381
+msgid "Ctrl+Shift+I"
+msgstr ""
+
+#: src/window.vala:1382 src/window.blp:161
+msgid "上移"
+msgstr ""
+
+#: src/window.vala:1382
+msgid "Ctrl+↑"
+msgstr ""
+
+#: src/window.vala:1383 src/window.blp:168
+msgid "下移"
+msgstr ""
+
+#: src/window.vala:1383
+msgid "Ctrl+↓"
+msgstr ""
+
+#: src/window.vala:1384 src/window.blp:176
+msgid "删除"
+msgstr ""
+
+#: src/window.vala:1384
+msgid "Delete"
+msgstr ""
+
+#: src/window.vala:1385 src/window.blp:213
+msgid "生成合并文本"
+msgstr ""
+
+#: src/window.vala:1385
+msgid "Ctrl+G"
+msgstr ""
+
+#: src/window.vala:1386
+msgid "生成到剪贴板"
+msgstr ""
+
+#: src/window.vala:1386
+msgid "Ctrl+Shift+C"
+msgstr ""
+
+#: src/window.vala:1387 src/window.blp:281
+msgid "语言设置"
+msgstr ""
+
+#: src/window.vala:1387
+msgid "Ctrl+,"
+msgstr ""
+
+#: src/window.vala:1388
+msgid "Ctrl+/"
+msgstr ""
+
+#: src/window.vala:1389
+msgid "关于"
+msgstr ""
+
+#: src/window.vala:1389
+msgid "F1"
+msgstr ""
+
+#: src/window.vala:1390
+msgid "退出"
+msgstr ""
+
+#: src/window.vala:1390
+msgid "Ctrl+Q"
+msgstr ""
+
+#: src/window.vala:1413
+msgid "关闭"
+msgstr ""
+
+#: src/window.vala:1473
+msgid "编辑常用语"
 msgstr ""
 
 #: src/window.blp:7
@@ -163,66 +556,110 @@ msgstr ""
 msgid "打开工作目录"
 msgstr ""
 
-#: src/window.blp:92
+#: src/window.blp:57
+msgid "资源管理器"
+msgstr ""
+
+#: src/window.blp:104
 msgid "输出编排列表"
 msgstr ""
 
-#: src/window.blp:121
-msgid "添加外部文件"
-msgstr ""
-
-#: src/window.blp:128
-msgid "上方插入文本"
-msgstr ""
-
-#: src/window.blp:135
-msgid "下方插入文本"
-msgstr ""
-
-#: src/window.blp:151
-msgid "上移"
-msgstr ""
-
-#: src/window.blp:158
-msgid "下移"
-msgstr ""
-
-#: src/window.blp:166
-msgid "删除"
-msgstr ""
-
-#: src/window.blp:174
+#: src/window.blp:184
 msgid "清空"
 msgstr ""
 
-#: src/window.blp:185
-msgid "使用绝对路径"
-msgstr ""
-
-#: src/window.blp:186
+#: src/window.blp:196
 msgid "在文件头部标注工作目录信息"
 msgstr ""
 
-#: src/window.blp:203
-msgid "生成合并文本"
-msgstr ""
-
-#: src/window.blp:212
+#: src/window.blp:222
 msgid "生成合并文本到剪贴板"
 msgstr ""
 
-#: src/window.blp:257
+#: src/window.blp:247
+msgid "预览"
+msgstr ""
+
+#: src/window.blp:276
 msgid "打开项目..."
 msgstr ""
 
-#: src/window.blp:260
-msgid "语言设置"
+#: src/window.blp:280 src/widgets/phrases_picker.vala:83
+#: src/widgets/phrases_picker.vala:89
+msgid "常用语管理"
 msgstr ""
 
-#: src/window.blp:260
+#: src/window.blp:285
 msgid "关于 FileCollector"
 msgstr ""
 
 #: src/widgets/settings_dialog.vala:15
 msgid "设置界面语言"
+msgstr ""
+
+#: src/widgets/settings_dialog.vala:21
+msgid "跟随系统"
+msgstr ""
+
+#: src/widgets/settings_dialog.vala:48
+msgid "应用"
+msgstr ""
+
+#: src/widgets/settings_dialog.vala:66
+msgid "提示"
+msgstr ""
+
+#: src/widgets/settings_dialog.vala:67
+msgid "语言设置已保存，重启应用后生效。是否现在重启？"
+msgstr ""
+
+#: src/widgets/settings_dialog.vala:69
+msgid "稍后"
+msgstr ""
+
+#: src/widgets/settings_dialog.vala:70
+msgid "立即重启"
+msgstr ""
+
+#: src/widgets/phrases_picker.vala:30 src/widgets/phrases_picker.vala:36
+msgid "选择常用语"
+msgstr ""
+
+#: src/widgets/phrases_picker.vala:45 src/widgets/phrases_picker.vala:117
+#: src/widgets/phrases_picker.vala:197
+msgid "添加"
+msgstr ""
+
+#: src/widgets/phrases_picker.vala:138
+msgid "暂无常用语"
+msgstr ""
+
+#: src/widgets/phrases_picker.vala:183
+msgid "添加常用语"
+msgstr ""
+
+#: src/services/project_manager.vala:60
+#, c-format
+msgid "[缺失文件: %s]"
+msgstr ""
+
+#: src/services/file_generator.vala:10
+#, c-format
+msgid ""
+"# 工作目录绝对路径: %s\n"
+"\n"
+msgstr ""
+
+#: src/services/file_generator.vala:20
+#, c-format
+msgid "[文件不存在: %s]\n"
+msgstr ""
+
+#: src/utils/tree_helper.vala:57
+msgid "正在加载..."
+msgstr ""
+
+#: src/utils/tree_helper.vala:70
+#, c-format
+msgid "无法读取目录: %s"
 msgstr ""

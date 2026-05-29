@@ -1,3 +1,4 @@
+src/cli.vala
 src/window.vala
 src/window.blp
 src/widgets/settings_dialog.vala
