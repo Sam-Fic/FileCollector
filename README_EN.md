@@ -18,6 +18,8 @@ It provides a checkable directory tree, flexible organization list, text inserti
 ## Features
 
 - **CLI Mode**: Complete all core operations via terminal commands, ideal for scripting and automation
+- **MCP Service**: Wrapped as an MCP (Model Context Protocol) service, callable directly by programming tools such as Cursor, VS Code + Copilot
+- **Progressive Experience**: Seamless handoff between CLI processing and GUI fine-tuning — AI can explore and organize files, then users can take over with the graphical interface at any time
 - **Project Management**: Open and save projects
 - **Phrase Management**: Manage and organize common phrases
 - **Internationalization**: Supports Chinese and English UI, automatically follows system language
@@ -210,6 +212,15 @@ FileCollector has been wrapped as an MCP service, allowing LLMs in programming t
 This design separates **file exploration and code selection** (done by the model inside the programming tool) from **complex reasoning** (done by the web-based model), fully leveraging the strengths of different models while keeping costs controllable.
 
 **Visit [filecollector-mcp-server](https://github.com/Sam-Fic/filecollector-mcp-server) for more details and installation instructions**
+
+### Progressive Experience
+
+GUI and CLI are combined to enable seamless human-AI collaboration:
+
+1. Use MCP service in Cursor for the LLM to automatically explore and organize project files.
+2. When the generated file list requires manual adjustment, run `filecollector --load ~/.config/filecollector/mcp_state.json` in the terminal.
+3. The GUI opens, displaying the model's selected file list. You can check, reorder, and save.
+4. Return to Cursor for the LLM to continue subsequent work.
 
 ## License
 

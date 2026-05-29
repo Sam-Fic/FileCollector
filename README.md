@@ -18,6 +18,8 @@ FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排
 ## 功能特性
 
 - **命令行模式 (CLI)**：支持通过终端命令完成所有核心操作，便于脚本化和自动化
+- **MCP 服务**：封装为 MCP (Model Context Protocol) 服务，可直接被 Cursor、VS Code + Copilot 等编程工具调用
+- **渐进式体验**：CLI 处理与 GUI 微调无缝衔接，AI 后台自动探索编排后，可随时用图形界面人工接管调整
 - **项目管理**：打开和保存项目
 - **短语管理**：管理和组织常用短语
 - **国际化**：支持中文和英文界面，跟随系统语言自动切换
@@ -211,6 +213,14 @@ FileCollector 已经封装为 MCP 服务，现在编程工具（如 Cursor、VS 
 这种设计将 **文件探索与代码挑选**（由编程工具内的模型完成）与 **复杂推理**（由网页端模型完成）分离，充分利用不同模型的优势，同时保持成本可控。
 
 **查看 [filecollector-mcp-server](https://github.com/Sam-Fic/filecollector-mcp-server) 了解更多详情和安装使用方法**
+### 渐进式体验
+
+GUI 与 CLI 结合，实现了无缝的人机协同工作流：
+
+1. 在 Cursor 中通过 MCP 服务让大模型自动探索和编排项目文件。
+2. 当生成的文件列表需要人工微调时，在终端运行 `filecollector --load ~/.config/filecollector/mcp_state.json`。
+3. 弹出图形界面，展示模型选定的文件列表。可继续勾选、排序、保存。
+4. 回到 Cursor 中，模型继续后续工作。
 
 ## 许可证
 
