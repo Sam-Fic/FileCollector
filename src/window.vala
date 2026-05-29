@@ -230,11 +230,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             label.xalign = 0;
             label.hexpand = true;
 
-            var box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
+            var box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 1);
             box.margin_top = 0;
             box.margin_bottom = 0;
-            box.margin_start = 8;
-            box.margin_end = 8;
+            box.margin_start = 2;
+            box.margin_end = 2;
             box.append (check);
             box.append (expander_icon);
             box.append (label);
@@ -288,9 +288,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (label == null) return;
 
             int depth = (int) row.get_depth ();
-            int indent = 8 + depth * 20;
+            int indent = 2 + depth * 12;
             box.margin_start = indent;
-            box.margin_end = 8;
+            box.margin_end = 2;
 
             if (item.is_dir) {
                 expander_icon.icon_name = row.get_expanded () ? "pan-down-symbolic" : "pan-end-symbolic";
@@ -303,10 +303,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 });
                 expander_icon.set_data<ulong?> ("expanded-handler", expanded_handler_id);
             } else {
-                expander_icon.icon_name = "text-x-generic-symbolic";
-                expander_icon.tooltip_text = null;
-                expander_icon.add_css_class ("dim-label");
-                expander_icon.visible = true;
+                expander_icon.visible = false;
             }
 
             check.active = item.checked;
