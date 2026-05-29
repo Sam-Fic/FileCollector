@@ -55,12 +55,20 @@ title: _("FileCollector - 文件收集与编排工具");
            vexpand: true;
 
            Label {
-             label: _("资源管理器");
-             halign: center;
-             css-classes: ["panel-title"];
-           }
+              label: _("资源管理器");
+              halign: center;
+              css-classes: ["panel-title"];
+            }
 
-           ScrolledWindow {
+            Gtk.SearchEntry search_entry {
+              placeholder-text: _("搜索…");
+              margin-top: 6;
+              margin-bottom: 6;
+              margin-start: 12;
+              margin-end: 12;
+            }
+
+            ScrolledWindow {
              hexpand: true;
              vexpand: true;
              margin-start: 12;

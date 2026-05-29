@@ -560,6 +560,10 @@ msgstr "Open Working Directory"
 msgid "资源管理器"
 msgstr "File Browser"
 
+#: src/window.blp:64
+msgid "搜索…"
+msgstr "Search…"
+
 #: src/window.blp:104
 msgid "输出编排列表"
 msgstr "Output Queue List"

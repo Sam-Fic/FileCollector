@@ -72,14 +72,18 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.Button btn_clear;
     [GtkChild] private unowned Gtk.CheckButton check_absolute_path;
     [GtkChild] private unowned Gtk.CheckButton check_write_header;
+    [GtkChild] private unowned Gtk.SearchEntry search_entry;
     [GtkChild] private unowned Adw.ToastOverlay toast_overlay;
     [GtkChild] private unowned Gtk.Paned outer_paned;
     [GtkChild] private unowned Gtk.Paned inner_paned;
 
     private Gtk.ColumnView dir_column_view;
     private Gtk.TreeListModel tree_list_model;
+    private Gtk.FilterListModel filter_model;
+    private Gtk.CustomFilter tree_filter;
     private GLib.ListStore root_store;
     private File? work_dir = null;
+    private string search_text = "";
     private string? project_file = null;
     private bool use_absolute = false;
     private bool show_header = false;
@@ -114,6 +118,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         setup_signals ();
         setup_pane_sizes ();
         setup_shortcuts ();
+        search_entry.visible = false;
     }
 
     private void load_css () {
@@ -205,7 +210,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             (item) => ((DirectoryItem)item).children
         );
 
-        var selection = new Gtk.SingleSelection (tree_list_model);
+        tree_filter = new Gtk.CustomFilter (filter_tree_func);
+        filter_model = new Gtk.FilterListModel (tree_list_model, tree_filter);
+
+        var selection = new Gtk.SingleSelection (filter_model);
         selection.set_autoselect (false);
 
         dir_column_view = new Gtk.ColumnView (selection);
@@ -353,6 +361,39 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_column_view_activated (uint position) {
+    }
+
+    private void on_search_changed () {
+        search_text = search_entry.text;
+        tree_filter.changed (Gtk.FilterChange.DIFFERENT);
+    }
+
+    private bool filter_tree_func (GLib.Object item) {
+        if (search_text == "") return true;
+        var row = item as Gtk.TreeListRow;
+        if (row == null) return true;
+        var dir_item = row.get_item () as DirectoryItem;
+        if (dir_item == null) return true;
+
+        if (dir_item.name.casefold ().contains (search_text.casefold ()))
+            return true;
+
+        if (dir_item.is_dir && has_matching_descendant (dir_item))
+            return true;
+
+        return false;
+    }
+
+    private bool has_matching_descendant (DirectoryItem item) {
+        for (uint i = 0; i < item.children.get_n_items (); i++) {
+            var child = item.children.get_item (i) as DirectoryItem;
+            if (child == null) continue;
+            if (child.name.casefold ().contains (search_text.casefold ()))
+                return true;
+            if (child.is_dir && has_matching_descendant (child))
+                return true;
+        }
+        return false;
     }
 
     private void on_check_toggled (GLib.Object obj, GLib.ParamSpec pspec) {
@@ -509,6 +550,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         queue_selection.selection_changed.connect (on_queue_selection_changed);
         queue_list.activate.connect (on_queue_row_activated);
+
+        search_entry.search_changed.connect (on_search_changed);
 
         update_queue_buttons ();
     }
@@ -702,6 +745,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 }
                 return Source.REMOVE;
             });
+            search_entry.visible = true;
         }
 
         refresh_list ();
@@ -739,6 +783,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             root_store.append (root_item);
 
             load_directory_children_lazy (root_item);
+            search_entry.visible = true;
 
             var root_row = tree_list_model.get_item (0) as Gtk.TreeListRow;
             if (root_row != null) {
@@ -1216,6 +1261,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     root_store.append (root_item);
 
                     load_directory_children_lazy (root_item);
+                    search_entry.visible = true;
 
                     var root_row = tree_list_model.get_item (0) as Gtk.TreeListRow;
                     if (root_row != null) {
