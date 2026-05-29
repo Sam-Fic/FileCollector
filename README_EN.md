@@ -83,7 +83,7 @@ filecollector --gui    # Force GUI mode (same as above when no other CLI args)
 ```
 
 > **Tip**:
-> - The application automatically uses Chinese or English UI based on your system language. To temporarily switch languages, use the `LANGUAGE` environment variable, e.g. `LANGUAGE=en filecollector` to force English display. You can also edit the `en.po` file to modify the English translations.
+> - The application automatically uses Chinese or English UI based on your system language. To temporarily switch languages, use the `LANGUAGE` environment variable, e.g. `LANGUAGE=en filecollector` to force English display. This works for both GUI and CLI modes.
 > - For CLI mode usage, see the [CLI Mode](#cli-mode) section below.
 > - **GUI vs CLI behavior**: When any CLI arguments (`--work-dir`, `--select-file`, `--load`, etc.) are detected, the app runs in CLI mode without opening the GUI. **Exception**: Adding `--gui` forces GUI mode — CLI arguments are used only to initialize the interface state, then the GUI opens for manual adjustments. This is useful when switching from MCP automation to human review.
 
