@@ -297,12 +297,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 expander_icon.tooltip_text = row.get_expanded () ? _("折叠") : _("展开");
                 expander_icon.visible = true;
 
-                if (row.get_depth () > 0 && row.get_expanded () && !row.get_data<bool> ("initial-collapsed")) {
-                    row.set_data<bool> ("initial-collapsed", true);
-                    row.set_expanded (false);
-                    expander_icon.icon_name = "pan-end-symbolic";
-                    expander_icon.tooltip_text = _("展开");
-                }
+                ulong expanded_handler_id = row.notify["expanded"].connect (() => {
+                    expander_icon.icon_name = row.get_expanded () ? "pan-down-symbolic" : "pan-end-symbolic";
+                    expander_icon.tooltip_text = row.get_expanded () ? _("折叠") : _("展开");
+                });
+                expander_icon.set_data<ulong?> ("expanded-handler", expanded_handler_id);
             } else {
                 expander_icon.icon_name = "text-x-generic-symbolic";
                 expander_icon.tooltip_text = null;
@@ -346,6 +345,18 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (state_handler_id != null && item != null) {
                 GLib.SignalHandler.disconnect (item, state_handler_id);
             }
+
+            var expander_icon = check.get_next_sibling () as Gtk.Image;
+            if (expander_icon != null) {
+                var expanded_handler_id = expander_icon.get_data<ulong?> ("expanded-handler");
+                if (expanded_handler_id != null) {
+                    var row = list_item.get_item () as Gtk.TreeListRow;
+                    if (row != null) {
+                        GLib.SignalHandler.disconnect (row, expanded_handler_id);
+                    }
+                    expander_icon.set_data<ulong?> ("expanded-handler", null);
+                }
+            }
         });
 
         var column = new Gtk.ColumnViewColumn (null, expander_factory);
@@ -370,6 +381,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
 
         dir_column_view.activate.connect (on_column_view_activated);
+    }
+
+    private void collapse_non_root_rows () {
+        uint n = tree_list_model.get_n_items ();
+        for (uint i = 0; i < n; i++) {
+            var row = tree_list_model.get_item (i) as Gtk.TreeListRow;
+            if (row != null && row.get_depth () > 0) {
+                row.set_expanded (false);
+            }
+        }
     }
 
     private void on_column_view_activated (uint position) {
@@ -649,6 +670,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             load_directory_children_lazy (root_item);
 
             GLib.Idle.add (() => {
+                collapse_non_root_rows ();
                 refresh_list ();
                 return Source.REMOVE;
             });
@@ -1112,6 +1134,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     root_store.append (root_item);
 
                     load_directory_children_lazy (root_item);
+
+                    GLib.Idle.add (() => {
+                        collapse_non_root_rows ();
+                        return Source.REMOVE;
+                    });
                 } else {
                     update_subtitle (null);
                 }
