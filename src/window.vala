@@ -229,6 +229,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             label.ellipsize = Pango.EllipsizeMode.END;
             label.xalign = 0;
             label.hexpand = true;
+            label.valign = Gtk.Align.CENTER;
 
             var box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 1);
             box.margin_top = 0;
