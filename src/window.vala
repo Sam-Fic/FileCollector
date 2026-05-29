@@ -81,6 +81,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private Gtk.TreeListModel tree_list_model;
     private Gtk.FilterListModel filter_model;
     private Gtk.CustomFilter tree_filter;
+    private Gtk.SingleSelection tree_selection;
     private GLib.ListStore root_store;
     private File? work_dir = null;
     private string search_text = "";
@@ -213,10 +214,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         tree_filter = new Gtk.CustomFilter (filter_tree_func);
         filter_model = new Gtk.FilterListModel (tree_list_model, tree_filter);
 
-        var selection = new Gtk.SingleSelection (filter_model);
-        selection.set_autoselect (false);
+        tree_selection = new Gtk.SingleSelection (filter_model);
+        tree_selection.set_autoselect (false);
 
-        dir_column_view = new Gtk.ColumnView (selection);
+        dir_column_view = new Gtk.ColumnView (tree_selection);
         dir_column_view.add_css_class ("file-tree");
 
         var expander_factory = new Gtk.SignalListItemFactory ();
@@ -235,6 +236,22 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             label.xalign = 0;
             label.hexpand = true;
             label.valign = Gtk.Align.CENTER;
+
+            var click = new Gtk.GestureClick ();
+            click.pressed.connect (() => {
+                var row = list_item.get_item () as Gtk.TreeListRow;
+                if (row == null) return;
+                var item = row.get_item () as DirectoryItem;
+                if (item == null || item.is_dir) return;
+
+                var pos = list_item.get_position ();
+                tree_selection.selected = pos;
+
+                var temp_item = new ItemData ("file", item.path, null, false);
+                update_preview (temp_item);
+                queue_selection.selected = Gtk.INVALID_LIST_POSITION;
+            });
+            label.add_controller (click);
 
             var box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
             box.margin_top = 0;
@@ -357,14 +374,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             scrolled.set_child (dir_column_view);
         }
 
-        var tree_selection = dir_column_view.get_model () as Gtk.SingleSelection;
         tree_selection.selection_changed.connect (on_tree_selection_changed);
-
         dir_column_view.activate.connect (on_column_view_activated);
     }
 
     private void on_column_view_activated (uint position) {
         preview_tree_item_at (position);
+        queue_selection.selected = Gtk.INVALID_LIST_POSITION;
     }
 
     private void on_tree_selection_changed (uint position, uint n_items) {
@@ -385,10 +401,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void clear_tree_selection () {
-        var selection = dir_column_view.get_model () as Gtk.SingleSelection;
-        if (selection != null) {
-            selection.selected = Gtk.INVALID_LIST_POSITION;
-        }
+        tree_selection.selected = Gtk.INVALID_LIST_POSITION;
     }
 
     private void on_search_changed () {
@@ -1143,7 +1156,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         int sel = (int)queue_selection.selected;
         if (sel < 0 || sel >= items.length) {
-            preview_view.get_buffer ().set_text ("", -1);
             return;
         }
         update_preview (items.get (sel));
