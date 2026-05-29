@@ -77,14 +77,16 @@ sudo meson install
 ### 运行
 
 ```bash
-filecollector       # 启动图形界面
-filecollector --help  # 查看 CLI 命令行帮助
+filecollector          # 启动图形界面
+filecollector --help   # 查看 CLI 命令行帮助
+filecollector --gui    # 强制启动图形界面（无其他 CLI 参数时与上一行等价）
 ```
 
 > **提示**：
 >
 > - 程序默认跟随系统语言显示中文或英文界面。如需临时切换语言，可使用环境变量，例如 `LANGUAGE=en filecollector` 强制显示英文。您也可以编辑 `en.po` 文件修改英文翻译文本。
 > - 如需使用 CLI 命令行模式，请参见下方的 [CLI 命令行模式](#cli-命令行模式) 章节。
+> - **GUI 与 CLI 的行为规则**：当检测到任何 CLI 参数（`--work-dir`、`--select-file`、`--load` 等）时，程序默认进入命令行模式，不会弹出图形界面。**例外**：添加 `--gui` 参数可强制打开图形界面，CLI 参数仅用于初始化界面状态（工作目录、勾选文件等），初始化完成后自动弹出 GUI 供人工微调。这在 MCP 自动化流程与人工审查切换时非常有用。
 
 ### 键盘快捷键
 
@@ -180,6 +182,7 @@ filecollector [选项...]
 | `--header`           | 添加头部信息（工作目录路径）      |
 | `--load FILE`        | 从项目文件加载状态                |
 | `--save FILE`        | 将当前状态保存到项目文件          |
+| `--gui`              | 使用 CLI 参数初始化后打开图形界面  |
 | `--help`, `-h`       | 显示帮助信息                      |
 
 ### 完整工作流示例
@@ -217,6 +220,12 @@ filecollector --work-dir ./project \
 filecollector --load my.project.json --list-items
 ```
 
+**加载项目后用 GUI 手动调整：**
+
+```bash
+filecollector --load my.project.json --gui
+```
+
 ### 设计说明
 
 CLI 模式与 GUI 模式共享同一套数据模型和业务服务（`ItemData`、`FileGenerator`、`ProjectManager`），但 CLI 模式不依赖 GTK/Adw 图形库，启动更快。核心代码集中在独立的 [cli.vala](src/cli.vala) 文件中。
@@ -240,7 +249,7 @@ FileCollector 已经封装为 MCP 服务，现在编程工具（如 Cursor、VS 
 GUI 与 CLI 结合，实现了无缝的人机协同工作流：
 
 1. 在 Cursor 中通过 MCP 服务让大模型自动探索和编排项目文件。
-2. 当生成的文件列表需要人工微调时，在终端运行 `filecollector --load ~/.config/filecollector/mcp_state.json`。
+2. 当生成的文件列表需要人工微调时，在终端运行 `filecollector --load ~/.config/filecollector/mcp_state.json --gui`。`--gui` 参数确保打开图形界面（不带 `--gui` 则仅执行 CLI 命令）。
 3. 弹出图形界面，展示模型选定的文件列表。可继续勾选、排序、保存。
 4. 回到 Cursor 中，模型继续后续工作。
 
