@@ -203,7 +203,7 @@ filecollector --work-dir ./project \
 **从项目文件导出：**
 
 ```bash
-filecollector --load my.project.json --export output.txt
+filecollector --load my.project.fcol --export output.txt
 ```
 
 **构建并保存项目（供 GUI 使用）：**
@@ -211,19 +211,19 @@ filecollector --load my.project.json --export output.txt
 ```bash
 filecollector --work-dir ./project \
     --select-file file1.txt --select-file file2.txt \
-    --save my.project.json
+    --save my.project.fcol
 ```
 
 **查看编排列表：**
 
 ```bash
-filecollector --load my.project.json --list-items
+filecollector --load my.project.fcol --list-items
 ```
 
 **加载项目后用 GUI 手动调整：**
 
 ```bash
-filecollector --load my.project.json --gui
+filecollector --load my.project.fcol --gui
 ```
 
 ### 设计说明

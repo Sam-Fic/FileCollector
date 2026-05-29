@@ -202,7 +202,7 @@ filecollector --work-dir ./project \
 **Export from a project file:**
 
 ```bash
-filecollector --load my.project.json --export output.txt
+filecollector --load my.project.fcol --export output.txt
 ```
 
 **Build and save a project (for use in GUI):**
@@ -210,19 +210,19 @@ filecollector --load my.project.json --export output.txt
 ```bash
 filecollector --work-dir ./project \
     --select-file file1.txt --select-file file2.txt \
-    --save my.project.json
+    --save my.project.fcol
 ```
 
 **List the current queue:**
 
 ```bash
-filecollector --load my.project.json --list-items
+filecollector --load my.project.fcol --list-items
 ```
 
 **Load a project and open GUI for manual adjustment:**
 
 ```bash
-filecollector --load my.project.json --gui
+filecollector --load my.project.fcol --gui
 ```
 
 ### Design Notes
