@@ -272,9 +272,16 @@ title: _("FileCollector - 文件收集与编排工具");
 }
 
 menu primary_menu {
-  item (_("打开项目..."), "app.open_project")
-  item (_("保存项目"), "app.save_project")
-  item (_("常用语管理"), "app.manage_phrases")
-  item (_("语言设置"), "app.settings")
-  item (_("关于 FileCollector"), "app.about")
+  section {
+    item (_("打开项目..."), "app.open_project")
+    item (_("保存项目"), "app.save_project")
+  }
+  section {
+    item (_("常用语管理"), "app.manage_phrases")
+    item (_("语言设置"), "app.settings")
+  }
+  section {
+    item (_("键盘快捷键"), "app.shortcuts")
+    item (_("关于 FileCollector"), "app.about")
+  }
 }

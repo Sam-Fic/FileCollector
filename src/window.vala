@@ -113,6 +113,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         setup_tree_view ();
         setup_signals ();
         setup_pane_sizes ();
+        setup_shortcuts ();
     }
 
     private void load_css () {
@@ -596,6 +597,86 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         } else if (pos > max_pos) {
             inner_paned.position = max_pos;
         }
+    }
+
+    // ─── Keyboard Shortcuts ───────────────────────────────────────────────
+
+    private void setup_shortcuts () {
+        var controller = new Gtk.ShortcutController ();
+
+        controller.add_shortcut (new Gtk.Shortcut (
+            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("g"), Gdk.ModifierType.CONTROL_MASK),
+            new Gtk.CallbackAction ((widget, shortcut) => {
+                on_generate_clicked ();
+                return true;
+            })
+        ));
+
+        controller.add_shortcut (new Gtk.Shortcut (
+            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("c"), Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK),
+            new Gtk.CallbackAction ((widget, shortcut) => {
+                on_generate_to_clipboard_clicked ();
+                return true;
+            })
+        ));
+
+        controller.add_shortcut (new Gtk.Shortcut (
+            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("n"), Gdk.ModifierType.CONTROL_MASK),
+            new Gtk.CallbackAction ((widget, shortcut) => {
+                on_clear_items ();
+                return true;
+            })
+        ));
+
+        controller.add_shortcut (new Gtk.Shortcut (
+            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("Delete"), (Gdk.ModifierType) 0),
+            new Gtk.CallbackAction ((widget, shortcut) => {
+                on_delete_item ();
+                return true;
+            })
+        ));
+
+        controller.add_shortcut (new Gtk.Shortcut (
+            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("Up"), Gdk.ModifierType.CONTROL_MASK),
+            new Gtk.CallbackAction ((widget, shortcut) => {
+                on_move_up ();
+                return true;
+            })
+        ));
+
+        controller.add_shortcut (new Gtk.Shortcut (
+            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("Down"), Gdk.ModifierType.CONTROL_MASK),
+            new Gtk.CallbackAction ((widget, shortcut) => {
+                on_move_down ();
+                return true;
+            })
+        ));
+
+        controller.add_shortcut (new Gtk.Shortcut (
+            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("e"), Gdk.ModifierType.CONTROL_MASK),
+            new Gtk.CallbackAction ((widget, shortcut) => {
+                on_add_external_files ();
+                return true;
+            })
+        ));
+
+        controller.add_shortcut (new Gtk.Shortcut (
+            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("i"), Gdk.ModifierType.CONTROL_MASK),
+            new Gtk.CallbackAction ((widget, shortcut) => {
+                insert_text (true);
+                return true;
+            })
+        ));
+
+        controller.add_shortcut (new Gtk.Shortcut (
+            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("i"), Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK),
+            new Gtk.CallbackAction ((widget, shortcut) => {
+                insert_text (false);
+                return true;
+            })
+        ));
+
+        this.add_controller (controller);
     }
 
     // ─── Tree View ───────────────────────────────────────────────────────
@@ -1212,7 +1293,99 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         about.developers = { "Sam-Fic" };
         about.website = "https://github.com/Sam-Fic/filecollector-gnome";
         about.license_type = Gtk.License.MIT_X11;
+
+        about.add_credit_section (_("键盘快捷键"), {
+            _("Ctrl+O    打开项目"),
+            _("Ctrl+S    保存项目"),
+            _("Ctrl+N    清空列表"),
+            _("Ctrl+E    添加外部文件"),
+            _("Ctrl+I    上方插入文本"),
+            _("Ctrl+Shift+I    下方插入文本"),
+            _("Ctrl+↑    上移"),
+            _("Ctrl+↓    下移"),
+            _("Delete    删除"),
+            _("Ctrl+G    生成合并文本"),
+            _("Ctrl+Shift+C    生成到剪贴板"),
+            _("Ctrl+,    语言设置"),
+            _("Ctrl+/    键盘快捷键"),
+            _("F1    关于"),
+            _("Ctrl+Q    退出")
+        });
+
         about.present (this);
+    }
+
+    public void on_show_shortcuts () {
+        var window = new Adw.Window ();
+        window.set_transient_for (this);
+        window.set_modal (true);
+        window.set_default_size (480, 500);
+        window.set_title (_("键盘快捷键"));
+
+        var toolbar_view = new Adw.ToolbarView ();
+        window.set_content (toolbar_view);
+
+        var header = new Adw.HeaderBar ();
+        header.set_decoration_layout ("close:");
+        toolbar_view.add_top_bar (header);
+
+        var content = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+        content.set_margin_top (12);
+        content.set_margin_bottom (12);
+        content.set_margin_start (24);
+        content.set_margin_end (24);
+
+        var grid = new Gtk.Grid ();
+        grid.set_column_spacing (24);
+        grid.set_row_spacing (8);
+        grid.set_halign (Gtk.Align.START);
+
+        var shortcuts = new string[] {
+            _("打开项目"),         _("Ctrl+O"),
+            _("保存项目"),         _("Ctrl+S"),
+            _("清空列表"),         _("Ctrl+N"),
+            _("添加外部文件"),     _("Ctrl+E"),
+            _("上方插入文本"),     _("Ctrl+I"),
+            _("下方插入文本"),     _("Ctrl+Shift+I"),
+            _("上移"),             _("Ctrl+↑"),
+            _("下移"),             _("Ctrl+↓"),
+            _("删除"),             _("Delete"),
+            _("生成合并文本"),     _("Ctrl+G"),
+            _("生成到剪贴板"),     _("Ctrl+Shift+C"),
+            _("语言设置"),         _("Ctrl+,"),
+            _("键盘快捷键"),       _("Ctrl+/"),
+            _("关于"),             _("F1"),
+            _("退出"),             _("Ctrl+Q")
+        };
+
+        for (int i = 0; i < shortcuts.length; i += 2) {
+            var action_label = new Gtk.Label (shortcuts[i]);
+            action_label.set_halign (Gtk.Align.START);
+            action_label.set_xalign (0);
+            action_label.set_css_classes ({"dim-label"});
+
+            var key_label = new Gtk.Label (shortcuts[i + 1]);
+            key_label.set_halign (Gtk.Align.END);
+            key_label.set_xalign (1);
+            key_label.set_css_classes ({"accent"});
+
+            grid.attach (action_label, 0, i / 2, 1, 1);
+            grid.attach (key_label, 1, i / 2, 1, 1);
+        }
+
+        var scrolled = new Gtk.ScrolledWindow ();
+        scrolled.set_child (grid);
+        scrolled.set_vexpand (true);
+        content.append (scrolled);
+
+        var close_btn = new Gtk.Button.with_label (_("关闭"));
+        close_btn.set_halign (Gtk.Align.CENTER);
+        close_btn.set_margin_top (12);
+        close_btn.clicked.connect (() => window.destroy ());
+        content.append (close_btn);
+
+        toolbar_view.set_content (content);
+        window.present ();
     }
 
     public void on_settings () {

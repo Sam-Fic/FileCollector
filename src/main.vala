@@ -34,6 +34,16 @@ public class FileCollectorApp : Adw.Application {
             ((GLib.SimpleAction) settings_action).activate.connect (() => window.on_settings ());
         }
 
+        var shortcuts_action = lookup_action ("shortcuts");
+        if (shortcuts_action != null) {
+            ((GLib.SimpleAction) shortcuts_action).activate.connect (() => window.on_show_shortcuts ());
+        }
+
+        var quit_action = lookup_action ("quit");
+        if (quit_action != null) {
+            ((GLib.SimpleAction) quit_action).activate.connect (() => window.close ());
+        }
+
         window.present ();
     }
 
@@ -45,6 +55,15 @@ public class FileCollectorApp : Adw.Application {
         add_action (new GLib.SimpleAction ("about", null));
         add_action (new GLib.SimpleAction ("manage_phrases", null));
         add_action (new GLib.SimpleAction ("settings", null));
+        add_action (new GLib.SimpleAction ("shortcuts", null));
+        add_action (new GLib.SimpleAction ("quit", null));
+
+        set_accels_for_action ("app.open_project", {"<Control>o"});
+        set_accels_for_action ("app.save_project", {"<Control>s"});
+        set_accels_for_action ("app.about", {"F1"});
+        set_accels_for_action ("app.shortcuts", {"<Control>slash"});
+        set_accels_for_action ("app.settings", {"<Control>comma"});
+        set_accels_for_action ("app.quit", {"<Control>q"});
     }
 
     public static int main (string[] args) {
