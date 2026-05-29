@@ -826,12 +826,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         });
     }
 
-    private void insert_text (bool above) {
+    private void insert_text (bool above, string? existing_text = null, owned ItemData? edit_data = null) {
         var window = new Adw.Window ();
         window.set_transient_for (this);
         window.set_modal (true);
         window.set_default_size (450, 350);
-        window.set_title (_("插入自定义文字"));
+        window.set_title (edit_data != null ? _("编辑文字") : _("插入自定义文字"));
 
         var toolbar_view = new Adw.ToolbarView ();
         window.set_content (toolbar_view);
@@ -873,6 +873,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         text_view.set_left_margin (12);
         text_view.set_right_margin (12);
 
+        if (existing_text != null) {
+            text_view.get_buffer ().set_text (existing_text, -1);
+        }
+
         scrolled.set_child (text_view);
         frame.set_child (scrolled);
         content.append (frame);
@@ -890,15 +894,25 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             buffer.get_end_iter (out end);
             var text = buffer.get_text (start, end, false);
             if (text != null && text.strip () != "") {
-                do_insert_text (text, above);
+                if (edit_data != null) {
+                    edit_data.content = text;
+                    refresh_list ();
+                    update_preview (edit_data);
+                } else {
+                    do_insert_text (text, above);
+                }
             }
             window.destroy ();
         });
 
-        phrases_btn.clicked.connect (() => {
-            window.destroy ();
-            get_phrases_picker ().show_picker (above);
-        });
+        if (edit_data != null) {
+            phrases_btn.visible = false;
+        } else {
+            phrases_btn.clicked.connect (() => {
+                window.destroy ();
+                get_phrases_picker ().show_picker (above);
+            });
+        }
 
         window.present ();
     }
@@ -980,26 +994,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (index < 0 || index >= items.length) return;
         var data = items.get (index);
         if (data.item_type == "text") {
-            var dialog = new Adw.AlertDialog (_("编辑文字"), _("修改文字内容："));
-            var entry = new Gtk.Entry ();
-            entry.set_text (data.content);
-            dialog.set_extra_child (entry);
-            dialog.add_response ("cancel", _("取消"));
-            dialog.add_response ("ok", _("确定"));
-            dialog.set_default_response ("ok");
-            dialog.set_close_response ("cancel");
-            dialog.response.connect ((response) => {
-                if (response == "ok") {
-                    var text = entry.get_text ();
-                    if (text != null && text.strip () != "") {
-                        data.content = text;
-                        refresh_list ();
-                        update_preview (data);
-                    }
-                }
-                dialog.destroy ();
-            });
-            dialog.present (this);
+            insert_text (false, data.content, data);
         }
     }
 
