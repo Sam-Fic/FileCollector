@@ -196,9 +196,9 @@ CLI mode shares the same data model and business services (`ItemData`, `FileGene
 
 2. **Cost Control**: Most web-based models are free (or have free quotas), right?
 
-## Future Roadmap
+## MCP (Model Context Protocol) Service
 
-Currently, FileCollector is an independently running desktop tool. The next step is to wrap it as an **MCP (Model Context Protocol) service** or **Skills**, allowing LLMs in programming tools (such as Cursor, VS Code + Copilot) to directly call it to complete the following workflow:
+FileCollector has been wrapped as an MCP service, allowing LLMs in programming tools (such as Cursor, VS Code + Copilot) to directly call it to complete the following workflow:
 
 1. The user gives the model in the programming tool a question or task (e.g., "This project has xx issues, please find the related files and export a single TXT file").
 2. The model performs file exploration and uses this tool to select key files related to the issue.
@@ -208,6 +208,8 @@ Currently, FileCollector is an independently running desktop tool. The next step
 6. Based on the plan returned by the model, the user can use low-cost models in the programming tool to execute actual problem-solving operations.
 
 This design separates **file exploration and code selection** (done by the model inside the programming tool) from **complex reasoning** (done by the web-based model), fully leveraging the strengths of different models while keeping costs controllable.
+
+**Visit [filecollector-mcp-server](https://github.com/Sam-Fic/filecollector-mcp-server) for more details and installation instructions**
 
 > Contributions and ideas are welcome!
 
