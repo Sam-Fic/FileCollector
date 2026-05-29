@@ -679,6 +679,38 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         this.add_controller (controller);
     }
 
+    public void initialize_from_cli (CliController cli) {
+        items = cli.items;
+        checked_paths = cli.checked_paths;
+        common_phrases = cli.common_phrases;
+        use_absolute = cli.use_absolute;
+        show_header = cli.show_header;
+        check_absolute_path.active = use_absolute;
+        check_write_header.active = show_header;
+
+        if (cli.work_dir != null) {
+            work_dir = cli.work_dir;
+            update_subtitle (work_dir.get_path ());
+            root_store.remove_all ();
+            var root_item = new DirectoryItem (work_dir.get_basename (), work_dir.get_path (), true);
+            root_store.append (root_item);
+            load_directory_children_lazy (root_item);
+            GLib.Idle.add (() => {
+                var root_row = tree_list_model.get_item (0) as Gtk.TreeListRow;
+                if (root_row != null) {
+                    root_row.set_expanded (true);
+                }
+                return Source.REMOVE;
+            });
+        }
+
+        refresh_list ();
+        check_absolute_path.notify["active"].disconnect (on_path_mode_changed);
+        check_absolute_path.active = use_absolute;
+        check_write_header.active = show_header;
+        check_absolute_path.notify["active"].connect (on_path_mode_changed);
+    }
+
     // ─── Tree View ───────────────────────────────────────────────────────
 
     private void remove_items_by_path (string path) {

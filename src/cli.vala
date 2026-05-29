@@ -1,15 +1,15 @@
 using GLib;
 
 public class CliController : GLib.Object {
-    private File? work_dir = null;
-    private GenericArray<ItemData> items;
-    private bool use_absolute = false;
-    private bool show_header = false;
+    public File? work_dir { get; private set; }
+    public GenericArray<ItemData> items { get; private set; }
+    public bool use_absolute { get; private set; }
+    public bool show_header { get; private set; }
+    public HashTable<string, bool> checked_paths { get; private set; }
+    public GenericArray<string> common_phrases { get; private set; }
+
     private string? export_path = null;
     private string? save_path = null;
-
-    private HashTable<string, bool> checked_paths;
-    private GenericArray<string> common_phrases;
 
     public CliController () {
         items = new GenericArray<ItemData> ();
@@ -30,37 +30,37 @@ public class CliController : GLib.Object {
         return false;
     }
 
-    public int run (string[] args) {
+    public bool parse_args (string[] args) {
         int i = 1;
         while (i < args.length) {
             string arg = args[i];
 
             if (arg == "--help" || arg == "-h") {
                 print_help ();
-                return 0;
+                return true;
             } else if (arg == "--work-dir") {
                 i++;
-                if (i >= args.length) { print_missing_arg (arg); return 1; }
-                if (!set_work_dir (args[i])) return 1;
+                if (i >= args.length) { stderr.printf ("错误: 参数 '%s' 缺少必要的值\n", arg); return false; }
+                if (!apply_work_dir (args[i])) return false;
             } else if (arg == "--select-file") {
                 i++;
-                if (i >= args.length) { print_missing_arg (arg); return 1; }
-                if (!add_file (args[i])) return 1;
+                if (i >= args.length) { stderr.printf ("错误: 参数 '%s' 缺少必要的值\n", arg); return false; }
+                if (!add_file (args[i])) return false;
             } else if (arg == "--add-text") {
                 i++;
-                if (i >= args.length) { print_missing_arg (arg); return 1; }
+                if (i >= args.length) { stderr.printf ("错误: 参数 '%s' 缺少必要的值\n", arg); return false; }
                 add_text (args[i]);
             } else if (arg == "--move") {
                 i++;
-                if (i + 1 >= args.length) { print_missing_arg (arg); return 1; }
+                if (i + 1 >= args.length) { stderr.printf ("错误: 参数 '%s' 缺少必要的值\n", arg); return false; }
                 int from = int.parse (args[i]);
                 int to = int.parse (args[i + 1]);
-                if (!move_item (from, to)) return 1;
+                if (!move_item (from, to)) return false;
                 i++;
             } else if (arg == "--remove") {
                 i++;
-                if (i >= args.length) { print_missing_arg (arg); return 1; }
-                if (!remove_item (int.parse (args[i]))) return 1;
+                if (i >= args.length) { stderr.printf ("错误: 参数 '%s' 缺少必要的值\n", arg); return false; }
+                if (!remove_item (int.parse (args[i]))) return false;
             } else if (arg == "--clear") {
                 clear_items ();
             } else if (arg == "--absolute") {
@@ -69,26 +69,32 @@ public class CliController : GLib.Object {
                 show_header = true;
             } else if (arg == "--export") {
                 i++;
-                if (i >= args.length) { print_missing_arg (arg); return 1; }
+                if (i >= args.length) { stderr.printf ("错误: 参数 '%s' 缺少必要的值\n", arg); return false; }
                 export_path = args[i];
             } else if (arg == "--load") {
                 i++;
-                if (i >= args.length) { print_missing_arg (arg); return 1; }
-                if (!load_project (args[i])) return 1;
+                if (i >= args.length) { stderr.printf ("错误: 参数 '%s' 缺少必要的值\n", arg); return false; }
+                if (!load_project (args[i])) return false;
             } else if (arg == "--save") {
                 i++;
-                if (i >= args.length) { print_missing_arg (arg); return 1; }
+                if (i >= args.length) { stderr.printf ("错误: 参数 '%s' 缺少必要的值\n", arg); return false; }
                 save_path = args[i];
             } else if (arg == "--list-items") {
                 list_items ();
             } else {
                 stderr.printf ("错误: 未知参数: %s\n", arg);
                 stderr.printf ("使用 --help 查看帮助信息\n");
-                return 1;
+                return false;
             }
 
             i++;
         }
+
+        return true;
+    }
+
+    public int run (string[] args) {
+        if (!parse_args (args)) return 1;
 
         if (save_path != null) {
             try {
@@ -124,7 +130,7 @@ public class CliController : GLib.Object {
         stdout.printf ("""
 FileCollector %s — CLI 命令行模式
 
-用法: filecollector [选项...]
+用法: filecollector [选项...] [--gui]
 
 工作目录:
   --work-dir DIR           设置工作目录
@@ -147,6 +153,9 @@ FileCollector %s — CLI 命令行模式
 项目文件:
   --load FILE              从项目文件加载状态
   --save FILE              将当前状态保存到项目文件
+
+GUI 模式:
+  --gui                    使用其他 CLI 参数初始化后打开图形界面
 
 其他:
   --help, -h               显示此帮助信息
@@ -171,6 +180,12 @@ FileCollector %s — CLI 命令行模式
 
   4. 查看编排列表:
      filecollector --load my.project.json --list-items
+
+  5. 加载项目后打开 GUI 手动调整:
+     filecollector --load my.project.json --gui
+
+  6. 用 CLI 参数初始化状态后打开 GUI:
+     filecollector --work-dir ./project --select-file src/main.vala --gui
 """, Config.VERSION);
     }
 
@@ -178,7 +193,7 @@ FileCollector %s — CLI 命令行模式
         stderr.printf ("错误: 参数 '%s' 缺少必要的值\n", arg);
     }
 
-    private bool set_work_dir (string path) {
+    private bool apply_work_dir (string path) {
         var dir = File.new_for_path (path);
         if (!dir.query_exists ()) {
             stderr.printf ("错误: 目录不存在: %s\n", path);
