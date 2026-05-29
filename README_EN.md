@@ -85,6 +85,28 @@ filecollector --help   # Show CLI help
 > - The application automatically uses Chinese or English UI based on your system language. To temporarily switch languages, use the `LANGUAGE` environment variable, e.g. `LANGUAGE=en filecollector` to force English display. You can also edit the `en.po` file to modify the English translations.
 > - For CLI mode usage, see the [CLI Mode](#cli-mode) section below.
 
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+O` | Open project |
+| `Ctrl+S` | Save project |
+| `Ctrl+N` | Clear all items |
+| `Ctrl+E` | Add external files |
+| `Ctrl+I` | Insert text above |
+| `Ctrl+Shift+I` | Insert text below |
+| `Ctrl+↑` | Move item up |
+| `Ctrl+↓` | Move item down |
+| `Delete` | Delete selected item |
+| `Ctrl+G` | Generate merged text |
+| `Ctrl+Shift+C` | Generate to clipboard |
+| `Ctrl+,` | Language settings |
+| `Ctrl+/` | Show keyboard shortcuts |
+| `F1` | About |
+| `Ctrl+Q` | Quit |
+
+All shortcuts are also viewable via the **Keyboard Shortcuts** menu item or the About dialog.
+
 ### Flatpak Build
 
 ```bash
