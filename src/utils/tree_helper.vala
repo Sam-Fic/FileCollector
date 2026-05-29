@@ -30,8 +30,18 @@ public class TreeHelper : GLib.Object {
                 }
             }
 
-            dirs.sort ((a, b) => a.get_name ().collate (b.get_name ()));
-            files.sort ((a, b) => a.get_name ().collate (b.get_name ()));
+            dirs.sort ((a, b) => {
+                bool a_dot = a.get_name ().has_prefix (".");
+                bool b_dot = b.get_name ().has_prefix (".");
+                if (a_dot != b_dot) return a_dot ? -1 : 1;
+                return a.get_name ().casefold ().collate (b.get_name ().casefold ());
+            });
+            files.sort ((a, b) => {
+                bool a_dot = a.get_name ().has_prefix (".");
+                bool b_dot = b.get_name ().has_prefix (".");
+                if (a_dot != b_dot) return a_dot ? -1 : 1;
+                return a.get_name ().casefold ().collate (b.get_name ().casefold ());
+            });
 
             foreach (var dir_info in dirs) {
                 var file = dir.get_child (dir_info.get_name ());

@@ -111,10 +111,6 @@ paned > separator {
     line-height: 1.0;
 }
 
-.file-tree .expander-icon {
-    padding: 1px;
-    margin: 0;
-}
 
 .panel-title {
     font-weight: bold;

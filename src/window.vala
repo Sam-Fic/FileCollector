@@ -177,7 +177,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (data.item_type == "file") {
                 var file = File.new_for_path (data.file_path);
                 display_name = file.get_basename ();
-                icon_name = data.force_absolute ? "pin-symbolic" : "text-x-generic-symbolic";
+                icon_name = data.force_absolute ? "document-open-symbolic" : "text-x-generic-symbolic";
             } else {
                 var preview = data.content;
                 if (preview.length > 40) preview = preview.substring (0, 40) + "...";
@@ -200,7 +200,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         tree_list_model = new Gtk.TreeListModel (
             root_store,
             false,
-            true,
+            false,
             (item) => ((DirectoryItem)item).children
         );
 
@@ -214,16 +214,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         expander_factory.setup.connect ((obj) => {
             var list_item = obj as Gtk.ListItem;
 
+            var expander = new Gtk.TreeExpander ();
+            expander.set_indent_for_icon (true);
+
             var check = new Gtk.CheckButton ();
             check.add_css_class ("tree-check");
             check.valign = Gtk.Align.CENTER;
-
-            var expander_icon = new Gtk.Image ();
-            expander_icon.add_css_class ("expander-icon");
-            expander_icon.valign = Gtk.Align.CENTER;
-
-            var click_controller = new Gtk.GestureClick ();
-            expander_icon.add_controller (click_controller);
 
             var label = new Gtk.Label ("");
             label.ellipsize = Pango.EllipsizeMode.END;
@@ -237,33 +233,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             box.margin_start = 2;
             box.margin_end = 2;
             box.append (check);
-            box.append (expander_icon);
             box.append (label);
 
-            list_item.set_child (box);
-
-            click_controller.released.connect ((n_press, x, y) => {
-                 var row = list_item.get_item () as Gtk.TreeListRow;
-                 if (row == null) return;
-
-                 var item = row.get_item () as DirectoryItem;
-                 if (item == null || !item.is_dir) return;
-
-                 bool new_expanded = !row.get_expanded ();
-                 row.set_expanded (new_expanded);
-
-                 expander_icon.icon_name = new_expanded ? "pan-down-symbolic" : "pan-end-symbolic";
-                 expander_icon.tooltip_text = new_expanded ? _("折叠") : _("展开");
-
-                 if (new_expanded && item.children.get_n_items () == 0) {
-                     load_directory_children_lazy (item);
-                     if (item.checked) {
-                         sync_children_to_checked_paths (item);
-                     }
-                 }
-
-                 dir_column_view.queue_draw ();
-             });
+            expander.set_child (box);
+            list_item.set_child (expander);
         });
 
         expander_factory.bind.connect ((obj) => {
@@ -276,36 +249,20 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             var item = row.get_item () as DirectoryItem;
             if (item == null) return;
 
-            var box = list_item.get_child () as Gtk.Box;
+            var expander = list_item.get_child () as Gtk.TreeExpander;
+            if (expander == null) return;
+
+            var box = expander.get_child () as Gtk.Box;
             if (box == null) return;
 
             var check = box.get_first_child () as Gtk.CheckButton;
             if (check == null) return;
 
-            var expander_icon = check.get_next_sibling () as Gtk.Image;
-            if (expander_icon == null) return;
-
-            var label = expander_icon.get_next_sibling () as Gtk.Label;
+            var label = check.get_next_sibling () as Gtk.Label;
             if (label == null) return;
 
-            int depth = (int) row.get_depth ();
-            int indent = 2 + depth * 12;
-            box.margin_start = indent;
-            box.margin_end = 2;
-
-            if (item.is_dir) {
-                expander_icon.icon_name = row.get_expanded () ? "pan-down-symbolic" : "pan-end-symbolic";
-                expander_icon.tooltip_text = row.get_expanded () ? _("折叠") : _("展开");
-                expander_icon.visible = true;
-
-                ulong expanded_handler_id = row.notify["expanded"].connect (() => {
-                    expander_icon.icon_name = row.get_expanded () ? "pan-down-symbolic" : "pan-end-symbolic";
-                    expander_icon.tooltip_text = row.get_expanded () ? _("折叠") : _("展开");
-                });
-                expander_icon.set_data<ulong?> ("expanded-handler", expanded_handler_id);
-            } else {
-                expander_icon.visible = false;
-            }
+            expander.set_list_row (row);
+            expander.set_hide_expander (!item.is_dir);
 
             check.active = item.checked;
             check.inconsistent = item.inconsistent;
@@ -321,13 +278,28 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             check.set_data<ulong?> ("state_handler_id", state_handler_id);
 
             label.set_text (item.name);
+
+            if (item.is_dir) {
+                ulong expanded_handler_id = row.notify["expanded"].connect (() => {
+                    if (row.get_expanded () && item.children.get_n_items () == 0) {
+                        load_directory_children_lazy (item);
+                        if (item.checked) {
+                            sync_children_to_checked_paths (item);
+                        }
+                    }
+                });
+                row.set_data<ulong?> ("expanded-handler", expanded_handler_id);
+            }
         });
 
         expander_factory.unbind.connect ((obj) => {
             var list_item = obj as Gtk.ListItem;
             if (list_item == null) return;
 
-            var box = list_item.get_child () as Gtk.Box;
+            var expander = list_item.get_child () as Gtk.TreeExpander;
+            if (expander == null) return;
+
+            var box = expander.get_child () as Gtk.Box;
             if (box == null) return;
 
             var check = box.get_first_child () as Gtk.CheckButton;
@@ -344,17 +316,15 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 GLib.SignalHandler.disconnect (item, state_handler_id);
             }
 
-            var expander_icon = check.get_next_sibling () as Gtk.Image;
-            if (expander_icon != null) {
-                var expanded_handler_id = expander_icon.get_data<ulong?> ("expanded-handler");
+            var row = list_item.get_item () as Gtk.TreeListRow;
+            if (row != null) {
+                var expanded_handler_id = row.get_data<ulong?> ("expanded-handler");
                 if (expanded_handler_id != null) {
-                    var row = list_item.get_item () as Gtk.TreeListRow;
-                    if (row != null) {
-                        GLib.SignalHandler.disconnect (row, expanded_handler_id);
-                    }
-                    expander_icon.set_data<ulong?> ("expanded-handler", null);
+                    GLib.SignalHandler.disconnect (row, expanded_handler_id);
                 }
             }
+
+            expander.set_list_row (null);
         });
 
         var column = new Gtk.ColumnViewColumn (null, expander_factory);
@@ -379,16 +349,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
 
         dir_column_view.activate.connect (on_column_view_activated);
-    }
-
-    private void collapse_non_root_rows () {
-        uint n = tree_list_model.get_n_items ();
-        for (uint i = 0; i < n; i++) {
-            var row = tree_list_model.get_item (i) as Gtk.TreeListRow;
-            if (row != null && row.get_depth () > 0) {
-                row.set_expanded (false);
-            }
-        }
     }
 
     private void on_column_view_activated (uint position) {
@@ -667,8 +627,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
             load_directory_children_lazy (root_item);
 
+            var root_row = tree_list_model.get_item (0) as Gtk.TreeListRow;
+            if (root_row != null) {
+                root_row.set_expanded (true);
+            }
+
             GLib.Idle.add (() => {
-                collapse_non_root_rows ();
                 refresh_list ();
                 return Source.REMOVE;
             });
@@ -701,8 +665,18 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 }
             }
 
-            dirs.sort ((a, b) => strcmp (a.get_name (), b.get_name ()));
-            files.sort ((a, b) => strcmp (a.get_name (), b.get_name ()));
+            dirs.sort ((a, b) => {
+                bool a_dot = a.get_name ().has_prefix (".");
+                bool b_dot = b.get_name ().has_prefix (".");
+                if (a_dot != b_dot) return a_dot ? -1 : 1;
+                return a.get_name ().casefold ().collate (b.get_name ().casefold ());
+            });
+            files.sort ((a, b) => {
+                bool a_dot = a.get_name ().has_prefix (".");
+                bool b_dot = b.get_name ().has_prefix (".");
+                if (a_dot != b_dot) return a_dot ? -1 : 1;
+                return a.get_name ().casefold ().collate (b.get_name ().casefold ());
+            });
 
             for (int i = 0; i < dirs.length; i++) {
                 var fi = dirs.get (i);
@@ -1128,8 +1102,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
                     load_directory_children_lazy (root_item);
 
+                    var root_row = tree_list_model.get_item (0) as Gtk.TreeListRow;
+                    if (root_row != null) {
+                        root_row.set_expanded (true);
+                    }
+
                     GLib.Idle.add (() => {
-                        collapse_non_root_rows ();
+                        refresh_list ();
                         return Source.REMOVE;
                     });
                 } else {
