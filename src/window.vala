@@ -1332,98 +1332,140 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         about.website = "https://github.com/Sam-Fic/filecollector-gnome";
         about.license_type = Gtk.License.MIT_X11;
 
-        about.add_credit_section (_("键盘快捷键"), {
-            _("Ctrl+O    打开项目"),
-            _("Ctrl+S    保存项目"),
-            _("Ctrl+N    清空列表"),
-            _("Ctrl+E    添加外部文件"),
-            _("Ctrl+I    上方插入文本"),
-            _("Ctrl+Shift+I    下方插入文本"),
-            _("Ctrl+↑    上移"),
-            _("Ctrl+↓    下移"),
-            _("Delete    删除"),
-            _("Ctrl+G    生成合并文本"),
-            _("Ctrl+Shift+C    生成到剪贴板"),
-            _("Ctrl+,    语言设置"),
-            _("Ctrl+/    键盘快捷键"),
-            _("F1    关于"),
-            _("Ctrl+Q    退出")
-        });
-
         about.present (this);
     }
 
     public void on_show_shortcuts () {
-        var window = new Adw.Window ();
-        window.set_transient_for (this);
-        window.set_modal (true);
-        window.set_default_size (480, 500);
-        window.set_title (_("键盘快捷键"));
-
-        var toolbar_view = new Adw.ToolbarView ();
-        window.set_content (toolbar_view);
-
-        var header = new Adw.HeaderBar ();
-        header.set_decoration_layout ("close:");
-        toolbar_view.add_top_bar (header);
-
-        var content = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
-        content.set_margin_top (12);
-        content.set_margin_bottom (12);
-        content.set_margin_start (24);
-        content.set_margin_end (24);
-
-        var grid = new Gtk.Grid ();
-        grid.set_column_spacing (24);
-        grid.set_row_spacing (8);
-        grid.set_halign (Gtk.Align.START);
-
-        var shortcuts = new string[] {
-            _("打开项目"),         _("Ctrl+O"),
-            _("保存项目"),         _("Ctrl+S"),
-            _("清空列表"),         _("Ctrl+N"),
-            _("添加外部文件"),     _("Ctrl+E"),
-            _("上方插入文本"),     _("Ctrl+I"),
-            _("下方插入文本"),     _("Ctrl+Shift+I"),
-            _("上移"),             _("Ctrl+↑"),
-            _("下移"),             _("Ctrl+↓"),
-            _("删除"),             _("Delete"),
-            _("生成合并文本"),     _("Ctrl+G"),
-            _("生成到剪贴板"),     _("Ctrl+Shift+C"),
-            _("语言设置"),         _("Ctrl+,"),
-            _("键盘快捷键"),       _("Ctrl+/"),
-            _("关于"),             _("F1"),
-            _("退出"),             _("Ctrl+Q")
-        };
-
-        for (int i = 0; i < shortcuts.length; i += 2) {
-            var action_label = new Gtk.Label (shortcuts[i]);
-            action_label.set_halign (Gtk.Align.START);
-            action_label.set_xalign (0);
-            action_label.set_css_classes ({"dim-label"});
-
-            var key_label = new Gtk.Label (shortcuts[i + 1]);
-            key_label.set_halign (Gtk.Align.END);
-            key_label.set_xalign (1);
-            key_label.set_css_classes ({"accent"});
-
-            grid.attach (action_label, 0, i / 2, 1, 1);
-            grid.attach (key_label, 1, i / 2, 1, 1);
+        try {
+            var builder = new Gtk.Builder ();
+            builder.set_translation_domain (Config.GETTEXT_PACKAGE);
+            builder.add_from_string (build_shortcuts_ui (), -1);
+            var win = builder.get_object ("sw") as Gtk.ShortcutsWindow;
+            if (win == null) return;
+            win.set_transient_for (this);
+            win.present ();
+        } catch (Error e) {
+            warning ("Failed to show shortcuts: %s", e.message);
         }
+    }
 
-        var scrolled = new Gtk.ScrolledWindow ();
-        scrolled.set_child (grid);
-        scrolled.set_vexpand (true);
-        content.append (scrolled);
-
-        var close_btn = new Gtk.Button.with_label (_("关闭"));
-        close_btn.set_halign (Gtk.Align.CENTER);
-        close_btn.set_margin_top (12);
-        close_btn.clicked.connect (() => window.destroy ());
-        content.append (close_btn);
-
-        toolbar_view.set_content (content);
-        window.present ();
+    private string build_shortcuts_ui () {
+        return """<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <object class="GtkShortcutsWindow" id="sw">
+    <property name="modal">true</property>
+    <property name="title" translatable="yes">键盘快捷键</property>
+    <child>
+      <object class="GtkShortcutsSection">
+        <child>
+          <object class="GtkShortcutsGroup">
+            <property name="title" translatable="yes">常用操作</property>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes">打开项目</property>
+                <property name="accelerator">&lt;Control&gt;o</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes">保存项目</property>
+                <property name="accelerator">&lt;Control&gt;s</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes">清空列表</property>
+                <property name="accelerator">&lt;Control&gt;n</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes">添加外部文件</property>
+                <property name="accelerator">&lt;Control&gt;e</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkShortcutsGroup">
+            <property name="title" translatable="yes">列表操作</property>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes">上方插入文本</property>
+                <property name="accelerator">&lt;Control&gt;i</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes">下方插入文本</property>
+                <property name="accelerator">&lt;Control&gt;&lt;Shift&gt;i</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes">上移</property>
+                <property name="accelerator">&lt;Control&gt;Up</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes">下移</property>
+                <property name="accelerator">&lt;Control&gt;Down</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes">删除</property>
+                <property name="accelerator">Delete</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes">生成合并文本</property>
+                <property name="accelerator">&lt;Control&gt;g</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes">生成到剪贴板</property>
+                <property name="accelerator">&lt;Control&gt;&lt;Shift&gt;c</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkShortcutsGroup">
+            <property name="title" translatable="yes">应用程序</property>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes">语言设置</property>
+                <property name="accelerator">&lt;Control&gt;comma</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes">键盘快捷键</property>
+                <property name="accelerator">&lt;Control&gt;slash</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes">关于</property>
+                <property name="accelerator">F1</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes">退出</property>
+                <property name="accelerator">&lt;Control&gt;q</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>""";
     }
 
     public void on_settings () {
