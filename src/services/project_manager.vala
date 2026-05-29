@@ -4,8 +4,6 @@ public class ProjectManager : GLib.Object {
         GenericArray<ItemData> items,
         HashTable<string, bool> checked_paths,
         GenericArray<string> common_phrases,
-        Gtk.TreeStore tree_model,
-        Gtk.TreeView dir_tree,
         out File? work_dir,
         out string? project_file,
         out bool use_absolute,
@@ -32,23 +30,8 @@ public class ProjectManager : GLib.Object {
             }
         }
 
-        tree_model.clear ();
         checked_paths.remove_all ();
         items.remove_range (0, items.length);
-
-        if (work_dir != null) {
-            Gtk.TreeIter root_iter;
-            tree_model.append (out root_iter, null);
-            tree_model.set (root_iter, TreeHelper.COL_NAME, work_dir.get_basename (),
-                            TreeHelper.COL_PATH, work_dir.get_path (),
-                            TreeHelper.COL_IS_DIR, true,
-                            TreeHelper.COL_CHECKED, false,
-                            TreeHelper.COL_INCONSISTENT, false, -1);
-            TreeHelper.load_directory_children (root_iter, work_dir, tree_model, checked_paths);
-
-            var root_path = new Gtk.TreePath.from_indices (0);
-            dir_tree.expand_row (root_path, false);
-        }
 
         use_absolute = root.get_boolean_member_with_default ("use_absolute", false);
         show_header = root.get_boolean_member_with_default ("show_header", false);
@@ -91,7 +74,6 @@ public class ProjectManager : GLib.Object {
             }
         }
 
-        TreeHelper.restore_tree_checks (tree_model, checked_paths);
         project_file = file_path;
     }
 

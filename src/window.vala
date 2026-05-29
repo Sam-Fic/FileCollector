@@ -3,6 +3,58 @@ using Gtk;
 using Adw;
 using Json;
 
+// ─── Directory Item Model ───────────────────────────────────────────────
+
+public class DirectoryItem : GLib.Object {
+    public string name { get; set; }
+    public string path { get; set; }
+    public bool is_dir { get; set; }
+    private bool _checked = false;
+    public bool checked {
+        get { return _checked; }
+        set {
+            if (_checked != value) {
+                _checked = value;
+                notify_property ("checked");
+                state_changed ();
+            }
+        }
+    }
+    private bool _inconsistent = false;
+    public bool inconsistent {
+        get { return _inconsistent; }
+        set {
+            if (_inconsistent != value) {
+                _inconsistent = value;
+                notify_property ("inconsistent");
+                state_changed ();
+            }
+        }
+    }
+    public GLib.ListStore children { get; private set; }
+
+    public signal void state_changed ();
+
+    public DirectoryItem (string name, string path, bool is_dir) {
+        this.name = name;
+        this.path = path;
+        this.is_dir = is_dir;
+        this.children = new GLib.ListStore (typeof (DirectoryItem));
+    }
+
+    public void set_checked_recursive (bool value) {
+        _checked = value;
+        _inconsistent = false;
+        notify_property ("checked");
+        notify_property ("inconsistent");
+        state_changed ();
+        for (uint i = 0; i < children.get_n_items (); i++) {
+            var child = (DirectoryItem) children.get_item (i);
+            child.set_checked_recursive (value);
+        }
+    }
+}
+
 [GtkTemplate (ui = "/com/github/samfic/filecollector/window.ui")]
 public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.TreeView dir_tree;
@@ -24,7 +76,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.Paned outer_paned;
     [GtkChild] private unowned Gtk.Paned inner_paned;
 
-    private Gtk.TreeStore tree_model;
+    private Gtk.ColumnView dir_column_view;
+    private Gtk.TreeListModel tree_list_model;
+    private GLib.ListStore root_store;
     private File? work_dir = null;
     private string? project_file = null;
     private bool use_absolute = false;
@@ -104,11 +158,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         factory.bind.connect ((obj) => {
             var list_item = obj as Gtk.ListItem;
+            if (list_item == null) return;
+
             var data = list_item.get_item () as ItemData;
+            if (data == null) return;
+
             var box = list_item.get_child () as Gtk.Box;
+            if (box == null) return;
 
             var icon = box.get_first_child () as Gtk.Image;
+            if (icon == null) return;
+
             var label = icon.get_next_sibling () as Gtk.Label;
+            if (label == null) return;
 
             string display_name;
             string icon_name;
@@ -133,25 +195,309 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void setup_tree_view () {
-        tree_model = new Gtk.TreeStore (5, typeof (string), typeof (string), typeof (bool), typeof (bool), typeof (bool));
-        dir_tree.set_model (tree_model);
+        root_store = new GLib.ListStore (typeof (DirectoryItem));
 
-        var toggle_renderer = new Gtk.CellRendererToggle ();
-        toggle_renderer.activatable = true;
-        toggle_renderer.toggled.connect (on_tree_toggle_toggled);
+        tree_list_model = new Gtk.TreeListModel (
+            root_store,
+            false,
+            true,
+            (item) => ((DirectoryItem)item).children
+        );
 
-        var text_renderer = new Gtk.CellRendererText ();
+        var selection = new Gtk.SingleSelection (tree_list_model);
+        selection.set_autoselect (false);
 
-        var col = new Gtk.TreeViewColumn ();
-        col.pack_start (toggle_renderer, false);
-        col.pack_start (text_renderer, true);
-        col.add_attribute (toggle_renderer, "active", TreeHelper.COL_CHECKED);
-        col.add_attribute (toggle_renderer, "inconsistent", TreeHelper.COL_INCONSISTENT);
-        col.add_attribute (text_renderer, "text", TreeHelper.COL_NAME);
-        dir_tree.append_column (col);
+        dir_column_view = new Gtk.ColumnView (selection);
+        dir_column_view.add_css_class ("file-tree");
 
-        dir_tree.row_expanded.connect (on_tree_row_expanded);
-        dir_tree.get_selection ().mode = Gtk.SelectionMode.NONE;
+        var expander_factory = new Gtk.SignalListItemFactory ();
+        expander_factory.setup.connect ((obj) => {
+            var list_item = obj as Gtk.ListItem;
+
+            var check = new Gtk.CheckButton ();
+            check.add_css_class ("tree-check");
+
+            var expander_icon = new Gtk.Image ();
+            expander_icon.add_css_class ("expander-icon");
+
+            var click_controller = new Gtk.GestureClick ();
+            expander_icon.add_controller (click_controller);
+
+            var label = new Gtk.Label ("");
+            label.ellipsize = Pango.EllipsizeMode.END;
+            label.xalign = 0;
+            label.hexpand = true;
+
+            var box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
+            box.margin_top = 6;
+            box.margin_bottom = 6;
+            box.margin_start = 8;
+            box.margin_end = 8;
+            box.append (check);
+            box.append (expander_icon);
+            box.append (label);
+
+            list_item.set_child (box);
+
+            click_controller.released.connect ((n_press, x, y) => {
+                 var row = list_item.get_item () as Gtk.TreeListRow;
+                 if (row == null) return;
+
+                 var item = row.get_item () as DirectoryItem;
+                 if (item == null || !item.is_dir) return;
+
+                 bool new_expanded = !row.get_expanded ();
+                 row.set_expanded (new_expanded);
+
+                 if (new_expanded && item.children.get_n_items () == 0) {
+                     load_directory_children_lazy (item);
+                     if (item.checked) {
+                         sync_children_to_checked_paths (item);
+                     }
+                 }
+
+                 dir_column_view.queue_draw ();
+             });
+        });
+
+        expander_factory.bind.connect ((obj) => {
+            var list_item = obj as Gtk.ListItem;
+            if (list_item == null) return;
+
+            var row = list_item.get_item () as Gtk.TreeListRow;
+            if (row == null) return;
+
+            var item = row.get_item () as DirectoryItem;
+            if (item == null) return;
+
+            var box = list_item.get_child () as Gtk.Box;
+            if (box == null) return;
+
+            var check = box.get_first_child () as Gtk.CheckButton;
+            if (check == null) return;
+
+            var expander_icon = check.get_next_sibling () as Gtk.Image;
+            if (expander_icon == null) return;
+
+            var label = expander_icon.get_next_sibling () as Gtk.Label;
+            if (label == null) return;
+
+            int depth = (int) row.get_depth ();
+            int indent = depth * 20;
+            box.margin_start = indent;
+
+            if (item.is_dir) {
+                expander_icon.icon_name = row.get_expanded () ? "pan-down-symbolic" : "pan-end-symbolic";
+                expander_icon.tooltip_text = row.get_expanded () ? _("折叠") : _("展开");
+                expander_icon.visible = true;
+            } else {
+                expander_icon.icon_name = "text-x-generic-symbolic";
+                expander_icon.tooltip_text = null;
+                expander_icon.add_css_class ("dim-label");
+                expander_icon.visible = true;
+            }
+
+            check.active = item.checked;
+            check.inconsistent = item.inconsistent;
+
+            check.set_data<DirectoryItem> ("item", item);
+            ulong handler_id = check.notify["active"].connect (on_check_toggled);
+            check.set_data<ulong?> ("handler_id", handler_id);
+
+            ulong state_handler_id = item.state_changed.connect (() => {
+                check.active = item.checked;
+                check.inconsistent = item.inconsistent;
+            });
+            check.set_data<ulong?> ("state_handler_id", state_handler_id);
+
+            label.set_text (item.name);
+        });
+
+        expander_factory.unbind.connect ((obj) => {
+            var list_item = obj as Gtk.ListItem;
+            if (list_item == null) return;
+
+            var box = list_item.get_child () as Gtk.Box;
+            if (box == null) return;
+
+            var check = box.get_first_child () as Gtk.CheckButton;
+            if (check == null) return;
+
+            var handler_id = check.get_data<ulong?> ("handler_id");
+            if (handler_id != null) {
+                GLib.SignalHandler.disconnect (check, handler_id);
+            }
+
+            var state_handler_id = check.get_data<ulong?> ("state_handler_id");
+            var item = check.get_data<DirectoryItem> ("item");
+            if (state_handler_id != null && item != null) {
+                GLib.SignalHandler.disconnect (item, state_handler_id);
+            }
+        });
+
+        var column = new Gtk.ColumnViewColumn (null, expander_factory);
+        column.set_expand (true);
+        dir_column_view.append_column (column);
+
+        dir_column_view.show_column_separators = false;
+        dir_column_view.show_row_separators = false;
+
+        GLib.Idle.add (() => {
+            var child = dir_column_view.get_first_child ();
+            if (child != null) {
+                child.visible = false;
+            }
+            return Source.REMOVE;
+        });
+
+        var scrolled = dir_tree.get_parent () as Gtk.ScrolledWindow;
+        if (scrolled != null) {
+            dir_tree.visible = false;
+            scrolled.set_child (dir_column_view);
+        }
+
+        dir_column_view.activate.connect (on_column_view_activated);
+    }
+
+    private void on_column_view_activated (uint position) {
+    }
+
+    private void on_check_toggled (GLib.Object obj, GLib.ParamSpec pspec) {
+        var check = obj as Gtk.CheckButton;
+        if (check == null) return;
+
+        var item = check.get_data<DirectoryItem> ("item");
+        if (item == null) return;
+
+        bool new_checked = check.active;
+        item.set_checked_recursive (new_checked);
+
+        update_ancestor_states_modern (item);
+        dir_column_view.queue_draw ();
+
+        GLib.Idle.add (() => {
+            update_items_from_tree (item, new_checked);
+            refresh_list ();
+            return Source.REMOVE;
+        });
+    }
+
+    private void update_items_from_tree (DirectoryItem item, bool new_checked) {
+        if (item.is_dir) {
+            toggle_filesystem_recursive_modern (item.path, new_checked);
+        } else {
+            if (new_checked) {
+                if (!(item.path in checked_paths)) {
+                    checked_paths.insert (item.path, true);
+                    items.add (new ItemData ("file", item.path, null, false));
+                }
+            } else {
+                checked_paths.remove (item.path);
+                remove_items_by_path (item.path);
+            }
+        }
+    }
+
+    private void sync_children_to_checked_paths (DirectoryItem item) {
+        if (!item.is_dir) return;
+
+        for (uint i = 0; i < item.children.get_n_items (); i++) {
+            var child = (DirectoryItem) item.children.get_item (i);
+            if (child.is_dir) {
+                sync_children_to_checked_paths (child);
+            } else {
+                if (child.checked && !(child.path in checked_paths)) {
+                    checked_paths.insert (child.path, true);
+                    items.add (new ItemData ("file", child.path, null, false));
+                }
+            }
+        }
+    }
+
+    private void toggle_filesystem_recursive_modern (string dir_path, bool checked) {
+        var dir = File.new_for_path (dir_path);
+        try {
+            var enumerator = dir.enumerate_children (
+                FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE,
+                FileQueryInfoFlags.NONE
+            );
+            FileInfo info;
+            while ((info = enumerator.next_file ()) != null) {
+                var child = dir.get_child (info.get_name ());
+                if (info.get_file_type () == FileType.DIRECTORY) {
+                    toggle_filesystem_recursive_modern (child.get_path (), checked);
+                } else {
+                    var file_path = child.get_path ();
+                    if (checked) {
+                        if (!(file_path in checked_paths)) {
+                            checked_paths.insert (file_path, true);
+                            items.add (new ItemData ("file", file_path, null, false));
+                        }
+                    } else {
+                        checked_paths.remove (file_path);
+                        remove_items_by_path (file_path);
+                    }
+                }
+            }
+        } catch (Error e) {
+            warning ("toggle_filesystem_recursive_modern: %s", e.message);
+        }
+    }
+
+    private void update_ancestor_states_modern (DirectoryItem item) {
+        for (uint i = 0; i < root_store.get_n_items (); i++) {
+            var root = (DirectoryItem) root_store.get_item (i);
+            if (update_ancestor_states_recursive (root, item)) {
+                break;
+            }
+        }
+    }
+
+    private bool update_ancestor_states_recursive (DirectoryItem current, DirectoryItem target) {
+        if (current == target) {
+            return true;
+        }
+
+        if (!current.is_dir) return false;
+
+        for (uint i = 0; i < current.children.get_n_items (); i++) {
+            var child = (DirectoryItem) current.children.get_item (i);
+            if (update_ancestor_states_recursive (child, target)) {
+                update_single_item_state (current);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void update_single_item_state (DirectoryItem item) {
+        int total = 0;
+        int checked_count = 0;
+
+        for (uint i = 0; i < item.children.get_n_items (); i++) {
+            var child = (DirectoryItem) item.children.get_item (i);
+            total++;
+            if (child.is_dir) {
+                if (child.checked || child.inconsistent) {
+                    checked_count++;
+                }
+            } else {
+                if (child.checked) {
+                    checked_count++;
+                }
+            }
+        }
+
+        if (total == 0) {
+            return;
+        }
+
+        bool all_checked = (checked_count == total);
+        bool any_checked = (checked_count > 0);
+
+        item.checked = all_checked;
+        item.inconsistent = any_checked && !all_checked;
     }
 
     private void setup_signals () {
@@ -262,163 +608,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // ─── Tree View ───────────────────────────────────────────────────────
 
-    private void on_tree_toggle_toggled (string path_str) {
-        Gtk.TreeIter iter;
-        var path = new Gtk.TreePath.from_string (path_str);
-        if (!tree_model.get_iter (out iter, path)) return;
-
-        bool checked;
-        tree_model.get (iter, TreeHelper.COL_CHECKED, out checked, -1);
-        checked = !checked;
-        tree_model.set (iter, TreeHelper.COL_CHECKED, checked, TreeHelper.COL_INCONSISTENT, false, -1);
-
-        bool is_dir;
-        tree_model.get (iter, TreeHelper.COL_IS_DIR, out is_dir, -1);
-
-        if (is_dir) {
-            string dir_path;
-            tree_model.get (iter, TreeHelper.COL_PATH, out dir_path, -1);
-            toggle_directory_recursive (iter, checked);
-            if (dir_path != null) {
-                toggle_filesystem_recursive (dir_path, checked);
-            }
-        } else {
-            string file_path;
-            tree_model.get (iter, TreeHelper.COL_PATH, out file_path, -1);
-
-            if (checked) {
-                if (!(file_path in checked_paths)) {
-                    checked_paths.insert (file_path, true);
-                    items.add (new ItemData ("file", file_path, null, false));
-                }
-            } else {
-                checked_paths.remove (file_path);
-                remove_items_by_path (file_path);
-            }
-        }
-        refresh_list ();
-        var _child_path = path.copy ();
-        GLib.Idle.add (() => {
-            update_ancestor_states (_child_path);
-            return Source.REMOVE;
-        });
-    }
-
-    private void toggle_directory_recursive (Gtk.TreeIter parent_iter, bool checked) {
-        Gtk.TreeIter child;
-        if (!tree_model.iter_children (out child, parent_iter)) return;
-
-        do {
-            bool child_is_dir;
-            tree_model.get (child, TreeHelper.COL_IS_DIR, out child_is_dir, -1);
-            tree_model.set (child, TreeHelper.COL_CHECKED, checked, TreeHelper.COL_INCONSISTENT, false, -1);
-            if (child_is_dir) {
-                toggle_directory_recursive (child, checked);
-            }
-        } while (tree_model.iter_next (ref child));
-    }
-
-    private void toggle_filesystem_recursive (string dir_path, bool checked) {
-        var dir = File.new_for_path (dir_path);
-        try {
-            var enumerator = dir.enumerate_children (
-                FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE,
-                FileQueryInfoFlags.NONE
-            );
-            FileInfo info;
-            while ((info = enumerator.next_file ()) != null) {
-                var child = dir.get_child (info.get_name ());
-                if (info.get_file_type () == FileType.DIRECTORY) {
-                    toggle_filesystem_recursive (child.get_path (), checked);
-                } else {
-                    var file_path = child.get_path ();
-                    if (checked) {
-                        if (!(file_path in checked_paths)) {
-                            checked_paths.insert (file_path, true);
-                            items.add (new ItemData ("file", file_path, null, false));
-                        }
-                    } else {
-                        checked_paths.remove (file_path);
-                        remove_items_by_path (file_path);
-                    }
-                }
-            }
-        } catch (Error e) {
-            warning ("toggle_filesystem_recursive: %s", e.message);
-        }
-    }
-
-    private struct FolderState {
-        bool all_checked;
-        bool any_checked;
-    }
-
-    private FolderState calculate_folder_state (Gtk.TreeIter parent_iter) {
-        int total = 0;
-        int checked = 0;
-
-        Gtk.TreeIter child_iter;
-        if (!tree_model.iter_children (out child_iter, parent_iter)) {
-            return FolderState () { all_checked = false, any_checked = false };
-        }
-
-        do {
-            string path;
-            tree_model.get (child_iter, TreeHelper.COL_PATH, out path, -1);
-            if (path == null) continue;
-
-            bool is_dir;
-            tree_model.get (child_iter, TreeHelper.COL_IS_DIR, out is_dir, -1);
-            bool child_checked;
-            tree_model.get (child_iter, TreeHelper.COL_CHECKED, out child_checked, -1);
-
-            if (is_dir) {
-                var child_state = calculate_folder_state (child_iter);
-                if (child_state.any_checked) {
-                    checked++;
-                }
-                total++;
-            } else {
-                if (child_checked) {
-                    checked++;
-                }
-                total++;
-            }
-        } while (tree_model.iter_next (ref child_iter));
-
-        if (total == 0) {
-            return FolderState () { all_checked = false, any_checked = false };
-        }
-
-        bool all_checked = (checked == total);
-        bool any_checked = (checked > 0);
-
-        return FolderState () { all_checked = all_checked, any_checked = any_checked };
-    }
-
-    private void update_ancestor_states (Gtk.TreePath? child_path) {
-        if (child_path == null) return;
-
-        Gtk.TreeIter iter;
-        if (!tree_model.get_iter (out iter, child_path)) return;
-
-        while (tree_model.iter_parent (out iter, iter)) {
-            var state = calculate_folder_state (iter);
-
-            bool should_checked = state.all_checked;
-            bool should_inconsistent = state.any_checked && !state.all_checked;
-
-            bool current_checked;
-            tree_model.get (iter, TreeHelper.COL_CHECKED, out current_checked, -1);
-            bool current_inconsistent;
-            tree_model.get (iter, TreeHelper.COL_INCONSISTENT, out current_inconsistent, -1);
-
-            if (current_checked != should_checked || current_inconsistent != should_inconsistent) {
-                tree_model.set (iter, TreeHelper.COL_CHECKED, should_checked, TreeHelper.COL_INCONSISTENT, should_inconsistent, -1);
-            }
-        }
-    }
-
     private void remove_items_by_path (string path) {
         for (int i = items.length - 1; i >= 0; i--) {
             var item = items.get (i);
@@ -437,98 +626,111 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
             update_subtitle (folder.get_path ());
 
-            tree_model.clear ();
+            root_store.remove_all ();
             checked_paths.remove_all ();
+            items.remove_range (0, items.length);
 
-            Gtk.TreeIter root_iter;
-            tree_model.append (out root_iter, null);
-            tree_model.set (root_iter, TreeHelper.COL_NAME, folder.get_basename (), TreeHelper.COL_PATH, folder.get_path (),
-                            TreeHelper.COL_IS_DIR, true, TreeHelper.COL_CHECKED, false, TreeHelper.COL_INCONSISTENT, false, -1);
+            var root_item = new DirectoryItem (folder.get_basename (), folder.get_path (), true);
+            root_store.append (root_item);
 
-            load_directory_children_with_ancestor_update (root_iter, folder);
+            load_directory_children_lazy (root_item);
 
-            var root_path = new Gtk.TreePath.from_indices (0);
-            dir_tree.expand_row (root_path, false);
+            GLib.Idle.add (() => {
+                refresh_list ();
+                return Source.REMOVE;
+            });
         } catch (Error e) {
             warning ("文件夹选择失败: %s", e.message);
         }
     }
 
-    private void on_tree_row_expanded (Gtk.TreeIter iter, Gtk.TreePath path) {
-        string dir_path;
-        tree_model.get (iter, TreeHelper.COL_PATH, out dir_path, -1);
-        if (dir_path == null) return;
+    private void load_directory_children_lazy (DirectoryItem parent_item) {
+        if (!parent_item.is_dir) return;
 
-        var dir = File.new_for_path (dir_path);
+        var dir = File.new_for_path (parent_item.path);
         if (!dir.query_exists ()) return;
 
-        Gtk.TreeIter child;
-        if (tree_model.iter_children (out child, iter)) {
-            string name;
-            tree_model.get (child, TreeHelper.COL_NAME, out name, -1);
-            if (name == _("正在加载...") || name == "") {
-                tree_model.remove (ref child);
-            } else {
-                return;
+        try {
+            var enumerator = dir.enumerate_children (
+                FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE,
+                FileQueryInfoFlags.NONE
+            );
+
+            var dirs = new GenericArray<FileInfo> ();
+            var files = new GenericArray<FileInfo> ();
+
+            FileInfo info;
+            while ((info = enumerator.next_file ()) != null) {
+                if (info.get_file_type () == FileType.DIRECTORY) {
+                    dirs.add (info);
+                } else {
+                    files.add (info);
+                }
             }
-        }
 
-        load_directory_children_with_ancestor_update (iter, dir);
-    }
+            dirs.sort ((a, b) => strcmp (a.get_name (), b.get_name ()));
+            files.sort ((a, b) => strcmp (a.get_name (), b.get_name ()));
 
-    private void load_directory_children_with_ancestor_update (Gtk.TreeIter parent, File dir) {
-        TreeHelper.load_directory_children (parent, dir, tree_model, checked_paths);
-        var parent_path = tree_model.get_path (parent);
-        if (parent_path != null) {
-            GLib.Idle.add (() => {
-                update_ancestor_states (parent_path);
-                return Source.REMOVE;
-            });
+            for (int i = 0; i < dirs.length; i++) {
+                var fi = dirs.get (i);
+                var child_path = dir.get_child (fi.get_name ()).get_path ();
+                var child_item = new DirectoryItem (fi.get_name (), child_path, true);
+                child_item.checked = (child_path in checked_paths) || parent_item.checked;
+                parent_item.children.append (child_item);
+            }
+
+            for (int i = 0; i < files.length; i++) {
+                var fi = files.get (i);
+                var child_path = dir.get_child (fi.get_name ()).get_path ();
+                var child_item = new DirectoryItem (fi.get_name (), child_path, false);
+                child_item.checked = (child_path in checked_paths) || parent_item.checked;
+                parent_item.children.append (child_item);
+            }
+        } catch (Error e) {
+            warning ("load_directory_children_lazy: %s", e.message);
         }
     }
 
     private void set_tree_item_check (string abs_path, bool checked) {
-        Gtk.TreeIter? iter = null;
-        if (tree_model.get_iter_first (out iter)) {
-            set_tree_item_check_recursive (iter, abs_path, checked);
+        for (uint i = 0; i < root_store.get_n_items (); i++) {
+            var root = (DirectoryItem) root_store.get_item (i);
+            if (set_tree_item_check_recursive (root, abs_path, checked)) {
+                update_ancestor_states_modern (root);
+                return;
+            }
         }
     }
 
-    private bool set_tree_item_check_recursive (Gtk.TreeIter iter, string abs_path, bool checked) {
-        do {
-            string path;
-            tree_model.get (iter, TreeHelper.COL_PATH, out path, -1);
-            if (path == abs_path) {
-                tree_model.set (iter, TreeHelper.COL_CHECKED, checked, TreeHelper.COL_INCONSISTENT, false, -1);
-                var current_path = tree_model.get_path (iter);
-                if (current_path != null) {
-                    update_ancestor_states (current_path);
-                }
+    private bool set_tree_item_check_recursive (DirectoryItem item, string abs_path, bool checked) {
+        if (item.path == abs_path) {
+            item.checked = checked;
+            item.inconsistent = false;
+            return true;
+        }
+
+        for (uint i = 0; i < item.children.get_n_items (); i++) {
+            var child = (DirectoryItem) item.children.get_item (i);
+            if (set_tree_item_check_recursive (child, abs_path, checked)) {
                 return true;
             }
-            Gtk.TreeIter child;
-            if (tree_model.iter_children (out child, iter)) {
-                if (set_tree_item_check_recursive (child, abs_path, checked))
-                    return true;
-            }
-        } while (tree_model.iter_next (ref iter));
+        }
         return false;
     }
 
     private void unchecked_all_tree () {
-        Gtk.TreeIter iter;
-        if (!tree_model.get_iter_first (out iter)) return;
-        unchecked_all_tree_recursive (iter);
+        for (uint i = 0; i < root_store.get_n_items (); i++) {
+            var root = (DirectoryItem) root_store.get_item (i);
+            unchecked_all_tree_recursive (root);
+        }
     }
 
-    private void unchecked_all_tree_recursive (Gtk.TreeIter iter) {
-        do {
-            tree_model.set (iter, TreeHelper.COL_CHECKED, false, TreeHelper.COL_INCONSISTENT, false, -1);
-            Gtk.TreeIter child;
-            if (tree_model.iter_children (out child, iter)) {
-                unchecked_all_tree_recursive (child);
-            }
-        } while (tree_model.iter_next (ref iter));
+    private void unchecked_all_tree_recursive (DirectoryItem item) {
+        item.checked = false;
+        item.inconsistent = false;
+        for (uint i = 0; i < item.children.get_n_items (); i++) {
+            var child = (DirectoryItem) item.children.get_item (i);
+            unchecked_all_tree_recursive (child);
+        }
     }
 
     // ─── Queue List ──────────────────────────────────────────────────────
@@ -567,8 +769,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         bool has_selection = sel >= 0 && sel < items.length;
         btn_add_text_above.sensitive = has_selection;
         btn_add_text_below.sensitive = has_selection;
-        btn_move_up.sensitive = has_selection;
-        btn_move_down.sensitive = has_selection;
+        btn_move_up.sensitive = has_selection && items.length > 1 && sel > 0;
+        btn_move_down.sensitive = has_selection && items.length > 1 && sel < items.length - 1;
         btn_delete.sensitive = has_selection;
     }
 
@@ -877,8 +1079,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     items,
                     checked_paths,
                     common_phrases,
-                    tree_model,
-                    dir_tree,
                     out loaded_work_dir,
                     out loaded_project_file,
                     out loaded_use_absolute,
@@ -892,6 +1092,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
                 if (work_dir != null) {
                     update_subtitle (work_dir.get_path ());
+
+                    root_store.remove_all ();
+
+                    var root_item = new DirectoryItem (work_dir.get_basename (), work_dir.get_path (), true);
+                    root_store.append (root_item);
+
+                    load_directory_children_lazy (root_item);
                 } else {
                     update_subtitle (null);
                 }

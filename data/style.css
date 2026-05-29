@@ -24,6 +24,7 @@
 .card scrolledwindow,
 .card treeview,
 .card treeview.view,
+.card treeview.view:not(:selected),
 .card listview,
 .card textview,
 .card textview text,
@@ -60,4 +61,50 @@ paned separator {
 
 paned > separator {
     background: transparent;
+}
+
+.file-tree {
+    font-size: 13px;
+    background: transparent;
+    border: none;
+}
+
+.file-tree columnview {
+    background: transparent;
+    border: none;
+}
+
+.file-tree row {
+    min-height: 0;
+}
+
+.file-tree check {
+    -gtk-icon-size: 14px;
+}
+
+.file-tree label {
+    padding: 0;
+}
+
+.file-tree .expander-icon {
+    -gtk-icon-size: 14px;
+}
+
+.panel-title {
+    margin-top: 12px;
+    margin-bottom: 6px;
+    margin-left: 12px;
+    margin-right: 12px;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+    border: none;
+}
+
+
+
+.file-tree scrolledwindow {
+    background: transparent;
+    border: none;
+    box-shadow: none;
 }
