@@ -252,3 +252,31 @@ msgstr "Later"
 #: src/window.vala:1463
 msgid "立即重启"
 msgstr "Restart Now"
+
+#: src/window.vala:256 src/window.vala:298 src/window.vala:303
+msgid "折叠"
+msgstr "Collapse"
+
+#: src/window.vala:256 src/window.vala:298 src/window.vala:303
+msgid "展开"
+msgstr "Expand"
+
+#: src/utils/tree_helper.vala:47
+msgid "正在加载..."
+msgstr "Loading..."
+
+#: src/utils/tree_helper.vala:60
+msgid "无法读取目录: %s"
+msgstr "Unable to read directory: %s"
+
+#: src/services/project_manager.vala:60
+msgid "[缺失文件: %s]"
+msgstr "[Missing file: %s]"
+
+#: src/services/file_generator.vala:10
+msgid "# 工作目录绝对路径: %s\n\n"
+msgstr "# Working directory absolute path: %s\n\n"
+
+#: src/services/file_generator.vala:20
+msgid "[文件不存在: %s]\n"
+msgstr "[File does not exist: %s]\n"

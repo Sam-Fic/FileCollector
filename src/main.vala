@@ -64,7 +64,18 @@ public class FileCollectorApp : Adw.Application {
         }
 
         Intl.setlocale (LocaleCategory.ALL, "");
-        Intl.bindtextdomain (Config.GETTEXT_PACKAGE, Config.LOCALE_DIR);
+
+        string locale_dir = Config.LOCALE_DIR;
+        var mo_path = Path.build_filename (locale_dir, "en", "LC_MESSAGES", Config.GETTEXT_PACKAGE + ".mo");
+        if (!FileUtils.test (mo_path, FileTest.EXISTS)) {
+            try {
+                string exe_path = FileUtils.read_link ("/proc/self/exe");
+                locale_dir = Path.get_dirname (exe_path);
+            } catch (Error e) {
+                // keep default locale_dir
+            }
+        }
+        Intl.bindtextdomain (Config.GETTEXT_PACKAGE, locale_dir);
         Intl.bind_textdomain_codeset (Config.GETTEXT_PACKAGE, "UTF-8");
         Intl.textdomain (Config.GETTEXT_PACKAGE);
 

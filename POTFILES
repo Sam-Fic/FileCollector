@@ -4,3 +4,4 @@ src/widgets/settings_dialog.vala
 src/widgets/phrases_picker.vala
 src/services/project_manager.vala
 src/services/file_generator.vala
+src/utils/tree_helper.vala
