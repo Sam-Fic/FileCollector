@@ -231,7 +231,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             label.hexpand = true;
             label.valign = Gtk.Align.CENTER;
 
-            var box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 1);
+            var box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
             box.margin_top = 0;
             box.margin_bottom = 0;
             box.margin_start = 2;
