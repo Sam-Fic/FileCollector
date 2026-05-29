@@ -23,6 +23,21 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="3.0.4" date="2026-05-30">
+      <description>
+        <p>新特性与修复：</p>
+        <ul>
+          <li>资源管理器添加搜索过滤功能：支持实时过滤目录项，递归匹配子目录内容</li>
+          <li>键盘快捷键功能：新增快捷键窗口，支持查看和配置常用快捷键</li>
+          <li>CLI 增强：新增 --gui 参数支持强制 GUI 启动模式</li>
+          <li>i18n 优化：更新 CLI 错误提示翻译，硬编码错误输出改为统一函数处理</li>
+          <li>项目文件格式：统一使用 .fcol 扩展名替代旧有的 .json 格式</li>
+          <li>界面优化：重构文件选择交互逻辑，提升数据结构和代码可维护性</li>
+          <li>预览功能改进：目录视图选择变更时自动触发预览更新并清空队列选择</li>
+          <li>文档更新：明确 LANGUAGE 环境变量在 GUI 和 CLI 模式下均生效</li>
+        </ul>
+      </description>
+    </release>
     <release version="3.0.3" date="2026-05-30">
       <description>
         <p>新特性与修复：</p>
