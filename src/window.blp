@@ -103,25 +103,25 @@ title: _("FileCollector - 文件收集与编排工具");
            css-classes: ["middle-panel", "panel-frame"];
           Box {
             styles ["card"]
-            orientation: vertical;
-            spacing: 12;
-            hexpand: true;
-            vexpand: true;
+             orientation: vertical;
+             spacing: 0;
+             hexpand: true;
+             vexpand: true;
 
-            // 标题区
-            Label {
-              label: _("输出编排列表");
-              halign: center;
-              css-classes: ["panel-title"];
-            }
+             // 标题区
+             Label {
+               label: _("输出编排列表");
+               halign: center;
+               css-classes: ["panel-title"];
+             }
 
-            // 队列列表区
-            ScrolledWindow {
-              vexpand: true;
-              margin-start: 12;
-              margin-end: 12;
-              margin-top: 6;
-              margin-bottom: 6;
+             // 队列列表区
+             ScrolledWindow {
+               vexpand: true;
+               margin-start: 12;
+               margin-end: 12;
+               margin-top: 6;
+               margin-bottom: 6;
               ListView queue_list {
               }
             }
@@ -248,7 +248,7 @@ title: _("FileCollector - 文件收集与编排工具");
            Box {
              styles ["card"]
              orientation: vertical;
-             spacing: 12;
+             spacing: 8;
              hexpand: true;
              vexpand: true;
 
