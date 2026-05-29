@@ -25,6 +25,12 @@ It provides a checkable directory tree, flexible organization list, text inserti
 
 > **Tip**: If you are on a non-GNOME platform (such as Windows or macOS), please check out the [PySide6 version repository](https://github.com/Sam-Fic/filecollector). This version supports Windows, macOS, and Linux, and is built with PySide6.
 
+## Why Use This Tool?
+
+1. **Solve the Context Dilemma in Programming Tools**: In programming tools, models need to make many tool calls to explore the workspace, which can easily be distracted by irrelevant files and deviate from the topic. Large projects can also trigger context compression. Additionally, large amounts of system prompts in programming tools consume a lot of tokens. This tool allows manual selection of important files, consolidating the context into a single file and handing it over to a web-based model (with relatively fewer system prompts) for deep reasoning such as bug analysis, maximizing model inference performance.
+
+2. **Cost Control**: Most web-based models are free (or have free quotas), right?
+
 ## Pre-built Flatpak (Recommended)
 
 Pre-built Flatpak packages are available in the [Releases](https://github.com/Sam-Fic/filecollector-gnome/releases) section. If you prefer not to build from source, you can directly download and install the `.flatpak` files.
@@ -190,12 +196,6 @@ filecollector --load my.project.json --list-items
 
 CLI mode shares the same data model and business services (`ItemData`, `FileGenerator`, `ProjectManager`) with GUI mode, but does not depend on the GTK/Adw graphics libraries, making startup faster. The core CLI code resides in the standalone [cli.vala](src/cli.vala) file.
 
-## Why Use This Tool?
-
-1. **Solve the Context Dilemma in Programming Tools**: In programming tools, models need to make many tool calls to explore the workspace, which can easily be distracted by irrelevant files and deviate from the topic. Large projects can also trigger context compression. Additionally, large amounts of system prompts in programming tools consume a lot of tokens. This tool allows manual selection of important files, consolidating the context into a single file and handing it over to a web-based model (with relatively fewer system prompts) for deep reasoning such as bug analysis, maximizing model inference performance.
-
-2. **Cost Control**: Most web-based models are free (or have free quotas), right?
-
 ## MCP (Model Context Protocol) Service
 
 FileCollector has been wrapped as an MCP service, allowing LLMs in programming tools (such as Cursor, VS Code + Copilot) to directly call it to complete the following workflow:
@@ -211,10 +211,10 @@ This design separates **file exploration and code selection** (done by the model
 
 **Visit [filecollector-mcp-server](https://github.com/Sam-Fic/filecollector-mcp-server) for more details and installation instructions**
 
-> Contributions and ideas are welcome!
-
 ## License
 
 This project is licensed under the MIT License.
 
 > This project was developed entirely through **vibe coding**.
+
+> Contributions and ideas are welcome!

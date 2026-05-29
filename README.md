@@ -25,6 +25,12 @@ FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排
 
 > **提示**：如果您使用的是非 GNOME 平台（如 Windows 或 macOS），请移步 [PySide6 版本仓库](https://github.com/Sam-Fic/filecollector)。该版本跨平台支持 Windows、macOS 和 Linux，基于 PySide6 构建。
 
+## 为什么使用此工具？
+
+1. **解决编程工具的上下文困境**：在编程工具中，模型为了探索工作区需要进行大量工具调用，很容易被无关文件干扰而偏离主题。超大项目还容易触发上下文压缩。此外，编程工具中大量的系统提示词会消耗大量 Token。使用此工具人工挑选重要文件，将整理好的上下文交给网页端模型（系统提示词相对较少）进行 bug 分析等深度推理，以最大化模型推理性能。
+
+2. **成本控制**：网页端模型大多是免费（或有额度）的，不是吗？
+
 ## 预编译 Flatpak 包（推荐）
 
 预编译好的 Flatpak 包发布在 [Releases](https://github.com/Sam-Fic/filecollector-gnome/releases) 页面。如果您不想自行编译，可直接下载 `.flatpak` 文件安装使用。
@@ -191,12 +197,6 @@ filecollector --load my.project.json --list-items
 
 CLI 模式与 GUI 模式共享同一套数据模型和业务服务（`ItemData`、`FileGenerator`、`ProjectManager`），但 CLI 模式不依赖 GTK/Adw 图形库，启动更快。核心代码集中在独立的 [cli.vala](src/cli.vala) 文件中。
 
-## 为什么使用此工具？
-
-1. **解决编程工具的上下文困境**：在编程工具中，模型为了探索工作区需要进行大量工具调用，很容易被无关文件干扰而偏离主题。超大项目还容易触发上下文压缩。此外，编程工具中大量的系统提示词会消耗大量 Token。使用此工具人工挑选重要文件，将整理好的上下文交给网页端模型（系统提示词相对较少）进行 bug 分析等深度推理，以最大化模型推理性能。
-
-2. **成本控制**：网页端模型大多是免费（或有额度）的，不是吗？
-
 ## MCP (Model Context Protocol) 服务
 
 FileCollector 已经封装为 MCP 服务，现在编程工具（如 Cursor、VS Code + Copilot）中的大语言模型可以直接调用它完成以下工作流：
@@ -212,10 +212,10 @@ FileCollector 已经封装为 MCP 服务，现在编程工具（如 Cursor、VS 
 
 **查看 [filecollector-mcp-server](https://github.com/Sam-Fic/filecollector-mcp-server) 了解更多详情和安装使用方法**
 
-> 欢迎贡献想法或参与开发！
-
 ## 许可证
 
 本项目采用 MIT 许可证。
 
 > 本项目完全通过 **vibe coding** 方式开发完成。
+
+> 欢迎贡献想法或参与开发！
