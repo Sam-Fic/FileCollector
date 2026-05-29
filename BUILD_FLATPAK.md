@@ -133,7 +133,7 @@ flatpak build-bundle flatpak-repo filecollector-2.0.4.flatpak com.github.samfic.
 ls -lh filecollector-*.flatpak
 
 # 安装并运行验证
-flatpak install --user --or-update filecollector-2.0.4.flatpak
+flatpak install --user --or-update -y filecollector-2.0.4.flatpak
 flatpak run com.github.samfic.filecollector
 
 # 确认 metainfo 中的版本号正确
@@ -278,7 +278,7 @@ flatpak build-bundle flatpak-repo filecollector-2.0.x.flatpak com.github.samfic.
 # 4. git add -A && git commit -m "release: vX.Y.Z"
 # 5. flatpak-builder --repo=flatpak-repo build-dir ... --force-clean
 # 7. flatpak build-bundle flatpak-repo filecollector-X.Y.Z.flatpak ...
-# 8. flatpak install --user --or-update filecollector-X.Y.Z.flatpak
+# 8. flatpak install --user --or-update -y filecollector-X.Y.Z.flatpak
 # 9. 验证并上传到 GitHub Releases
 ```
 
