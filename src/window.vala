@@ -216,9 +216,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
             var check = new Gtk.CheckButton ();
             check.add_css_class ("tree-check");
+            check.valign = Gtk.Align.CENTER;
 
             var expander_icon = new Gtk.Image ();
             expander_icon.add_css_class ("expander-icon");
+            expander_icon.valign = Gtk.Align.CENTER;
 
             var click_controller = new Gtk.GestureClick ();
             expander_icon.add_controller (click_controller);
@@ -229,8 +231,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             label.hexpand = true;
 
             var box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
-            box.margin_top = 6;
-            box.margin_bottom = 6;
+            box.margin_top = 0;
+            box.margin_bottom = 0;
             box.margin_start = 8;
             box.margin_end = 8;
             box.append (check);
@@ -248,6 +250,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
                  bool new_expanded = !row.get_expanded ();
                  row.set_expanded (new_expanded);
+
+                 expander_icon.icon_name = new_expanded ? "pan-down-symbolic" : "pan-end-symbolic";
+                 expander_icon.tooltip_text = new_expanded ? _("折叠") : _("展开");
 
                  if (new_expanded && item.children.get_n_items () == 0) {
                      load_directory_children_lazy (item);
@@ -283,13 +288,21 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (label == null) return;
 
             int depth = (int) row.get_depth ();
-            int indent = depth * 20;
+            int indent = 8 + depth * 20;
             box.margin_start = indent;
+            box.margin_end = 8;
 
             if (item.is_dir) {
                 expander_icon.icon_name = row.get_expanded () ? "pan-down-symbolic" : "pan-end-symbolic";
                 expander_icon.tooltip_text = row.get_expanded () ? _("折叠") : _("展开");
                 expander_icon.visible = true;
+
+                if (row.get_depth () > 0 && row.get_expanded () && !row.get_data<bool> ("initial-collapsed")) {
+                    row.set_data<bool> ("initial-collapsed", true);
+                    row.set_expanded (false);
+                    expander_icon.icon_name = "pan-end-symbolic";
+                    expander_icon.tooltip_text = _("展开");
+                }
             } else {
                 expander_icon.icon_name = "text-x-generic-symbolic";
                 expander_icon.tooltip_text = null;
