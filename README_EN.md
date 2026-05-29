@@ -83,31 +83,10 @@ filecollector --gui    # Force GUI mode (same as above when no other CLI args)
 ```
 
 > **Tip**:
+>
 > - The application automatically uses Chinese or English UI based on your system language. To temporarily switch languages, use the `LANGUAGE` environment variable, e.g. `LANGUAGE=en filecollector` to force English display. This works for both GUI and CLI modes.
 > - For CLI mode usage, see the [CLI Mode](#cli-mode) section below.
 > - **GUI vs CLI behavior**: When any CLI arguments (`--work-dir`, `--select-file`, `--load`, etc.) are detected, the app runs in CLI mode without opening the GUI. **Exception**: Adding `--gui` forces GUI mode — CLI arguments are used only to initialize the interface state, then the GUI opens for manual adjustments. This is useful when switching from MCP automation to human review.
-
-### Keyboard Shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+O` | Open project |
-| `Ctrl+S` | Save project |
-| `Ctrl+N` | Clear all items |
-| `Ctrl+E` | Add external files |
-| `Ctrl+I` | Insert text above |
-| `Ctrl+Shift+I` | Insert text below |
-| `Ctrl+↑` | Move item up |
-| `Ctrl+↓` | Move item down |
-| `Delete` | Delete selected item |
-| `Ctrl+G` | Generate merged text |
-| `Ctrl+Shift+C` | Generate to clipboard |
-| `Ctrl+,` | Language settings |
-| `Ctrl+/` | Show keyboard shortcuts |
-| `F1` | About |
-| `Ctrl+Q` | Quit |
-
-All shortcuts are also viewable via the **Keyboard Shortcuts** menu item or the About dialog.
 
 ### Flatpak Build
 
@@ -153,6 +132,28 @@ flatpak run com.github.samfic.filecollector
 └── com.github.samfic.filecollector.json   # Flatpak build manifest
 ```
 
+### Keyboard Shortcuts
+
+| Shortcut       | Action                  |
+| -------------- | ----------------------- |
+| `Ctrl+O`       | Open project            |
+| `Ctrl+S`       | Save project            |
+| `Ctrl+N`       | Clear all items         |
+| `Ctrl+E`       | Add external files      |
+| `Ctrl+I`       | Insert text above       |
+| `Ctrl+Shift+I` | Insert text below       |
+| `Ctrl+↑`       | Move item up            |
+| `Ctrl+↓`       | Move item down          |
+| `Delete`       | Delete selected item    |
+| `Ctrl+G`       | Generate merged text    |
+| `Ctrl+Shift+C` | Generate to clipboard   |
+| `Ctrl+,`       | Language settings       |
+| `Ctrl+/`       | Show keyboard shortcuts |
+| `F1`           | About                   |
+| `Ctrl+Q`       | Quit                    |
+
+All shortcuts are also viewable via the **Keyboard Shortcuts** menu item or the About dialog.
+
 ## CLI Mode
 
 FileCollector features a built-in CLI mode that allows you to perform all core operations through the terminal without launching the GUI, making it ideal for scripting and automation.
@@ -167,22 +168,22 @@ filecollector [options...]
 
 ### Command Reference
 
-| Option | Description |
-|---|---|
-| `--work-dir DIR` | Set the working directory |
+| Option               | Description                                          |
+| -------------------- | ---------------------------------------------------- |
+| `--work-dir DIR`     | Set the working directory                            |
 | `--select-file PATH` | Add a file to the queue (can be used multiple times) |
-| `--add-text "TEXT"` | Add custom text (can be used multiple times) |
-| `--move FROM TO` | Move item at index FROM to index TO |
-| `--remove INDEX` | Remove item at INDEX |
-| `--clear` | Clear all items from the queue |
-| `--list-items` | List all items in the current queue |
-| `--export PATH` | Export merged text to file |
-| `--absolute` | Use absolute paths |
-| `--header` | Add header with working directory info |
-| `--load FILE` | Load state from a project file |
-| `--save FILE` | Save current state to a project file |
-| `--gui` | Initialize state with CLI args then open the GUI |
-| `--help`, `-h` | Show this help message |
+| `--add-text "TEXT"`  | Add custom text (can be used multiple times)         |
+| `--move FROM TO`     | Move item at index FROM to index TO                  |
+| `--remove INDEX`     | Remove item at INDEX                                 |
+| `--clear`            | Clear all items from the queue                       |
+| `--list-items`       | List all items in the current queue                  |
+| `--export PATH`      | Export merged text to file                           |
+| `--absolute`         | Use absolute paths                                   |
+| `--header`           | Add header with working directory info               |
+| `--load FILE`        | Load state from a project file                       |
+| `--save FILE`        | Save current state to a project file                 |
+| `--gui`              | Initialize state with CLI args then open the GUI     |
+| `--help`, `-h`       | Show this help message                               |
 
 ### Workflow Examples
 
