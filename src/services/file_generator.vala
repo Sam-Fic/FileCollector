@@ -68,8 +68,7 @@ public class FileGenerator : GLib.Object {
         write_items_to_stream (dis, items, use_absolute, show_header, work_dir);
         dis.close ();
 
-        mem.close ();
-        var bytes = new Bytes.take (mem.get_data ());
+        var bytes = new Bytes.take (mem.steal_data ());
         var provider = new Gdk.ContentProvider.for_bytes ("text/plain", bytes);
 
         display.get_clipboard ().set_content (provider);
