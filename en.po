@@ -347,6 +347,14 @@ msgstr "Open Project"
 msgid "项目文件 (*.project.json)"
 msgstr "Project File (*.project.json)"
 
+#: src/window.vala:1264
+msgid "项目文件 (*.fcol, *.fcol.json, *.project.json)"
+msgstr "Project File (*.fcol, *.fcol.json, *.project.json)"
+
+#: src/window.vala:1349
+msgid "项目文件 (*.fcol)"
+msgstr "Project File (*.fcol)"
+
 #: src/window.vala:1236
 msgid "打开失败"
 msgstr "Open Failed"
@@ -670,6 +678,18 @@ msgstr "Loading..."
 #, c-format
 msgid "无法读取目录: %s"
 msgstr "Unable to read directory: %s"
+
+#: src/window.vala:1449
+msgid "常用操作"
+msgstr "Common Operations"
+
+#: src/window.vala:1478
+msgid "列表操作"
+msgstr "List Operations"
+
+#: src/window.vala:1525
+msgid "应用程序"
+msgstr "Application"
 
 #~ msgid "输入常用语"
 #~ msgstr "Enter Common Phrase"
