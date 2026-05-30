@@ -4,7 +4,7 @@ public class FileCollectorApp : Adw.Application {
     public FileCollectorApp () {
         Object (
             application_id: "com.github.samfic.filecollector",
-            flags: ApplicationFlags.DEFAULT_FLAGS
+            flags: ApplicationFlags.HANDLES_COMMAND_LINE
         );
     }
 
@@ -53,10 +53,76 @@ public class FileCollectorApp : Adw.Application {
         window.present ();
     }
 
-    public void init_from_cli (CliController cli) {
-        if (app_window != null) {
-            app_window.initialize_from_cli (cli);
+    protected override int command_line (ApplicationCommandLine command_line) {
+        var args = command_line.get_arguments ();
+
+        bool force_gui = false;
+        var filtered = new GenericArray<string> ();
+        filtered.add (args[0]);
+        for (int i = 1; i < args.length; i++) {
+            if (args[i] == "--gui") {
+                force_gui = true;
+            } else {
+                filtered.add (args[i]);
+            }
         }
+        var filtered_args = filtered.data;
+
+        bool has_cli_args = CliController.is_cli_mode (filtered_args);
+
+        if (app_window != null) {
+            if (has_cli_args) {
+                var cli = app_window.create_cli_from_state ();
+                if (cli.parse_args (filtered_args)) {
+                    cli.execute_save_export ();
+                    app_window.apply_cli_operations (cli);
+                    for (int i = 0; i < cli.operation_messages.length; i++) {
+                        command_line.print ("✓ %s\n".printf (cli.operation_messages.get (i)));
+                    }
+                } else {
+                    return 1;
+                }
+            } else {
+                app_window.present ();
+            }
+            return 0;
+        }
+
+        if (!force_gui && has_cli_args) {
+            Intl.setlocale (LocaleCategory.ALL, "");
+            setup_i18n_default ();
+            var cli = new CliController ();
+            return cli.run (filtered_args);
+        }
+
+        var lang_setting = FileCollectorWindow.load_settings_language ();
+        if (lang_setting == "en") {
+            GLib.Environment.set_variable ("LANGUAGE", "en", true);
+        } else if (lang_setting == "zh") {
+            GLib.Environment.set_variable ("LANGUAGE", "zh_CN", true);
+        } else {
+            GLib.Environment.unset_variable ("LANGUAGE");
+        }
+
+        Intl.setlocale (LocaleCategory.ALL, "");
+        setup_i18n_default ();
+
+        activate ();
+
+        if (force_gui && has_cli_args) {
+            var cli = new CliController ();
+            if (cli.parse_args (filtered_args) || cli.items.length > 0 || cli.work_dir != null) {
+                cli.execute_save_export ();
+                GLib.Idle.add (() => {
+                    if (app_window != null) {
+                        app_window.apply_cli_operations (cli);
+                    }
+                    return Source.REMOVE;
+                });
+            }
+        }
+
+        return 0;
     }
 
     protected override void startup () {
@@ -92,58 +158,13 @@ public class FileCollectorApp : Adw.Application {
                 string exe_path = FileUtils.read_link ("/proc/self/exe");
                 locale_dir = Path.get_dirname (exe_path);
             } catch (Error e) {
-                // keep default locale_dir
             }
         }
         setup_i18n (locale_dir);
     }
 
     public static int main (string[] args) {
-        // Check for --gui flag: forces GUI mode even with other CLI args
-        bool force_gui = false;
-        var filtered = new GenericArray<string> ();
-        filtered.add (args[0]); // keep program name
-        for (int i = 1; i < args.length; i++) {
-            if (args[i] == "--gui") {
-                force_gui = true;
-            } else {
-                filtered.add (args[i]);
-            }
-        }
-        var filtered_args = filtered.data;
-
-        if (!force_gui && CliController.is_cli_mode (filtered_args)) {
-            Intl.setlocale (LocaleCategory.ALL, "");
-            setup_i18n_default ();
-            var cli = new CliController ();
-            return cli.run (filtered_args);
-        }
-
-        var lang_setting = FileCollectorWindow.load_settings_language ();
-        if (lang_setting == "en") {
-            GLib.Environment.set_variable ("LANGUAGE", "en", true);
-        } else if (lang_setting == "zh") {
-            GLib.Environment.set_variable ("LANGUAGE", "zh_CN", true);
-        } else {
-            GLib.Environment.unset_variable ("LANGUAGE");
-        }
-
-        Intl.setlocale (LocaleCategory.ALL, "");
-        setup_i18n_default ();
-
         var app = new FileCollectorApp ();
-
-        // Parse CLI args and initialize GUI state before activation
-        if (force_gui && CliController.is_cli_mode (filtered_args)) {
-            var cli = new CliController ();
-            if (cli.parse_args (filtered_args) || cli.items.length > 0 || cli.work_dir != null) {
-                app.activate.connect (() => {
-                    app.init_from_cli (cli);
-                });
-            }
-        }
-
-        // Only pass program name to avoid GTK parsing our custom args
-        return app.run ({args[0]});
+        return app.run (args);
     }
 }

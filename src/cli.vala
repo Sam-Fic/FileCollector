@@ -7,6 +7,7 @@ public class CliController : GLib.Object {
     public bool show_header { get; private set; }
     public HashTable<string, bool> checked_paths { get; private set; }
     public GenericArray<string> common_phrases { get; private set; }
+    public GenericArray<string> operation_messages { get; private set; }
 
     private string? export_path = null;
     private string? save_path = null;
@@ -15,6 +16,36 @@ public class CliController : GLib.Object {
         items = new GenericArray<ItemData> ();
         checked_paths = new HashTable<string, bool> (str_hash, str_equal);
         common_phrases = new GenericArray<string> ();
+        operation_messages = new GenericArray<string> ();
+    }
+
+    public void initialize_from_state (
+        File? wdir,
+        GenericArray<ItemData> existing_items,
+        HashTable<string, bool> existing_checked_paths,
+        GenericArray<string> existing_common_phrases,
+        bool existing_use_absolute,
+        bool existing_show_header
+    ) {
+        work_dir = wdir;
+        use_absolute = existing_use_absolute;
+        show_header = existing_show_header;
+
+        items.remove_range (0, items.length);
+        for (int i = 0; i < existing_items.length; i++) {
+            var item = existing_items.get (i);
+            items.add (new ItemData (item.item_type, item.file_path, item.content, item.force_absolute));
+        }
+
+        checked_paths.remove_all ();
+        foreach (var path in existing_checked_paths.get_keys ()) {
+            checked_paths.insert (path, true);
+        }
+
+        common_phrases.remove_range (0, common_phrases.length);
+        for (int i = 0; i < existing_common_phrases.length; i++) {
+            common_phrases.add (existing_common_phrases.get (i));
+        }
     }
 
     public static bool is_cli_mode (string[] args) {
@@ -65,8 +96,10 @@ public class CliController : GLib.Object {
                 clear_items ();
             } else if (arg == "--absolute") {
                 use_absolute = true;
+                operation_messages.add (_("已启用绝对路径"));
             } else if (arg == "--header") {
                 show_header = true;
+                operation_messages.add (_("已启用头部信息"));
             } else if (arg == "--export") {
                 i++;
                 if (i >= args.length) { show_missing_arg (arg); return false; }
@@ -95,7 +128,12 @@ public class CliController : GLib.Object {
 
     public int run (string[] args) {
         if (!parse_args (args)) return 1;
+        if (!execute_save_export ()) return 1;
+        return 0;
+    }
 
+    public bool execute_save_export () {
+        bool success = true;
         if (save_path != null) {
             try {
                 ProjectManager.write_project_file (
@@ -103,27 +141,33 @@ public class CliController : GLib.Object {
                     items, checked_paths, common_phrases
                 );
                 stdout.printf (_("项目已保存到: %s\n"), save_path);
+                operation_messages.add (_("项目已保存到: %s").printf (save_path));
             } catch (Error e) {
                 stderr.printf (_("保存项目失败: %s\n"), e.message);
-                return 1;
+                operation_messages.add (_("保存项目失败: %s").printf (e.message));
+                success = false;
             }
         }
 
         if (export_path != null) {
             if (items.length == 0) {
                 stderr.printf (_("错误: 编排列表为空，无法导出\n"));
-                return 1;
-            }
-            try {
-                FileGenerator.generate_file (export_path, items, use_absolute, show_header, work_dir);
-                stdout.printf (_("合并文本已导出到: %s\n"), export_path);
-            } catch (Error e) {
-                stderr.printf (_("导出失败: %s\n"), e.message);
-                return 1;
+                operation_messages.add (_("导出失败: 编排列表为空"));
+                success = false;
+            } else {
+                try {
+                    FileGenerator.generate_file (export_path, items, use_absolute, show_header, work_dir);
+                    stdout.printf (_("合并文本已导出到: %s\n"), export_path);
+                    operation_messages.add (_("合并文本已导出到: %s").printf (export_path));
+                } catch (Error e) {
+                    stderr.printf (_("导出失败: %s\n"), e.message);
+                    operation_messages.add (_("导出失败: %s").printf (e.message));
+                    success = false;
+                }
             }
         }
 
-        return 0;
+        return success;
     }
 
     private static void show_missing_arg (string arg) {
@@ -202,6 +246,7 @@ public class CliController : GLib.Object {
         }
         work_dir = dir;
         stdout.printf (_("✓ 工作目录已设置: %s\n"), path);
+        operation_messages.add (_("工作目录已设置: %s").printf (path));
         return true;
     }
 
@@ -215,12 +260,16 @@ public class CliController : GLib.Object {
         items.add (new ItemData ("file", abs_path, null, false));
         checked_paths.insert (abs_path, true);
         stdout.printf (_("✓ 已添加文件 [%d]: %s\n"), (int)items.length, abs_path);
+        operation_messages.add (_("已添加文件: %s").printf (file.get_basename ()));
         return true;
     }
 
     private void add_text (string text) {
         items.add (new ItemData ("text", null, text, false));
         stdout.printf (_("✓ 已添加文字 [%d]: %s\n"), (int)items.length, text);
+        var preview = text;
+        if (preview.length > 30) preview = preview.substring (0, 30) + "...";
+        operation_messages.add (_("已添加文字: %s").printf (preview));
     }
 
     private bool move_item (int from, int to) {
@@ -237,6 +286,7 @@ public class CliController : GLib.Object {
         items.set (from, items.get (to));
         items.set (to, tmp);
         stdout.printf (_("✓ 已将项目从索引 %d 移动到 %d\n"), from, to);
+        operation_messages.add (_("已移动项目 %d → %d").printf (from, to));
         return true;
     }
 
@@ -251,6 +301,7 @@ public class CliController : GLib.Object {
         }
         items.remove_index (index);
         stdout.printf (_("✓ 已删除索引 %d 处的项目\n"), index);
+        operation_messages.add (_("已删除项目 %d").printf (index));
         return true;
     }
 
@@ -258,6 +309,7 @@ public class CliController : GLib.Object {
         items.remove_range (0, items.length);
         checked_paths.remove_all ();
         stdout.printf (_("✓ 已清空编排列表\n"));
+        operation_messages.add (_("已清空编排列表"));
     }
 
     private void list_items () {
@@ -351,6 +403,7 @@ public class CliController : GLib.Object {
             }
 
             stdout.printf (_("✓ 已从项目文件加载: %s (共 %d 项)\n"), path, items.length);
+            operation_messages.add (_("已加载项目: %s (%d 项)").printf (File.new_for_path (path).get_basename (), items.length));
             return true;
         } catch (Error e) {
             stderr.printf (_("加载项目失败: %s\n"), e.message);

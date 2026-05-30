@@ -763,16 +763,38 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         this.add_controller (controller);
     }
 
-    public void initialize_from_cli (CliController cli) {
+    public CliController create_cli_from_state () {
+        var cli = new CliController ();
+        cli.initialize_from_state (
+            work_dir,
+            items,
+            checked_paths,
+            common_phrases,
+            use_absolute,
+            show_header
+        );
+        return cli;
+    }
+
+    public void apply_cli_operations (CliController cli) {
+        bool work_dir_changed = false;
+        if (cli.work_dir != null) {
+            if (work_dir == null || cli.work_dir.get_path () != work_dir.get_path ()) {
+                work_dir_changed = true;
+            }
+        }
+
         items = cli.items;
         checked_paths = cli.checked_paths;
         common_phrases = cli.common_phrases;
         use_absolute = cli.use_absolute;
         show_header = cli.show_header;
+        check_absolute_path.notify["active"].disconnect (on_path_mode_changed);
         check_absolute_path.active = use_absolute;
         check_write_header.active = show_header;
+        check_absolute_path.notify["active"].connect (on_path_mode_changed);
 
-        if (cli.work_dir != null) {
+        if (work_dir_changed) {
             work_dir = cli.work_dir;
             update_subtitle (work_dir.get_path ());
             root_store.remove_all ();
@@ -787,13 +809,33 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 return Source.REMOVE;
             });
             search_entry.visible = true;
+        } else if (work_dir != null && root_store.get_n_items () > 0) {
+            unchecked_all_tree ();
+            foreach (var path in checked_paths.get_keys ()) {
+                set_tree_item_check (path, true);
+            }
         }
 
         refresh_list ();
-        check_absolute_path.notify["active"].disconnect (on_path_mode_changed);
-        check_absolute_path.active = use_absolute;
-        check_write_header.active = show_header;
-        check_absolute_path.notify["active"].connect (on_path_mode_changed);
+
+        if (cli.operation_messages.length > 0) {
+            var messages = new GenericArray<string> ();
+            for (int i = 0; i < cli.operation_messages.length; i++) {
+                messages.add (cli.operation_messages.get (i));
+            }
+            GLib.Idle.add (() => {
+                for (int i = 0; i < messages.length; i++) {
+                    var toast = new Adw.Toast (messages.get (i));
+                    toast.timeout = 2;
+                    toast_overlay.add_toast (toast);
+                }
+                return Source.REMOVE;
+            });
+        }
+    }
+
+    public void initialize_from_cli (CliController cli) {
+        apply_cli_operations (cli);
     }
 
     // ─── Tree View ───────────────────────────────────────────────────────
