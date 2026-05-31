@@ -421,6 +421,14 @@ msgstr "Open Failed"
 msgid "保存项目"
 msgstr "Save Project"
 
+#: src/window.vala:1548
+msgid "项目文件已更新"
+msgstr "Project file updated"
+
+#: src/window.vala:1577
+msgid "项目文件已保存"
+msgstr "Project file saved"
+
 #: src/window.vala:1391
 msgid "项目文件 (*.fcol)"
 msgstr "Project File (*.fcol)"

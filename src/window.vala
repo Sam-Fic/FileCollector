@@ -1545,6 +1545,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 project_file, work_dir, use_absolute, show_header,
                 items, checked_paths, common_phrases
             );
+            show_toast (_("项目文件已更新"));
         } catch (Error e) {
             show_error (_("保存失败"), e.message);
         }
@@ -1572,6 +1573,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     project_file, work_dir, use_absolute, show_header,
                     items, checked_paths, common_phrases
                 );
+                show_toast (_("项目文件已保存"));
             } catch (Error e) {
                 if (e is GLib.IOError.CANCELLED || "Dismissed" in e.message) return;
                 show_error (_("保存失败"), e.message);
