@@ -79,14 +79,14 @@ sudo meson install
 ```bash
 filecollector          # 启动图形界面
 filecollector --help   # 查看 CLI 命令行帮助
-filecollector --gui    # 强制启动图形界面（无其他 CLI 参数时与上一行等价）
+filecollector --gui    # 强制启动图形界面（无其他 CLI 参数时第一行等价）
 ```
 
 > **提示**：
 >
 > - 程序默认跟随系统语言显示中文或英文界面。如需临时切换语言，可使用环境变量，例如 `LANGUAGE=en filecollector` 强制显示英文。该环境变量同时对图形界面和 CLI 命令行模式生效。
 > - 如需使用 CLI 命令行模式，请参见下方的 [CLI 命令行模式](#cli-命令行模式) 章节。
-> - **GUI 与 CLI 的行为规则**：当检测到任何 CLI 参数（`--work-dir`、`--select-file`、`--load` 等）时，程序默认进入命令行模式，不会弹出图形界面。**例外**：添加 `--gui` 参数可强制打开图形界面，CLI 参数仅用于初始化界面状态（工作目录、勾选文件等），初始化完成后自动弹出 GUI 供人工微调。这在 MCP 自动化流程与人工审查切换时非常有用。
+> - **GUI 与 CLI 的行为规则**：当检测到任何 CLI 参数（`--work-dir`、`--select-file`、`--load` 等）时，程序默认进入命令行模式，不会弹出图形界面。**例外**：添加 `--gui` 参数可强制打开图形界面，CLI 参数仅用于初始化界面状态（工作目录、勾选文件等），初始化完成后可接续使用 GUI 供人工微调，GUI 若在运行中，CLI 的操作会反映在 GUI 上。这在 MCP 自动化流程与人工审查切换时非常有用。
 
 ### Flatpak 构建
 
@@ -156,7 +156,7 @@ flatpak run com.github.samfic.filecollector
 
 ## CLI 命令行模式
 
-FileCollector 内置命令行模式，无需启动图形界面即可通过终端完成所有核心操作，适合脚本化和自动化集成。
+FileCollector 内置命令行模式，无需启动图形界面即可通过终端完成所有核心操作，适合脚本化和自动化集成。同时，如果 GUI 正在使用，CLI 模式也可以无缝对接 GUI 的进度和状态。
 
 ### 使用方式
 

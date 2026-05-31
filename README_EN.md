@@ -79,14 +79,14 @@ sudo meson install
 ```bash
 filecollector          # Launch GUI
 filecollector --help   # Show CLI help
-filecollector --gui    # Force GUI mode (same as above when no other CLI args)
+filecollector --gui    # Force GUI mode (same as the first command when no other CLI args)
 ```
 
 > **Tip**:
 >
 > - The application automatically uses Chinese or English UI based on your system language. To temporarily switch languages, use the `LANGUAGE` environment variable, e.g. `LANGUAGE=en filecollector` to force English display. This works for both GUI and CLI modes.
 > - For CLI mode usage, see the [CLI Mode](#cli-mode) section below.
-> - **GUI vs CLI behavior**: When any CLI arguments (`--work-dir`, `--select-file`, `--load`, etc.) are detected, the app runs in CLI mode without opening the GUI. **Exception**: Adding `--gui` forces GUI mode — CLI arguments are used only to initialize the interface state, then the GUI opens for manual adjustments. This is useful when switching from MCP automation to human review.
+> - **GUI vs CLI behavior**: When any CLI arguments (`--work-dir`, `--select-file`, `--load`, etc.) are detected, the app runs in CLI mode without opening the GUI. **Exception**: Adding `--gui` forces GUI mode — CLI arguments are used only to initialize the interface state, then you can use the GUI for manual adjustments, if the GUI is running, CLI operations will be reflected in the GUI. This is useful when switching from MCP automation to human review.
 
 ### Flatpak Build
 
@@ -156,7 +156,7 @@ All shortcuts are also viewable via the **Keyboard Shortcuts** menu item or the 
 
 ## CLI Mode
 
-FileCollector features a built-in CLI mode that allows you to perform all core operations through the terminal without launching the GUI, making it ideal for scripting and automation.
+FileCollector features a built-in CLI mode that allows you to perform all core operations through the terminal without launching the GUI, making it ideal for scripting and automation. Meanwhile, when the GUI is active, CLI mode can seamlessly integrate with the GUI to reflect its progress and status.
 
 ### Usage
 
