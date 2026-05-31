@@ -23,6 +23,19 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="3.1.0" date="2026-05-31">
+      <description>
+        <p>新特性与修复：</p>
+        <ul>
+          <li>撤销/重做功能：新增 UndoManager 服务，支持 Ctrl+Z/Ctrl+Shift+Z 快捷键撤销和重做操作</li>
+          <li>目录勾选优化：新增递归更新目录勾选状态的工具函数，修复勾选状态同步时的信号循环问题</li>
+          <li>CLI/GUI 集成重构：统一使用 ApplicationCommandLine 处理 CLI 和 GUI 模式，CLI 控制器添加操作消息队列</li>
+          <li>内存修复：修复 file_generator 内存释放问题，使用 steal_data 直接转移内存所有权</li>
+          <li>界面优化：调整窗口顶部边距、面板布局间距与样式</li>
+          <li>文档更新：调整文档结构，更新中英文截图</li>
+        </ul>
+      </description>
+    </release>
     <release version="3.0.4" date="2026-05-30">
       <description>
         <p>新特性与修复：</p>
