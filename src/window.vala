@@ -1647,6 +1647,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private string build_shortcuts_ui () {
+        _("常用操作");
+        _("列表操作");
+        _("应用程序");
+        _("清空列表");
+        _("生成到剪贴板");
+        _("打开项目");
+        _("关于");
+        _("退出");
         return """<?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <object class="GtkShortcutsWindow" id="sw">

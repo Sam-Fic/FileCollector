@@ -405,7 +405,7 @@ msgstr "Merged Text Copied to Clipboard"
 msgid "复制失败"
 msgstr "Copy Failed"
 
-#: src/window.vala:1304
+#: src/window.vala:1304 src/window.vala:1656
 msgid "打开项目"
 msgstr "Open Project"
 
@@ -542,6 +542,34 @@ msgstr "Keyboard Shortcuts"
 msgid "关于 FileCollector"
 msgstr "About FileCollector"
 
+#: src/window.vala:1650
+msgid "常用操作"
+msgstr "Common Operations"
+
+#: src/window.vala:1651
+msgid "列表操作"
+msgstr "List Operations"
+
+#: src/window.vala:1652
+msgid "应用程序"
+msgstr "Application"
+
+#: src/window.vala:1654
+msgid "清空列表"
+msgstr "Clear All"
+
+#: src/window.vala:1655
+msgid "生成到剪贴板"
+msgstr "Generate to Clipboard"
+
+#: src/window.vala:1657
+msgid "关于"
+msgstr "About"
+
+#: src/window.vala:1658
+msgid "退出"
+msgstr "Quit"
+
 #: src/widgets/settings_dialog.vala:15
 msgid "设置界面语言"
 msgstr "Set Interface Language"
@@ -619,38 +647,7 @@ msgstr "Unable to read directory: %s"
 #~ msgid "项目文件 (*.project.json)"
 #~ msgstr "Project File (*.project.json)"
 
-#~ msgid "Ctrl+O    打开项目"
-#~ msgstr "Ctrl+O    Open Project"
 
-#~ msgid "Ctrl+S    保存项目"
-#~ msgstr "Ctrl+S    Save Project"
-
-#~ msgid "Ctrl+N    清空列表"
-#~ msgstr "Ctrl+N    Clear All"
-
-#~ msgid "Ctrl+E    添加外部文件"
-#~ msgstr "Ctrl+E    Add External Files"
-
-#~ msgid "Ctrl+I    上方插入文本"
-#~ msgstr "Ctrl+I    Insert Text Above"
-
-#~ msgid "Ctrl+Shift+I    下方插入文本"
-#~ msgstr "Ctrl+Shift+I    Insert Text Below"
-
-#~ msgid "Ctrl+↑    上移"
-#~ msgstr "Ctrl+↑    Move Up"
-
-#~ msgid "Ctrl+↓    下移"
-#~ msgstr "Ctrl+↓    Move Down"
-
-#~ msgid "Delete    删除"
-#~ msgstr "Delete    Delete"
-
-#~ msgid "Ctrl+G    生成合并文本"
-#~ msgstr "Ctrl+G    Generate Merged Text"
-
-#~ msgid "Ctrl+Shift+C    生成到剪贴板"
-#~ msgstr "Ctrl+Shift+C    Generate to Clipboard"
 
 #~ msgid "Ctrl+,    语言设置"
 #~ msgstr "Ctrl+,    Language Settings"
@@ -669,9 +666,6 @@ msgstr "Unable to read directory: %s"
 
 #~ msgid "Ctrl+S"
 #~ msgstr "Ctrl+S"
-
-#~ msgid "清空列表"
-#~ msgstr "Clear All"
 
 #~ msgid "Ctrl+N"
 #~ msgstr "Ctrl+N"
@@ -697,41 +691,20 @@ msgstr "Unable to read directory: %s"
 #~ msgid "Ctrl+G"
 #~ msgstr "Ctrl+G"
 
-#~ msgid "生成到剪贴板"
-#~ msgstr "Generate to Clipboard"
-
-#~ msgid "Ctrl+Shift+C"
-#~ msgstr "Ctrl+Shift+C"
-
 #~ msgid "Ctrl+,"
 #~ msgstr "Ctrl+,"
 
 #~ msgid "Ctrl+/"
 #~ msgstr "Ctrl+/"
 
-#~ msgid "关于"
-#~ msgstr "About"
-
 #~ msgid "F1"
 #~ msgstr "F1"
-
-#~ msgid "退出"
-#~ msgstr "Quit"
 
 #~ msgid "Ctrl+Q"
 #~ msgstr "Ctrl+Q"
 
 #~ msgid "关闭"
 #~ msgstr "Close"
-
-#~ msgid "常用操作"
-#~ msgstr "Common Operations"
-
-#~ msgid "列表操作"
-#~ msgstr "List Operations"
-
-#~ msgid "应用程序"
-#~ msgstr "Application"
 
 #~ msgid "输入常用语"
 #~ msgstr "Enter Common Phrase"
