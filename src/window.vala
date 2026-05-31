@@ -61,6 +61,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.ListView queue_list;
     [GtkChild] private unowned Gtk.TextView preview_view;
     [GtkChild] private unowned Gtk.Button open_folder_btn;
+    [GtkChild] private unowned Gtk.Button btn_undo;
+    [GtkChild] private unowned Gtk.Button btn_redo;
     [GtkChild] private unowned Gtk.Button btn_generate;
     [GtkChild] private unowned Gtk.Button btn_generate_clipboard;
     [GtkChild] private unowned Gtk.Button btn_add_ext;
@@ -96,6 +98,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private HashTable<string, bool> checked_paths;
     private GenericArray<string> common_phrases;
 
+    private UndoManager undo_manager;
+
     private Adw.WindowTitle? _title_widget;
 
     private PhrasesPicker? phrases_picker_instance = null;
@@ -110,6 +114,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         items = new GenericArray<ItemData> ();
         checked_paths = new HashTable<string, bool> (str_hash, str_equal);
         common_phrases = new GenericArray<string> ();
+        undo_manager = new UndoManager ();
 
         ConfigManager.load_common_phrases (common_phrases);
         load_css ();
@@ -452,6 +457,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var item = check.get_data<DirectoryItem> ("item");
         if (item == null) return;
 
+        push_undo_state ();
+
         bool new_checked = check.active;
         item.set_checked_recursive (new_checked);
 
@@ -643,8 +650,67 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
     }
 
+    private void push_undo_state () {
+        undo_manager.push (new UndoState (items, checked_paths, use_absolute, show_header));
+    }
+
+    private void on_undo () {
+        var current = new UndoState (items, checked_paths, use_absolute, show_header);
+        var state = undo_manager.undo (current);
+        if (state != null) {
+            restore_undo_state (state);
+        }
+    }
+
+    private void on_redo () {
+        var current = new UndoState (items, checked_paths, use_absolute, show_header);
+        var state = undo_manager.redo (current);
+        if (state != null) {
+            restore_undo_state (state);
+        }
+    }
+
+    private void restore_undo_state (UndoState state) {
+        items.remove_range (0, items.length);
+        for (int i = 0; i < state.items.length; i++) {
+            var it = state.items.get (i);
+            items.add (new ItemData (it.item_type, it.file_path, it.content, it.force_absolute));
+        }
+
+        checked_paths.remove_all ();
+        foreach (var key in state.checked_paths.get_keys ()) {
+            checked_paths.insert (key, true);
+        }
+
+        use_absolute = state.use_absolute;
+        show_header = state.show_header;
+        check_absolute_path.notify["active"].disconnect (on_path_mode_changed);
+        check_absolute_path.active = use_absolute;
+        check_write_header.active = show_header;
+        check_absolute_path.notify["active"].connect (on_path_mode_changed);
+
+        if (work_dir != null && root_store.get_n_items () > 0) {
+            unchecked_all_tree ();
+            foreach (var path in checked_paths.get_keys ()) {
+                set_tree_item_check (path, true);
+            }
+            var root = (DirectoryItem) root_store.get_item (0);
+            update_directory_states_recursive (root);
+        }
+
+        refresh_list ();
+        update_undo_redo_buttons ();
+    }
+
+    private void update_undo_redo_buttons () {
+        btn_undo.sensitive = undo_manager.can_undo;
+        btn_redo.sensitive = undo_manager.can_redo;
+    }
+
     private void setup_signals () {
         open_folder_btn.clicked.connect (() => on_open_folder_clicked.begin ());
+        btn_undo.clicked.connect (on_undo);
+        btn_redo.clicked.connect (on_redo);
         btn_add_ext.clicked.connect (on_add_external_files);
         btn_add_text_above.clicked.connect (() => insert_text (true));
         btn_add_text_below.clicked.connect (() => insert_text (false));
@@ -773,6 +839,22 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         ));
 
         controller.add_shortcut (new Gtk.Shortcut (
+            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("z"), Gdk.ModifierType.CONTROL_MASK),
+            new Gtk.CallbackAction ((widget, shortcut) => {
+                on_undo ();
+                return true;
+            })
+        ));
+
+        controller.add_shortcut (new Gtk.Shortcut (
+            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("z"), Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK),
+            new Gtk.CallbackAction ((widget, shortcut) => {
+                on_redo ();
+                return true;
+            })
+        ));
+
+        controller.add_shortcut (new Gtk.Shortcut (
             new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("n"), Gdk.ModifierType.CONTROL_MASK),
             new Gtk.CallbackAction ((widget, shortcut) => {
                 on_clear_items ();
@@ -845,6 +927,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     public void apply_cli_operations (CliController cli) {
+        push_undo_state ();
         bool work_dir_changed = false;
         if (cli.work_dir != null) {
             if (work_dir == null || cli.work_dir.get_path () != work_dir.get_path ()) {
@@ -930,6 +1013,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             root_store.remove_all ();
             checked_paths.remove_all ();
             items.remove_range (0, items.length);
+            undo_manager.clear ();
+            update_undo_redo_buttons ();
 
             var root_item = new DirectoryItem (folder.get_basename (), folder.get_path (), true);
             root_store.append (root_item);
@@ -1097,6 +1182,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         dialog.open_multiple.begin (this, null, (obj, res) => {
             try {
                 var files = dialog.open_multiple.end (res);
+                if (files.get_n_items () == 0) return;
+                push_undo_state ();
                 for (uint i = 0; i < files.get_n_items (); i++) {
                     var file = (File) files.get_item (i);
                     var path = file.get_path ();
@@ -1202,6 +1289,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void do_insert_text (string text, bool above) {
+        push_undo_state ();
         int current = (int)queue_selection.selected;
         int index;
         if (current < 0) {
@@ -1217,6 +1305,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         int index = (int)queue_selection.selected;
         if (index < 0) return;
         if (index <= 0) return;
+        push_undo_state ();
         var tmp = items.get (index);
         items.set (index, items.get (index - 1));
         items.set (index - 1, tmp);
@@ -1228,6 +1317,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         int index = (int)queue_selection.selected;
         if (index < 0) return;
         if (index >= items.length - 1) return;
+        push_undo_state ();
         var tmp = items.get (index);
         items.set (index, items.get (index + 1));
         items.set (index + 1, tmp);
@@ -1238,6 +1328,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void on_delete_item () {
         int index = (int)queue_selection.selected;
         if (index < 0) return;
+        push_undo_state ();
         var data = items.get (index);
         if (data.item_type == "file" && !data.force_absolute) {
             if (data.file_path in checked_paths) {
@@ -1250,6 +1341,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_clear_items () {
+        push_undo_state ();
         items.remove_range (0, items.length);
         checked_paths.remove_all ();
         unchecked_all_tree ();
@@ -1305,6 +1397,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // ─── Options ─────────────────────────────────────────────────────────
 
     private void on_path_mode_changed () {
+        push_undo_state ();
         use_absolute = check_absolute_path.active;
         if (use_absolute) {
             check_write_header.active = false;
@@ -1316,6 +1409,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_header_check_changed () {
+        push_undo_state ();
         show_header = check_write_header.active;
     }
 
@@ -1431,6 +1525,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
                 check_absolute_path.active = use_absolute;
                 check_write_header.active = show_header;
+                undo_manager.clear ();
+                update_undo_redo_buttons ();
                 refresh_list ();
             } catch (Error e) {
                 if (e is GLib.IOError.CANCELLED || "Dismissed" in e.message) return;
@@ -1559,6 +1655,18 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         <child>
           <object class="GtkShortcutsGroup">
             <property name="title" translatable="yes">常用操作</property>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes">撤销</property>
+                <property name="accelerator">&lt;Control&gt;z</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes">重做</property>
+                <property name="accelerator">&lt;Control&gt;&lt;Shift&gt;z</property>
+              </object>
+            </child>
             <child>
               <object class="GtkShortcutsShortcut">
                 <property name="title" translatable="yes">打开项目</property>

@@ -449,6 +449,14 @@ msgstr "FileCollector - File Collection & Organization Tool"
 msgid "打开工作目录"
 msgstr "Open Working Directory"
 
+#: src/window.blp:20
+msgid "撤销"
+msgstr "Undo"
+
+#: src/window.blp:26
+msgid "重做"
+msgstr "Redo"
+
 #: src/window.blp:58
 msgid "资源管理器"
 msgstr "File Browser"

@@ -14,6 +14,18 @@ title: _("FileCollector - 文件收集与编排工具");
           tooltip-text: _("打开工作目录");
         }
 
+        Button btn_undo {
+          icon-name: "edit-undo-symbolic";
+          tooltip-text: _("撤销");
+          sensitive: false;
+        }
+
+        Button btn_redo {
+          icon-name: "edit-redo-symbolic";
+          tooltip-text: _("重做");
+          sensitive: false;
+        }
+
         title-widget: Adw.WindowTitle {
           title: _("FileCollector");
           subtitle: _("未设置工作目录");

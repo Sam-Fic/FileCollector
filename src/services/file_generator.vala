@@ -63,13 +63,18 @@ public class FileGenerator : GLib.Object {
         File? work_dir,
         Gdk.Display display
     ) throws Error {
-        var mem = new MemoryOutputStream (null, GLib.realloc, GLib.free);
-        var dis = new DataOutputStream (mem);
-        write_items_to_stream (dis, items, use_absolute, show_header, work_dir);
-        dis.close ();
+        var config_dir = Path.build_filename (
+            Environment.get_user_config_dir (), "filecollector"
+        );
+        DirUtils.create_with_parents (config_dir, 0755);
 
-        var bytes = new Bytes.take (mem.steal_data ());
-        var provider = new Gdk.ContentProvider.for_bytes ("text/plain", bytes);
+        var file_path = Path.build_filename (config_dir, "merged.txt");
+        generate_file (file_path, items, use_absolute, show_header, work_dir);
+
+        var uri = Filename.to_uri (file_path);
+        var uri_list = (uri + "\r\n").data;
+        var bytes = new Bytes (uri_list);
+        var provider = new Gdk.ContentProvider.for_bytes ("text/uri-list", bytes);
 
         display.get_clipboard ().set_content (provider);
     }
