@@ -250,7 +250,7 @@ FileCollector 已经封装为 MCP 服务，现在编程工具（如 Cursor、VS 
 GUI 与 CLI 结合，实现了无缝的人机协同工作流：
 
 1. 在 Cursor 中通过 MCP 服务让大模型自动探索和编排项目文件。
-2. 当生成的文件列表需要人工微调时，在终端运行 `filecollector --load ~/.config/filecollector/mcp_state.json --gui`。`--gui` 参数确保打开图形界面（不带 `--gui` 则仅执行 CLI 命令）。
+2. 当生成的文件列表需要人工微调时，在终端运行 `filecollector --load ~/.config/filecollector/mcp_state.fcol --gui`。`--gui` 参数确保打开图形界面（不带 `--gui` 则仅执行 CLI 命令）。
 3. 弹出图形界面，展示模型选定的文件列表。可继续勾选、排序、保存。
 4. 回到 Cursor 中，模型继续后续工作。
 

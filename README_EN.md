@@ -250,7 +250,7 @@ This design separates **file exploration and code selection** (done by the model
 GUI and CLI are combined to enable seamless human-AI collaboration:
 
 1. Use MCP service in Cursor for the LLM to automatically explore and organize project files.
-2. When the generated file list requires manual adjustment, run `filecollector --load ~/.config/filecollector/mcp_state.json --gui` in the terminal. The `--gui` flag ensures the GUI opens (without it, the command runs in CLI mode only).
+2. When the generated file list requires manual adjustment, run `filecollector --load ~/.config/filecollector/mcp_state.fcol --gui` in the terminal. The `--gui` flag ensures the GUI opens (without it, the command runs in CLI mode only).
 3. The GUI opens, displaying the model's selected file list. You can check, reorder, and save.
 4. Return to Cursor for the LLM to continue subsequent work.
 
