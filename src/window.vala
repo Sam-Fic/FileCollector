@@ -298,8 +298,15 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             check.set_data<ulong?> ("handler_id", handler_id);
 
             ulong state_handler_id = item.state_changed.connect (() => {
+                var hid = check.get_data<ulong?> ("handler_id");
+                if (hid != null) {
+                    SignalHandler.block (check, hid);
+                }
                 check.active = item.checked;
                 check.inconsistent = item.inconsistent;
+                if (hid != null) {
+                    SignalHandler.unblock (check, hid);
+                }
             });
             check.set_data<ulong?> ("state_handler_id", state_handler_id);
 
@@ -312,6 +319,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                         if (item.checked) {
                             sync_children_to_checked_paths (item);
                         }
+                        update_directory_states_recursive (item);
                     }
                 });
                 row.set_data<ulong?> ("expanded-handler", expanded_handler_id);
@@ -549,11 +557,15 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void update_single_item_state (DirectoryItem item) {
         int total = 0;
         int checked_count = 0;
+        bool any_inconsistent = false;
 
         for (uint i = 0; i < item.children.get_n_items (); i++) {
             var child = (DirectoryItem) item.children.get_item (i);
             total++;
             if (child.is_dir) {
+                if (child.inconsistent) {
+                    any_inconsistent = true;
+                }
                 if (child.checked || child.inconsistent) {
                     checked_count++;
                 }
@@ -568,11 +580,67 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             return;
         }
 
+        bool all_checked = !any_inconsistent && (checked_count == total);
+        bool any_checked = (checked_count > 0) || any_inconsistent;
+
+        item.checked = all_checked;
+        item.inconsistent = any_checked && !all_checked;
+    }
+
+    private void update_directory_states_recursive (DirectoryItem item) {
+        if (!item.is_dir) return;
+
+        if (item.children.get_n_items () > 0) {
+            for (uint i = 0; i < item.children.get_n_items (); i++) {
+                var child = (DirectoryItem) item.children.get_item (i);
+                if (child.is_dir) {
+                    update_directory_states_recursive (child);
+                }
+            }
+            update_single_item_state (item);
+        } else {
+            compute_dir_state_from_filesystem (item);
+        }
+    }
+
+    private void compute_dir_state_from_filesystem (DirectoryItem item) {
+        int total = 0;
+        int checked_count = 0;
+        count_checked_files_in_dir (item.path, ref total, ref checked_count);
+
+        if (total == 0) return;
+
         bool all_checked = (checked_count == total);
         bool any_checked = (checked_count > 0);
 
         item.checked = all_checked;
         item.inconsistent = any_checked && !all_checked;
+    }
+
+    private void count_checked_files_in_dir (string dir_path, ref int total, ref int checked_count) {
+        var dir = File.new_for_path (dir_path);
+        if (!dir.query_exists ()) return;
+
+        try {
+            var enumerator = dir.enumerate_children (
+                FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE,
+                FileQueryInfoFlags.NONE
+            );
+            FileInfo info;
+            while ((info = enumerator.next_file ()) != null) {
+                var child = dir.get_child (info.get_name ());
+                if (info.get_file_type () == FileType.DIRECTORY) {
+                    count_checked_files_in_dir (child.get_path (), ref total, ref checked_count);
+                } else {
+                    total++;
+                    if (child.get_path () in checked_paths) {
+                        checked_count++;
+                    }
+                }
+            }
+        } catch (Error e) {
+            warning ("count_checked_files_in_dir: %s", e.message);
+        }
     }
 
     private void setup_signals () {
@@ -801,6 +869,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             var root_item = new DirectoryItem (work_dir.get_basename (), work_dir.get_path (), true);
             root_store.append (root_item);
             load_directory_children_lazy (root_item);
+            update_directory_states_recursive (root_item);
             GLib.Idle.add (() => {
                 var root_row = tree_list_model.get_item (0) as Gtk.TreeListRow;
                 if (root_row != null) {
@@ -1344,6 +1413,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     root_store.append (root_item);
 
                     load_directory_children_lazy (root_item);
+                    update_directory_states_recursive (root_item);
                     search_entry.visible = true;
 
                     var root_row = tree_list_model.get_item (0) as Gtk.TreeListRow;
