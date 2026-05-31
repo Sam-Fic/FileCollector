@@ -71,11 +71,7 @@ public class FileGenerator : GLib.Object {
         var file_path = Path.build_filename (config_dir, "merged.txt");
         generate_file (file_path, items, use_absolute, show_header, work_dir);
 
-        var uri = Filename.to_uri (file_path);
-        var uri_list = (uri + "\r\n").data;
-        var bytes = new Bytes (uri_list);
-        var provider = new Gdk.ContentProvider.for_bytes ("text/uri-list", bytes);
-
-        display.get_clipboard ().set_content (provider);
+        var file = File.new_for_path (file_path);
+        display.get_clipboard ().set (typeof (File), file);
     }
 }
