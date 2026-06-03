@@ -192,7 +192,23 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 icon_name = data.force_absolute ? "document-open-symbolic" : "text-x-generic-symbolic";
             } else {
                 var preview = data.content;
-                if (preview.length > 40) preview = preview.substring (0, 40) + "...";
+                if (preview.char_count () > 40) {
+                    int byte_pos = 0;
+                    int char_idx = 0;
+                    while (byte_pos < preview.length && char_idx < 40) {
+                        char b = preview[byte_pos];
+                        int char_bytes;
+                        if ((b & 0x80) == 0) char_bytes = 1;
+                        else if ((b & 0xE0) == 0xC0) char_bytes = 2;
+                        else if ((b & 0xF0) == 0xE0) char_bytes = 3;
+                        else if ((b & 0xF8) == 0xF0) char_bytes = 4;
+                        else char_bytes = 1;
+                        if (byte_pos + char_bytes > preview.length) break;
+                        byte_pos += char_bytes;
+                        char_idx++;
+                    }
+                    preview = preview.substring (0, byte_pos) + "…";
+                }
                 display_name = preview;
                 icon_name = "edit-symbolic";
             }
