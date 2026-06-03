@@ -23,6 +23,18 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="3.1.1" date="2026-06-03">
+      <description>
+        <p>新特性与修复：</p>
+        <ul>
+          <li>修复：多字节字符截断显示错误</li>
+          <li>新增：项目保存/更新时显示 Toast 通知</li>
+          <li>优化：补全快捷键窗口的国际化字符串</li>
+          <li>文档：更新 GUI 与 CLI 行为说明</li>
+          <li>文档：添加 BUILD_FLATPAK.md 打包说明文档</li>
+        </ul>
+      </description>
+    </release>
     <release version="3.1.0" date="2026-05-31">
       <description>
         <p>新特性与修复：</p>
