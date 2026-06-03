@@ -15,6 +15,10 @@ FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排
 
 ![FileCollector Screenshot](./screenshots/screenshot_ch.png)
 
+## 使用说明
+
+图形界面使用流程与 Tips，请参阅 [使用说明文档](docs/USAGE.md)。
+
 ## 功能特性
 
 - **命令行模式 (CLI)**：支持通过终端命令完成所有核心操作，便于脚本化和自动化

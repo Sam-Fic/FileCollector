@@ -15,6 +15,10 @@ It provides a checkable directory tree, flexible organization list, text inserti
 
 ![FileCollector Screenshot](./screenshots/screenshot_en.png)
 
+## Usage Guide
+
+For the usage process and tips of the graphical interface, please refer to the [Usage Guide](docs/USAGE_EN.md).
+
 ## Features
 
 - **CLI Mode**: Complete all core operations via terminal commands, ideal for scripting and automation
