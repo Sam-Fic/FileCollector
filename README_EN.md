@@ -95,6 +95,8 @@ flatpak-builder build-dir com.github.samfic.filecollector.json --user --install 
 flatpak run com.github.samfic.filecollector
 ```
 
+You can also hand [BUILD_FLATPAK.md](BUILD_FLATPAK.md) directly to programming tools or AI Agents to leverage the existing mature workflow for standardized packaging.
+
 ## Project Structure
 
 ```

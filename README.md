@@ -95,6 +95,8 @@ flatpak-builder build-dir com.github.samfic.filecollector.json --user --install 
 flatpak run com.github.samfic.filecollector
 ```
 
+也可以将 [BUILD_FLATPAK.md](BUILD_FLATPAK.md) 直接交给编程工具或 AI Agent，利用现有成熟流程完成规范化打包。
+
 ## 项目结构
 
 ```
