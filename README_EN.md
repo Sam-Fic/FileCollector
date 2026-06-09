@@ -158,7 +158,7 @@ You can also hand [BUILD_FLATPAK.md](BUILD_FLATPAK.md) directly to programming t
 | `F1`           | About                   |
 | `Ctrl+Q`       | Quit                    |
 
-All shortcuts are also viewable via the **Keyboard Shortcuts** menu item or the About dialog.
+All shortcuts are also viewable via the **Keyboard Shortcuts** menu item.
 
 ## CLI Mode
 
