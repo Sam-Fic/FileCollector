@@ -158,7 +158,7 @@ flatpak run com.github.samfic.filecollector
 | `F1`           | 关于           |
 | `Ctrl+Q`       | 退出           |
 
-可在菜单栏 **键盘快捷键** 或关于对话框中查看所有快捷键。
+可在菜单栏 **键盘快捷键** 中查看所有快捷键。
 
 ## CLI 命令行模式
 
