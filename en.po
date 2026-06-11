@@ -525,6 +525,10 @@ msgstr "Preview"
 msgid "打开项目..."
 msgstr "Open Project..."
 
+#: src/window.blp:302
+msgid "项目另存为..."
+msgstr "Save Project As..."
+
 #: src/window.blp:292 src/widgets/phrases_picker.vala:83
 #: src/widgets/phrases_picker.vala:89
 msgid "常用语管理"

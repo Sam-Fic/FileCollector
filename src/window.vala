@@ -1553,7 +1553,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     public void on_save_project () {
         if (project_file == null) {
-            save_project_as ();
+            on_save_project_as ();
             return;
         }
         try {
@@ -1567,7 +1567,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
     }
 
-    private void save_project_as () {
+    public void on_save_project_as () {
         var dialog = new Gtk.FileDialog ();
         dialog.title = _("保存项目");
         var filter = new Gtk.FileFilter ();

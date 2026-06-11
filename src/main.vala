@@ -24,6 +24,11 @@ public class FileCollectorApp : Adw.Application {
                 ((GLib.SimpleAction) save_action).activate.connect (() => window.on_save_project ());
             }
 
+            var save_as_action = lookup_action ("save_as_project");
+            if (save_as_action != null) {
+                ((GLib.SimpleAction) save_as_action).activate.connect (() => window.on_save_project_as ());
+            }
+
             var about_action = lookup_action ("about");
             if (about_action != null) {
                 ((GLib.SimpleAction) about_action).activate.connect (() => window.on_about ());
@@ -130,6 +135,7 @@ public class FileCollectorApp : Adw.Application {
 
         add_action (new GLib.SimpleAction ("open_project", null));
         add_action (new GLib.SimpleAction ("save_project", null));
+        add_action (new GLib.SimpleAction ("save_as_project", null));
         add_action (new GLib.SimpleAction ("about", null));
         add_action (new GLib.SimpleAction ("manage_phrases", null));
         add_action (new GLib.SimpleAction ("settings", null));
@@ -138,6 +144,7 @@ public class FileCollectorApp : Adw.Application {
 
         set_accels_for_action ("app.open_project", {"<Control>o"});
         set_accels_for_action ("app.save_project", {"<Control>s"});
+        set_accels_for_action ("app.save_as_project", {"<Control><Shift>s"});
         set_accels_for_action ("app.about", {"F1"});
         set_accels_for_action ("app.shortcuts", {"<Control>slash"});
         set_accels_for_action ("app.settings", {"<Control>comma"});
