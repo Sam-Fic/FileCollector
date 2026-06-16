@@ -44,6 +44,11 @@ public class FileCollectorApp : Adw.Application {
                 ((GLib.SimpleAction) settings_action).activate.connect (() => window.on_settings ());
             }
 
+            var ai_settings_action = lookup_action ("ai_settings");
+            if (ai_settings_action != null) {
+                ((GLib.SimpleAction) ai_settings_action).activate.connect (() => window.on_ai_settings ());
+            }
+
             var shortcuts_action = lookup_action ("shortcuts");
             if (shortcuts_action != null) {
                 ((GLib.SimpleAction) shortcuts_action).activate.connect (() => window.on_show_shortcuts ());
@@ -139,6 +144,7 @@ public class FileCollectorApp : Adw.Application {
         add_action (new GLib.SimpleAction ("about", null));
         add_action (new GLib.SimpleAction ("manage_phrases", null));
         add_action (new GLib.SimpleAction ("settings", null));
+        add_action (new GLib.SimpleAction ("ai_settings", null));
         add_action (new GLib.SimpleAction ("shortcuts", null));
         add_action (new GLib.SimpleAction ("quit", null));
 
@@ -148,6 +154,7 @@ public class FileCollectorApp : Adw.Application {
         set_accels_for_action ("app.about", {"F1"});
         set_accels_for_action ("app.shortcuts", {"<Control>slash"});
         set_accels_for_action ("app.settings", {"<Control>comma"});
+        set_accels_for_action ("app.ai_settings", {"<Control><Shift>j"});
         set_accels_for_action ("app.quit", {"<Control>q"});
     }
 

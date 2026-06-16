@@ -78,6 +78,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Adw.ToastOverlay toast_overlay;
     [GtkChild] private unowned Gtk.Paned outer_paned;
     [GtkChild] private unowned Gtk.Paned inner_paned;
+    [GtkChild] private unowned Gtk.Button btn_ai_toggle;
+    [GtkChild] private unowned Gtk.Paned ai_paned;
+    [GtkChild] private unowned Gtk.Frame ai_sidebar;
 
     private Gtk.ColumnView dir_column_view;
     private Gtk.TreeListModel tree_list_model;
@@ -104,6 +107,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private PhrasesPicker? phrases_picker_instance = null;
 
+    // AI 助手
+    private AIPanel? ai_panel_instance = null;
+    private AISettingsDialog? ai_settings_dialog_instance = null;
+    private bool ai_panel_visible = false;
+    // 编排模式: "default" | "directory" | "single" (与多平台版本 1:1)
+    private string ai_mode = "default";
+    private string ai_file_extension = "";
+    private string ai_file_label = "文件";
+    private int ai_max_files = 50;
+
 
 
     public FileCollectorWindow (Adw.Application app) {
@@ -122,6 +135,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         setup_queue_list ();
         setup_tree_view ();
         setup_signals ();
+        setup_ai_panel ();
         setup_pane_sizes ();
         setup_shortcuts ();
         search_entry.visible = false;
@@ -922,6 +936,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("i"), Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK),
             new Gtk.CallbackAction ((widget, shortcut) => {
                 insert_text (false);
+                return true;
+            })
+        ));
+
+        controller.add_shortcut (new Gtk.Shortcut (
+            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("j"), Gdk.ModifierType.CONTROL_MASK),
+            new Gtk.CallbackAction ((widget, shortcut) => {
+                toggle_ai_panel ();
                 return true;
             })
         ));
@@ -1926,5 +1948,665 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             });
         }
         return phrases_picker_instance;
+    }
+
+    // ─── AI 助手集成 ───────────────────────────────────────────────────
+
+    private void setup_ai_panel () {
+        ai_sidebar.visible = false;
+        ai_panel_visible = false;
+        btn_ai_toggle.clicked.connect (toggle_ai_panel);
+        ai_paned.notify["position"].connect (clamp_ai_paned_position);
+    }
+
+    private void clamp_ai_paned_position () {
+        // 防止 AI 边栏被用户拖到太大 / 太小
+        var pw = ai_paned.get_width ();
+        if (pw <= 0) return;
+        var pos = (int) ai_paned.position;
+        if (pos < 260) {
+            ai_paned.position = 260;
+        } else if (pos > 480) {
+            ai_paned.position = 480;
+        }
+    }
+
+    private void toggle_ai_panel () {
+        ai_panel_visible = !ai_panel_visible;
+        if (ai_panel_visible) {
+            show_ai_panel ();
+        } else {
+            hide_ai_panel ();
+        }
+    }
+
+    private void show_ai_panel () {
+        ai_panel_visible = true;
+        ai_sidebar.visible = true;
+        // 第一次显示时构建 panel
+        if (ai_panel_instance == null) {
+            ai_panel_instance = new AIPanel (this);
+            var content = ai_panel_instance.build_widget ();
+            // Frame 内部包一个 card Box, 与现有三栏完全一致
+            var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+            box.set_size_request (-1, -1);
+            box.add_css_class ("card");
+            box.append (content);
+            ai_sidebar.set_child (box);
+        }
+        // 重新应用当前设置
+        apply_ai_settings_to_panel ();
+
+        // 展开 AI 侧边栏时自动加宽窗口, 防止现有栏被挤出画面
+        expand_window_for_ai ();
+    }
+
+    private void expand_window_for_ai () {
+        int cur_w = get_width ();
+        int cur_h = get_height ();
+        if (cur_w <= 0) {
+            // 后备: 使用 default_width / default_height
+            cur_w = default_width;
+            cur_h = default_height;
+        }
+        if (cur_w <= 0) return;
+
+        const int AI_EXTRA_WIDTH = 300;
+        int target_w = cur_w + AI_EXTRA_WIDTH;
+
+        // 不超过显示器宽度
+        var disp = Gdk.Display.get_default ();
+        if (disp != null) {
+            var surface = this.get_surface ();
+            if (surface != null) {
+                var monitor = disp.get_monitor_at_surface (surface);
+                if (monitor != null) {
+                    var geo = monitor.get_geometry ();
+                    if (target_w > geo.width) {
+                        target_w = geo.width;
+                    }
+                }
+            }
+        }
+
+        set_default_size (target_w, cur_h);
+    }
+
+    private void hide_ai_panel () {
+        ai_panel_visible = false;
+        ai_sidebar.visible = false;
+    }
+
+    private void apply_ai_settings_to_panel () {
+        if (ai_panel_instance == null) return;
+        var s = ConfigManager.load_ai_settings ();
+        if (!s.enabled) {
+            // 即使用户把开关关掉, 面板仍可显示, 但提示未启用
+            ai_panel_instance.configure (s, ai_tool_executor_cb, ai_state_provider_cb);
+            return;
+        }
+        ai_panel_instance.configure (s, ai_tool_executor_cb, ai_state_provider_cb);
+    }
+
+    public void on_ai_settings () {
+        if (ai_settings_dialog_instance == null) {
+            ai_settings_dialog_instance = new AISettingsDialog (this);
+        }
+        ai_settings_dialog_instance.settings_changed.connect (() => {
+            apply_ai_settings_to_panel ();
+        });
+        ai_settings_dialog_instance.present ();
+    }
+
+    // ── AI 状态提供 (供 AIPanel 在生成 system prompt 时调用) ──────────
+    private AISystemSnapshot ai_state_provider_cb () {
+        var snap = AISystemSnapshot ();
+        snap.work_dir = (work_dir != null) ? work_dir.get_path () : "";
+        snap.mode = ai_mode;
+        snap.file_extension = ai_file_extension;
+        snap.file_label = ai_file_label;
+        snap.max_files = ai_max_files;
+        snap.use_absolute = use_absolute;
+        snap.show_header = show_header;
+        snap.selected_paths = new string[0];
+        snap.custom_instructions = new string[0];
+
+        var paths = new Gee.ArrayList<string> ();
+        for (int i = 0; i < items.length; i++) {
+            var it = items.get (i);
+            if (it.item_type == "file") {
+                if (it.file_path != null) {
+                    string rel;
+                    if (work_dir != null && it.file_path.has_prefix (work_dir.get_path ())) {
+                        rel = it.file_path.substring (work_dir.get_path ().length);
+                        while (rel.has_prefix ("/")) rel = rel.substring (1);
+                    } else {
+                        rel = it.file_path;
+                    }
+                    paths.add (rel);
+                }
+            } else if (it.item_type == "text") {
+                string t = it.content ?? "";
+                t = t.strip ();
+                var arr = new string[snap.custom_instructions.length + 1];
+                for (int k = 0; k < snap.custom_instructions.length; k++) {
+                    arr[k] = snap.custom_instructions[k];
+                }
+                arr[snap.custom_instructions.length] = t;
+                snap.custom_instructions = arr;
+            }
+        }
+        snap.selected_paths = paths.to_array ();
+        return snap;
+    }
+
+    // ── AI 工具执行 (主线程上跑, 通过 Idle + Cond 跨线程同步) ──────
+    // AI worker 线程调用 → Idle 投递到主线程 → 主线程执行工具
+    // 完成 → 通过 Cond 唤醒 worker 线程返回结果.
+    private static GLib.Mutex ai_exec_mutex = GLib.Mutex ();
+    private static GLib.Cond ai_exec_cond = GLib.Cond ();
+    private static string? ai_exec_result = null;
+    private static bool ai_exec_done = false;
+
+    private string ai_tool_executor_cb (string name, Json.Node args) throws GLib.Error {
+        string json_str = json_serialize_for_main (args);
+        lock (ai_exec_mutex) {
+            ai_exec_result = null;
+            ai_exec_done = false;
+            // 投递到主线程
+            string name_local = name;
+            string json_local = json_str;
+            GLib.Idle.add (() => {
+                string r = "";
+                try {
+                    var a = json_parse_args (json_local);
+                    r = ai_tool_executor_main (name_local, a);
+                } catch (Error e) {
+                    r = "工具执行失败: " + e.message;
+                }
+                lock (ai_exec_mutex) {
+                    ai_exec_result = r;
+                    ai_exec_done = true;
+                    ai_exec_cond.broadcast ();
+                }
+                return GLib.Source.REMOVE;
+            });
+            // 在 worker 线程上等待主线程完成
+            while (!ai_exec_done) {
+                ai_exec_cond.wait (ai_exec_mutex);
+            }
+            return ai_exec_result ?? "";
+        }
+    }
+
+    // 工具真实执行 (必须在主线程调用)
+    private string ai_tool_executor_main (string name, Json.Node args) throws GLib.Error {
+        switch (name) {
+            case "list_files": return ai_tool_list_files (args);
+            case "read_file":  return ai_tool_read_file (args);
+            case "set_work_dir": return ai_tool_set_work_dir (args);
+            case "add_files":  return ai_tool_add_files (args);
+            case "remove_files": return ai_tool_remove_files (args);
+            case "add_custom_instruction":
+            case "insert_text": return ai_tool_insert_text (name, args);
+            case "remove_custom_instruction": return ai_tool_remove_text (args);
+            case "clear_all":   return ai_tool_clear_all (args);
+            case "list_items":  return ai_tool_list_items (args);
+            case "set_mode":
+            case "set_file_extension":
+            case "set_file_label":
+            case "set_max_files":
+                return ai_tool_set_meta (name, args);
+            default:
+                return "未知工具: " + name;
+        }
+    }
+
+    // 跨线程传递 Json 工具参数: 序列化为字符串 (主线程收到后重新解析)
+    private static string json_serialize_for_main (Json.Node n) {
+        if (n == null) return "{}";
+        var g = new Json.Generator ();
+        g.set_root (n);
+        g.pretty = false;
+        size_t len = 0;
+        return g.to_data (out len) ?? "{}";
+    }
+
+    private static Json.Node json_parse_args (string raw) throws Error {
+        var p = new Json.Parser ();
+        p.load_from_data (raw, raw.length);
+        var r = p.get_root ();
+        if (r == null) return AI.SchemaHelper.obj_to_node (new Json.Object ());
+        return r;
+    }
+
+    private string ai_tool_list_files (Json.Node args) throws GLib.Error {
+        if (work_dir == null) return "工作目录未设置";
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        var o = args.get_object ();
+
+        string pattern = o.has_member ("pattern") ? o.get_string_member ("pattern") : "";
+        int64 max_results = o.has_member ("max_results") ? o.get_int_member ("max_results") : 500;
+        int64 max_depth = o.has_member ("max_depth") ? o.get_int_member ("max_depth") : 8;
+
+        if (max_results <= 0) max_results = 500;
+        if (max_depth <= 0) max_depth = 8;
+
+        // glob 转换
+        var matcher = new PatternSpec (pattern);
+
+        var sb = new StringBuilder ();
+        sb.append ("ROOT=").append (work_dir.get_path ()).append ("\n");
+        int count = 0;
+        int total = 0;
+        try {
+            list_files_recursive (work_dir.get_path (), work_dir.get_path (), 0, (int) max_depth,
+                matcher, sb, ref count, ref total, (int) max_results);
+        } catch (Error e) {
+            return "读取目录失败: " + e.message;
+        }
+        sb.append ("\n# total ").append (total.to_string ())
+          .append (" matched, listed ").append (count.to_string ());
+        return sb.str;
+    }
+
+    private static void list_files_recursive (string root, string dir, int depth, int max_depth,
+            PatternSpec matcher, StringBuilder sb, ref int count, ref int total, int max_results)
+            throws Error {
+        if (depth > max_depth) return;
+        var dir_file = File.new_for_path (dir);
+        if (!dir_file.query_exists ()) return;
+        var en = dir_file.enumerate_children (
+            FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE,
+            FileQueryInfoFlags.NOFOLLOW_SYMLINKS);
+        FileInfo info;
+        while ((info = en.next_file ()) != null) {
+            if (count >= max_results) break;
+            string name = info.get_name ();
+            string full = dir_file.get_child (name).get_path ();
+            if (info.get_file_type () == FileType.DIRECTORY) {
+                if (name == ".git" || name == "node_modules" || name == "__pycache__"
+                    || name == "build" || name == ".venv" || name == "venv") {
+                    continue;
+                }
+                if (matcher.match_string (name) && count < max_results) {
+                    sb.append ("DIR  ").append (rel_path (root, full)).append ("\n");
+                    count++;
+                }
+                list_files_recursive (root, full, depth + 1, max_depth, matcher, sb,
+                    ref count, ref total, max_results);
+            } else {
+                total++;
+                if (matcher.match_string (name)) {
+                    sb.append ("FILE ").append (rel_path (root, full))
+                      .append ("  (").append (format_size (info.get_size ())).append (")\n");
+                    count++;
+                }
+            }
+        }
+    }
+
+    private static string rel_path (string root, string full) {
+        if (full.has_prefix (root)) {
+            string r = full.substring (root.length);
+            while (r.has_prefix ("/")) r = r.substring (1);
+            return r.length > 0 ? r : full;
+        }
+        return full;
+    }
+
+    private static string format_size (int64 size) {
+        if (size < 1024) return "%lld B".printf (size);
+        if (size < 1024 * 1024) return "%.1f KB".printf (size / 1024.0);
+        if (size < 1024 * 1024 * 1024) return "%.1f MB".printf (size / 1024.0 / 1024.0);
+        return "%.1f GB".printf (size / 1024.0 / 1024.0 / 1024.0);
+    }
+
+    private string ai_tool_read_file (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        var o = args.get_object ();
+        string path = o.has_member ("path") ? o.get_string_member ("path") : "";
+        if (path == "") return "缺少 path";
+        int64 max_bytes = o.has_member ("max_bytes") ? o.get_int_member ("max_bytes") : 16384;
+        int64 start_line = o.has_member ("start_line") ? o.get_int_member ("start_line") : 0;
+        int64 max_lines = o.has_member ("max_lines") ? o.get_int_member ("max_lines") : 500;
+        if (max_bytes <= 0) max_bytes = 16384;
+        if (max_lines <= 0) max_lines = 500;
+
+        // 路径解析: 相对路径基于 work_dir
+        string abs = path;
+        if (work_dir != null && !GLib.Path.is_absolute (path)) {
+            abs = GLib.Path.build_filename (work_dir.get_path (), path);
+        }
+        var file = File.new_for_path (abs);
+        if (!file.query_exists ()) return "文件不存在: " + abs;
+
+        uint8[] raw;
+        try {
+            FileUtils.get_data (abs, out raw);
+        } catch (Error e) {
+            return "读取失败: " + e.message;
+        }
+        string content = EncodingHelper.decode_to_utf8 (raw);
+        // 行过滤
+        string[] lines = content.split ("\n");
+        int start = (int) start_line;
+        if (start < 0) start = 0;
+        if (start >= lines.length) {
+            return "[文件总行数: %d, start_line %lld 越界]".printf (lines.length, start_line);
+        }
+        int end = int.min (lines.length, start + (int) max_lines);
+        var sb = new StringBuilder ();
+        sb.append ("# file: ").append (rel_path (work_dir != null ? work_dir.get_path () : "/", abs))
+          .append ("  (").append (format_size (raw.length)).append (", ")
+          .append (lines.length.to_string ()).append (" lines)\n");
+        for (int i = start; i < end; i++) {
+            sb.append ("%4d  ".printf (i + 1)).append (lines[i]).append ("\n");
+            if (sb.str.length > max_bytes) {
+                sb.append ("\n# ... [内容过长, 截断到 ").append (max_bytes.to_string ()).append (" 字节]");
+                break;
+            }
+        }
+        return sb.str;
+    }
+
+    private string ai_tool_set_work_dir (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        string path = args.get_object ().get_string_member_with_default ("path", "");
+        if (path == "") return "缺少 path";
+        if (!GLib.Path.is_absolute (path)) {
+            if (work_dir != null) {
+                path = GLib.Path.build_filename (work_dir.get_path (), path);
+            }
+        }
+        var file = File.new_for_path (path);
+        if (!file.query_exists ()) return "目录不存在: " + path;
+        // 切到主线程执行
+        string new_path = path;
+        var main = GLib.MainContext.default ();
+        var loop = new GLib.MainLoop (main, false);
+        string? result = null;
+        GLib.Idle.add (() => {
+            ai_apply_set_work_dir (new_path);
+            result = "工作目录已切换到: " + new_path;
+            loop.quit ();
+            return GLib.Source.REMOVE;
+        });
+        // 在 worker 线程中 spin 主循环 (这里假定 worker 线程拥有 main loop)
+        // 为简单起见, 改用同步版本: 直接在 worker 线程构造, 主线程通过 idle 应用.
+        // (见上)
+        // 我们现在不在主线程 spin, 让 idle 调度, 然后等待 idle 完成
+        while (loop.is_running ()) {
+            main.iteration (true);
+        }
+        return result ?? "切换失败";
+    }
+
+    private void ai_apply_set_work_dir (string path) {
+        push_undo_state ();
+        items.remove_range (0, items.length);
+        checked_paths.remove_all ();
+        var folder = File.new_for_path (path);
+        work_dir = folder;
+        update_subtitle (path);
+        root_store.remove_all ();
+        var root_item = new DirectoryItem (folder.get_basename (), path, true);
+        root_store.append (root_item);
+        load_directory_children_lazy (root_item);
+        search_entry.visible = true;
+        var root_row = tree_list_model.get_item (0) as Gtk.TreeListRow;
+        if (root_row != null) {
+            root_row.set_expanded (true);
+        }
+        refresh_list ();
+    }
+
+    private string ai_tool_add_files (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        var o = args.get_object ();
+        if (!o.has_member ("paths")) return "缺少 paths";
+        var paths_arr = o.get_array_member ("paths");
+        if (paths_arr == null) return "paths 必须是数组";
+
+        string? after = o.has_member ("after_path") ? o.get_string_member ("after_path") : null;
+        int added = 0;
+        int total = (int) paths_arr.get_length ();
+        int n = total;
+        // 在主线程上做
+        string? after_local = after;
+        int total_local = total;
+        var main = GLib.MainContext.default ();
+        var loop = new GLib.MainLoop (main, false);
+        int result = 0;
+        GLib.Idle.add (() => {
+            push_undo_state ();
+            int insert_at = items.length;
+            if (after_local != null) {
+                for (int i = 0; i < items.length; i++) {
+                    var it = items.get (i);
+                    if (it.item_type == "file" && it.file_path == after_local) {
+                        insert_at = i + 1;
+                        break;
+                    }
+                }
+            }
+            for (int i = 0; i < total_local; i++) {
+                string p = paths_arr.get_string_element (i);
+                string abs = p;
+                if (work_dir != null && !GLib.Path.is_absolute (p)) {
+                    abs = GLib.Path.build_filename (work_dir.get_path (), p);
+                }
+                if (!FileUtils.test (abs, FileTest.EXISTS)) continue;
+                // 是否已存在
+                bool exists = false;
+                for (int j = 0; j < items.length; j++) {
+                    if (items.get (j).file_path == abs) { exists = true; break; }
+                }
+                if (exists) continue;
+                items.insert (insert_at + added, new ItemData ("file", abs, null, false));
+                if (!(abs in checked_paths)) {
+                    checked_paths.insert (abs, true);
+                }
+                set_tree_item_check (abs, true);
+                added++;
+            }
+            refresh_list ();
+            result = added;
+            loop.quit ();
+            return GLib.Source.REMOVE;
+        });
+        while (loop.is_running ()) main.iteration (true);
+        return "已添加 %d 个文件 (请求 %d)".printf (result, total);
+    }
+
+    private string ai_tool_remove_files (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        if (!args.get_object ().has_member ("paths")) return "缺少 paths";
+        var arr = args.get_object ().get_array_member ("paths");
+        if (arr == null) return "paths 必须是数组";
+        int total = (int) arr.get_length ();
+        int total_local = total;
+        var main = GLib.MainContext.default ();
+        var loop = new GLib.MainLoop (main, false);
+        int result = 0;
+        GLib.Idle.add (() => {
+            push_undo_state ();
+            for (int i = 0; i < total_local; i++) {
+                string p = arr.get_string_element (i);
+                string abs = p;
+                if (work_dir != null && !GLib.Path.is_absolute (p)) {
+                    abs = GLib.Path.build_filename (work_dir.get_path (), p);
+                }
+                // 从 items 移除
+                for (int j = items.length - 1; j >= 0; j--) {
+                    var it = items.get (j);
+                    if (it.item_type == "file" && it.file_path == abs) {
+                        items.remove_index (j);
+                        result++;
+                    }
+                }
+                if (abs in checked_paths) {
+                    checked_paths.remove (abs);
+                    set_tree_item_check (abs, false);
+                }
+            }
+            refresh_list ();
+            loop.quit ();
+            return GLib.Source.REMOVE;
+        });
+        while (loop.is_running ()) main.iteration (true);
+        return "已移除 %d 个文件 (请求 %d)".printf (result, total);
+    }
+
+    private string ai_tool_insert_text (string name, Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        var o = args.get_object ();
+        string text = o.has_member ("text") ? o.get_string_member ("text") :
+                      (o.has_member ("content") ? o.get_string_member ("content") : "");
+        if (text == "") return "缺少 text / content";
+        string? after = o.has_member ("after_path") ? o.get_string_member ("after_path") : null;
+        string? before = o.has_member ("before_path") ? o.get_string_member ("before_path") : null;
+        string text_local = text;
+        string? after_local = after;
+        string? before_local = before;
+        var main = GLib.MainContext.default ();
+        var loop = new GLib.MainLoop (main, false);
+        string? out = null;
+        GLib.Idle.add (() => {
+            push_undo_state ();
+            int insert_at = items.length;
+            if (after_local != null) {
+                for (int i = 0; i < items.length; i++) {
+                    var it = items.get (i);
+                    if (it.item_type == "file" && it.file_path == after_local) {
+                        insert_at = i + 1;
+                        break;
+                    }
+                }
+            } else if (before_local != null) {
+                insert_at = 0;
+                for (int i = 0; i < items.length; i++) {
+                    var it = items.get (i);
+                    if (it.item_type == "file" && it.file_path == before_local) {
+                        insert_at = i;
+                        break;
+                    }
+                }
+            }
+            items.insert (insert_at, new ItemData ("text", null, text_local, false));
+            refresh_list ();
+            out = "已插入文本 (位置 %d)".printf (insert_at);
+            loop.quit ();
+            return GLib.Source.REMOVE;
+        });
+        while (loop.is_running ()) main.iteration (true);
+        return out ?? "插入失败";
+    }
+
+    private string ai_tool_remove_text (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        if (!args.get_object ().has_member ("index")) return "缺少 index";
+        int idx = (int) args.get_object ().get_int_member ("index");
+        var main = GLib.MainContext.default ();
+        var loop = new GLib.MainLoop (main, false);
+        string? out = null;
+        GLib.Idle.add (() => {
+            push_undo_state ();
+            int removed = 0;
+            for (int i = items.length - 1; i >= 0; i--) {
+                if (items.get (i).item_type == "text") {
+                    if (idx == 0) {
+                        items.remove_index (i);
+                        removed = 1;
+                        break;
+                    } else {
+                        idx--;
+                    }
+                }
+            }
+            refresh_list ();
+            out = "已删除文本 (removed=%d)".printf (removed);
+            loop.quit ();
+            return GLib.Source.REMOVE;
+        });
+        while (loop.is_running ()) main.iteration (true);
+        return out ?? "删除失败";
+    }
+
+    private string ai_tool_clear_all (Json.Node args) throws GLib.Error {
+        var main = GLib.MainContext.default ();
+        var loop = new GLib.MainLoop (main, false);
+        GLib.Idle.add (() => {
+            on_clear_items ();
+            loop.quit ();
+            return GLib.Source.REMOVE;
+        });
+        while (loop.is_running ()) main.iteration (true);
+        return "已清空编排列表";
+    }
+
+    private string ai_tool_list_items (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        var o = args.get_object ();
+        string kind = o.has_member ("kind") ? o.get_string_member ("kind") : "all";
+        int max_items = o.has_member ("max_items") ? (int) o.get_int_member ("max_items") : 200;
+        if (max_items <= 0) max_items = 200;
+        var sb = new StringBuilder ();
+        int count = 0;
+        for (int i = 0; i < items.length && count < max_items; i++) {
+            var it = items.get (i);
+            if (kind == "file" && it.item_type != "file") continue;
+            if (kind == "text" && it.item_type != "text") continue;
+            if (it.item_type == "file") {
+                string rel;
+                if (work_dir != null && it.file_path.has_prefix (work_dir.get_path ())) {
+                    rel = it.file_path.substring (work_dir.get_path ().length);
+                    while (rel.has_prefix ("/")) rel = rel.substring (1);
+                } else {
+                    rel = it.file_path;
+                }
+                sb.append ("#" + (i + 1).to_string () + "  [file] ").append (rel).append ("\n");
+            } else {
+                string preview = it.content ?? "";
+                if (preview.length > 80) preview = preview.substring (0, 80) + "…";
+                preview = preview.replace ("\n", "\\n");
+                sb.append ("#").append ((i + 1).to_string ()).append ("  [text] ").append (preview).append ("\n");
+            }
+            count++;
+        }
+        sb.append ("\n# total ").append (items.length.to_string ());
+        return sb.str;
+    }
+
+    private string ai_tool_set_meta (string name, Json.Node args) throws GLib.Error {
+        switch (name) {
+            case "set_mode": {
+                if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+                string m = args.get_object ().get_string_member_with_default ("mode", "default");
+                if (m != "default" && m != "directory" && m != "single") {
+                    return "无效 mode: " + m;
+                }
+                ai_mode = m;
+                return "mode=" + m;
+            }
+            case "set_file_extension": {
+                if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+                ai_file_extension = args.get_object ().get_string_member_with_default ("extension", "");
+                return "extension=" + ai_file_extension;
+            }
+            case "set_file_label": {
+                if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+                ai_file_label = args.get_object ().get_string_member_with_default ("label", "文件");
+                return "label=" + ai_file_label;
+            }
+            case "set_max_files": {
+                if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+                int n = (int) args.get_object ().get_int_member ("max_files");
+                if (n < 1) n = 1;
+                ai_max_files = n;
+                return "max_files=" + ai_max_files.to_string ();
+            }
+        }
+        return "未知 meta 工具: " + name;
     }
 }

@@ -9,6 +9,11 @@ title: _("FileCollector - 文件收集与编排工具");
       Adw.ToolbarView {
       [top]
       Adw.HeaderBar {
+        Button btn_ai_toggle {
+          icon-name: "chat-message-new-symbolic";
+          tooltip-text: _("显示 / 隐藏 AI 助手 (Ctrl+J)");
+        }
+
         Button open_folder_btn {
           icon-name: "folder-open-symbolic";
           tooltip-text: _("打开工作目录");
@@ -38,12 +43,36 @@ title: _("FileCollector - 文件收集与编排工具");
         }
       }
 
-      content: Paned outer_paned {
+      content: Paned ai_paned {
        orientation: horizontal;
        margin-top: 0;
        margin-bottom: 12;
        margin-start: 12;
        margin-end: 12;
+       position: 320;
+       shrink-start-child: true;
+       shrink-end-child: false;
+       css-classes: ["paned-no-handle"];
+
+       // AI 边栏 (最左, 可折叠)
+       Frame ai_sidebar {
+          visible: false;
+          hexpand: false;
+          vexpand: true;
+          width-request: 280;
+          margin-top: 0;
+          margin-bottom: 6;
+          margin-start: 6;
+          margin-end: 6;
+          css-classes: ["ai-panel", "panel-frame"];
+       }
+
+      Paned outer_paned {
+       orientation: horizontal;
+       margin-top: 0;
+       margin-bottom: 0;
+       margin-start: 0;
+       margin-end: 0;
        position: 300;
        shrink-start-child: false;
        shrink-end-child: false;
@@ -290,7 +319,8 @@ title: _("FileCollector - 文件收集与编排工具");
            }
          }
       }
-    };
+    }
+  };
   }
   };
 }
@@ -303,6 +333,7 @@ menu primary_menu {
   }
   section {
     item (_("常用语管理"), "app.manage_phrases")
+    item (_("AI 设置..."), "app.ai_settings")
     item (_("语言设置"), "app.settings")
   }
   section {

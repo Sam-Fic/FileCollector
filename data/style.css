@@ -131,3 +131,147 @@ paned > separator {
     border: none;
     box-shadow: none;
 }
+
+/* ─── AI 边栏 ─────────────────────────────────────────────── */
+.ai-panel {
+    min-width: 260px;
+    max-width: 480px;
+    transition: min-width 0.2s, max-width 0.2s;
+}
+
+.ai-panel > box {
+    border-radius: 9px;
+}
+
+.ai-bubble {
+    border-radius: 12px;
+    padding: 8px 10px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.ai-bubble-user {
+    background-color: alpha(@accent_color, 0.18);
+    border: 1px solid alpha(@accent_color, 0.5);
+    color: @window_fg_color;
+}
+
+.ai-bubble-assistant {
+    background-color: alpha(@card_bg_color, 0.9);
+    border: 1px solid alpha(@borders, 0.6);
+    color: @window_fg_color;
+}
+
+.ai-bubble-system {
+    background-color: alpha(@warning_bg_color, 0.4);
+    border: 1px solid alpha(@warning_color, 0.6);
+    color: @window_fg_color;
+    font-style: italic;
+    font-size: 12px;
+}
+
+.ai-bubble-tool {
+    background-color: alpha(@card_bg_color, 0.7);
+    border: 1px dashed alpha(@borders, 0.8);
+    padding: 0;
+    overflow: hidden;
+}
+
+.ai-bubble-content {
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.ai-tool-header {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 6px 8px;
+    min-height: 32px;
+}
+
+.ai-tool-header:hover {
+    background-color: alpha(@borders, 0.3);
+}
+
+.ai-tool-arrow {
+    font-size: 10px;
+    min-width: 12px;
+}
+
+.ai-tool-icon {
+    font-size: 11px;
+    font-weight: bold;
+    color: @accent_color;
+    background-color: alpha(@accent_color, 0.12);
+    border-radius: 4px;
+    padding: 2px 5px;
+    min-width: 22px;
+}
+
+.ai-tool-name {
+    font-weight: 600;
+    font-size: 12px;
+    color: @window_fg_color;
+}
+
+.ai-tool-args {
+    font-size: 11px;
+    color: alpha(@window_fg_color, 0.7);
+    font-family: monospace;
+}
+
+.ai-tool-action {
+    font-size: 11px;
+    color: @accent_color;
+}
+
+.ai-tool-body {
+    background-color: alpha(@card_bg_color, 0.5);
+    border-top: 1px solid alpha(@borders, 0.5);
+    padding: 6px 8px;
+}
+
+.ai-tool-result {
+    font-size: 12px;
+    color: @window_fg_color;
+    font-family: monospace;
+}
+
+.ai-tool-preview {
+    font-size: 11px;
+    color: alpha(@window_fg_color, 0.6);
+    padding: 0 8px 6px 8px;
+    font-family: monospace;
+}
+
+.ai-status-ok {
+    color: @success_color;
+}
+
+.ai-status-warn {
+    color: @warning_color;
+}
+
+/* AI 输入框不要底部阴影, 但保留细外轮廓 */
+.ai-input-frame {
+    background: @card_bg_color;
+    border: 1px solid alpha(@borders, 0.5);
+    border-radius: 9px;
+    box-shadow: none;
+}
+
+.ai-input-frame > border,
+.ai-input-frame > frame {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+/* AI 输入框占位文字: 与 TextView 内部文字基线对齐 */
+.ai-placeholder {
+    padding: 0;
+    margin: 0;
+}

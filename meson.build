@@ -8,6 +8,8 @@ dependency('glib-2.0', version: '>= 2.76')
 dependency('gtk4', version: '>= 4.10')
 dependency('libadwaita-1', version: '>= 1.4')
 dependency('json-glib-1.0')
+dependency('libsoup-3.0')
+dependency('gee-0.8')
 
 gettext_package = meson.project_name ()
 locale_dir = join_paths (get_option ('prefix'), get_option ('localedir'))
@@ -52,12 +54,16 @@ sources = files(
   'src/cli.vala',
   'src/window.vala',
   'src/models/item_data.vala',
+  'src/services/ai_client.vala',
+  'src/services/ai_types.vala',
   'src/services/config_manager.vala',
   'src/services/file_generator.vala',
   'src/services/project_manager.vala',
   'src/services/undo_manager.vala',
   'src/utils/tree_helper.vala',
   'src/utils/encoding_helper.vala',
+  'src/widgets/ai_panel.vala',
+  'src/widgets/ai_settings_dialog.vala',
   'src/widgets/settings_dialog.vala',
   'src/widgets/phrases_picker.vala'
 )
@@ -81,7 +87,13 @@ executable('filecollector',
     dependency('glib-2.0'),
     dependency('gtk4'),
     dependency('libadwaita-1'),
-    dependency('json-glib-1.0')
+    dependency('json-glib-1.0'),
+    dependency('libsoup-3.0'),
+    dependency('gee-0.8')
+  ],
+  vala_args: [
+    '--header', 'filecollector_types.h',
+    '--includedir', meson.current_build_dir ()
   ],
   install: true
 )
