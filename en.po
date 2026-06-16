@@ -668,6 +668,10 @@ msgstr "AI Assistant"
 msgid "输入指令, Ctrl+Enter 发送"
 msgstr "Enter a prompt, Ctrl+Enter to send"
 
+#: src/widgets/ai_panel.vala:171
+msgid "输入指令, Enter 发送, Ctrl+Enter 换行"
+msgstr "Enter a command, Enter to send, Ctrl+Enter for new line"
+
 #: src/widgets/ai_panel.vala:162
 msgid "清空对话"
 msgstr "Clear Chat"

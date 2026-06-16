@@ -171,6 +171,9 @@ public class AIPanel : GLib.Object {
         var placeholder_lbl = new Gtk.Label (_("输入指令, Enter 发送, Ctrl+Enter 换行"));
         placeholder_lbl.add_css_class ("dim-label");
         placeholder_lbl.add_css_class ("ai-placeholder");
+        placeholder_lbl.set_wrap (true);
+        placeholder_lbl.set_wrap_mode (Pango.WrapMode.WORD_CHAR);
+        placeholder_lbl.set_xalign (0);
         placeholder_lbl.set_halign (Gtk.Align.START);
         placeholder_lbl.set_valign (Gtk.Align.START);
         // 跟 TextView 自身边距一致, 让占位文字与光标基线对齐
