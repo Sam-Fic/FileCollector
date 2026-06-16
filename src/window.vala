@@ -5,6 +5,133 @@ using Json;
 
 // ─── Directory Item Model ───────────────────────────────────────────────
 
+// 三态勾选状态模型 - 单一真相源
+// 状态完全由 checked_files (文件路径集合) 推导, 目录的三态由其后代文件状态计算
+public class CheckStateModel : GLib.Object {
+    // 唯一的状态存储: 已勾选的文件绝对路径
+    public HashTable<string, bool> checked_files { get; private set; }
+
+    public signal void changed ();
+
+    public CheckStateModel () {
+        checked_files = new HashTable<string, bool> (str_hash, str_equal);
+    }
+
+    public void clear () {
+        checked_files.remove_all ();
+        changed ();
+    }
+
+    public void replace_from (HashTable<string, bool> other) {
+        checked_files.remove_all ();
+        foreach (var k in other.get_keys ()) {
+            checked_files.insert (k, true);
+        }
+        changed ();
+    }
+
+    // 计算节点的三态: 0=未勾选, 1=部分勾选, 2=全勾选
+    public int compute_state (DirectoryItem item) {
+        if (!item.is_dir) {
+            return item.path in checked_files ? 2 : 0;
+        }
+        return compute_dir_state (item);
+    }
+
+    private int compute_dir_state (DirectoryItem item) {
+        var stats = new FileStats ();
+        collect_file_stats (item, stats);
+        if (stats.total == 0) return 0;
+        if (stats.checked_count == 0) return 0;
+        if (stats.checked_count == stats.total) return 2;
+        return 1;
+    }
+
+    private void collect_file_stats (DirectoryItem item, FileStats stats) {
+        if (!item.is_dir) {
+            stats.total++;
+            if (item.path in checked_files) stats.checked_count++;
+            return;
+        }
+        for (uint i = 0; i < item.children.get_n_items (); i++) {
+            collect_file_stats ((DirectoryItem) item.children.get_item (i), stats);
+        }
+    }
+
+    private class FileStats {
+        public int total = 0;
+        public int checked_count = 0;
+    }
+
+    // 切换文件勾选状态, 返回新状态
+    public bool toggle_file (string path) {
+        if (path in checked_files) {
+            checked_files.remove (path);
+            changed ();
+            return false;
+        }
+        checked_files.insert (path, true);
+        changed ();
+        return true;
+    }
+
+    // 设置目录的勾选状态 (递归应用到所有后代文件)
+    public void set_subtree_checked (DirectoryItem item, bool value) {
+        if (!item.is_dir) {
+            if (value) {
+                if (!(item.path in checked_files)) {
+                    checked_files.insert (item.path, true);
+                }
+            } else {
+                checked_files.remove (item.path);
+            }
+            return;
+        }
+        set_subtree_files (item, value);
+        changed ();
+    }
+
+    private void set_subtree_files (DirectoryItem item, bool value) {
+        for (uint i = 0; i < item.children.get_n_items (); i++) {
+            var child = (DirectoryItem) item.children.get_item (i);
+            if (!child.is_dir) {
+                if (value) {
+                    if (!(child.path in checked_files)) {
+                        checked_files.insert (child.path, true);
+                    }
+                } else {
+                    checked_files.remove (child.path);
+                }
+            } else {
+                set_subtree_files (child, value);
+            }
+        }
+    }
+
+    // 同步外部添加的文件 (如 AI 工具), 批量勾选
+    public void add_files (string[] paths) {
+        bool any = false;
+        foreach (var p in paths) {
+            if (!(p in checked_files)) {
+                checked_files.insert (p, true);
+                any = true;
+            }
+        }
+        if (any) changed ();
+    }
+
+    public void remove_files (string[] paths) {
+        bool any = false;
+        foreach (var p in paths) {
+            if (p in checked_files) {
+                checked_files.remove (p);
+                any = true;
+            }
+        }
+        if (any) changed ();
+    }
+}
+
 public class DirectoryItem : GLib.Object {
     public string name { get; set; }
     public string path { get; set; }
@@ -98,7 +225,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private Gtk.SingleSelection queue_selection;
 
     private GenericArray<ItemData> items;
-    private HashTable<string, bool> checked_paths;
+    private HashTable<string, bool> checked_paths;  // 保留用于向后兼容 (undo/redo/cli)
+    private CheckStateModel check_model;  // 单一真相源: 三态勾选状态
     private GenericArray<string> common_phrases;
 
     private UndoManager undo_manager;
@@ -126,6 +254,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     construct {
         items = new GenericArray<ItemData> ();
         checked_paths = new HashTable<string, bool> (str_hash, str_equal);
+        check_model = new CheckStateModel ();
         common_phrases = new GenericArray<string> ();
         undo_manager = new UndoManager ();
 
@@ -351,10 +480,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 ulong expanded_handler_id = row.notify["expanded"].connect (() => {
                     if (row.get_expanded () && item.children.get_n_items () == 0) {
                         load_directory_children_lazy (item);
-                        if (item.checked) {
-                            sync_children_to_checked_paths (item);
-                        }
-                        update_directory_states_recursive (item);
                     }
                 });
                 row.set_data<ulong?> ("expanded-handler", expanded_handler_id);
@@ -490,22 +615,36 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         push_undo_state ();
 
         bool new_checked = check.active;
-        item.set_checked_recursive (new_checked);
-
-        update_ancestor_states_modern (item);
-        dir_column_view.queue_draw ();
-
-        GLib.Idle.add (() => {
-            update_items_from_tree (item, new_checked);
-            refresh_list ();
-            return Source.REMOVE;
-        });
+        // 统一入口: 通过 check_model 修改状态, 再同步 items 和 UI
+        apply_check_change (item, new_checked);
     }
 
-    private void update_items_from_tree (DirectoryItem item, bool new_checked) {
+    // 统一的勾选变更处理: 修改 check_model -> 同步 items -> 刷新 UI 三态
+    private void apply_check_change (DirectoryItem item, bool new_checked) {
         if (item.is_dir) {
-            toggle_filesystem_recursive_modern (item.path, new_checked);
+            // 目录: 从文件系统递归收集所有文件路径 (不依赖懒加载的 children)
+            var file_paths = new GenericArray<string> ();
+            collect_files_from_filesystem (item.path, file_paths);
+            if (new_checked) {
+                check_model.add_files (file_paths.data);
+                foreach (var p in file_paths) {
+                    if (!(p in checked_paths)) {
+                        checked_paths.insert (p, true);
+                        items.add (new ItemData ("file", p, null, false));
+                    }
+                }
+            } else {
+                check_model.remove_files (file_paths.data);
+                foreach (var p in file_paths) {
+                    if (p in checked_paths) {
+                        checked_paths.remove (p);
+                        remove_items_by_path (p);
+                    }
+                }
+            }
         } else {
+            // 文件: 直接切换
+            check_model.toggle_file (item.path);
             if (new_checked) {
                 if (!(item.path in checked_paths)) {
                     checked_paths.insert (item.path, true);
@@ -516,25 +655,15 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 remove_items_by_path (item.path);
             }
         }
+
+        // 刷新整个可见树的三态
+        refresh_all_tree_states ();
+        dir_column_view.queue_draw ();
+        refresh_list ();
     }
 
-    private void sync_children_to_checked_paths (DirectoryItem item) {
-        if (!item.is_dir) return;
-
-        for (uint i = 0; i < item.children.get_n_items (); i++) {
-            var child = (DirectoryItem) item.children.get_item (i);
-            if (child.is_dir) {
-                sync_children_to_checked_paths (child);
-            } else {
-                if (child.checked && !(child.path in checked_paths)) {
-                    checked_paths.insert (child.path, true);
-                    items.add (new ItemData ("file", child.path, null, false));
-                }
-            }
-        }
-    }
-
-    private void toggle_filesystem_recursive_modern (string dir_path, bool checked) {
+    // 从文件系统递归收集目录下所有文件路径
+    private void collect_files_from_filesystem (string dir_path, GenericArray<string> out_paths) {
         var dir = File.new_for_path (dir_path);
         try {
             var enumerator = dir.enumerate_children (
@@ -545,138 +674,38 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             while ((info = enumerator.next_file ()) != null) {
                 var child = dir.get_child (info.get_name ());
                 if (info.get_file_type () == FileType.DIRECTORY) {
-                    toggle_filesystem_recursive_modern (child.get_path (), checked);
+                    collect_files_from_filesystem (child.get_path (), out_paths);
                 } else {
-                    var file_path = child.get_path ();
-                    if (checked) {
-                        if (!(file_path in checked_paths)) {
-                            checked_paths.insert (file_path, true);
-                            items.add (new ItemData ("file", file_path, null, false));
-                        }
-                    } else {
-                        checked_paths.remove (file_path);
-                        remove_items_by_path (file_path);
-                    }
+                    out_paths.add (child.get_path ());
                 }
             }
         } catch (Error e) {
-            warning ("toggle_filesystem_recursive_modern: %s", e.message);
+            warning ("collect_files_from_filesystem: %s", e.message);
         }
     }
 
-    private void update_ancestor_states_modern (DirectoryItem item) {
+    // 从 check_model 重新计算所有可见节点的三态
+    private void refresh_all_tree_states () {
         for (uint i = 0; i < root_store.get_n_items (); i++) {
-            var root = (DirectoryItem) root_store.get_item (i);
-            if (update_ancestor_states_recursive (root, item)) {
-                break;
-            }
+            refresh_subtree_states ((DirectoryItem) root_store.get_item (i));
         }
     }
 
-    private bool update_ancestor_states_recursive (DirectoryItem current, DirectoryItem target) {
-        if (current == target) {
-            return true;
-        }
-
-        if (!current.is_dir) return false;
-
-        for (uint i = 0; i < current.children.get_n_items (); i++) {
-            var child = (DirectoryItem) current.children.get_item (i);
-            if (update_ancestor_states_recursive (child, target)) {
-                update_single_item_state (current);
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private void update_single_item_state (DirectoryItem item) {
-        int total = 0;
-        int checked_count = 0;
-        bool any_inconsistent = false;
-
-        for (uint i = 0; i < item.children.get_n_items (); i++) {
-            var child = (DirectoryItem) item.children.get_item (i);
-            total++;
-            if (child.is_dir) {
-                if (child.inconsistent) {
-                    any_inconsistent = true;
-                }
-                if (child.checked || child.inconsistent) {
-                    checked_count++;
-                }
-            } else {
-                if (child.checked) {
-                    checked_count++;
-                }
-            }
-        }
-
-        if (total == 0) {
-            return;
-        }
-
-        bool all_checked = !any_inconsistent && (checked_count == total);
-        bool any_checked = (checked_count > 0) || any_inconsistent;
-
-        item.checked = all_checked;
-        item.inconsistent = any_checked && !all_checked;
-    }
-
-    private void update_directory_states_recursive (DirectoryItem item) {
-        if (!item.is_dir) return;
-
-        if (item.children.get_n_items () > 0) {
+    // 递归刷新子树状态: 先刷新子节点, 再根据子节点状态推导本节点
+    private void refresh_subtree_states (DirectoryItem item) {
+        if (item.is_dir) {
             for (uint i = 0; i < item.children.get_n_items (); i++) {
-                var child = (DirectoryItem) item.children.get_item (i);
-                if (child.is_dir) {
-                    update_directory_states_recursive (child);
-                }
+                refresh_subtree_states ((DirectoryItem) item.children.get_item (i));
             }
-            update_single_item_state (item);
+            // 目录三态由 check_model 计算
+            int state = check_model.compute_state (item);
+            item.checked = (state == 2);
+            item.inconsistent = (state == 1);
         } else {
-            compute_dir_state_from_filesystem (item);
-        }
-    }
-
-    private void compute_dir_state_from_filesystem (DirectoryItem item) {
-        int total = 0;
-        int checked_count = 0;
-        count_checked_files_in_dir (item.path, ref total, ref checked_count);
-
-        if (total == 0) return;
-
-        bool all_checked = (checked_count == total);
-        bool any_checked = (checked_count > 0);
-
-        item.checked = all_checked;
-        item.inconsistent = any_checked && !all_checked;
-    }
-
-    private void count_checked_files_in_dir (string dir_path, ref int total, ref int checked_count) {
-        var dir = File.new_for_path (dir_path);
-        if (!dir.query_exists ()) return;
-
-        try {
-            var enumerator = dir.enumerate_children (
-                FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE,
-                FileQueryInfoFlags.NONE
-            );
-            FileInfo info;
-            while ((info = enumerator.next_file ()) != null) {
-                var child = dir.get_child (info.get_name ());
-                if (info.get_file_type () == FileType.DIRECTORY) {
-                    count_checked_files_in_dir (child.get_path (), ref total, ref checked_count);
-                } else {
-                    total++;
-                    if (child.get_path () in checked_paths) {
-                        checked_count++;
-                    }
-                }
-            }
-        } catch (Error e) {
-            warning ("count_checked_files_in_dir: %s", e.message);
+            // 文件: 直接查 check_model
+            bool is_checked = item.path in check_model.checked_files;
+            item.checked = is_checked;
+            item.inconsistent = false;
         }
     }
 
@@ -720,12 +749,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         check_absolute_path.notify["active"].connect (on_path_mode_changed);
 
         if (work_dir != null && root_store.get_n_items () > 0) {
-            unchecked_all_tree ();
-            foreach (var path in checked_paths.get_keys ()) {
-                set_tree_item_check (path, true);
-            }
-            var root = (DirectoryItem) root_store.get_item (0);
-            update_directory_states_recursive (root);
+            // 用 check_model 作为单一真相源, 重新推导所有 UI 状态
+            check_model.replace_from (checked_paths);
+            refresh_all_tree_states ();
         }
 
         refresh_list ();
@@ -1062,8 +1088,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             root_store.remove_all ();
             var root_item = new DirectoryItem (work_dir.get_basename (), work_dir.get_path (), true);
             root_store.append (root_item);
+            check_model.replace_from (checked_paths);
             load_directory_children_lazy (root_item);
-            update_directory_states_recursive (root_item);
             GLib.Idle.add (() => {
                 var root_row = tree_list_model.get_item (0) as Gtk.TreeListRow;
                 if (root_row != null) {
@@ -1073,10 +1099,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             });
             search_entry.visible = true;
         } else if (work_dir != null && root_store.get_n_items () > 0) {
-            unchecked_all_tree ();
+            check_model.replace_from (checked_paths);
             foreach (var path in checked_paths.get_keys ()) {
-                set_tree_item_check (path, true);
+                ensure_path_loaded (path);
             }
+            refresh_all_tree_states ();
         }
 
         refresh_list ();
@@ -1188,7 +1215,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 var fi = dirs.get (i);
                 var child_path = dir.get_child (fi.get_name ()).get_path ();
                 var child_item = new DirectoryItem (fi.get_name (), child_path, true);
-                child_item.checked = (child_path in checked_paths) || parent_item.checked;
                 parent_item.children.append (child_item);
             }
 
@@ -1196,53 +1222,84 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 var fi = files.get (i);
                 var child_path = dir.get_child (fi.get_name ()).get_path ();
                 var child_item = new DirectoryItem (fi.get_name (), child_path, false);
-                child_item.checked = (child_path in checked_paths) || parent_item.checked;
                 parent_item.children.append (child_item);
             }
+
+            // 加载完子节点后, 从 check_model 重新计算本节点及子节点的三态
+            refresh_subtree_states (parent_item);
         } catch (Error e) {
             warning ("load_directory_children_lazy: %s", e.message);
         }
     }
 
+    // AI 工具入口: 设置某个文件路径的勾选状态
     private void set_tree_item_check (string abs_path, bool checked) {
-        for (uint i = 0; i < root_store.get_n_items (); i++) {
-            var root = (DirectoryItem) root_store.get_item (i);
-            if (set_tree_item_check_recursive (root, abs_path, checked)) {
-                update_ancestor_states_modern (root);
-                return;
+        // 1. 更新 check_model (单一真相源)
+        if (checked) {
+            check_model.add_files ({ abs_path });
+            if (!(abs_path in checked_paths)) {
+                checked_paths.insert (abs_path, true);
+                items.add (new ItemData ("file", abs_path, null, false));
+            }
+        } else {
+            check_model.remove_files ({ abs_path });
+            if (abs_path in checked_paths) {
+                checked_paths.remove (abs_path);
+                remove_items_by_path (abs_path);
             }
         }
+
+        // 2. 触发懒加载, 确保该路径的父目录已加载 (这样 UI 才能显示)
+        ensure_path_loaded (abs_path);
+
+        // 3. 刷新整个可见树的三态
+        refresh_all_tree_states ();
+        refresh_list ();
     }
 
-    private bool set_tree_item_check_recursive (DirectoryItem item, string abs_path, bool checked) {
-        if (item.path == abs_path) {
-            item.checked = checked;
-            item.inconsistent = false;
-            return true;
-        }
+    // 确保指定文件路径的所有父目录都已加载到树中
+    private void ensure_path_loaded (string abs_path) {
+        if (work_dir == null || !abs_path.has_prefix (work_dir.get_path () + "/")) return;
+        if (root_store.get_n_items () == 0) return;
 
-        for (uint i = 0; i < item.children.get_n_items (); i++) {
-            var child = (DirectoryItem) item.children.get_item (i);
-            if (set_tree_item_check_recursive (child, abs_path, checked)) {
-                return true;
+        string rel = abs_path.substring (work_dir.get_path ().length + 1);
+        string[] parts = rel.split ("/");
+        var current = (DirectoryItem) root_store.get_item (0);
+
+        for (int p = 0; p < parts.length - 1; p++) {
+            bool found = false;
+            for (uint c = 0; c < current.children.get_n_items (); c++) {
+                var child = (DirectoryItem) current.children.get_item (c);
+                if (child.name == parts[p]) {
+                    current = child;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                load_directory_children_lazy (current);
+                for (uint c = 0; c < current.children.get_n_items (); c++) {
+                    var child = (DirectoryItem) current.children.get_item (c);
+                    if (child.name == parts[p]) {
+                        current = child;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) return;
             }
         }
-        return false;
-    }
-
-    private void unchecked_all_tree () {
-        for (uint i = 0; i < root_store.get_n_items (); i++) {
-            var root = (DirectoryItem) root_store.get_item (i);
-            unchecked_all_tree_recursive (root);
+        // 确保目标文件所在目录也已加载
+        bool target_found = false;
+        for (uint c = 0; c < current.children.get_n_items (); c++) {
+            var child = (DirectoryItem) current.children.get_item (c);
+            if (child.path == abs_path) {
+                target_found = true;
+                break;
+            }
         }
-    }
-
-    private void unchecked_all_tree_recursive (DirectoryItem item) {
-        item.checked = false;
-        item.inconsistent = false;
-        for (uint i = 0; i < item.children.get_n_items (); i++) {
-            var child = (DirectoryItem) item.children.get_item (i);
-            unchecked_all_tree_recursive (child);
+        if (!target_found) {
+            load_directory_children_lazy (current);
         }
     }
 
@@ -1455,7 +1512,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         push_undo_state ();
         items.remove_range (0, items.length);
         checked_paths.remove_all ();
-        unchecked_all_tree ();
+        check_model.clear ();
+        refresh_all_tree_states ();
         refresh_list ();
     }
 
@@ -1618,7 +1676,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     root_store.append (root_item);
 
                     load_directory_children_lazy (root_item);
-                    update_directory_states_recursive (root_item);
                     search_entry.visible = true;
 
                     var root_row = tree_list_model.get_item (0) as Gtk.TreeListRow;
