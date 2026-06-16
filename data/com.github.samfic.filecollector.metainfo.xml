@@ -23,6 +23,20 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="4.0.0" date="2026-06-17">
+      <description>
+        <p>重大更新：</p>
+        <ul>
+          <li>全新 AI 助手侧边栏：支持自然语言驱动文件探索、勾选与编排</li>
+          <li>AI 助手支持 Markdown 渲染，聊天内容更易读</li>
+          <li>AI 助手工具调用以可展开卡片实时展示结果</li>
+          <li>新增"项目另存为"功能</li>
+          <li>AI 面板输入框占位提示文本优化</li>
+          <li>新增完整的中英文使用说明文档</li>
+          <li>README 中新增 AI 助手功能介绍与配置说明</li>
+        </ul>
+      </description>
+    </release>
     <release version="3.1.1" date="2026-06-03">
       <description>
         <p>新特性与修复：</p>

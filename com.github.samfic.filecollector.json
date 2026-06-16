@@ -6,6 +6,7 @@
   "command": "filecollector",
   "finish-args": [
     "--share=ipc",
+    "--share=network",
     "--socket=fallback-x11",
     "--socket=wayland",
     "--device=dri",
@@ -31,6 +32,24 @@
           "type": "git",
           "url": "https://gitlab.gnome.org/jwestman/blueprint-compiler.git",
           "tag": "v0.20.4"
+        }
+      ]
+    },
+    {
+      "name": "cmark-gfm",
+      "buildsystem": "cmake-ninja",
+      "builddir": true,
+      "config-opts": [
+        "-DCMARK_STATIC=ON",
+        "-DCMARK_SHARED=OFF",
+        "-DCMARK_TESTS=OFF",
+        "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
+      ],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/github/cmark-gfm.git",
+          "tag": "0.29.0.gfm.13"
         }
       ]
     },
