@@ -87,8 +87,6 @@ git log v2.0.3..HEAD --stat --name-only
 ```bash
 git add -A
 git commit -m "release: vX.Y.Z"
-git tag vX.Y.Z
-git push && git push origin vX.Y.Z
 ```
 
 > 💡 **发布到 GitHub Releases 时**：`metainfo.xml` 里的发布描述不会自动同步到 GitHub。创建 Release 时，记得把 `<release>` 中的 `<description>` 内容复制到 Release notes 中，这样用户可以在 GitHub 页面上直接看到更新日志。
@@ -269,7 +267,7 @@ flatpak-builder build-dir com.github.samfic.filecollector.json --user --install 
 # 生成分发文件
 # ──────────────────────────────────────
 flatpak-builder --repo=flatpak-repo build-dir com.github.samfic.filecollector.json --force-clean
-flatpak build-bundle flatpak-repo filecollector-4.0.x.flatpak com.github.samfic.filecollector
+flatpak build-bundle flatpak-repo filecollector-X.Y.Z.flatpak com.github.samfic.filecollector
 
 # ──────────────────────────────────────
 # 完整的版本发布流程（一键脚本）
