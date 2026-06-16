@@ -82,11 +82,13 @@ git log v2.0.3..HEAD --stat --name-only
 </release>
 ```
 
-### 2.4 提交
+### 2.4 提交与推送
 
 ```bash
- git add -A
- git commit -m "release: v2.0.4"
+git add -A
+git commit -m "release: vX.Y.Z"
+git tag vX.Y.Z
+git push && git push origin vX.Y.Z
 ```
 
 > 💡 **发布到 GitHub Releases 时**：`metainfo.xml` 里的发布描述不会自动同步到 GitHub。创建 Release 时，记得把 `<release>` 中的 `<description>` 内容复制到 Release notes 中，这样用户可以在 GitHub 页面上直接看到更新日志。
@@ -267,33 +269,60 @@ flatpak-builder build-dir com.github.samfic.filecollector.json --user --install 
 # 生成分发文件
 # ──────────────────────────────────────
 flatpak-builder --repo=flatpak-repo build-dir com.github.samfic.filecollector.json --force-clean
-flatpak build-bundle flatpak-repo filecollector-2.0.x.flatpak com.github.samfic.filecollector
+flatpak build-bundle flatpak-repo filecollector-4.0.x.flatpak com.github.samfic.filecollector
 
 # ──────────────────────────────────────
-# 完整的版本发布流程
+# 完整的版本发布流程（一键脚本）
 # ──────────────────────────────────────
 # 1. git log 查看上一版本到现在的提交，总结更新内容
 # 2. 编辑 meson.build 更新版本号
 # 3. 编辑 metainfo.xml 添加发布记录
-# 4. git add -A && git commit -m "release: vX.Y.Z"
-# 5. flatpak-builder --repo=flatpak-repo build-dir ... --force-clean
-# 7. flatpak build-bundle flatpak-repo filecollector-X.Y.Z.flatpak ...
-# 8. flatpak install --user --or-update -y filecollector-X.Y.Z.flatpak
-# 9. 验证并上传到 GitHub Releases
+# 4. git add -A && git commit -m "release: vX.Y.Z" && git tag vX.Y.Z && git push && git push origin vX.Y.Z
+# 5. flatpak-builder --repo=flatpak-repo build-dir com.github.samfic.filecollector.json --force-clean
+# 6. flatpak build-bundle flatpak-repo filecollector-X.Y.Z.flatpak com.github.samfic.filecollector
+# 7. flatpak install --user --or-update -y filecollector-X.Y.Z.flatpak
+# 8. gh release create vX.Y.Z --title "FileCollector vX.Y.Z" --notes-file /dev/stdin filecollector-X.Y.Z.flatpak
 ```
+
+> 💡 **gh CLI 自动发布**：安装 `gh` 后（`sudo apt install gh && gh auth login`），可直接用一条命令创建 GitHub Release 并上传 Flatpak 文件，无需手动打开浏览器。Release notes 可通过 heredoc 传入（见下方示例）。
 
 ---
 
-## 七、生成 GitHub Releases 内容
+## 七、发布到 GitHub Releases
 
-构建完成后，要按照以下模板生成 GitHub Releases 页面描述内容给用户：
+### 方式 A：使用 gh CLI（推荐，无需浏览器）
 
-```markdown
-# FileCollector v2.0.4
+确保已安装 `gh` 并登录：
 
+```bash
+sudo apt install gh
+gh auth login
+```
+
+一键创建 Release 并上传 Flatpak：
+
+```bash
+gh release create vX.Y.Z --title "FileCollector vX.Y.Z" --notes "$(cat <<'EOF'
 ### 主要改进
 
 - **简洁描述**：详细内容
+
+### Improvements
+
+- **Brief description**: Detailed content
+EOF
+)" filecollector-X.Y.Z.flatpak
+```
+
+### 方式 B：手动在浏览器创建
+
+按以下模板在 [GitHub Releases](https://github.com/Sam-Fic/filecollector-gnome/releases/new) 页面创建：
+
+```markdown
+# FileCollector vX.Y.Z
+
+### 主要改进
+
 - **简洁描述**：详细内容
 - **简洁描述**：详细内容
 
@@ -301,5 +330,6 @@ flatpak build-bundle flatpak-repo filecollector-2.0.x.flatpak com.github.samfic.
 
 - **Brief description**: Detailed content
 - **Brief description**: Detailed content
-- **Brief description**: Detailed content
 ```
+
+上传 `filecollector-X.Y.Z.flatpak` 文件到 Release assets。
