@@ -648,8 +648,220 @@ msgstr "Loading..."
 msgid "无法读取目录: %s"
 msgstr "Unable to read directory: %s"
 
+#: src/window.blp:336
+msgid "AI 设置..."
+msgstr "AI Settings..."
+
+#: src/window.blp:14
+msgid "显示 / 隐藏 AI 助手 (Ctrl+J)"
+msgstr "Show / Hide AI Assistant (Ctrl+J)"
+
 #~ msgid "项目文件 (*.project.json)"
 #~ msgstr "Project File (*.project.json)"
+
+# AI panel strings
+#: src/widgets/ai_panel.vala:75
+msgid "AI 助手"
+msgstr "AI Assistant"
+
+#: src/widgets/ai_panel.vala:129
+msgid "输入指令, Ctrl+Enter 发送"
+msgstr "Enter a prompt, Ctrl+Enter to send"
+
+#: src/widgets/ai_panel.vala:162
+msgid "清空对话"
+msgstr "Clear Chat"
+
+#: src/widgets/ai_panel.vala:171 src/widgets/ai_panel.vala:862
+msgid "发送"
+msgstr "Send"
+
+#: src/widgets/ai_panel.vala:228
+msgid "未配置模型"
+msgstr "No model configured"
+
+#: src/widgets/ai_panel.vala:239
+msgid ""
+"你好, 我是 AI 编排助手。告诉我你想收集哪些文件, 我来帮你编排。\n"
+"例如: \"把 src 目录下所有 Python 文件加进去, 然后在开头插入一段任务说明。\""
+msgstr ""
+"Hi, I'm the AI orchestration assistant. Tell me which files to collect and "
+"I'll help you organize them.\n"
+"For example: \"Add all Python files in the src directory, then insert a task "
+"description at the top.\""
+
+#: src/widgets/ai_panel.vala:379
+msgid "收起"
+msgstr "Collapse"
+
+#: src/widgets/ai_panel.vala:379
+msgid "查看结果"
+msgstr "View Result"
+
+#: src/widgets/ai_panel.vala:461
+msgid "已停止"
+msgstr "Stopped"
+
+#: src/widgets/ai_panel.vala:475
+msgid "请先在 设置 → AI 设置 中启用并配置 API。"
+msgstr "Please enable and configure the API in Settings → AI Settings first."
+
+#: src/widgets/ai_panel.vala:652
+msgid "客户端未配置"
+msgstr "Client not configured"
+
+#: src/widgets/ai_panel.vala:714
+msgid "未配置工具执行器"
+msgstr "Tool executor not configured"
+
+#: src/widgets/ai_panel.vala:719
+#, c-format
+msgid "执行出错: %s"
+msgstr "Execution error: %s"
+
+#: src/widgets/ai_panel.vala:770
+#, c-format
+msgid "调用失败: %s"
+msgstr "Call failed: %s"
+
+#: src/widgets/ai_panel.vala:857
+msgid "停止"
+msgstr "Stop"
+
+#: src/widgets/ai_panel.vala:860
+msgid "正在思考..."
+msgstr "Thinking..."
+
+#: src/widgets/ai_panel.vala:874
+msgid "未配置"
+msgstr "Not configured"
+
+#: src/widgets/ai_panel.vala:878
+msgid "就绪"
+msgstr "Ready"
+
+# AI settings dialog strings
+#: src/widgets/ai_settings_dialog.vala:56
+msgid "AI 助手设置"
+msgstr "AI Assistant Settings"
+
+#: src/widgets/ai_settings_dialog.vala:70
+msgid "保存"
+msgstr "Save"
+
+#: src/widgets/ai_settings_dialog.vala:80
+msgid "通用"
+msgstr "General"
+
+#: src/widgets/ai_settings_dialog.vala:82
+msgid ""
+"配置 OpenAI 兼容 API, 即可在 AI 边栏使用自然语言编排文件。\n"
+"支持 OpenAI、Azure OpenAI、Microsoft Foundry 上的 Fast Context 等特化模型, "
+"以及任何兼容端点 (例如本地 Ollama)。"
+msgstr ""
+"Configure an OpenAI-compatible API to orchestrate files with natural "
+"language in the AI sidebar.\n"
+"Supports OpenAI, Azure OpenAI, Microsoft Foundry Fast Context and other "
+"specialized models, as well as any compatible endpoint (e.g. local Ollama)."
+
+#: src/widgets/ai_settings_dialog.vala:89
+msgid "启用 AI 助手"
+msgstr "Enable AI Assistant"
+
+#: src/widgets/ai_settings_dialog.vala:90
+msgid "关闭后 AI 边栏会保留, 但不会发送任何请求"
+msgstr "When disabled, the AI sidebar remains visible but won't send any requests"
+
+#: src/widgets/ai_settings_dialog.vala:99
+msgid "API 基础地址"
+msgstr "API Base URL"
+
+#: src/widgets/ai_settings_dialog.vala:106
+msgid "API 密钥"
+msgstr "API Key"
+
+#: src/widgets/ai_settings_dialog.vala:112
+msgid "模型名称"
+msgstr "Model Name"
+
+#: src/widgets/ai_settings_dialog.vala:118
+msgid "请求超时 (秒)"
+msgstr "Request Timeout (seconds)"
+
+#: src/widgets/ai_settings_dialog.vala:125
+msgid "高级"
+msgstr "Advanced"
+
+#: src/widgets/ai_settings_dialog.vala:129
+msgid "自定义系统提示词"
+msgstr "Custom System Prompt"
+
+#: src/widgets/ai_settings_dialog.vala:136
+msgid "测试连接"
+msgstr "Test Connection"
+
+#: src/widgets/ai_settings_dialog.vala:137
+msgid "用当前配置向 API 发送一次最小请求, 验证是否可用"
+msgstr "Send a minimal request to the API with current settings to verify it works"
+
+#: src/widgets/ai_settings_dialog.vala:139
+msgid "测试"
+msgstr "Test"
+
+#: src/widgets/ai_settings_dialog.vala:192
+msgid "请先填写 API 基础地址、密钥和模型名称。"
+msgstr "Please fill in the API Base URL, Key, and Model Name first."
+
+#: src/widgets/ai_settings_dialog.vala:201
+msgid "正在测试..."
+msgstr "Testing..."
+
+#: src/widgets/ai_settings_dialog.vala:249
+msgid "✓ 连接成功"
+msgstr "✓ Connected successfully"
+
+#: src/widgets/ai_settings_dialog.vala:258
+msgid "✗ 失败: HTTP %u %s"
+msgstr "✗ Failed: HTTP %u %s"
+
+#: src/widgets/ai_settings_dialog.vala:265
+#, c-format
+msgid "✗ 失败: %s"
+msgstr "✗ Failed: %s"
+
+# AI client error messages
+#: src/services/ai_client.vala:328
+msgid "API 基础地址未配置, 请在 设置 → AI 设置 中填写。"
+msgstr "API Base URL not configured. Please fill it in Settings → AI Settings."
+
+#: src/services/ai_client.vala:330
+msgid "API 密钥未配置, 请在 设置 → AI 设置 中填写。"
+msgstr "API Key not configured. Please fill it in Settings → AI Settings."
+
+#: src/services/ai_client.vala:332
+msgid "模型名称未配置, 请在 设置 → AI 设置 中填写。"
+msgstr "Model Name not configured. Please fill it in Settings → AI Settings."
+
+#: src/services/ai_client.vala:377
+msgid "网络错误: "
+msgstr "Network error: "
+
+#: src/services/ai_client.vala:395
+#, c-format
+msgid "HTTP %u %s: %s"
+msgstr "HTTP %u %s: %s"
+
+#: src/services/ai_client.vala:399
+msgid "响应为空"
+msgstr "Empty response"
+
+#: src/services/ai_client.vala:411
+msgid "响应不是合法 JSON: "
+msgstr "Response is not valid JSON: "
+
+#: src/services/ai_client.vala:415
+msgid "响应顶层不是对象"
+msgstr "Response top-level is not an object"
 
 
 

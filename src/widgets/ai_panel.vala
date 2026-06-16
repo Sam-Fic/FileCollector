@@ -45,6 +45,7 @@ public class AIPanel : GLib.Object {
     private Gtk.TextView input_view;
     private Gtk.Button btn_send;
     private Gtk.Button btn_clear;
+    private Gtk.Button btn_scroll_bottom;
     private Gtk.Label lbl_status;
     private Gtk.Label lbl_model;
 
@@ -58,10 +59,19 @@ public class AIPanel : GLib.Object {
     private bool busy = false;
     private bool stop_requested = false;
     private bool pending_welcome = true;
+    // 用户是否停留在底部附近 (用于判断是否自动滚动)
+    private bool auto_scroll = true;
+    // 标记正在 rerender, 抑制 adj.changed 的自动滚动 (由 rerender 自行处理)
+    private bool is_rerendering = false;
 
     private Gee.ArrayList<Json.Node> messages = new Gee.ArrayList<Json.Node> ();
     private Gee.ArrayList<AIMessage> rendered = new Gee.ArrayList<AIMessage> ();
     private int tool_counter = 0;
+
+    // 用于从 worker 线程同步调用主线程上的 GTK 操作 (GTK4 非线程安全).
+    private GLib.Mutex main_sync_mutex = GLib.Mutex ();
+    private GLib.Cond main_sync_cond = GLib.Cond ();
+    private bool main_sync_done = false;
 
     // 由主窗口创建并配置; 本身只是个 widget 工厂
     public AIPanel (Gtk.Window? parent) {
@@ -99,7 +109,39 @@ public class AIPanel : GLib.Object {
         chat_scroll.set_vexpand (true);
         chat_scroll.set_hexpand (true);
         chat_scroll.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
-        root_box.append (chat_scroll);
+
+        // 滚动到底部按钮 (悬浮在聊天区右下角, 不在底部时显示)
+        btn_scroll_bottom = new Gtk.Button.from_icon_name ("go-down-symbolic");
+        btn_scroll_bottom.add_css_class ("circular");
+        btn_scroll_bottom.add_css_class ("ai-scroll-bottom-btn");
+        btn_scroll_bottom.set_tooltip_text (_("滚动到底部"));
+        btn_scroll_bottom.set_halign (Gtk.Align.END);
+        btn_scroll_bottom.set_valign (Gtk.Align.END);
+        btn_scroll_bottom.set_margin_end (8);
+        btn_scroll_bottom.set_margin_bottom (8);
+        btn_scroll_bottom.set_visible (false);
+        btn_scroll_bottom.clicked.connect (() => {
+            scroll_to_bottom (true);
+        });
+        // 用 Overlay 让按钮悬浮在 ScrolledWindow 上
+        var chat_overlay = new Gtk.Overlay ();
+        chat_overlay.set_child (chat_scroll);
+        chat_overlay.add_overlay (btn_scroll_bottom);
+        root_box.append (chat_overlay);
+
+        // 监听滚动位置: 判断用户是否在底部附近
+        var adj = chat_scroll.get_vadjustment ();
+        adj.changed.connect (() => {
+            // rerender 期间不自动滚动, 由 rerender 自行恢复位置
+            if (auto_scroll && !is_rerendering) {
+                scroll_to_bottom (false);
+            }
+            update_scroll_bottom_btn ();
+        });
+        adj.value_changed.connect (() => {
+            update_auto_scroll ();
+            update_scroll_bottom_btn ();
+        });
 
         // ── 输入区 ──
         var input_frame = new Gtk.Frame (null);
@@ -126,7 +168,7 @@ public class AIPanel : GLib.Object {
         // GTK4 中 Gtk.TextView 没有 set_placeholder_text; 用 overlay 自行实现
         var input_overlay = new Gtk.Overlay ();
         input_overlay.set_child (input_view);
-        var placeholder_lbl = new Gtk.Label (_("输入指令, Ctrl+Enter 发送"));
+        var placeholder_lbl = new Gtk.Label (_("输入指令, Enter 发送, Ctrl+Enter 换行"));
         placeholder_lbl.add_css_class ("dim-label");
         placeholder_lbl.add_css_class ("ai-placeholder");
         placeholder_lbl.set_halign (Gtk.Align.START);
@@ -144,19 +186,26 @@ public class AIPanel : GLib.Object {
             placeholder_lbl.visible = input_view.get_buffer ().get_text (s, e, false).length == 0;
         });
         input_box.append (input_overlay);
-        // Ctrl+Enter 发送
+        // Enter 发送, Ctrl+Enter 换行
         var key = new Gtk.EventControllerKey ();
-        key.key_pressed.connect ((keyval, state) => {
+        key.key_pressed.connect ((keyval, keycode, state) => {
             if (keyval == Gdk.Key.Return || keyval == Gdk.Key.KP_Enter) {
                 if ((state & Gdk.ModifierType.CONTROL_MASK) != 0) {
-                    on_send_or_stop ();
+                    // Ctrl+Enter: 插入换行
+                    input_view.get_buffer ().insert_at_cursor ("\n", 1);
+                    Gtk.TextIter cursor_iter;
+                    input_view.get_buffer ().get_iter_at_mark (out cursor_iter,
+                        input_view.get_buffer ().get_insert ());
+                    input_view.scroll_to_iter (cursor_iter, 0, false, 0, 0);
                     return true;
                 }
+                // 普通 Enter: 发送
+                on_send_or_stop ();
+                return true;
             }
             return false;
         });
         input_view.add_controller (key);
-        input_box.append (input_view);
 
         // 按钮行
         var btn_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
@@ -187,6 +236,7 @@ public class AIPanel : GLib.Object {
         lbl_status = new Gtk.Label (null);
         lbl_status.halign = Gtk.Align.START;
         lbl_status.add_css_class ("dim-label");
+        lbl_status.add_css_class ("caption");
         lbl_status.hexpand = true;
         status_row.append (lbl_status);
         lbl_model = new Gtk.Label (null);
@@ -254,19 +304,26 @@ public class AIPanel : GLib.Object {
     // ─── 渲染 ────────────────────────────────────────────────────────────
 
     private void render_user (string text) {
-        var msg = new AIMessage ("user", text);
+        var stripped = text.strip ();
+        if (stripped.length == 0) return;
+        var msg = new AIMessage ("user", stripped);
         rendered.add (msg);
         rerender ();
     }
 
     private void render_assistant (string text) {
-        var msg = new AIMessage ("assistant", text);
+        var stripped = text.strip ();
+        // 内容为空或纯空白时不渲染气泡 (避免工具调用间出现空白气泡)
+        if (stripped.length == 0) return;
+        var msg = new AIMessage ("assistant", stripped);
         rendered.add (msg);
         rerender ();
     }
 
     private void render_system (string text) {
-        var msg = new AIMessage ("system", text);
+        var stripped = text.strip ();
+        if (stripped.length == 0) return;
+        var msg = new AIMessage ("system", stripped);
         rendered.add (msg);
         rerender ();
     }
@@ -282,7 +339,36 @@ public class AIPanel : GLib.Object {
         rerender ();
     }
 
+    // 清洗 UTF-8: 用 replacement character 替换无效字节, 避免 Pango 警告
+    private string sanitize_utf8 (string? text) {
+        if (text == null) return "";
+        if (text.validate (-1)) return text;
+        return text.make_valid (-1);
+    }
+
+    // 按字节长度截断, 但不切断多字节 UTF-8 字符, 避免乱码
+    private static string truncate_utf8 (string text, int max_bytes) {
+        if (text.length <= max_bytes) return text;
+        // 向前回退到字符边界
+        int cut = max_bytes;
+        while (cut > 0 && !text[0:cut].validate (-1)) {
+            cut--;
+        }
+        return text[0:cut];
+    }
+
     private void rerender () {
+        // 保存当前滚动位置 (相对底部的偏移), 用于重建后恢复
+        var adj_before = chat_scroll.get_vadjustment ();
+        double saved_offset_from_bottom = -1;
+        if (adj_before != null) {
+            saved_offset_from_bottom = adj_before.get_upper () - adj_before.get_value () - adj_before.get_page_size ();
+            if (saved_offset_from_bottom < 0) saved_offset_from_bottom = 0;
+        }
+
+        // 标记正在 rerender, 抑制 adj.changed 的自动滚动
+        is_rerendering = true;
+
         // 清空旧气泡
         Gtk.Widget? child = chat_container.get_first_child ();
         while (child != null) {
@@ -293,14 +379,74 @@ public class AIPanel : GLib.Object {
         foreach (var msg in rendered) {
             chat_container.append (build_bubble (msg));
         }
-        // 滚到底
+        // 重建后恢复滚动位置: 工具展开/折叠时不应该跳动
+        // 用 Idle 确保布局完成后再设置
         GLib.Idle.add (() => {
-            var adj = chat_scroll.get_vadjustment ();
-            if (adj != null) {
-                adj.set_value (adj.get_upper () - adj.get_page_size ());
+            is_rerendering = false;
+            var a = chat_scroll.get_vadjustment ();
+            if (a != null) {
+                if (auto_scroll && saved_offset_from_bottom < 30) {
+                    // 用户原本在底部附近, 滚动到底部
+                    a.set_value (a.get_upper () - a.get_page_size ());
+                } else if (saved_offset_from_bottom >= 0) {
+                    // 用户不在底部, 保持相对底部的位置
+                    double new_value = a.get_upper () - a.get_page_size () - saved_offset_from_bottom;
+                    if (new_value < 0) new_value = 0;
+                    a.set_value (new_value);
+                }
             }
+            update_scroll_bottom_btn ();
             return GLib.Source.REMOVE;
         });
+    }
+
+    // 滚动到底部. force=true 时强制滚动并重置 auto_scroll.
+    private void scroll_to_bottom (bool force) {
+        if (force) {
+            auto_scroll = true;
+        }
+        var adj = chat_scroll.get_vadjustment ();
+        if (adj == null) return;
+        // 用 Idle 确保在布局更新后再滚动
+        GLib.Idle.add (() => {
+            var a = chat_scroll.get_vadjustment ();
+            if (a != null) {
+                a.set_value (a.get_upper () - a.get_page_size ());
+            }
+            update_scroll_bottom_btn ();
+            return GLib.Source.REMOVE;
+        });
+    }
+
+    // 根据当前滚动位置更新 auto_scroll 标志.
+    // 在底部附近 (30px 容差) 视为"在底部", 允许自动滚动.
+    private void update_auto_scroll () {
+        var adj = chat_scroll.get_vadjustment ();
+        if (adj == null) return;
+        double current = adj.get_value ();
+        double upper = adj.get_upper ();
+        double page = adj.get_page_size ();
+        double bottom = upper - page;
+        auto_scroll = (current >= bottom - 30);
+    }
+
+    // 根据是否在底部更新滚动按钮的可见性
+    private void update_scroll_bottom_btn () {
+        var adj = chat_scroll.get_vadjustment ();
+        if (adj == null) {
+            btn_scroll_bottom.set_visible (false);
+            return;
+        }
+        double current = adj.get_value ();
+        double upper = adj.get_upper ();
+        double page = adj.get_page_size ();
+        double bottom = upper - page;
+        // 内容不足以滚动时隐藏按钮
+        if (upper <= page + 1) {
+            btn_scroll_bottom.set_visible (false);
+        } else {
+            btn_scroll_bottom.set_visible (current < bottom - 30);
+        }
     }
 
     private Gtk.Widget build_bubble (AIMessage msg) {
@@ -326,20 +472,28 @@ public class AIPanel : GLib.Object {
         }
 
         switch (msg.role) {
-            case "user":
-            case "assistant":
-            case "system": {
-                var label = new Gtk.Label (msg.content);
+            case "user": {
+                var label = new Gtk.Label (sanitize_utf8 (msg.content));
                 label.xalign = 0;
                 label.wrap = true;
                 label.wrap_mode = Pango.WrapMode.WORD_CHAR;
                 label.selectable = true;
+                label.hexpand = true;
+                label.halign = Gtk.Align.FILL;
                 label.add_css_class ("ai-bubble-content");
                 bubble.append (label);
                 break;
             }
+            case "assistant":
+            case "system": {
+                // 用 Markdown 渲染 (cmark AST → GTK widget 树)
+                var md = new MarkdownView (msg.content);
+                md.add_css_class ("ai-bubble-content");
+                bubble.append (md);
+                break;
+            }
             case "tool": {
-                // 工具调用卡片: 头部 (icon + name + args + action) + body (result, 可折叠)
+                // 工具调用卡片: 头部 (icon + name + args + action) + body/preview (可折叠)
                 var header_btn = new Gtk.Button ();
                 header_btn.add_css_class ("flat");
                 header_btn.add_css_class ("ai-tool-header");
@@ -347,23 +501,20 @@ public class AIPanel : GLib.Object {
                 header_btn.halign = Gtk.Align.FILL;
 
                 var header_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
-                var arrow = new Gtk.Label (msg.expanded ? "▼" : "▶");
+
+                // 用 GTK 原生 disclosure 图标 (与文件树文件夹展开箭头同款)
+                var arrow = new Gtk.Image ();
+                arrow.icon_name = msg.expanded ? "pan-down-symbolic" : "pan-end-symbolic";
                 arrow.add_css_class ("ai-tool-arrow");
                 arrow.valign = Gtk.Align.CENTER;
                 header_box.append (arrow);
 
-                var icon = new Gtk.Label ((msg.tool_name.length >= 2 ? msg.tool_name.substring (0, 2)
-                                            : msg.tool_name).up ());
-                icon.add_css_class ("ai-tool-icon");
-                icon.valign = Gtk.Align.CENTER;
-                header_box.append (icon);
-
-                var name_lbl = new Gtk.Label (msg.tool_name);
+                var name_lbl = new Gtk.Label (sanitize_utf8 (msg.tool_name));
                 name_lbl.add_css_class ("ai-tool-name");
                 name_lbl.valign = Gtk.Align.CENTER;
                 header_box.append (name_lbl);
 
-                var args_lbl = new Gtk.Label (msg.tool_args_repr);
+                var args_lbl = new Gtk.Label (sanitize_utf8 (msg.tool_args_repr));
                 args_lbl.add_css_class ("ai-tool-args");
                 args_lbl.valign = Gtk.Align.CENTER;
                 args_lbl.ellipsize = Pango.EllipsizeMode.END;
@@ -377,63 +528,72 @@ public class AIPanel : GLib.Object {
                 header_box.append (action);
 
                 header_btn.set_child (header_box);
+
+                // Body (展开时显示完整结果)
+                var body = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+                body.add_css_class ("ai-tool-body");
+                var result_lbl = new Gtk.Label (sanitize_utf8 (msg.tool_result ?? ""));
+                result_lbl.xalign = 0;
+                result_lbl.yalign = 0;
+                result_lbl.wrap = true;
+                result_lbl.wrap_mode = Pango.WrapMode.WORD_CHAR;
+                result_lbl.selectable = true;
+                result_lbl.add_css_class ("ai-tool-result");
+                body.append (result_lbl);
+
+                // Preview (折叠时显示截断预览)
+                var preview = msg.tool_result ?? "";
+                if (preview.length > 80) preview = truncate_utf8 (preview, 80) + "…";
+                var preview_lbl = new Gtk.Label (sanitize_utf8 (preview));
+                preview_lbl.xalign = 0;
+                preview_lbl.wrap = true;
+                preview_lbl.add_css_class ("ai-tool-preview");
+
+                // 初始可见性
+                body.set_visible (msg.expanded);
+                preview_lbl.set_visible (!msg.expanded);
+
+                // 展开/折叠: 直接切换可见性, 不重建整个聊天区
                 header_btn.clicked.connect (() => {
                     msg.expanded = !msg.expanded;
-                    rerender ();
+                    // 保存头部在视口中的相对位置, 展开后恢复
+                    var adj_save = chat_scroll.get_vadjustment ();
+                    double saved_value = adj_save != null ? adj_save.get_value () : 0;
+                    body.set_visible (msg.expanded);
+                    preview_lbl.set_visible (!msg.expanded);
+                    arrow.icon_name = msg.expanded ? "pan-down-symbolic" : "pan-end-symbolic";
+                    action.label = msg.expanded ? _("收起") : _("查看结果");
+
+                    // 展开时保持头部位置不动 (内容向下展开)
+                    if (msg.expanded) {
+                        GLib.Idle.add (() => {
+                            var a = chat_scroll.get_vadjustment ();
+                            if (a != null) {
+                                a.set_value (saved_value);
+                            }
+                            update_scroll_bottom_btn ();
+                            return GLib.Source.REMOVE;
+                        });
+                    }
                 });
+
                 bubble.append (header_btn);
-
-                if (msg.expanded) {
-                    var body = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
-                    body.add_css_class ("ai-tool-body");
-
-                    var result_lbl = new Gtk.Label (msg.tool_result ?? "");
-                    result_lbl.xalign = 0;
-                    result_lbl.yalign = 0;
-                    result_lbl.wrap = true;
-                    result_lbl.wrap_mode = Pango.WrapMode.WORD_CHAR;
-                    result_lbl.selectable = true;
-                    result_lbl.add_css_class ("ai-tool-result");
-                    body.append (result_lbl);
-                    bubble.append (body);
-                } else {
-                    var preview = msg.tool_result ?? "";
-                    if (preview.length > 80) preview = preview.substring (0, 80) + "…";
-                    var preview_lbl = new Gtk.Label (preview);
-                    preview_lbl.xalign = 0;
-                    preview_lbl.wrap = true;
-                    preview_lbl.add_css_class ("ai-tool-preview");
-                    bubble.append (preview_lbl);
-                }
+                bubble.append (body);
+                bubble.append (preview_lbl);
                 break;
             }
         }
 
         switch (msg.role) {
             case "user":
-                var spacer = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
-                spacer.hexpand = true;
-                outer.append (spacer);
-                outer.append (bubble);
-                break;
+            case "assistant":
+            case "system":
             case "tool":
-            case "system": {
-                var left = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
-                left.hexpand = true;
-                outer.append (left);
-                outer.set_halign (Gtk.Align.CENTER);
-                bubble.halign = Gtk.Align.CENTER;
+            default:
+                // 所有气泡都填满整个宽度, 不再左右留白自适应
+                bubble.hexpand = true;
+                bubble.halign = Gtk.Align.FILL;
                 outer.append (bubble);
-                var right = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
-                right.hexpand = true;
-                outer.append (right);
-                break;
-            }
-            default:  // assistant
-                outer.append (bubble);
-                var spacer = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
-                spacer.hexpand = true;
-                outer.append (spacer);
                 break;
         }
 
@@ -522,8 +682,9 @@ public class AIPanel : GLib.Object {
                     string txt = snap.custom_instructions[i] ?? "";
                     if (txt.length == 0) continue;
                     string preview = txt;
-                    if (preview.length > 40) preview = preview.substring (0, 40) + "…";
-                    preview = preview.replace ("\n", " ");
+                    if (preview.length > 40) preview = truncate_utf8 (preview, 40) + "…";
+                    // 用 split/join 替代 string.replace, 避免 Vala 的 Regex 实现在某些情况下 assert_not_reached
+                    preview = string.joinv (" ", preview.split ("\n"));
                     item_block.append ("  [").append ((file_count + text_idx).to_string ())
                               .append ("] text: ").append (preview).append ("\n");
                     text_idx++;
@@ -652,7 +813,12 @@ public class AIPanel : GLib.Object {
     }
 
     private void on_api_finished (AIChatResult result) {
-        // 把 assistant 消息写回历史
+        // 此函数在 worker 线程调用.
+        // GTK4 非线程安全: 所有 GTK 操作必须通过 invoke_on_main_sync 投递到主线程.
+        // tool_executor 内部已用 Idle.add + Cond 跨线程, 必须从 worker 线程调用,
+        // 否则会死锁 (主线程阻塞等待 Cond, Idle 永远无法执行).
+
+        // 数据: 构建 assistant 消息并写入历史 (纯数据操作, 线程安全)
         var assistant_msg = new Json.Object ();
         assistant_msg.set_string_member ("role", "assistant");
         assistant_msg.set_string_member ("content", result.content ?? "");
@@ -674,12 +840,16 @@ public class AIPanel : GLib.Object {
         }
         messages.add (AI.SchemaHelper.obj_to_node (assistant_msg));
 
+        // GTK 渲染必须回到主线程
         if (result.content.length > 0) {
-            render_assistant (result.content);
+            string content = result.content;
+            invoke_on_main_sync (() => {
+                render_assistant (content);
+            });
         }
 
         if (result.tool_calls.size > 0) {
-            // 同步执行所有工具, 写回 tool 消息
+            // tool_executor 在 worker 线程调用 (内部 Idle+Cond 跨线程同步)
             foreach (var tc in result.tool_calls) {
                 string args_repr = format_tool_args (tc.name, tc.arguments_json);
                 var args_node = parse_args (tc.arguments_json);
@@ -693,14 +863,45 @@ public class AIPanel : GLib.Object {
                 } catch (Error e) {
                     result_str = _("执行出错: %s").printf (e.message);
                 }
-                render_tool (tc.name, args_repr, result_str);
+                // 渲染工具结果回到主线程
+                string tname = tc.name;
+                string trepr = args_repr;
+                string tresult = result_str;
+                invoke_on_main_sync (() => {
+                    render_tool (tname, trepr, tresult);
+                });
                 messages.add (build_tool_response (tc.id, result_str));
             }
-            // 继续下一轮让 LLM 总结
-            next_turn ();
+            // 继续下一轮让 LLM 总结 (next_turn 会操作 GTK, 必须在主线程)
+            invoke_on_main_sync (() => {
+                next_turn ();
+            });
         } else {
-            set_busy (false);
+            invoke_on_main_sync (() => {
+                set_busy (false);
+            });
         }
+    }
+
+    // 从 worker 线程同步调用主线程上的 GTK 操作.
+    // 使用 Idle + Cond 模式: 投递到主线程后阻塞等待完成.
+    private delegate void MainSyncTask ();
+
+    private void invoke_on_main_sync (owned MainSyncTask task) {
+        main_sync_mutex.lock ();
+        main_sync_done = false;
+        GLib.Idle.add (() => {
+            task ();
+            main_sync_mutex.lock ();
+            main_sync_done = true;
+            main_sync_cond.broadcast ();
+            main_sync_mutex.unlock ();
+            return GLib.Source.REMOVE;
+        });
+        while (!main_sync_done) {
+            main_sync_cond.wait (main_sync_mutex);
+        }
+        main_sync_mutex.unlock ();
     }
 
     private static Json.Node parse_args (string raw) {
@@ -739,21 +940,24 @@ public class AIPanel : GLib.Object {
         if (name == "add_files") {
             var arr = parse_args (raw);
             if (arr.get_node_type () == Json.NodeType.OBJECT) {
-                var paths = arr.get_object ().get_array_member ("paths");
-                if (paths != null) {
-                    var parts = new Gee.ArrayList<string> ();
-                    int n = (int) paths.get_length ();
-                    if (n <= 8) {
-                        for (int i = 0; i < n; i++) {
-                            parts.add ("\"" + paths.get_string_element (i) + "\"");
+                var o = arr.get_object ();
+                if (o.has_member ("paths")) {
+                    var paths = o.get_array_member ("paths");
+                    if (paths != null) {
+                        var parts = new Gee.ArrayList<string> ();
+                        int n = (int) paths.get_length ();
+                        if (n <= 8) {
+                            for (int i = 0; i < n; i++) {
+                                parts.add ("\"" + paths.get_string_element (i) + "\"");
+                            }
+                            return "paths=[" + string.joinv (", ", parts.to_array ()) + "]";
+                        } else {
+                            for (int i = 0; i < 5; i++) {
+                                parts.add ("\"" + paths.get_string_element (i) + "\"");
+                            }
+                            return "paths=[" + string.joinv (", ", parts.to_array ())
+                                 + ", … (+%d more)".printf (n - 5) + "]";
                         }
-                        return "paths=[" + string.joinv (", ", parts.to_array ()) + "]";
-                    } else {
-                        for (int i = 0; i < 5; i++) {
-                            parts.add ("\"" + paths.get_string_element (i) + "\"");
-                        }
-                        return "paths=[" + string.joinv (", ", parts.to_array ())
-                             + ", … (+%d more)".printf (n - 5) + "]";
                     }
                 }
             }

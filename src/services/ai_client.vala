@@ -324,11 +324,11 @@ public class AIClient : GLib.Object {
     public AIChatResult chat (Gee.ArrayList<Json.Node> messages, Json.Node? tools_node = null)
             throws AIClientError {
         if (base_url == "")
-            throw new AIClientError.CONFIG ("API 基础地址未配置, 请在 设置 → AI 设置 中填写。");
+            throw new AIClientError.CONFIG (_("API 基础地址未配置, 请在 设置 → AI 设置 中填写。"));
         if (api_key == "")
-            throw new AIClientError.CONFIG ("API 密钥未配置, 请在 设置 → AI 设置 中填写。");
+            throw new AIClientError.CONFIG (_("API 密钥未配置, 请在 设置 → AI 设置 中填写。"));
         if (model == "")
-            throw new AIClientError.CONFIG ("模型名称未配置, 请在 设置 → AI 设置 中填写。");
+            throw new AIClientError.CONFIG (_("模型名称未配置, 请在 设置 → AI 设置 中填写。"));
 
         var payload = new Json.Object ();
         payload.set_string_member ("model", model);
@@ -353,8 +353,9 @@ public class AIClient : GLib.Object {
                                                : base_url + "/chat/completions";
 
         var msg = new Soup.Message ("POST", url);
-        unowned uint8[] body_bytes_view = (uint8[]) body;
-        var body_bytes = new Bytes (body_bytes_view);
+        uint8[] body_buf = new uint8[body_len];
+        GLib.Memory.copy (body_buf, body, body_len);
+        var body_bytes = new Bytes (body_buf);
         msg.set_request_body_from_bytes ("application/json", body_bytes);
         msg.request_headers.append ("Content-Type", "application/json");
         msg.request_headers.append ("Authorization", "Bearer " + api_key);
@@ -364,56 +365,54 @@ public class AIClient : GLib.Object {
             // 同步发送 (libsoup-3 的 sync API); worker 线程中执行, 不阻塞主线程.
             resp_bytes = session.send_and_read (msg, null);
         } catch (Error e) {
-            throw new AIClientError.NETWORK ("网络错误: " + e.message);
+            throw new AIClientError.NETWORK (_("网络错误: ") + e.message);
         }
 
         uint status = msg.status_code;
+
         if (status >= 400) {
             string detail = "";
             if (resp_bytes != null && resp_bytes.length > 0) {
                 try {
-                    detail = ((string) resp_bytes.get_data ()).substring (0, (long) resp_bytes.length);
+                    uint8[] raw = resp_bytes.get_data ();
+                    int safe_len = (int) int64.min (resp_bytes.length, 4096);
+                    detail = ((string) raw).substring (0, safe_len);
                 } catch (Error e) { /* ignore */ }
                 if (detail.length > 500) detail = detail.substring (0, 500);
             }
             throw new AIClientError.HTTP (
-                "HTTP %u %s: %s".printf (status, Soup.status_get_phrase (status), detail).strip ());
+                _("HTTP %u %s: %s").printf (status, Soup.status_get_phrase (status), detail).strip ());
         }
 
         if (resp_bytes == null || resp_bytes.length == 0) {
-            throw new AIClientError.PROTOCOL ("响应为空");
+            throw new AIClientError.PROTOCOL (_("响应为空"));
         }
 
-        string body_str;
-        try {
-            body_str = (string) resp_bytes.get_data ();
-        } catch (Error e) {
-            throw new AIClientError.PROTOCOL ("响应解码失败: " + e.message);
-        }
-
-        return parse_response (body_str);
+        return parse_response_bytes (resp_bytes.get_data ());
     }
 
-    private static AIChatResult parse_response (string body) throws AIClientError {
+    private static AIChatResult parse_response_bytes (uint8[] raw) throws AIClientError {
         var parser = new Json.Parser ();
         try {
-            parser.load_from_data (body, body.length);
+            parser.load_from_data ((string) raw, (long) raw.length);
         } catch (Error e) {
-            throw new AIClientError.PROTOCOL ("响应不是合法 JSON: " + e.message);
+            throw new AIClientError.PROTOCOL (_("响应不是合法 JSON: ") + e.message);
         }
         var root = parser.get_root ();
         if (root == null || root.get_node_type () != Json.NodeType.OBJECT)
-            throw new AIClientError.PROTOCOL ("响应顶层不是对象");
+            throw new AIClientError.PROTOCOL (_("响应顶层不是对象"));
         var obj = root.get_object ();
+        if (obj == null)
+            throw new AIClientError.PROTOCOL (_("响应顶层不是对象"));
 
-        var choices = obj.get_array_member ("choices");
+        var choices = obj.has_member ("choices") ? obj.get_array_member ("choices") : null;
         if (choices == null || choices.get_length () == 0) {
             return new AIChatResult ("");
         }
         var first = choices.get_object_element (0);
         if (first == null) return new AIChatResult ("");
 
-        var msg = first.get_object_member ("message");
+        var msg = first.has_member ("message") ? first.get_object_member ("message") : null;
         if (msg == null) return new AIChatResult ("");
 
         string content = msg.get_string_member_with_default ("content", "");
@@ -421,19 +420,25 @@ public class AIClient : GLib.Object {
 
         var result = new AIChatResult (content);
 
-        var tcs = msg.get_array_member ("tool_calls");
+        var tcs = msg.has_member ("tool_calls") ? msg.get_array_member ("tool_calls") : null;
         if (tcs != null && tcs.get_length () > 0) {
             for (uint i = 0; i < tcs.get_length (); i++) {
                 var tc = tcs.get_object_element (i);
                 if (tc == null) continue;
                 string id = tc.get_string_member_with_default ("id", "");
-                string raw_args = tc.get_string_member_with_default ("arguments", "");
-                if (raw_args == null) raw_args = "";
-                var fn = tc.get_object_member ("function");
+                // OpenAI 标准: name 和 arguments 都在 tc.function 下
+                // 兼容少数非标准端点直接把 arguments 放在 tc 顶层
+                var fn = tc.has_member ("function") ? tc.get_object_member ("function") : null;
                 string name = "";
+                string raw_args = "";
                 if (fn != null) {
                     name = fn.get_string_member_with_default ("name", "");
+                    raw_args = fn.get_string_member_with_default ("arguments", "");
+                } else {
+                    name = tc.get_string_member_with_default ("name", "");
+                    raw_args = tc.get_string_member_with_default ("arguments", "");
                 }
+                if (raw_args == null) raw_args = "";
                 result.tool_calls.add (new AIToolCall (id, name, raw_args));
             }
         }

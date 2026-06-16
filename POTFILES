@@ -3,6 +3,9 @@ src/window.vala
 src/window.blp
 src/widgets/settings_dialog.vala
 src/widgets/phrases_picker.vala
+src/widgets/ai_panel.vala
+src/widgets/ai_settings_dialog.vala
 src/services/project_manager.vala
 src/services/file_generator.vala
+src/services/ai_client.vala
 src/utils/tree_helper.vala

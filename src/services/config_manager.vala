@@ -55,18 +55,16 @@ public class ConfigManager : GLib.Object {
 
     public static void save_language_setting (string lang) {
         try {
-            var builder = new Json.Builder ();
-            builder.begin_object ();
-            builder.set_member_name ("language");
-            builder.add_string_value (lang);
-            builder.end_object ();
-
-            var generator = new Json.Generator ();
-            generator.set_root (builder.get_root ());
-            generator.pretty = true;
-
-            var file = get_settings_file ();
-            generator.to_file (file);
+            // 先读取现有配置, 保留其他字段 (如 ai 设置), 只更新 language
+            Json.Object root;
+            var existing = load_settings_root ();
+            if (existing == null) {
+                root = new Json.Object ();
+            } else {
+                root = existing;
+            }
+            root.set_string_member ("language", lang);
+            write_settings_root (root);
         } catch (Error e) {
             warning ("Failed to save language setting: %s", e.message);
         }

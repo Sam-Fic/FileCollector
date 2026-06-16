@@ -768,6 +768,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         GLib.Idle.add (() => {
             measure_pane_minimums ();
+            update_window_min_size ();
             clamp_outer_paned_position ();
             clamp_inner_paned_position ();
             return Source.REMOVE;
@@ -781,6 +782,53 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private int left_min_width = 0;
     private int center_min_width = 0;
     private int right_min_width = 0;
+
+    // 根据当前可见面板的最小宽度, 计算并设置 ai_paned 的最小宽度,
+    // 防止窗口缩小到导致面板内容被裁剪.
+    private void update_window_min_size () {
+        int min_w = 0;
+
+        // ai_paned 自身的 margin
+        min_w += ai_paned.get_margin_start () + ai_paned.get_margin_end ();
+
+        // AI 边栏 (可见时才计入)
+        if (ai_sidebar.visible) {
+            min_w += ai_sidebar.get_margin_start () + ai_sidebar.get_margin_end ();
+            min_w += 280; // ai_sidebar 的 width-request
+            min_w += PANED_SEP; // ai_paned 分隔条
+        }
+
+        // outer_paned margin
+        min_w += outer_paned.get_margin_start () + outer_paned.get_margin_end ();
+
+        // 左栏
+        var left_child = outer_paned.get_start_child ();
+        if (left_child != null) {
+            min_w += left_child.get_margin_start () + left_child.get_margin_end ();
+            min_w += left_min_width;
+            min_w += PANED_SEP; // outer_paned 分隔条
+        }
+
+        // inner_paned margin
+        min_w += inner_paned.get_margin_start () + inner_paned.get_margin_end ();
+
+        // 中栏
+        var center_child = inner_paned.get_start_child ();
+        if (center_child != null) {
+            min_w += center_child.get_margin_start () + center_child.get_margin_end ();
+            min_w += center_min_width;
+            min_w += PANED_SEP; // inner_paned 分隔条
+        }
+
+        // 右栏
+        var right_child = inner_paned.get_end_child ();
+        if (right_child != null) {
+            min_w += right_child.get_margin_start () + right_child.get_margin_end ();
+            min_w += right_min_width;
+        }
+
+        ai_paned.set_size_request (min_w, -1);
+    }
 
     private void measure_pane_minimums () {
         int min, nat;
@@ -808,9 +856,25 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var pw = outer_paned.get_width ();
         if (pw <= 0) return;
         var pos = outer_paned.position;
-        var min_pos = left_min_width;
         var cw = pw - outer_paned.get_margin_start () - outer_paned.get_margin_end ();
-        var inner_needed = inner_paned.get_margin_start () + center_min_width + PANED_SEP + right_min_width;
+
+        // 子项 margin: measure() 返回的 min 不含 margin, 需额外计入
+        var left_child = outer_paned.get_start_child ();
+        int left_margin = (left_child != null)
+            ? left_child.get_margin_start () + left_child.get_margin_end () : 0;
+
+        var center_child = inner_paned.get_start_child ();
+        var right_child = inner_paned.get_end_child ();
+        int center_margin = (center_child != null)
+            ? center_child.get_margin_start () + center_child.get_margin_end () : 0;
+        int right_margin = (right_child != null)
+            ? right_child.get_margin_start () + right_child.get_margin_end () : 0;
+        int inner_margin = inner_paned.get_margin_start () + inner_paned.get_margin_end ();
+
+        var min_pos = left_min_width + left_margin;
+        // inner_paned 需要的最小宽度 = 自身 margin + 中栏(含margin) + 分隔条 + 右栏(含margin)
+        var inner_needed = inner_margin + center_margin + center_min_width
+            + PANED_SEP + right_margin + right_min_width;
         var max_pos = int.max (min_pos, cw - PANED_SEP - inner_needed);
         if (pos < min_pos) {
             outer_paned.position = min_pos;
@@ -818,11 +882,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             outer_paned.position = max_pos;
         }
 
+        // 同步 clamp inner_paned
         var inner_width = cw - PANED_SEP - outer_paned.position;
         var icw = inner_width - inner_paned.get_margin_start () - inner_paned.get_margin_end ();
         var ipos = inner_paned.position;
-        var imin = center_min_width;
-        var imax = int.max (imin, icw - PANED_SEP - right_min_width);
+        var imin = center_min_width + center_margin;
+        var imax = int.max (imin, icw - PANED_SEP - right_min_width - right_margin);
         _clamping_inner_from_outer = true;
         if (ipos < imin) {
             inner_paned.position = imin;
@@ -837,9 +902,17 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var pw = inner_paned.get_width ();
         if (pw <= 0) return;
         var pos = inner_paned.position;
-        var min_pos = center_min_width;
         var cw = pw - inner_paned.get_margin_start () - inner_paned.get_margin_end ();
-        var max_pos = int.max (min_pos, cw - PANED_SEP - right_min_width);
+
+        var center_child = inner_paned.get_start_child ();
+        var right_child = inner_paned.get_end_child ();
+        int center_margin = (center_child != null)
+            ? center_child.get_margin_start () + center_child.get_margin_end () : 0;
+        int right_margin = (right_child != null)
+            ? right_child.get_margin_start () + right_child.get_margin_end () : 0;
+
+        var min_pos = center_min_width + center_margin;
+        var max_pos = int.max (min_pos, cw - PANED_SEP - right_min_width - right_margin);
         if (pos < min_pos) {
             inner_paned.position = min_pos;
         } else if (pos > max_pos) {
@@ -1422,7 +1495,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 FileUtils.get_data (item.file_path, out file_data);
                 var preview = EncodingHelper.decode_to_utf8 (file_data);
                 if (preview.length > 2000) {
-                    preview = preview.substring (0, 2000).make_valid ();
+                    preview = truncate_utf8 (preview, 2000);
                     preview += "\n\n... [预览截断]";
                 }
                 buffer.set_text (preview, -1);
@@ -1955,8 +2028,31 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void setup_ai_panel () {
         ai_sidebar.visible = false;
         ai_panel_visible = false;
+        // AI 边栏不可被压缩, 与其他三栏保持一致, 防止内容被裁剪
+        ai_paned.set_shrink_start_child (false);
+        ai_paned.set_shrink_end_child (false);
         btn_ai_toggle.clicked.connect (toggle_ai_panel);
         ai_paned.notify["position"].connect (clamp_ai_paned_position);
+
+        // ai_paned 的 separator 宽度为 0 (CSS), GTK 默认抓取区域会溢出到 end_child,
+        // 而 end_child (outer_paned) 不显示 col-resize 光标, 导致只有左半区域有光标.
+        // 用 EventControllerMotion 检测鼠标在 separator 附近时设置光标.
+        var motion = new Gtk.EventControllerMotion ();
+        motion.motion.connect ((x, y) => {
+            // AI 边栏隐藏时不处理
+            if (!ai_sidebar.visible) return;
+            int pos = (int) ai_paned.position;
+            // 鼠标在 separator 附近 ±6px 范围内
+            if ((x >= pos - 6) && (x <= pos + 6)) {
+                ai_paned.set_cursor (new Gdk.Cursor.from_name ("col-resize", null));
+            } else {
+                ai_paned.set_cursor (null);
+            }
+        });
+        motion.leave.connect (() => {
+            ai_paned.set_cursor (null);
+        });
+        ai_paned.add_controller (motion);
     }
 
     private void clamp_ai_paned_position () {
@@ -1997,6 +2093,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 重新应用当前设置
         apply_ai_settings_to_panel ();
 
+        // 更新窗口最小宽度 (AI 边栏可见时需要更大)
+        update_window_min_size ();
+
         // 展开 AI 侧边栏时自动加宽窗口, 防止现有栏被挤出画面
         expand_window_for_ai ();
     }
@@ -2035,6 +2134,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void hide_ai_panel () {
         ai_panel_visible = false;
         ai_sidebar.visible = false;
+        // 更新窗口最小宽度 (AI 边栏隐藏后可以更小)
+        update_window_min_size ();
     }
 
     private void apply_ai_settings_to_panel () {
@@ -2110,33 +2211,31 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private string ai_tool_executor_cb (string name, Json.Node args) throws GLib.Error {
         string json_str = json_serialize_for_main (args);
-        lock (ai_exec_mutex) {
-            ai_exec_result = null;
-            ai_exec_done = false;
-            // 投递到主线程
-            string name_local = name;
-            string json_local = json_str;
-            GLib.Idle.add (() => {
-                string r = "";
-                try {
-                    var a = json_parse_args (json_local);
-                    r = ai_tool_executor_main (name_local, a);
-                } catch (Error e) {
-                    r = "工具执行失败: " + e.message;
-                }
-                lock (ai_exec_mutex) {
-                    ai_exec_result = r;
-                    ai_exec_done = true;
-                    ai_exec_cond.broadcast ();
-                }
-                return GLib.Source.REMOVE;
-            });
-            // 在 worker 线程上等待主线程完成
-            while (!ai_exec_done) {
-                ai_exec_cond.wait (ai_exec_mutex);
+        string name_local = name;
+        string json_local = json_str;
+        ai_exec_mutex.lock ();
+        ai_exec_result = null;
+        ai_exec_done = false;
+        GLib.Idle.add (() => {
+            string r = "";
+            try {
+                var a = json_parse_args (json_local);
+                r = ai_tool_executor_main (name_local, a);
+            } catch (Error e) {
+                r = "工具执行失败: " + e.message;
             }
-            return ai_exec_result ?? "";
+            ai_exec_mutex.lock ();
+            ai_exec_result = r;
+            ai_exec_done = true;
+            ai_exec_cond.broadcast ();
+            ai_exec_mutex.unlock ();
+            return GLib.Source.REMOVE;
+        });
+        while (!ai_exec_done) {
+            ai_exec_cond.wait (ai_exec_mutex);
         }
+        ai_exec_mutex.unlock ();
+        return ai_exec_result ?? "";
     }
 
     // 工具真实执行 (必须在主线程调用)
@@ -2147,11 +2246,20 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             case "set_work_dir": return ai_tool_set_work_dir (args);
             case "add_files":  return ai_tool_add_files (args);
             case "remove_files": return ai_tool_remove_files (args);
+            // add_text (schema 名) / insert_text (旧名)
+            case "add_text":
             case "add_custom_instruction":
-            case "insert_text": return ai_tool_insert_text (name, args);
+            case "insert_text": return ai_tool_add_text (args);
+            // remove_item (schema 名, 按 0-based 索引删除任意项) / remove_text (旧名, 按文本索引)
+            case "remove_item": return ai_tool_remove_item (args);
             case "remove_custom_instruction": return ai_tool_remove_text (args);
+            case "move_item": return ai_tool_move_item (args);
+            // clear_items (schema 名) / clear_all (旧名)
+            case "clear_items":
             case "clear_all":   return ai_tool_clear_all (args);
             case "list_items":  return ai_tool_list_items (args);
+            case "set_use_absolute": return ai_tool_set_use_absolute (args);
+            case "set_show_header": return ai_tool_set_show_header (args);
             case "set_mode":
             case "set_file_extension":
             case "set_file_label":
@@ -2192,8 +2300,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (max_results <= 0) max_results = 500;
         if (max_depth <= 0) max_depth = 8;
 
-        // glob 转换
-        var matcher = new PatternSpec (pattern);
+        // 空模式 → 匹配所有文件; PatternSpec("") 只匹配空字符串, 会导致无结果
+        if (pattern.strip () == "") pattern = "*";
+        // schema 声明大小写不敏感: PatternSpec 是大小写敏感的, 转小写后匹配
+        var matcher = new PatternSpec (pattern.down ());
 
         var sb = new StringBuilder ();
         sb.append ("ROOT=").append (work_dir.get_path ()).append ("\n");
@@ -2217,7 +2327,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var dir_file = File.new_for_path (dir);
         if (!dir_file.query_exists ()) return;
         var en = dir_file.enumerate_children (
-            FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE,
+            FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE + "," + FileAttribute.STANDARD_SIZE,
             FileQueryInfoFlags.NOFOLLOW_SYMLINKS);
         FileInfo info;
         while ((info = en.next_file ()) != null) {
@@ -2229,7 +2339,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     || name == "build" || name == ".venv" || name == "venv") {
                     continue;
                 }
-                if (matcher.match_string (name) && count < max_results) {
+                if (matcher.match_string (name.down ()) && count < max_results) {
                     sb.append ("DIR  ").append (rel_path (root, full)).append ("\n");
                     count++;
                 }
@@ -2237,7 +2347,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     ref count, ref total, max_results);
             } else {
                 total++;
-                if (matcher.match_string (name)) {
+                if (matcher.match_string (name.down ())) {
                     sb.append ("FILE ").append (rel_path (root, full))
                       .append ("  (").append (format_size (info.get_size ())).append (")\n");
                     count++;
@@ -2255,6 +2365,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         return full;
     }
 
+    // 按字节长度截断, 但不切断多字节 UTF-8 字符, 避免乱码
+    private static string truncate_utf8 (string text, int max_bytes) {
+        if (text.length <= max_bytes) return text;
+        int cut = max_bytes;
+        while (cut > 0 && !text[0:cut].validate (-1)) {
+            cut--;
+        }
+        return text[0:cut];
+    }
+
     private static string format_size (int64 size) {
         if (size < 1024) return "%lld B".printf (size);
         if (size < 1024 * 1024) return "%.1f KB".printf (size / 1024.0);
@@ -2267,10 +2387,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var o = args.get_object ();
         string path = o.has_member ("path") ? o.get_string_member ("path") : "";
         if (path == "") return "缺少 path";
-        int64 max_bytes = o.has_member ("max_bytes") ? o.get_int_member ("max_bytes") : 16384;
-        int64 start_line = o.has_member ("start_line") ? o.get_int_member ("start_line") : 0;
+        // 默认值与 schema 一致: max_bytes=102400, start_line=1 (1-based), max_lines=500
+        int64 max_bytes = o.has_member ("max_bytes") ? o.get_int_member ("max_bytes") : 102400;
+        int64 start_line = o.has_member ("start_line") ? o.get_int_member ("start_line") : 1;
         int64 max_lines = o.has_member ("max_lines") ? o.get_int_member ("max_lines") : 500;
-        if (max_bytes <= 0) max_bytes = 16384;
+        if (max_bytes <= 0) max_bytes = 102400;
         if (max_lines <= 0) max_lines = 500;
 
         // 路径解析: 相对路径基于 work_dir
@@ -2290,7 +2411,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         string content = EncodingHelper.decode_to_utf8 (raw);
         // 行过滤
         string[] lines = content.split ("\n");
-        int start = (int) start_line;
+        // start_line 是 1-based, 转为 0-based 数组索引
+        int start = (int) start_line - 1;
         if (start < 0) start = 0;
         if (start >= lines.length) {
             return "[文件总行数: %d, start_line %lld 越界]".printf (lines.length, start_line);
@@ -2321,25 +2443,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
         var file = File.new_for_path (path);
         if (!file.query_exists ()) return "目录不存在: " + path;
-        // 切到主线程执行
-        string new_path = path;
-        var main = GLib.MainContext.default ();
-        var loop = new GLib.MainLoop (main, false);
-        string? result = null;
-        GLib.Idle.add (() => {
-            ai_apply_set_work_dir (new_path);
-            result = "工作目录已切换到: " + new_path;
-            loop.quit ();
-            return GLib.Source.REMOVE;
-        });
-        // 在 worker 线程中 spin 主循环 (这里假定 worker 线程拥有 main loop)
-        // 为简单起见, 改用同步版本: 直接在 worker 线程构造, 主线程通过 idle 应用.
-        // (见上)
-        // 我们现在不在主线程 spin, 让 idle 调度, 然后等待 idle 完成
-        while (loop.is_running ()) {
-            main.iteration (true);
-        }
-        return result ?? "切换失败";
+        // 已在主线程 (ai_tool_executor_cb 通过 Idle 投递), 直接执行
+        ai_apply_set_work_dir (path);
+        return "工作目录已切换到: " + path;
     }
 
     private void ai_apply_set_work_dir (string path) {
@@ -2371,52 +2477,40 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         string? after = o.has_member ("after_path") ? o.get_string_member ("after_path") : null;
         int added = 0;
         int total = (int) paths_arr.get_length ();
-        int n = total;
-        // 在主线程上做
-        string? after_local = after;
-        int total_local = total;
-        var main = GLib.MainContext.default ();
-        var loop = new GLib.MainLoop (main, false);
-        int result = 0;
-        GLib.Idle.add (() => {
-            push_undo_state ();
-            int insert_at = items.length;
-            if (after_local != null) {
-                for (int i = 0; i < items.length; i++) {
-                    var it = items.get (i);
-                    if (it.item_type == "file" && it.file_path == after_local) {
-                        insert_at = i + 1;
-                        break;
-                    }
+        // 已在主线程 (ai_tool_executor_cb 通过 Idle 投递), 直接执行
+        push_undo_state ();
+        int insert_at = items.length;
+        if (after != null) {
+            for (int i = 0; i < items.length; i++) {
+                var it = items.get (i);
+                if (it.item_type == "file" && it.file_path == after) {
+                    insert_at = i + 1;
+                    break;
                 }
             }
-            for (int i = 0; i < total_local; i++) {
-                string p = paths_arr.get_string_element (i);
-                string abs = p;
-                if (work_dir != null && !GLib.Path.is_absolute (p)) {
-                    abs = GLib.Path.build_filename (work_dir.get_path (), p);
-                }
-                if (!FileUtils.test (abs, FileTest.EXISTS)) continue;
-                // 是否已存在
-                bool exists = false;
-                for (int j = 0; j < items.length; j++) {
-                    if (items.get (j).file_path == abs) { exists = true; break; }
-                }
-                if (exists) continue;
-                items.insert (insert_at + added, new ItemData ("file", abs, null, false));
-                if (!(abs in checked_paths)) {
-                    checked_paths.insert (abs, true);
-                }
-                set_tree_item_check (abs, true);
-                added++;
+        }
+        for (int i = 0; i < total; i++) {
+            string p = paths_arr.get_string_element (i);
+            string abs = p;
+            if (work_dir != null && !GLib.Path.is_absolute (p)) {
+                abs = GLib.Path.build_filename (work_dir.get_path (), p);
             }
-            refresh_list ();
-            result = added;
-            loop.quit ();
-            return GLib.Source.REMOVE;
-        });
-        while (loop.is_running ()) main.iteration (true);
-        return "已添加 %d 个文件 (请求 %d)".printf (result, total);
+            if (!FileUtils.test (abs, FileTest.EXISTS)) continue;
+            // 是否已存在
+            bool exists = false;
+            for (int j = 0; j < items.length; j++) {
+                if (items.get (j).file_path == abs) { exists = true; break; }
+            }
+            if (exists) continue;
+            items.insert (insert_at + added, new ItemData ("file", abs, null, false));
+            if (!(abs in checked_paths)) {
+                checked_paths.insert (abs, true);
+            }
+            set_tree_item_check (abs, true);
+            added++;
+        }
+        refresh_list ();
+        return "已添加 %d 个文件 (请求 %d)".printf (added, total);
     }
 
     private string ai_tool_remove_files (Json.Node args) throws GLib.Error {
@@ -2425,40 +2519,34 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var arr = args.get_object ().get_array_member ("paths");
         if (arr == null) return "paths 必须是数组";
         int total = (int) arr.get_length ();
-        int total_local = total;
-        var main = GLib.MainContext.default ();
-        var loop = new GLib.MainLoop (main, false);
+        // 已在主线程 (ai_tool_executor_cb 通过 Idle 投递), 直接执行
         int result = 0;
-        GLib.Idle.add (() => {
-            push_undo_state ();
-            for (int i = 0; i < total_local; i++) {
-                string p = arr.get_string_element (i);
-                string abs = p;
-                if (work_dir != null && !GLib.Path.is_absolute (p)) {
-                    abs = GLib.Path.build_filename (work_dir.get_path (), p);
-                }
-                // 从 items 移除
-                for (int j = items.length - 1; j >= 0; j--) {
-                    var it = items.get (j);
-                    if (it.item_type == "file" && it.file_path == abs) {
-                        items.remove_index (j);
-                        result++;
-                    }
-                }
-                if (abs in checked_paths) {
-                    checked_paths.remove (abs);
-                    set_tree_item_check (abs, false);
+        push_undo_state ();
+        for (int i = 0; i < total; i++) {
+            string p = arr.get_string_element (i);
+            string abs = p;
+            if (work_dir != null && !GLib.Path.is_absolute (p)) {
+                abs = GLib.Path.build_filename (work_dir.get_path (), p);
+            }
+            // 从 items 移除
+            for (int j = items.length - 1; j >= 0; j--) {
+                var it = items.get (j);
+                if (it.item_type == "file" && it.file_path == abs) {
+                    items.remove_index (j);
+                    result++;
                 }
             }
-            refresh_list ();
-            loop.quit ();
-            return GLib.Source.REMOVE;
-        });
-        while (loop.is_running ()) main.iteration (true);
+            if (abs in checked_paths) {
+                checked_paths.remove (abs);
+                set_tree_item_check (abs, false);
+            }
+        }
+        refresh_list ();
         return "已移除 %d 个文件 (请求 %d)".printf (result, total);
     }
 
-    private string ai_tool_insert_text (string name, Json.Node args) throws GLib.Error {
+    // add_text (schema 名) / insert_text (旧名): 支持 position (0-based) 和旧版 after_path/before_path
+    private string ai_tool_add_text (Json.Node args) throws GLib.Error {
         if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
         var o = args.get_object ();
         string text = o.has_member ("text") ? o.get_string_member ("text") :
@@ -2466,82 +2554,143 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (text == "") return "缺少 text / content";
         string? after = o.has_member ("after_path") ? o.get_string_member ("after_path") : null;
         string? before = o.has_member ("before_path") ? o.get_string_member ("before_path") : null;
-        string text_local = text;
-        string? after_local = after;
-        string? before_local = before;
-        var main = GLib.MainContext.default ();
-        var loop = new GLib.MainLoop (main, false);
-        string? out = null;
-        GLib.Idle.add (() => {
-            push_undo_state ();
-            int insert_at = items.length;
-            if (after_local != null) {
-                for (int i = 0; i < items.length; i++) {
-                    var it = items.get (i);
-                    if (it.item_type == "file" && it.file_path == after_local) {
-                        insert_at = i + 1;
-                        break;
-                    }
-                }
-            } else if (before_local != null) {
-                insert_at = 0;
-                for (int i = 0; i < items.length; i++) {
-                    var it = items.get (i);
-                    if (it.item_type == "file" && it.file_path == before_local) {
-                        insert_at = i;
-                        break;
-                    }
+        // 已在主线程 (ai_tool_executor_cb 通过 Idle 投递), 直接执行
+        push_undo_state ();
+        int insert_at = items.length;
+        if (o.has_member ("position")) {
+            // schema 标准: position 是 0-based 索引
+            int pos = (int) o.get_int_member ("position");
+            if (pos < 0) pos = 0;
+            if (pos > items.length) pos = items.length;
+            insert_at = pos;
+        } else if (after != null) {
+            for (int i = 0; i < items.length; i++) {
+                var it = items.get (i);
+                if (it.item_type == "file" && it.file_path == after) {
+                    insert_at = i + 1;
+                    break;
                 }
             }
-            items.insert (insert_at, new ItemData ("text", null, text_local, false));
-            refresh_list ();
-            out = "已插入文本 (位置 %d)".printf (insert_at);
-            loop.quit ();
-            return GLib.Source.REMOVE;
-        });
-        while (loop.is_running ()) main.iteration (true);
-        return out ?? "插入失败";
+        } else if (before != null) {
+            insert_at = 0;
+            for (int i = 0; i < items.length; i++) {
+                var it = items.get (i);
+                if (it.item_type == "file" && it.file_path == before) {
+                    insert_at = i;
+                    break;
+                }
+            }
+        }
+        items.insert (insert_at, new ItemData ("text", null, text, false));
+        refresh_list ();
+        return "已插入文本 (位置 %d)".printf (insert_at);
+    }
+
+    // remove_item (schema 名): 按 0-based 索引删除任意项 (file 或 text)
+    private string ai_tool_remove_item (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        if (!args.get_object ().has_member ("index")) return "缺少 index";
+        int idx = (int) args.get_object ().get_int_member ("index");
+        if (idx < 0 || idx >= items.length) {
+            return "索引越界: %d (列表共 %d 项)".printf (idx, items.length);
+        }
+        push_undo_state ();
+        var removed = items.get (idx);
+        if (removed.item_type == "file" && removed.file_path != null) {
+            if (removed.file_path in checked_paths) {
+                checked_paths.remove (removed.file_path);
+                set_tree_item_check (removed.file_path, false);
+            }
+        }
+        items.remove_index (idx);
+        refresh_list ();
+        return "已删除第 %d 项 (%s)".printf (idx, removed.item_type);
+    }
+
+    // move_item (schema 名): 从 from_index 移到 to_index
+    private string ai_tool_move_item (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        var o = args.get_object ();
+        if (!o.has_member ("from_index") || !o.has_member ("to_index")) return "缺少 from_index / to_index";
+        int from = (int) o.get_int_member ("from_index");
+        int to = (int) o.get_int_member ("to_index");
+        if (from < 0 || from >= items.length) {
+            return "from_index 越界: %d (列表共 %d 项)".printf (from, items.length);
+        }
+        if (to < 0 || to >= items.length) {
+            return "to_index 越界: %d (列表共 %d 项)".printf (to, items.length);
+        }
+        push_undo_state ();
+        var item = items.get (from);
+        items.remove_index (from);
+        items.insert (to, item);
+        refresh_list ();
+        return "已移动: %d → %d".printf (from, to);
+    }
+
+    private string ai_tool_set_use_absolute (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        var o = args.get_object ();
+        if (!o.has_member ("value")) return "缺少 value";
+        bool val = o.get_boolean_member ("value");
+        push_undo_state ();
+        use_absolute = val;
+        // 临时断开信号, 避免 on_path_mode_changed 重复 push_undo_state / 联动 header
+        check_absolute_path.notify["active"].disconnect (on_path_mode_changed);
+        check_absolute_path.active = val;
+        if (val) {
+            check_write_header.active = false;
+            check_write_header.sensitive = false;
+            show_header = false;
+        } else {
+            check_write_header.sensitive = true;
+        }
+        check_absolute_path.notify["active"].connect (on_path_mode_changed);
+        refresh_list ();
+        return "use_absolute=" + val.to_string ();
+    }
+
+    private string ai_tool_set_show_header (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        var o = args.get_object ();
+        if (!o.has_member ("value")) return "缺少 value";
+        bool val = o.get_boolean_member ("value");
+        if (use_absolute) {
+            return "无法设置 show_header: 当前为绝对路径模式, header 已禁用";
+        }
+        push_undo_state ();
+        show_header = val;
+        check_write_header.notify["active"].disconnect (on_header_check_changed);
+        check_write_header.active = val;
+        check_write_header.notify["active"].connect (on_header_check_changed);
+        return "show_header=" + val.to_string ();
     }
 
     private string ai_tool_remove_text (Json.Node args) throws GLib.Error {
         if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
         if (!args.get_object ().has_member ("index")) return "缺少 index";
         int idx = (int) args.get_object ().get_int_member ("index");
-        var main = GLib.MainContext.default ();
-        var loop = new GLib.MainLoop (main, false);
-        string? out = null;
-        GLib.Idle.add (() => {
-            push_undo_state ();
-            int removed = 0;
-            for (int i = items.length - 1; i >= 0; i--) {
-                if (items.get (i).item_type == "text") {
-                    if (idx == 0) {
-                        items.remove_index (i);
-                        removed = 1;
-                        break;
-                    } else {
-                        idx--;
-                    }
+        // 已在主线程 (ai_tool_executor_cb 通过 Idle 投递), 直接执行
+        push_undo_state ();
+        int removed = 0;
+        for (int i = items.length - 1; i >= 0; i--) {
+            if (items.get (i).item_type == "text") {
+                if (idx == 0) {
+                    items.remove_index (i);
+                    removed = 1;
+                    break;
+                } else {
+                    idx--;
                 }
             }
-            refresh_list ();
-            out = "已删除文本 (removed=%d)".printf (removed);
-            loop.quit ();
-            return GLib.Source.REMOVE;
-        });
-        while (loop.is_running ()) main.iteration (true);
-        return out ?? "删除失败";
+        }
+        refresh_list ();
+        return "已删除文本 (removed=%d)".printf (removed);
     }
 
     private string ai_tool_clear_all (Json.Node args) throws GLib.Error {
-        var main = GLib.MainContext.default ();
-        var loop = new GLib.MainLoop (main, false);
-        GLib.Idle.add (() => {
-            on_clear_items ();
-            loop.quit ();
-            return GLib.Source.REMOVE;
-        });
-        while (loop.is_running ()) main.iteration (true);
+        // 已在主线程 (ai_tool_executor_cb 通过 Idle 投递), 直接执行
+        on_clear_items ();
         return "已清空编排列表";
     }
 
@@ -2568,8 +2717,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 sb.append ("#" + (i + 1).to_string () + "  [file] ").append (rel).append ("\n");
             } else {
                 string preview = it.content ?? "";
-                if (preview.length > 80) preview = preview.substring (0, 80) + "…";
-                preview = preview.replace ("\n", "\\n");
+                if (preview.length > 80) preview = truncate_utf8 (preview, 80) + "…";
+                // 用 split/join 替代 string.replace, 避免 Vala 的 Regex 实现在某些情况下 assert_not_reached
+                preview = string.joinv ("\\n", preview.split ("\n"));
                 sb.append ("#").append ((i + 1).to_string ()).append ("  [text] ").append (preview).append ("\n");
             }
             count++;

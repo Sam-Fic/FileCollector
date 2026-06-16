@@ -28,8 +28,8 @@ public class AISettingsDialog : GLib.Object {
     private Adw.EntryRow edit_model;
     private Adw.SpinRow spin_timeout;
     private Adw.EntryRow edit_prompt;
-    private Gtk.Label lbl_test;
     private Gtk.Button btn_test;
+    private Adw.ToastOverlay toast_overlay;
 
     private ConfigManager.AISettings current;
 
@@ -73,7 +73,6 @@ public class AISettingsDialog : GLib.Object {
 
         // 主区域: PreferencesPage
         var prefs_page = new Adw.PreferencesPage ();
-        toolbar_view.set_content (prefs_page);
 
         // ── 通用组 ──
         var general_group = new Adw.PreferencesGroup ();
@@ -97,6 +96,7 @@ public class AISettingsDialog : GLib.Object {
         // 基础地址
         var base_url_row = new Adw.EntryRow ();
         base_url_row.set_title (_("API 基础地址"));
+        base_url_row.set_show_apply_button (false);
         base_url_row.set_text (current.base_url);
         edit_base_url = base_url_row;
         general_group.add (base_url_row);
@@ -110,6 +110,7 @@ public class AISettingsDialog : GLib.Object {
         // 模型
         var model_row = new Adw.EntryRow ();
         model_row.set_title (_("模型名称"));
+        model_row.set_show_apply_button (false);
         edit_model = model_row;
         general_group.add (model_row);
 
@@ -127,7 +128,7 @@ public class AISettingsDialog : GLib.Object {
 
         var prompt_row = new Adw.EntryRow ();
         prompt_row.set_title (_("自定义系统提示词"));
-        prompt_row.set_show_apply_button (true);
+        prompt_row.set_show_apply_button (false);
         edit_prompt = prompt_row;
         advanced_group.add (prompt_row);
 
@@ -140,13 +141,12 @@ public class AISettingsDialog : GLib.Object {
         btn_test.valign = Gtk.Align.CENTER;
         btn_test.add_css_class ("suggested-action");
         test_row.add_suffix (btn_test);
-        lbl_test = new Gtk.Label (null);
-        lbl_test.valign = Gtk.Align.CENTER;
-        lbl_test.add_css_class ("dim-label");
-        lbl_test.set_wrap (true);
-        lbl_test.set_xalign (1.0f);
-        test_row.add_suffix (lbl_test);
         advanced_group.add (test_row);
+
+        // Toast overlay
+        toast_overlay = new Adw.ToastOverlay ();
+        toast_overlay.set_child (prefs_page);
+        toolbar_view.set_content (toast_overlay);
 
         cancel_btn.clicked.connect (() => window.close ());
         ok_btn.clicked.connect (on_save);
@@ -186,19 +186,20 @@ public class AISettingsDialog : GLib.Object {
         window.close ();
     }
 
+    private void show_toast (string title) {
+        var toast = new Adw.Toast (title);
+        toast.timeout = 3;
+        toast_overlay.add_toast (toast);
+    }
+
     private void on_test () {
         var s = collect_from_ui ();
         if (s.base_url == "" || s.api_key == "" || s.model == "") {
-            lbl_test.set_text (_("请先填写 API 基础地址、密钥和模型名称。"));
-            lbl_test.remove_css_class ("success");
-            lbl_test.remove_css_class ("error");
-            lbl_test.add_css_class ("error");
+            show_toast (_("请先填写 API 基础地址、密钥和模型名称。"));
             return;
         }
         btn_test.set_sensitive (false);
-        lbl_test.remove_css_class ("error");
-        lbl_test.remove_css_class ("success");
-        lbl_test.set_text (_("正在测试..."));
+        show_toast (_("正在测试..."));
 
         // 异步发起测试请求, 不阻塞 UI
         var session = new Soup.Session ();
@@ -216,8 +217,9 @@ public class AISettingsDialog : GLib.Object {
         gen.pretty = false;
         size_t body_len = 0;
         string body = gen.to_data (out body_len);
-        unowned uint8[] body_view = (uint8[]) body;
-        var body_bytes = new Bytes (body_view);
+        uint8[] body_buf = new uint8[body_len];
+        GLib.Memory.copy (body_buf, body, body_len);
+        var body_bytes = new Bytes (body_buf);
 
         string url = s.base_url.has_suffix ("/") ? s.base_url + "chat/completions"
                                                  : s.base_url + "/chat/completions";
@@ -244,25 +246,24 @@ public class AISettingsDialog : GLib.Object {
             var bytes = session.send_and_read_async.end (res);
             uint status = msg.status_code;
             if (status >= 200 && status < 300) {
-                lbl_test.remove_css_class ("error");
-                lbl_test.add_css_class ("success");
-                lbl_test.set_text (_("✓ 连接成功"));
+                show_toast (_("✓ 连接成功"));
             } else {
                 string detail = "";
                 if (bytes != null && bytes.length > 0) {
-                    detail = ((string) bytes.get_data ()).substring (0, (long) bytes.length);
+                    try {
+                        uint8[] raw = bytes.get_data ();
+                        int safe_len = (int) int64.min (bytes.length, 4096);
+                        detail = ((string) raw).substring (0, safe_len);
+                    } catch (Error e) { /* ignore */ }
                     if (detail.length > 200) detail = detail.substring (0, 200) + "…";
                 }
-                lbl_test.remove_css_class ("success");
-                lbl_test.add_css_class ("error");
-                lbl_test.set_text (_("✗ 失败: HTTP %u %s".printf (
-                    status, Soup.status_get_phrase (status))
-                    + (detail.length > 0 ? " — " + detail : "")));
+                string phrase = Soup.status_get_phrase (status);
+                string msg_str = _("✗ 失败: HTTP %u %s").printf (status, phrase)
+                    + (detail.length > 0 ? " — " + detail : "");
+                show_toast (msg_str);
             }
         } catch (Error e) {
-            lbl_test.remove_css_class ("success");
-            lbl_test.add_css_class ("error");
-            lbl_test.set_text (_("✗ 失败: %s").printf (e.message));
+            show_toast (_("✗ 失败: %s").printf (e.message));
         }
     }
 }

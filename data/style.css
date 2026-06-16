@@ -135,8 +135,6 @@ paned > separator {
 /* ─── AI 边栏 ─────────────────────────────────────────────── */
 .ai-panel {
     min-width: 260px;
-    max-width: 480px;
-    transition: min-width 0.2s, max-width 0.2s;
 }
 
 .ai-panel > box {
@@ -176,7 +174,6 @@ paned > separator {
     background-color: alpha(@card_bg_color, 0.7);
     border: 1px dashed alpha(@borders, 0.8);
     padding: 0;
-    overflow: hidden;
 }
 
 .ai-bubble-content {
@@ -274,4 +271,86 @@ paned > separator {
 .ai-placeholder {
     padding: 0;
     margin: 0;
+}
+
+/* AI 聊天区滚动到底部按钮: 与输入框同款描边 */
+.ai-scroll-bottom-btn {
+    background: @card_bg_color;
+    border: 1px solid alpha(@borders, 0.5);
+    padding: 4px;
+}
+
+/* ── Markdown 渲染样式 ────────────────────────────────────────── */
+
+.md-heading {
+    font-weight: 700;
+    margin-top: 4px;
+}
+
+.md-h1 { font-size: 1.4em; margin-bottom: 2px; }
+.md-h2 { font-size: 1.25em; margin-bottom: 2px; }
+.md-h3 { font-size: 1.1em; margin-bottom: 2px; }
+.md-h4, .md-h5, .md-h6 { font-size: 1.0em; margin-bottom: 2px; }
+
+.md-paragraph {
+    margin-bottom: 2px;
+}
+
+.md-code-block-frame {
+    border: 1px solid alpha(@borders, 0.5);
+    border-radius: 6px;
+    background: alpha(black, 0.03);
+}
+
+.md-code-block {
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
+.md-list {
+    margin-bottom: 2px;
+}
+
+.md-list-marker {
+    color: alpha(@theme_fg_color, 0.7);
+}
+
+.md-blockquote {
+    border-left: 3px solid alpha(@theme_fg_color, 0.2);
+    padding-left: 8px;
+    color: alpha(@theme_fg_color, 0.8);
+}
+
+.md-hr {
+    margin-top: 6px;
+    margin-bottom: 6px;
+    min-height: 1px;
+    background: alpha(@borders, 0.6);
+}
+
+/* Markdown 表格 */
+.md-table {
+    border: 1px solid alpha(@borders, 0.5);
+    border-radius: 4px;
+}
+
+.md-table-header {
+    background: alpha(@theme_fg_color, 0.08);
+    border-bottom: 1px solid alpha(@borders, 0.5);
+}
+
+.md-table-row {
+    border-bottom: 1px solid alpha(@borders, 0.2);
+}
+
+.md-table-row:last-child {
+    border-bottom: none;
+}
+
+.md-table-header-cell {
+    font-weight: 700;
+}
+
+.md-table-cell {
+    min-width: 40px;
 }

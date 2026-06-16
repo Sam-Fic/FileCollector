@@ -11,6 +11,14 @@ dependency('json-glib-1.0')
 dependency('libsoup-3.0')
 dependency('gee-0.8')
 
+# cmark-gfm (GitHub Flavored Markdown) — 用于 AI 聊天气泡的 Markdown 渲染 (含表格)
+# 不用 dependency() 避免 meson 自动注入错误的 --pkg 名
+cc = meson.get_compiler('c')
+cmark_dep = cc.find_library('cmark-gfm', required: true)
+cmark_ext_dep = cc.find_library('cmark-gfm-extensions', required: true)
+cmark_header = cc.has_header('cmark-gfm.h', required: true)
+cmark_ext_header = cc.has_header('cmark-gfm-core-extensions.h', required: true)
+
 gettext_package = meson.project_name ()
 locale_dir = join_paths (get_option ('prefix'), get_option ('localedir'))
 
@@ -64,6 +72,7 @@ sources = files(
   'src/utils/encoding_helper.vala',
   'src/widgets/ai_panel.vala',
   'src/widgets/ai_settings_dialog.vala',
+  'src/widgets/markdown_view.vala',
   'src/widgets/settings_dialog.vala',
   'src/widgets/phrases_picker.vala'
 )
@@ -89,11 +98,15 @@ executable('filecollector',
     dependency('libadwaita-1'),
     dependency('json-glib-1.0'),
     dependency('libsoup-3.0'),
-    dependency('gee-0.8')
+    dependency('gee-0.8'),
+    cmark_dep,
+    cmark_ext_dep
   ],
   vala_args: [
     '--header', 'filecollector_types.h',
-    '--includedir', meson.current_build_dir ()
+    '--includedir', meson.current_build_dir (),
+    '--vapidir', join_paths(meson.current_source_dir(), 'src', 'vapi'),
+    '--pkg', 'cmark'
   ],
   install: true
 )
