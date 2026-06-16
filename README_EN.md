@@ -9,7 +9,7 @@
 ---
 
 FileCollector is a cross-platform desktop tool for efficiently collecting, organizing files from your working directory, and generating merged text.  
-It provides a checkable directory tree, flexible organization list, text insertion and automatic encoding detection, making it ideal for quickly consolidating key code or documents from a project into a single TXT file for further analysis or submission to large language models.
+It provides a checkable directory tree, flexible organization list, text insertion and automatic encoding detection, making it ideal for quickly consolidating key code or documents from a project into a single TXT file for further analysis or submission to large language models. The built-in AI assistant sidebar supports natural language-driven file exploration, selection, and orchestration.
 
 ## UI Preview
 
@@ -23,6 +23,7 @@ For the usage process and tips of the graphical interface, please refer to the [
 
 - **CLI Mode**: Complete all core operations via terminal commands, ideal for scripting and automation
 - **MCP Service**: Wrapped as an MCP (Model Context Protocol) service, callable directly by programming tools such as Cursor, VS Code + Copilot
+- **AI Assistant Panel**: Built-in sidebar chat interface that lets AI directly drive file tree exploration, file selection, orchestration, and merged text generation
 - **Progressive Experience**: Seamless handoff between CLI processing and GUI fine-tuning — AI can explore and organize files, then users can take over with the graphical interface at any time
 - **Project Management**: Open and save projects
 - **Phrase Management**: Manage and organize common phrases
@@ -121,15 +122,27 @@ You can also hand [BUILD_FLATPAK.md](BUILD_FLATPAK.md) directly to programming t
 │   ├── models/
 │   │   └── item_data.vala                 # Queue item data model
 │   ├── services/
+│   │   ├── ai_client.vala                # AI assistant backend (OpenAI-compatible API + Function Calling)
+│   │   ├── ai_types.vala                 # AI shared type definitions
 │   │   ├── config_manager.vala            # Config/settings/phrases persistence
 │   │   ├── file_generator.vala            # File merging and clipboard copy
-│   │   └── project_manager.vala           # Project save and load
+│   │   ├── project_manager.vala           # Project save and load
+│   │   └── undo_manager.vala             # Undo/redo management
 │   ├── utils/
 │   │   ├── tree_helper.vala               # Directory tree utility functions
 │   │   └── encoding_helper.vala           # Encoding auto-detection and conversion
+│   ├── vapi/
+│   │   └── cmark.vapi                     # cmark (Markdown) Vala bindings
 │   └── widgets/
+│       ├── ai_panel.vala                  # AI assistant chat panel (bubbles + tool call cards)
+│       ├── ai_settings_dialog.vala        # AI assistant settings dialog
+│       ├── markdown_view.vala             # Markdown rendering view
 │       ├── settings_dialog.vala           # Settings dialog
 │       └── phrases_picker.vala            # Common phrases picker and management
+├── docs/                                  # Usage documentation
+│   ├── images/                            # Documentation images
+│   ├── USAGE.md                           # Chinese usage guide
+│   └── USAGE_EN.md                        # English usage guide
 ├── en.po                                  # English UI translation file
 ├── POTFILES                               # List of translatable source files (for gettext)
 ├── LINGUAS                                # List of supported languages
@@ -250,6 +263,56 @@ FileCollector has been wrapped as an MCP service, allowing LLMs in programming t
 This design separates **file exploration and code selection** (done by the model inside the programming tool) from **complex reasoning** (done by the web-based model), fully leveraging the strengths of different models while keeping costs controllable.
 
 **Visit [filecollector-mcp-server](https://github.com/Sam-Fic/filecollector-mcp-server) for more details and installation instructions**
+
+## AI Assistant Panel
+
+FileCollector includes a built-in **sidebar AI assistant** that lets you drive the entire workflow using natural language directly in the GUI, without needing programming tools or MCP services. Click the **AI** button in the top-left corner of the toolbar to expand/collapse the sidebar.
+
+### Key Capabilities
+
+- **Natural Language Orchestration**: Tell the AI "add all Python files in the `src` directory, then insert a task description at the top" — the AI will automatically call tools to handle file selection, text insertion, reordering, and all other steps.
+- **File Exploration & Reading**: The AI can browse the working directory's file tree and read file contents on demand to aid decision-making.
+- **Real-time Feedback**: Every tool call (set working directory, add files, read files, reorder items, etc.) is displayed as an expandable tool card in real time, making results immediately clear.
+- **Live GUI Sync**: When the AI modifies the orchestration list, the center panel updates the preview immediately, and you can take over to fine-tune at any time.
+
+### Supported Tools (Function Calling)
+
+The AI interacts with the GUI engine through the following tools (sharing the same semantics as CLI / MCP):
+
+| Tool               | Purpose                                          |
+| ------------------ | ------------------------------------------------ |
+| `set_work_dir`     | Switch the working directory                     |
+| `add_files`        | Batch-add files to the orchestration list        |
+| `add_text`         | Insert custom text into the list                 |
+| `remove_item`      | Remove a list item by id                         |
+| `move_item`        | Reorder items                                    |
+| `clear_items`      | Clear the orchestration list                     |
+| `set_use_absolute` | Toggle absolute/relative path mode               |
+| `set_show_header`  | Toggle whether to annotate the working directory |
+| `list_files`       | Browse the working directory (recursive file listing) |
+| `read_file`        | Read file contents (with line numbers)           |
+
+### Configuration
+
+Open **AI Settings** (Menu → AI Settings):
+
+1. Check **Enable AI Assistant**.
+2. Enter the **API Base URL** (compatible with OpenAI Chat Completions protocol, e.g., `https://api.openai.com/v1`; also works with Azure OpenAI, self-hosted gateways, local models like Ollama, etc.).
+3. Enter the **API Key** and **Model Name** (e.g., `gpt-4o-mini`, `deepseek-chat`, etc.).
+4. (Optional) Customize the **System Prompt** — leave empty to use the built-in orchestration prompt.
+5. Click **Test Connection** to verify the configuration, then save.
+
+All settings are stored in the `ai` field of `settings.json`. **API keys are stored locally only** and are never uploaded to any remote service.
+
+### Usage Examples
+
+> Please add all AI sidebar-related files in this project to the orchestration, then insert a description text at the beginning.
+
+AI's processing flow: calls `list_files` to locate AI sidebar-related files (`ai_panel.vala`, `ai_client.vala`, `ai_settings_dialog.vala`) → `add_files` to batch-add them to the orchestration list → `add_text` to insert explanatory text at the beginning.
+
+> Export to `output.txt` using relative paths, and include a working directory header.
+
+AI's processing flow: calls `set_use_absolute(False)` and `set_show_header(True)`, then triggers the GUI export process.
 
 ### Progressive Experience
 

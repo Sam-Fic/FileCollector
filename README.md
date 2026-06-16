@@ -9,7 +9,7 @@
 ---
 
 FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排工作目录中的文件并生成合并文本。  
-它提供了可勾选的目录树、灵活的编排列表、文字插入和编码自动检测，非常适合将项目中的关键代码或文档快速整合成一个 TXT 文件，供后续分析或提交给大语言模型使用。
+它提供了可勾选的目录树、灵活的编排列表、文字插入和编码自动检测，非常适合将项目中的关键代码或文档快速整合成一个 TXT 文件，供后续分析或提交给大语言模型使用。内置的 AI 助手侧边栏支持自然语言驱动文件探索、勾选与编排。
 
 ## 界面预览
 
@@ -23,6 +23,7 @@ FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排
 
 - **命令行模式 (CLI)**：支持通过终端命令完成所有核心操作，便于脚本化和自动化
 - **MCP 服务**：封装为 MCP (Model Context Protocol) 服务，可直接被 Cursor、VS Code + Copilot 等编程工具调用
+- **AI 助手面板**：内置侧边栏聊天界面，AI 可直接驱动文件树探索、勾选、编排、生成合并文本等操作
 - **渐进式体验**：CLI 处理与 GUI 微调无缝衔接，AI 后台自动探索编排后，可随时用图形界面人工接管调整
 - **项目管理**：打开和保存项目
 - **短语管理**：管理和组织常用短语
@@ -121,15 +122,27 @@ flatpak run com.github.samfic.filecollector
 │   ├── models/
 │   │   └── item_data.vala                 # 队列项数据模型
 │   ├── services/
+│   │   ├── ai_client.vala                # AI 助手后端（OpenAI 兼容接口 + Function Calling）
+│   │   ├── ai_types.vala                 # AI 共享类型定义
 │   │   ├── config_manager.vala            # 配置/设置/常用语持久化
 │   │   ├── file_generator.vala            # 文件合并生成与剪贴板复制
-│   │   └── project_manager.vala           # 项目保存与加载
+│   │   ├── project_manager.vala           # 项目保存与加载
+│   │   └── undo_manager.vala             # 撤销/重做管理
 │   ├── utils/
 │   │   ├── tree_helper.vala               # 目录树操作工具函数
 │   │   └── encoding_helper.vala           # 编码自动检测与转换
+│   ├── vapi/
+│   │   └── cmark.vapi                     # cmark (Markdown) Vala 绑定
 │   └── widgets/
+│       ├── ai_panel.vala                  # AI 助手聊天面板（气泡 + 工具调用卡片）
+│       ├── ai_settings_dialog.vala        # AI 助手配置对话框
+│       ├── markdown_view.vala             # Markdown 渲染视图
 │       ├── settings_dialog.vala           # 设置对话框
 │       └── phrases_picker.vala            # 常用语选择器与管理
+├── docs/                                  # 使用说明文档
+│   ├── images/                            # 文档图片
+│   ├── USAGE.md                           # 中文使用说明
+│   └── USAGE_EN.md                        # 英文使用说明
 ├── en.po                                  # 英文界面翻译文件
 ├── POTFILES                               # 可翻译源文件列表（供 gettext 使用）
 ├── LINGUAS                                # 支持的语言列表
@@ -250,6 +263,56 @@ FileCollector 已经封装为 MCP 服务，现在编程工具（如 Cursor、VS 
 这种设计将 **文件探索与代码挑选**（由编程工具内的模型完成）与 **复杂推理**（由网页端模型完成）分离，充分利用不同模型的优势，同时保持成本可控。
 
 **查看 [filecollector-mcp-server](https://github.com/Sam-Fic/filecollector-mcp-server) 了解更多详情和安装使用方法**
+
+## AI 助手面板
+
+FileCollector 内置 **侧边栏 AI 助手**，无需编程工具或 MCP 服务，直接在 GUI 中就能用自然语言驱动整个工作流。点击工具栏左上角的 **AI** 按钮即可展开/收起。
+
+### 主要能力
+
+- **自然语言编排**：告诉 AI "把 `src` 目录下所有 Python 文件加进去，然后在开头插入一段任务说明"，AI 会自动调用工具完成勾选、插入文字、调整顺序等所有步骤。
+- **文件探索与读取**：AI 可以浏览工作目录的文件树，并按需读取文件内容辅助决策。
+- **即时反馈**：每一步工具调用（设置工作目录、添加文件、读取文件、调整顺序等）都以可展开的工具卡片实时展示，结果一目了然。
+- **与 GUI 实时同步**：AI 改动编排列表后，中间面板立刻更新预览，用户可随时接管微调。
+
+### 支持的工具（Function Calling）
+
+AI 通过以下工具与 GUI 引擎交互（与 CLI / MCP 共享同一套语义）：
+
+| 工具               | 作用                                   |
+| ------------------ | -------------------------------------- |
+| `set_work_dir`     | 切换工作目录                           |
+| `add_files`        | 批量添加文件到编排列表                 |
+| `add_text`         | 在列表中插入自定义文字                 |
+| `remove_item`      | 按 id 删除列表条目                     |
+| `move_item`        | 调整条目顺序                           |
+| `clear_items`      | 清空编排列表                           |
+| `set_use_absolute` | 切换绝对路径 / 相对路径模式            |
+| `set_show_header`  | 切换是否在文件头标注工作目录           |
+| `list_files`       | 浏览工作目录（递归列出符合条件的文件） |
+| `read_file`        | 读取文件内容（带行号）                 |
+
+### 配置方法
+
+打开 **AI 设置**（菜单栏 → AI 设置）：
+
+1. 勾选 **启用 AI 助手**。
+2. 填入 **API 基础地址**（兼容 OpenAI Chat Completions 协议，例如 `https://api.openai.com/v1`，也可指向 Azure OpenAI、自建网关、本地模型如 Ollama 等）。
+3. 填入 **API 密钥** 和 **模型名称**（如 `gpt-4o-mini`、`deepseek-chat` 等）。
+4. （可选）自定义 **系统提示词**，留空则使用内置的工程编排 prompt。
+5. 点击 **测试连接** 验证配置无误后保存。
+
+所有配置存于 `settings.json` 的 `ai` 字段，**API 密钥仅保存在本地**，不会上传到任何远程。
+
+### 使用示例
+
+> 请把这个项目中关于 AI 侧边栏相关的文件都编排进去，然后开头加上一段描述文本。
+
+AI 的处理流程：调用 `list_files` 定位 AI 侧边栏相关文件（`ai_panel.vala`、`ai_client.vala`、`ai_settings_dialog.vala`）→ `add_files` 批量加入编排列表 → `add_text` 在列表开头插入说明文字。
+
+> 用相对路径导出到 `output.txt`，并且加上工作目录头部。
+
+AI 的处理流程：调用 `set_use_absolute(False)` 和 `set_show_header(True)`，再触发 GUI 的导出流程。
 
 ### 渐进式体验
 
