@@ -23,6 +23,15 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="4.0.1" date="2026-06-17">
+      <description>
+        <p>问题修复：</p>
+        <ul>
+          <li>重构：实现三态勾选状态的单一真相源，修复文件树勾选状态同步问题</li>
+          <li>更新中英文截图文件</li>
+        </ul>
+      </description>
+    </release>
     <release version="4.0.0" date="2026-06-17">
       <description>
         <p>重大更新：</p>
