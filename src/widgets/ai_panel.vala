@@ -92,7 +92,7 @@ public class AIPanel : GLib.Object {
         chat_container = new Gtk.Box (Gtk.Orientation.VERTICAL, 8);
         chat_container.margin_start = 10;
         chat_container.margin_end = 10;
-        chat_container.margin_top = 4;
+        chat_container.margin_top = 0;
         chat_container.margin_bottom = 6;
         chat_container.set_homogeneous (false);
 

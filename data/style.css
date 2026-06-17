@@ -150,6 +150,10 @@ paned > separator {
     line-height: 1.4;
 }
 
+.ai-bubble:first-child {
+    margin-top: 0;
+}
+
 .ai-bubble-user {
     background-color: alpha(@accent_color, 0.18);
     border: 1px solid alpha(@accent_color, 0.5);
