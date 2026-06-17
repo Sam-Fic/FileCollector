@@ -59,6 +59,7 @@ public class AIPanel : GLib.Object {
     private bool busy = false;
     private bool stop_requested = false;
     private bool pending_welcome = true;
+    private bool ai_enabled = false;
     // 用户是否停留在底部附近 (用于判断是否自动滚动)
     private bool auto_scroll = true;
     // 标记正在 rerender, 抑制 adj.changed 的自动滚动 (由 rerender 自行处理)
@@ -281,7 +282,8 @@ public class AIPanel : GLib.Object {
 
         lbl_model.set_text (model_str.length > 0 ? model_str : _("未配置模型"));
         bool has_config = base_url_str.length > 0 && api_key_str.length > 0 && model_str.length > 0;
-        if (has_config) {
+        this.ai_enabled = ai.enabled;
+        if (has_config && ai.enabled) {
             client = new AIClient (base_url_str, api_key_str, model_str, timeout_v);
         } else {
             client = null;
@@ -487,12 +489,24 @@ public class AIPanel : GLib.Object {
                 bubble.append (label);
                 break;
             }
-            case "assistant":
-            case "system": {
+            case "assistant": {
                 // 用 Markdown 渲染 (cmark AST → GTK widget 树)
                 var md = new MarkdownView (msg.content);
                 md.add_css_class ("ai-bubble-content");
                 bubble.append (md);
+                break;
+            }
+            case "system": {
+                var label = new Gtk.Label (sanitize_utf8 (msg.content));
+                label.xalign = 0;
+                label.wrap = true;
+                label.wrap_mode = Pango.WrapMode.WORD_CHAR;
+                label.selectable = true;
+                label.hexpand = true;
+                label.halign = Gtk.Align.FILL;
+                label.add_css_class ("ai-bubble-content");
+                label.valign = Gtk.Align.CENTER;
+                bubble.append (label);
                 break;
             }
             case "tool": {
@@ -630,7 +644,11 @@ public class AIPanel : GLib.Object {
         if (text.length == 0) return;
 
         if (client == null) {
-            render_system (_("请先在 设置 → AI 设置 中启用并配置 API。"));
+            if (!ai_enabled) {
+                render_system (_("请先在 设置 → AI 设置 中启用 AI 助手。"));
+            } else {
+                render_system (_("请先在 设置 → AI 设置 中配置 API。"));
+            }
             return;
         }
 
@@ -1037,7 +1055,11 @@ public class AIPanel : GLib.Object {
     }
 
     private void update_status () {
-        if (client == null) {
+        if (!ai_enabled) {
+            lbl_status.set_text (_("未启用"));
+            lbl_status.remove_css_class ("ai-status-ok");
+            lbl_status.add_css_class ("ai-status-warn");
+        } else if (client == null) {
             lbl_status.set_text (_("未配置"));
             lbl_status.remove_css_class ("ai-status-ok");
             lbl_status.add_css_class ("ai-status-warn");

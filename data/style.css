@@ -166,7 +166,6 @@ paned > separator {
     background-color: alpha(@warning_bg_color, 0.4);
     border: 1px solid alpha(@warning_color, 0.6);
     color: @window_fg_color;
-    font-style: italic;
     font-size: 12px;
 }
 
