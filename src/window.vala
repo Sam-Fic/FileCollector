@@ -949,105 +949,76 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // ─── Keyboard Shortcuts ───────────────────────────────────────────────
 
     private void setup_shortcuts () {
-        var controller = new Gtk.ShortcutController ();
+        // 使用 GAction + set_accels_for_action 替代 ShortcutController,
+        // 避免 GTK4 bug (#6246): widget 销毁后 controller 仍留在 manager 中导致崩溃
 
-        controller.add_shortcut (new Gtk.Shortcut (
-            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("g"), Gdk.ModifierType.CONTROL_MASK),
-            new Gtk.CallbackAction ((widget, shortcut) => {
-                on_generate_clicked ();
-                return true;
-            })
-        ));
+        var act_generate = new GLib.SimpleAction ("generate", null);
+        act_generate.activate.connect (() => on_generate_clicked ());
+        this.add_action (act_generate);
 
-        controller.add_shortcut (new Gtk.Shortcut (
-            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("c"), Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK),
-            new Gtk.CallbackAction ((widget, shortcut) => {
-                on_generate_to_clipboard_clicked ();
-                return true;
-            })
-        ));
+        var act_generate_clipboard = new GLib.SimpleAction ("generate_to_clipboard", null);
+        act_generate_clipboard.activate.connect (() => on_generate_to_clipboard_clicked ());
+        this.add_action (act_generate_clipboard);
 
-        controller.add_shortcut (new Gtk.Shortcut (
-            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("z"), Gdk.ModifierType.CONTROL_MASK),
-            new Gtk.CallbackAction ((widget, shortcut) => {
-                on_undo ();
-                return true;
-            })
-        ));
+        var act_undo = new GLib.SimpleAction ("undo", null);
+        act_undo.activate.connect (() => on_undo ());
+        this.add_action (act_undo);
 
-        controller.add_shortcut (new Gtk.Shortcut (
-            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("z"), Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK),
-            new Gtk.CallbackAction ((widget, shortcut) => {
-                on_redo ();
-                return true;
-            })
-        ));
+        var act_redo = new GLib.SimpleAction ("redo", null);
+        act_redo.activate.connect (() => on_redo ());
+        this.add_action (act_redo);
 
-        controller.add_shortcut (new Gtk.Shortcut (
-            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("n"), Gdk.ModifierType.CONTROL_MASK),
-            new Gtk.CallbackAction ((widget, shortcut) => {
-                on_clear_items ();
-                return true;
-            })
-        ));
+        var act_clear = new GLib.SimpleAction ("clear_items", null);
+        act_clear.activate.connect (() => on_clear_items ());
+        this.add_action (act_clear);
 
-        controller.add_shortcut (new Gtk.Shortcut (
-            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("Delete"), (Gdk.ModifierType) 0),
-            new Gtk.CallbackAction ((widget, shortcut) => {
-                on_delete_item ();
-                return true;
-            })
-        ));
+        var act_delete = new GLib.SimpleAction ("delete_item", null);
+        act_delete.activate.connect (() => on_delete_item ());
+        this.add_action (act_delete);
 
-        controller.add_shortcut (new Gtk.Shortcut (
-            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("Up"), Gdk.ModifierType.CONTROL_MASK),
-            new Gtk.CallbackAction ((widget, shortcut) => {
-                on_move_up ();
-                return true;
-            })
-        ));
+        var act_move_up = new GLib.SimpleAction ("move_up", null);
+        act_move_up.activate.connect (() => on_move_up ());
+        this.add_action (act_move_up);
 
-        controller.add_shortcut (new Gtk.Shortcut (
-            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("Down"), Gdk.ModifierType.CONTROL_MASK),
-            new Gtk.CallbackAction ((widget, shortcut) => {
-                on_move_down ();
-                return true;
-            })
-        ));
+        var act_move_down = new GLib.SimpleAction ("move_down", null);
+        act_move_down.activate.connect (() => on_move_down ());
+        this.add_action (act_move_down);
 
-        controller.add_shortcut (new Gtk.Shortcut (
-            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("e"), Gdk.ModifierType.CONTROL_MASK),
-            new Gtk.CallbackAction ((widget, shortcut) => {
-                on_add_external_files ();
-                return true;
-            })
-        ));
+        var act_add_external = new GLib.SimpleAction ("add_external_files", null);
+        act_add_external.activate.connect (() => on_add_external_files ());
+        this.add_action (act_add_external);
 
-        controller.add_shortcut (new Gtk.Shortcut (
-            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("i"), Gdk.ModifierType.CONTROL_MASK),
-            new Gtk.CallbackAction ((widget, shortcut) => {
-                insert_text (true);
-                return true;
-            })
-        ));
+        var act_insert = new GLib.SimpleAction ("insert_text", null);
+        act_insert.activate.connect (() => insert_text (true));
+        this.add_action (act_insert);
 
-        controller.add_shortcut (new Gtk.Shortcut (
-            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("i"), Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK),
-            new Gtk.CallbackAction ((widget, shortcut) => {
-                insert_text (false);
-                return true;
-            })
-        ));
+        var act_insert_no_header = new GLib.SimpleAction ("insert_text_no_header", null);
+        act_insert_no_header.activate.connect (() => insert_text (false));
+        this.add_action (act_insert_no_header);
 
-        controller.add_shortcut (new Gtk.Shortcut (
-            new Gtk.KeyvalTrigger (Gdk.keyval_from_name ("j"), Gdk.ModifierType.CONTROL_MASK),
-            new Gtk.CallbackAction ((widget, shortcut) => {
-                toggle_ai_panel ();
-                return true;
-            })
-        ));
+        var act_toggle_ai = new GLib.SimpleAction ("toggle_ai_panel", null);
+        act_toggle_ai.activate.connect (() => toggle_ai_panel ());
+        this.add_action (act_toggle_ai);
 
-        this.add_controller (controller);
+        // 延迟注册快捷键, 等待 application 就绪
+        GLib.Idle.add (() => {
+            var app = this.application;
+            if (app != null) {
+                app.set_accels_for_action ("win.generate", { "<Control>g" });
+                app.set_accels_for_action ("win.generate_to_clipboard", { "<Control><Shift>c" });
+                app.set_accels_for_action ("win.undo", { "<Control>z" });
+                app.set_accels_for_action ("win.redo", { "<Control><Shift>z" });
+                app.set_accels_for_action ("win.clear_items", { "<Control>n" });
+                app.set_accels_for_action ("win.delete_item", { "Delete" });
+                app.set_accels_for_action ("win.move_up", { "<Control>Up" });
+                app.set_accels_for_action ("win.move_down", { "<Control>Down" });
+                app.set_accels_for_action ("win.add_external_files", { "<Control>e" });
+                app.set_accels_for_action ("win.insert_text", { "<Control>i" });
+                app.set_accels_for_action ("win.insert_text_no_header", { "<Control><Shift>i" });
+                app.set_accels_for_action ("win.toggle_ai_panel", { "<Control>j" });
+            }
+            return GLib.Source.REMOVE;
+        });
     }
 
     public CliController create_cli_from_state () {
@@ -1821,6 +1792,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         _("清空列表");
         _("生成到剪贴板");
         _("打开项目");
+        _("切换 AI 面板");
         _("关于");
         _("退出");
         return """<?xml version="1.0" encoding="UTF-8"?>
@@ -1867,6 +1839,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
               <object class="GtkShortcutsShortcut">
                 <property name="title" translatable="yes">添加外部文件</property>
                 <property name="accelerator">&lt;Control&gt;e</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkShortcutsShortcut">
+                <property name="title" translatable="yes">切换 AI 面板</property>
+                <property name="accelerator">&lt;Control&gt;j</property>
               </object>
             </child>
           </object>
