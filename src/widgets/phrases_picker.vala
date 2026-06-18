@@ -1,5 +1,5 @@
 public class PhrasesPicker : GLib.Object {
-    private Gtk.Window? parent_window;
+    private Gtk.Window parent_window;
     private GenericArray<string> common_phrases;
     private Gtk.ListBox? current_list_box;
 
@@ -7,7 +7,7 @@ public class PhrasesPicker : GLib.Object {
     public signal void phrases_changed ();
     public signal void edit_phrase_requested (string old_text, int index);
 
-    public PhrasesPicker (Gtk.Window? parent, GenericArray<string> phrases) {
+    public PhrasesPicker (Gtk.Window parent, GenericArray<string> phrases) {
         this.parent_window = parent;
         this.common_phrases = phrases;
     }
@@ -23,18 +23,17 @@ public class PhrasesPicker : GLib.Object {
 
     public void show_picker (bool above) {
         current_list_box = null;
-        var window = new Adw.Window ();
-        window.set_transient_for (parent_window);
-        window.set_modal (true);
-        window.set_default_size (400, 400);
-        window.set_title (_("选择常用语"));
+        var dialog = new Adw.Dialog ();
+        dialog.set_title (_("选择常用语"));
+        dialog.set_content_width (400);
+        dialog.set_content_height (400);
 
         var toolbar_view = new Adw.ToolbarView ();
-        window.set_content (toolbar_view);
+        dialog.set_child (toolbar_view);
 
         var header_bar = new Adw.HeaderBar ();
-        header_bar.set_title_widget (new Adw.WindowTitle (_("选择常用语"), null));
-        header_bar.set_decoration_layout ("");
+        header_bar.set_title_widget (new Adw.WindowTitle (_("选择常用语"), ""));
+        header_bar.set_show_end_title_buttons (false);
         toolbar_view.add_top_bar (header_bar);
 
         var cancel_btn = new Gtk.Button ();
@@ -63,32 +62,31 @@ public class PhrasesPicker : GLib.Object {
         scrolled.set_vexpand (true);
         toolbar_view.set_content (scrolled);
 
-        populate_phrases_picker_list (current_list_box, window, above);
+        populate_phrases_picker_list (current_list_box, dialog, above);
 
         cancel_btn.clicked.connect (() => {
-            window.close ();
+            dialog.close ();
         });
 
         add_btn.clicked.connect (() => {
-            show_add_phrase_dialog (above, current_list_box, window);
+            show_add_phrase_dialog (above, current_list_box, dialog);
         });
 
-        window.present ();
+        dialog.present (parent_window);
     }
 
     public void show_manage_window () {
-        var window = new Adw.Window ();
-        window.set_transient_for (parent_window);
-        window.set_modal (true);
-        window.set_default_size (400, 400);
-        window.set_title (_("常用语管理"));
+        var dialog = new Adw.Dialog ();
+        dialog.set_title (_("常用语管理"));
+        dialog.set_content_width (400);
+        dialog.set_content_height (400);
 
         var toolbar_view = new Adw.ToolbarView ();
-        window.set_content (toolbar_view);
+        dialog.set_child (toolbar_view);
 
         var header_bar = new Adw.HeaderBar ();
-        header_bar.set_title_widget (new Adw.WindowTitle (_("常用语管理"), null));
-        header_bar.set_decoration_layout ("");
+        header_bar.set_title_widget (new Adw.WindowTitle (_("常用语管理"), ""));
+        header_bar.set_show_end_title_buttons (false);
         toolbar_view.add_top_bar (header_bar);
 
         var cancel_btn = new Gtk.Button ();
@@ -121,17 +119,17 @@ public class PhrasesPicker : GLib.Object {
         header_bar.pack_end (add_btn);
 
         cancel_btn.clicked.connect (() => {
-            window.close ();
+            dialog.close ();
         });
 
         add_btn.clicked.connect (() => {
-            show_add_phrase_dialog (false, current_list_box, window);
+            show_add_phrase_dialog (false, current_list_box, dialog, true);
         });
 
-        window.present ();
+        dialog.present (parent_window);
     }
 
-    private void populate_phrases_picker_list (Gtk.ListBox list_box, Adw.Window window, bool above) {
+    private void populate_phrases_picker_list (Gtk.ListBox list_box, Adw.Dialog dialog, bool above) {
         while (list_box.get_first_child () != null) {
             list_box.remove (list_box.get_first_child ());
         }
@@ -160,7 +158,7 @@ public class PhrasesPicker : GLib.Object {
                 delete_btn.clicked.connect (() => {
                     common_phrases.remove_index (captured_index);
                     ConfigManager.save_common_phrases (common_phrases);
-                    populate_phrases_picker_list (list_box, window, above);
+                    populate_phrases_picker_list (list_box, dialog, above);
                     phrases_changed ();
                 });
                 row.add_suffix (delete_btn);
@@ -169,7 +167,7 @@ public class PhrasesPicker : GLib.Object {
                 row.activated.connect (() => {
                     var selected_phrase = common_phrases.get (phrase_index);
                     phrase_selected (selected_phrase, above);
-                    window.close ();
+                    dialog.close ();
                 });
 
                 list_box.append (row);
@@ -177,18 +175,18 @@ public class PhrasesPicker : GLib.Object {
         }
     }
 
-    private void show_add_phrase_dialog (bool above, Gtk.ListBox? list_box = null, Adw.Window? picker_window = null) {
-        var window = new Adw.Window ();
-        window.set_transient_for (parent_window);
-        window.set_modal (true);
-        window.set_default_size (450, 350);
-        window.set_title (_("添加常用语"));
+    private void show_add_phrase_dialog (bool above, Gtk.ListBox? list_box = null, Adw.Dialog? picker_dialog = null, bool is_manage = false) {
+        var dialog = new Adw.Dialog ();
+        dialog.set_title (_("添加常用语"));
+        dialog.set_content_width (450);
+        dialog.set_content_height (350);
 
         var toolbar_view = new Adw.ToolbarView ();
-        window.set_content (toolbar_view);
+        dialog.set_child (toolbar_view);
 
         var header_bar = new Adw.HeaderBar ();
-        header_bar.set_decoration_layout ("");
+        header_bar.set_title_widget (new Adw.WindowTitle (_("添加常用语"), ""));
+        header_bar.set_show_end_title_buttons (false);
         toolbar_view.add_top_bar (header_bar);
 
         var cancel_btn = new Gtk.Button ();
@@ -227,7 +225,7 @@ public class PhrasesPicker : GLib.Object {
         toolbar_view.set_content (content);
 
         cancel_btn.clicked.connect (() => {
-            window.destroy ();
+            dialog.close ();
         });
 
         ok_btn.clicked.connect (() => {
@@ -239,17 +237,19 @@ public class PhrasesPicker : GLib.Object {
             if (text != null && text.strip () != "") {
                 common_phrases.add (text);
                 ConfigManager.save_common_phrases (common_phrases);
-                if (list_box != null && picker_window != null) {
-                    populate_phrases_picker_list (list_box, picker_window, above);
+                if (is_manage && list_box != null) {
+                    refresh_phrases_list (list_box);
+                } else if (list_box != null && picker_dialog != null) {
+                    populate_phrases_picker_list (list_box, picker_dialog, above);
                 } else {
                     show_picker (above);
                 }
                 phrases_changed ();
             }
-            window.destroy ();
+            dialog.close ();
         });
 
-        window.present ();
+        dialog.present (parent_window);
     }
 
     private void refresh_phrases_list (Gtk.ListBox list_box) {
