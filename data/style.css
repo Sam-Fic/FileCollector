@@ -285,12 +285,11 @@ paned > separator {
     box-shadow: none;
 }
 
-/* 常用语选择/管理弹窗列表: 去掉底部阴影, 保留圆角 */
+/* 常用语弹窗列表: 去掉卡片阴影与行分割线 */
 .phrases-list.boxed-list {
     box-shadow: none;
 }
 
-/* 常用语弹窗列表行: 去掉项之间的分割线 */
 .phrases-list.boxed-list > row {
     border-bottom: none;
     box-shadow: none;
