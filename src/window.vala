@@ -1393,7 +1393,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         header_bar.pack_end (phrases_btn);
 
         var content = new Gtk.Box (Gtk.Orientation.VERTICAL, 12);
-        content.set_margin_top (12);
+        content.set_margin_top (0);
         content.set_margin_start (12);
         content.set_margin_end (12);
         content.set_margin_bottom (12);

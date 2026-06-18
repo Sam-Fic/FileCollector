@@ -46,7 +46,7 @@ public class PhrasesPicker : GLib.Object {
         header_bar.pack_end (add_btn);
 
         var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 12);
-        box.set_margin_top (12);
+        box.set_margin_top (0);
         box.set_margin_start (12);
         box.set_margin_end (12);
         box.set_margin_bottom (12);
@@ -95,7 +95,7 @@ public class PhrasesPicker : GLib.Object {
         header_bar.pack_start (cancel_btn);
 
         var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 12);
-        box.set_margin_top (12);
+        box.set_margin_top (0);
         box.set_margin_start (12);
         box.set_margin_end (12);
         box.set_margin_bottom (12);
