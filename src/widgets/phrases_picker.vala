@@ -144,8 +144,8 @@ public class PhrasesPicker : GLib.Object {
             for (int i = 0; i < common_phrases.length; i++) {
                 var phrase = common_phrases.get (i);
                 var row = new Adw.ActionRow ();
-                if (phrase.length > 40) {
-                    row.set_title (phrase.substring (0, 40) + "...");
+                if (phrase.char_count () > 40) {
+                    row.set_title (phrase.substring (0, phrase.index_of_nth_char (40)) + "...");
                 } else {
                     row.set_title (phrase);
                 }
@@ -259,8 +259,8 @@ public class PhrasesPicker : GLib.Object {
         for (int i = 0; i < common_phrases.length; i++) {
             var phrase = common_phrases.get (i);
             var row = new Adw.ActionRow ();
-            if (phrase.length > 40) {
-                row.set_title (phrase.substring (0, 40) + "...");
+            if (phrase.char_count () > 40) {
+                row.set_title (phrase.substring (0, phrase.index_of_nth_char (40)) + "...");
             } else {
                 row.set_title (phrase);
             }
