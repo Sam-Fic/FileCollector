@@ -290,6 +290,12 @@ paned > separator {
     box-shadow: none;
 }
 
+/* 常用语弹窗列表行: 去掉项之间的分割线 */
+.phrases-list.boxed-list > row {
+    border-bottom: none;
+    box-shadow: none;
+}
+
 /* AI 输入框占位文字: 与 TextView 内部文字基线对齐 */
 .ai-placeholder {
     padding: 0;
