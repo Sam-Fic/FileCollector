@@ -159,6 +159,8 @@ public class DirectoryItem : GLib.Object {
         }
     }
     public GLib.ListStore children { get; private set; }
+    // 标记子节点是否正在后台加载, 防止重复加载
+    public bool children_loading = false;
 
     public signal void state_changed ();
 
@@ -179,6 +181,18 @@ public class DirectoryItem : GLib.Object {
             var child = (DirectoryItem) children.get_item (i);
             child.set_checked_recursive (value);
         }
+    }
+}
+
+// 目录条目信息 (用于后台线程收集, 主线程创建 DirectoryItem)
+private class DirChildInfo {
+    public string name;
+    public string path;
+    public bool is_dir;
+    public DirChildInfo (string name, string path, bool is_dir) {
+        this.name = name;
+        this.path = path;
+        this.is_dir = is_dir;
     }
 }
 
@@ -239,6 +253,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private AIPanel? ai_panel_instance = null;
     private AISettingsDialog? ai_settings_dialog_instance = null;
     private bool ai_panel_visible = false;
+    // 记录 AI 面板展开前的窗口宽度, 隐藏时恢复
+    private int pre_ai_width = 0;
+    // 缓存 col-resize 光标, 避免 motion 事件每次都创建新对象
+    private Gdk.Cursor? col_resize_cursor = null;
     // 编排模式: "default" | "directory" | "single" (与多平台版本 1:1)
     private string ai_mode = "default";
     private string ai_file_extension = "";
@@ -268,6 +286,15 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         setup_pane_sizes ();
         setup_shortcuts ();
         search_entry.visible = false;
+
+        this.close_request.connect (on_close_request);
+    }
+
+    private bool on_close_request () {
+        if (ai_panel_instance != null) {
+            ai_panel_instance.shutdown ();
+        }
+        return false;
     }
 
     private void load_css () {
@@ -478,7 +505,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
             if (item.is_dir) {
                 ulong expanded_handler_id = row.notify["expanded"].connect (() => {
-                    if (row.get_expanded () && item.children.get_n_items () == 0) {
+                    if (row.get_expanded () && item.children.get_n_items () == 0 && !item.children_loading) {
                         load_directory_children_lazy (item);
                     }
                 });
@@ -622,31 +649,30 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // 统一的勾选变更处理: 修改 check_model -> 同步 items -> 刷新 UI 三态
     private void apply_check_change (DirectoryItem item, bool new_checked) {
         if (item.is_dir) {
-            // 目录: 从文件系统递归收集所有文件路径 (不依赖懒加载的 children)
-            var file_paths = new GenericArray<string> ();
-            collect_files_from_filesystem (item.path, file_paths);
-            if (new_checked) {
-                check_model.add_files (file_paths.data);
-                foreach (var p in file_paths) {
-                    if (!(p in checked_paths)) {
-                        checked_paths.insert (p, true);
-                        items.add (new ItemData ("file", p, null, false));
-                    }
-                }
-            } else {
-                check_model.remove_files (file_paths.data);
-                foreach (var p in file_paths) {
-                    if (p in checked_paths) {
-                        checked_paths.remove (p);
-                        remove_items_by_path (p);
-                    }
-                }
+            // 目录: 后台线程递归收集文件路径, 完成后在主线程更新 UI, 避免阻塞
+            string dir_path = item.path;
+            try {
+                new Thread<void*> ("collect-files", () => {
+                    var file_paths = new GenericArray<string> ();
+                    collect_files_from_filesystem (dir_path, file_paths);
+                    Idle.add (() => {
+                        apply_dir_check_result (new_checked, file_paths);
+                        return Source.REMOVE;
+                    });
+                    return null;
+                });
+            } catch (ThreadError e) {
+                warning ("Failed to create collect-files thread: %s", e.message);
+                // 后备: 同步执行
+                var file_paths = new GenericArray<string> ();
+                collect_files_from_filesystem (dir_path, file_paths);
+                apply_dir_check_result (new_checked, file_paths);
             }
         } else {
-            // 文件: 直接切换
+            // 文件: 直接切换 (无 I/O, 同步即可)
             check_model.toggle_file (item.path);
             if (new_checked) {
-                if (!(item.path in checked_paths)) {
+                if (!(item.path in checked_paths) && !path_in_items (item.path)) {
                     checked_paths.insert (item.path, true);
                     items.add (new ItemData ("file", item.path, null, false));
                 }
@@ -654,9 +680,31 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 checked_paths.remove (item.path);
                 remove_items_by_path (item.path);
             }
+            refresh_all_tree_states ();
+            dir_column_view.queue_draw ();
+            refresh_list ();
         }
+    }
 
-        // 刷新整个可见树的三态
+    // 目录勾选/取消勾选的后台收集结果处理 (主线程)
+    private void apply_dir_check_result (bool new_checked, GenericArray<string> file_paths) {
+        if (new_checked) {
+            check_model.add_files (file_paths.data);
+            foreach (var p in file_paths) {
+                if (!(p in checked_paths) && !path_in_items (p)) {
+                    checked_paths.insert (p, true);
+                    items.add (new ItemData ("file", p, null, false));
+                }
+            }
+        } else {
+            check_model.remove_files (file_paths.data);
+            foreach (var p in file_paths) {
+                if (p in checked_paths) {
+                    checked_paths.remove (p);
+                    remove_items_by_path (p);
+                }
+            }
+        }
         refresh_all_tree_states ();
         dir_column_view.queue_draw ();
         refresh_list ();
@@ -744,9 +792,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         use_absolute = state.use_absolute;
         show_header = state.show_header;
         check_absolute_path.notify["active"].disconnect (on_path_mode_changed);
+        check_write_header.notify["active"].disconnect (on_header_check_changed);
         check_absolute_path.active = use_absolute;
         check_write_header.active = show_header;
         check_absolute_path.notify["active"].connect (on_path_mode_changed);
+        check_write_header.notify["active"].connect (on_header_check_changed);
 
         if (work_dir != null && root_store.get_n_items () > 0) {
             // 用 check_model 作为单一真相源, 重新推导所有 UI 状态
@@ -804,6 +854,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private const int PANED_SEP = 6;
 
     private bool _clamping_inner_from_outer = false;
+    // 阻断 clamp_outer_paned_position 在修改 outer_paned.position 时
+    // 触发 notify["position"] 信号导致的递归调用
+    private bool _clamping_outer = false;
 
     private int left_min_width = 0;
     private int center_min_width = 0;
@@ -879,8 +932,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void clamp_outer_paned_position () {
+        if (_clamping_outer) return;
+        _clamping_outer = true;
         var pw = outer_paned.get_width ();
-        if (pw <= 0) return;
+        if (pw <= 0) {
+            _clamping_outer = false;
+            return;
+        }
         var pos = outer_paned.position;
         var cw = pw - outer_paned.get_margin_start () - outer_paned.get_margin_end ();
 
@@ -921,6 +979,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             inner_paned.position = imax;
         }
         _clamping_inner_from_outer = false;
+        _clamping_outer = false;
     }
 
     private void clamp_inner_paned_position () {
@@ -1049,9 +1108,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         use_absolute = cli.use_absolute;
         show_header = cli.show_header;
         check_absolute_path.notify["active"].disconnect (on_path_mode_changed);
+        check_write_header.notify["active"].disconnect (on_header_check_changed);
         check_absolute_path.active = use_absolute;
         check_write_header.active = show_header;
         check_absolute_path.notify["active"].connect (on_path_mode_changed);
+        check_write_header.notify["active"].connect (on_header_check_changed);
 
         if (work_dir_changed) {
             work_dir = cli.work_dir;
@@ -1110,6 +1171,17 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
     }
 
+    // 检查 items 中是否已存在指定路径的文件项 (含 force_absolute 外部文件)
+    private bool path_in_items (string path) {
+        for (int i = 0; i < items.length; i++) {
+            var item = items.get (i);
+            if (item.item_type == "file" && item.file_path == path) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private async void on_open_folder_clicked () {
         var dialog = new Gtk.FileDialog ();
         dialog.title = _("选择工作文件夹");
@@ -1122,6 +1194,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             root_store.remove_all ();
             checked_paths.remove_all ();
             items.remove_range (0, items.length);
+            check_model.clear ();
             undo_manager.clear ();
             update_undo_redo_buttons ();
 
@@ -1145,61 +1218,85 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
     }
 
-    private void load_directory_children_lazy (DirectoryItem parent_item) {
-        if (!parent_item.is_dir) return;
-
-        var dir = File.new_for_path (parent_item.path);
-        if (!dir.query_exists ()) return;
-
+    // 后台线程: 枚举单个目录的子条目 (纯文件系统 I/O, 不访问实例状态)
+    private static GenericArray<DirChildInfo> enumerate_dir_children (string dir_path) {
+        var dirs = new GenericArray<DirChildInfo> ();
+        var files = new GenericArray<DirChildInfo> ();
+        var dir = File.new_for_path (dir_path);
+        if (!dir.query_exists ()) return new GenericArray<DirChildInfo> ();
         try {
             var enumerator = dir.enumerate_children (
                 FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE,
                 FileQueryInfoFlags.NONE
             );
-
-            var dirs = new GenericArray<FileInfo> ();
-            var files = new GenericArray<FileInfo> ();
-
             FileInfo info;
             while ((info = enumerator.next_file ()) != null) {
-                if (info.get_file_type () == FileType.DIRECTORY) {
-                    dirs.add (info);
+                var child_path = dir.get_child (info.get_name ()).get_path ();
+                bool is_dir = info.get_file_type () == FileType.DIRECTORY;
+                var entry = new DirChildInfo (info.get_name (), child_path, is_dir);
+                if (is_dir) {
+                    dirs.add (entry);
                 } else {
-                    files.add (info);
+                    files.add (entry);
                 }
             }
-
-            dirs.sort ((a, b) => {
-                bool a_dot = a.get_name ().has_prefix (".");
-                bool b_dot = b.get_name ().has_prefix (".");
-                if (a_dot != b_dot) return a_dot ? -1 : 1;
-                return a.get_name ().casefold ().collate (b.get_name ().casefold ());
-            });
-            files.sort ((a, b) => {
-                bool a_dot = a.get_name ().has_prefix (".");
-                bool b_dot = b.get_name ().has_prefix (".");
-                if (a_dot != b_dot) return a_dot ? -1 : 1;
-                return a.get_name ().casefold ().collate (b.get_name ().casefold ());
-            });
-
-            for (int i = 0; i < dirs.length; i++) {
-                var fi = dirs.get (i);
-                var child_path = dir.get_child (fi.get_name ()).get_path ();
-                var child_item = new DirectoryItem (fi.get_name (), child_path, true);
-                parent_item.children.append (child_item);
-            }
-
-            for (int i = 0; i < files.length; i++) {
-                var fi = files.get (i);
-                var child_path = dir.get_child (fi.get_name ()).get_path ();
-                var child_item = new DirectoryItem (fi.get_name (), child_path, false);
-                parent_item.children.append (child_item);
-            }
-
-            // 加载完子节点后, 从 check_model 重新计算本节点及子节点的三态
-            refresh_subtree_states (parent_item);
         } catch (Error e) {
-            warning ("load_directory_children_lazy: %s", e.message);
+            warning ("enumerate_dir_children: %s", e.message);
+        }
+        // 排序: 点文件优先, 然后大小写不敏感
+        dirs.sort ((a, b) => {
+            bool a_dot = a.name.has_prefix (".");
+            bool b_dot = b.name.has_prefix (".");
+            if (a_dot != b_dot) return a_dot ? -1 : 1;
+            return a.name.casefold ().collate (b.name.casefold ());
+        });
+        files.sort ((a, b) => {
+            bool a_dot = a.name.has_prefix (".");
+            bool b_dot = b.name.has_prefix (".");
+            if (a_dot != b_dot) return a_dot ? -1 : 1;
+            return a.name.casefold ().collate (b.name.casefold ());
+        });
+        var result = new GenericArray<DirChildInfo> ();
+        for (int i = 0; i < dirs.length; i++) result.add (dirs.get (i));
+        for (int i = 0; i < files.length; i++) result.add (files.get (i));
+        return result;
+    }
+
+    // 同步版本: 直接在调用线程加载子节点 (用于需要立即获取结果的场景, 如 ensure_path_loaded)
+    private void load_directory_children_sync (DirectoryItem parent_item) {
+        if (!parent_item.is_dir) return;
+        var entries = enumerate_dir_children (parent_item.path);
+        for (int i = 0; i < entries.length; i++) {
+            var e = entries.get (i);
+            parent_item.children.append (new DirectoryItem (e.name, e.path, e.is_dir));
+        }
+        refresh_subtree_states (parent_item);
+    }
+
+    // 异步版本: 后台线程枚举目录, 完成后通过 Idle 批量更新 UI, 避免阻塞主线程
+    private void load_directory_children_lazy (DirectoryItem parent_item) {
+        if (!parent_item.is_dir) return;
+        if (parent_item.children_loading) return;
+        parent_item.children_loading = true;
+        string dir_path = parent_item.path;
+        try {
+            new Thread<void*> ("load-dir-children", () => {
+                var entries = enumerate_dir_children (dir_path);
+                Idle.add (() => {
+                    parent_item.children_loading = false;
+                    for (int i = 0; i < entries.length; i++) {
+                        var e = entries.get (i);
+                        parent_item.children.append (new DirectoryItem (e.name, e.path, e.is_dir));
+                    }
+                    refresh_subtree_states (parent_item);
+                    return Source.REMOVE;
+                });
+                return null;
+            });
+        } catch (ThreadError e) {
+            parent_item.children_loading = false;
+            warning ("Failed to create load-dir-children thread: %s", e.message);
+            load_directory_children_sync (parent_item);
         }
     }
 
@@ -1248,7 +1345,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 }
             }
             if (!found) {
-                load_directory_children_lazy (current);
+                load_directory_children_sync (current);
                 for (uint c = 0; c < current.children.get_n_items (); c++) {
                     var child = (DirectoryItem) current.children.get_item (c);
                     if (child.name == parts[p]) {
@@ -1280,14 +1377,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         bool had_selection = (int)queue_selection.selected >= 0;
         uint old_selected = queue_selection.selected;
 
+        // 一次性批量替换: 移除全部旧条目并插入新条目, 只触发一次 items-changed 信号
         uint n = queue_store.get_n_items ();
-        if (n > 0) {
-            queue_store.splice (0, n, null);
-        }
-
+        GLib.Object[] additions = new GLib.Object[items.length];
         for (int i = 0; i < items.length; i++) {
-            queue_store.append (items.get (i));
+            additions[i] = items.get (i);
         }
+        queue_store.splice (0, n, additions);
 
         if (had_selection && old_selected < items.length) {
             queue_selection.selected = old_selected;
@@ -1540,7 +1636,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         push_undo_state ();
         use_absolute = check_absolute_path.active;
         if (use_absolute) {
+            check_write_header.notify["active"].disconnect (on_header_check_changed);
             check_write_header.active = false;
+            check_write_header.notify["active"].connect (on_header_check_changed);
+            show_header = false;
             check_write_header.sensitive = false;
         } else {
             check_write_header.sensitive = true;
@@ -1580,7 +1679,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 FileGenerator.generate_file (path, items, use_absolute, show_header, work_dir);
                 show_toast (_("合并文本已保存"));
             } catch (Error e) {
-                if (e is GLib.IOError.CANCELLED || "Dismissed" in e.message) return;
+                if (e is GLib.IOError.CANCELLED) return;
                 show_error (_("保存失败"), e.message);
             }
         });
@@ -1662,13 +1761,17 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     update_subtitle (null);
                 }
 
+                check_absolute_path.notify["active"].disconnect (on_path_mode_changed);
+                check_write_header.notify["active"].disconnect (on_header_check_changed);
                 check_absolute_path.active = use_absolute;
                 check_write_header.active = show_header;
+                check_absolute_path.notify["active"].connect (on_path_mode_changed);
+                check_write_header.notify["active"].connect (on_header_check_changed);
                 undo_manager.clear ();
                 update_undo_redo_buttons ();
                 refresh_list ();
             } catch (Error e) {
-                if (e is GLib.IOError.CANCELLED || "Dismissed" in e.message) return;
+                if (e is GLib.IOError.CANCELLED) return;
                 show_error (_("打开失败"), e.message);
             }
         });
@@ -1714,7 +1817,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 );
                 show_toast (_("项目文件已保存"));
             } catch (Error e) {
-                if (e is GLib.IOError.CANCELLED || "Dismissed" in e.message) return;
+                if (e is GLib.IOError.CANCELLED) return;
                 show_error (_("保存失败"), e.message);
             }
         });
@@ -1977,17 +2080,17 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void show_edit_phrase_dialog (string old_text, int index) {
         var picker = get_phrases_picker ();
-        var window = new Adw.Window ();
-        window.set_transient_for (this);
-        window.set_modal (true);
-        window.set_default_size (450, 350);
-        window.set_title (_("编辑常用语"));
+        var dialog = new Adw.Dialog ();
+        dialog.set_title (_("编辑常用语"));
+        dialog.set_content_width (450);
+        dialog.set_content_height (350);
 
         var toolbar_view = new Adw.ToolbarView ();
-        window.set_content (toolbar_view);
+        dialog.set_child (toolbar_view);
 
         var header_bar = new Adw.HeaderBar ();
-        header_bar.set_decoration_layout ("");
+        header_bar.set_title_widget (new Adw.WindowTitle (_("编辑常用语"), ""));
+        header_bar.set_show_end_title_buttons (false);
         toolbar_view.add_top_bar (header_bar);
 
         var cancel_btn = new Gtk.Button ();
@@ -2027,7 +2130,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         toolbar_view.set_content (content);
 
         cancel_btn.clicked.connect (() => {
-            window.destroy ();
+            dialog.close ();
         });
 
         ok_btn.clicked.connect (() => {
@@ -2039,10 +2142,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (text != null && text.strip () != "") {
                 picker.update_phrase (index, text);
             }
-            window.destroy ();
+            dialog.close ();
         });
 
-        window.present ();
+        dialog.present (this);
     }
 
     private PhrasesPicker get_phrases_picker () {
@@ -2072,6 +2175,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // ai_paned 的 separator 宽度为 0 (CSS), GTK 默认抓取区域会溢出到 end_child,
         // 而 end_child (outer_paned) 不显示 col-resize 光标, 导致只有左半区域有光标.
         // 用 EventControllerMotion 检测鼠标在 separator 附近时设置光标.
+        col_resize_cursor = new Gdk.Cursor.from_name ("col-resize", null);
         var motion = new Gtk.EventControllerMotion ();
         motion.motion.connect ((x, y) => {
             // AI 边栏隐藏时不处理
@@ -2079,7 +2183,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             int pos = (int) ai_paned.position;
             // 鼠标在 separator 附近 ±6px 范围内
             if ((x >= pos - 6) && (x <= pos + 6)) {
-                ai_paned.set_cursor (new Gdk.Cursor.from_name ("col-resize", null));
+                ai_paned.set_cursor (col_resize_cursor);
             } else {
                 ai_paned.set_cursor (null);
             }
@@ -2145,6 +2249,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
         if (cur_w <= 0) return;
 
+        // 记录展开前的宽度, 隐藏时恢复 (仅首次记录, 避免反复展开覆盖)
+        if (pre_ai_width <= 0) {
+            pre_ai_width = cur_w;
+        }
+
         const int AI_EXTRA_WIDTH = 300;
         int target_w = cur_w + AI_EXTRA_WIDTH;
 
@@ -2171,6 +2280,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         ai_sidebar.visible = false;
         // 更新窗口最小宽度 (AI 边栏隐藏后可以更小)
         update_window_min_size ();
+
+        // 恢复 AI 面板展开前的窗口宽度
+        if (pre_ai_width > 0) {
+            int cur_h = get_height ();
+            if (cur_h <= 0) cur_h = default_height;
+            set_default_size (pre_ai_width, cur_h);
+            pre_ai_width = 0;
+        }
     }
 
     private void apply_ai_settings_to_panel () {
@@ -2208,6 +2325,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         snap.custom_instructions = new string[0];
 
         var paths = new Gee.ArrayList<string> ();
+        var instructions = new Gee.ArrayList<string> ();
         for (int i = 0; i < items.length; i++) {
             var it = items.get (i);
             if (it.item_type == "file") {
@@ -2224,25 +2342,21 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             } else if (it.item_type == "text") {
                 string t = it.content ?? "";
                 t = t.strip ();
-                var arr = new string[snap.custom_instructions.length + 1];
-                for (int k = 0; k < snap.custom_instructions.length; k++) {
-                    arr[k] = snap.custom_instructions[k];
-                }
-                arr[snap.custom_instructions.length] = t;
-                snap.custom_instructions = arr;
+                instructions.add (t);
             }
         }
         snap.selected_paths = paths.to_array ();
+        snap.custom_instructions = instructions.to_array ();
         return snap;
     }
 
     // ── AI 工具执行 (主线程上跑, 通过 Idle + Cond 跨线程同步) ──────
     // AI worker 线程调用 → Idle 投递到主线程 → 主线程执行工具
     // 完成 → 通过 Cond 唤醒 worker 线程返回结果.
-    private static GLib.Mutex ai_exec_mutex = GLib.Mutex ();
-    private static GLib.Cond ai_exec_cond = GLib.Cond ();
-    private static string? ai_exec_result = null;
-    private static bool ai_exec_done = false;
+    private GLib.Mutex ai_exec_mutex = GLib.Mutex ();
+    private GLib.Cond ai_exec_cond = GLib.Cond ();
+    private string? ai_exec_result = null;
+    private bool ai_exec_done = false;
 
     private string ai_tool_executor_cb (string name, Json.Node args) throws GLib.Error {
         string json_str = json_serialize_for_main (args);
@@ -2358,6 +2472,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private static void list_files_recursive (string root, string dir, int depth, int max_depth,
             PatternSpec matcher, StringBuilder sb, ref int count, ref int total, int max_results)
             throws Error {
+        if (count >= max_results) return;
         if (depth > max_depth) return;
         var dir_file = File.new_for_path (dir);
         if (!dir_file.query_exists ()) return;
@@ -2437,12 +2552,27 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var file = File.new_for_path (abs);
         if (!file.query_exists ()) return "文件不存在: " + abs;
 
-        uint8[] raw;
+        // 获取文件大小 (不加载内容到内存)
+        int64 file_size = 0;
         try {
-            FileUtils.get_data (abs, out raw);
+            var info = file.query_info (FileAttribute.STANDARD_SIZE, FileQueryInfoFlags.NONE);
+            file_size = info.get_size ();
+        } catch (Error e) {
+            return "读取文件信息失败: " + e.message;
+        }
+
+        // 流式读取: 只读取前 max_bytes 字节, 避免全量加载大文件导致 OOM
+        Bytes bytes;
+        try {
+            var fis = file.read ();
+            bytes = fis.read_bytes ((size_t) max_bytes);
+            fis.close ();
         } catch (Error e) {
             return "读取失败: " + e.message;
         }
+        unowned uint8[] raw = bytes.get_data ();
+        bool read_all = (raw.length >= file_size);
+
         string content = EncodingHelper.decode_to_utf8 (raw);
         // 行过滤
         string[] lines = content.split ("\n");
@@ -2450,13 +2580,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         int start = (int) start_line - 1;
         if (start < 0) start = 0;
         if (start >= lines.length) {
-            return "[文件总行数: %d, start_line %lld 越界]".printf (lines.length, start_line);
+            if (read_all) {
+                return "[文件总行数: %d, start_line %lld 越界]".printf (lines.length, start_line);
+            }
+            return "[start_line %lld 超出前 %lld 字节可读范围, 请减小 start_line 或增大 max_bytes]".printf (start_line, max_bytes);
         }
         int end = int.min (lines.length, start + (int) max_lines);
         var sb = new StringBuilder ();
         sb.append ("# file: ").append (rel_path (work_dir != null ? work_dir.get_path () : "/", abs))
-          .append ("  (").append (format_size (raw.length)).append (", ")
-          .append (lines.length.to_string ()).append (" lines)\n");
+          .append ("  (").append (format_size (file_size));
+        if (!read_all) {
+            sb.append (", 前 ").append (max_bytes.to_string ()).append (" 字节");
+        }
+        sb.append (", ").append (lines.length.to_string ()).append (" lines)\n");
         for (int i = start; i < end; i++) {
             sb.append ("%4d  ".printf (i + 1)).append (lines[i]).append ("\n");
             if (sb.str.length > max_bytes) {
@@ -2487,6 +2623,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         push_undo_state ();
         items.remove_range (0, items.length);
         checked_paths.remove_all ();
+        check_model.clear ();
         var folder = File.new_for_path (path);
         work_dir = folder;
         update_subtitle (path);
@@ -2670,8 +2807,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         bool val = o.get_boolean_member ("value");
         push_undo_state ();
         use_absolute = val;
-        // 临时断开信号, 避免 on_path_mode_changed 重复 push_undo_state / 联动 header
+        // 临时断开信号, 避免 on_path_mode_changed / on_header_check_changed 重复 push_undo_state / 联动 header
         check_absolute_path.notify["active"].disconnect (on_path_mode_changed);
+        check_write_header.notify["active"].disconnect (on_header_check_changed);
         check_absolute_path.active = val;
         if (val) {
             check_write_header.active = false;
@@ -2681,6 +2819,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             check_write_header.sensitive = true;
         }
         check_absolute_path.notify["active"].connect (on_path_mode_changed);
+        check_write_header.notify["active"].connect (on_header_check_changed);
         refresh_list ();
         return "use_absolute=" + val.to_string ();
     }

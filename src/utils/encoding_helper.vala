@@ -36,6 +36,7 @@ public class EncodingHelper {
     }
 
     private static string? convert_encoding (uint8[] data, string from_enc) {
+        if (data.length <= 1) return "";
         try {
             string input = (string)data;
             size_t bytes_read, bytes_written;

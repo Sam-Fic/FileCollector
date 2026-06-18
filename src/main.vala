@@ -168,10 +168,21 @@ public class FileCollectorApp : Adw.Application {
         string locale_dir = Config.LOCALE_DIR;
         var mo_path = Path.build_filename (locale_dir, "en", "LC_MESSAGES", Config.GETTEXT_PACKAGE + ".mo");
         if (!FileUtils.test (mo_path, FileTest.EXISTS)) {
-            try {
-                string exe_path = FileUtils.read_link ("/proc/self/exe");
+            string? exe_path = null;
+            // AppImage: 通过环境变量获取挂载点路径 (AppImage 启动时由运行时设置)
+            var appimage = GLib.Environment.get_variable ("APPIMAGE");
+            if (appimage != null && appimage.length > 0) {
+                exe_path = appimage;
+            }
+            // Linux: /proc/self/exe 符号链接 (先检查存在性, 兼容 Flatpak/非 Linux 系统)
+            if (exe_path == null && FileUtils.test ("/proc/self/exe", FileTest.EXISTS)) {
+                try {
+                    exe_path = FileUtils.read_link ("/proc/self/exe");
+                } catch (Error e) {
+                }
+            }
+            if (exe_path != null) {
                 locale_dir = Path.get_dirname (exe_path);
-            } catch (Error e) {
             }
         }
         setup_i18n (locale_dir);

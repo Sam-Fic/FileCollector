@@ -20,15 +20,17 @@ public class MarkdownView : Gtk.Box {
         }
 
         // 用 parser API + table 扩展解析
+        // parser 为 owned Compact 实例, 作用域结束时自动调用 cmark_parser_free
         var parser = new Cmark.Parser (Cmark.Options.DEFAULT | Cmark.Options.SMART);
         unowned Cmark.SyntaxExtension? table_ext = Cmark.find_syntax_extension ("table");
         if (table_ext != null) {
             parser.attach_syntax_extension (table_ext);
         }
         parser.feed (markdown, markdown.length);
-        var doc = parser.finish ();
+        // finish() 返回 owned Node?: 整棵 AST 的根, 释放根会递归释放所有子节点
+        owned Cmark.Node? doc = parser.finish ();
         if (doc == null) {
-            // 解析失败, 降级为纯文本
+            // 解析失败, 降级为纯文本 (parser 内部已清理任何中间节点)
             append (make_label (markdown, false));
             return;
         }
@@ -38,8 +40,9 @@ public class MarkdownView : Gtk.Box {
             if (widget != null) append (widget);
             child = child.next ();
         }
-        // doc 由 parser.finish 返回, 需要释放
-        // (Compact class 的 free_function 会处理)
+        // doc 为 owned Compact 实例: 作用域结束时 Vala 自动调用 cmark_node_free,
+        // 该函数会递归释放整棵 AST (所有子节点), 无需手动管理.
+        // parser 同理, 由 cmark_parser_free 在作用域结束时释放.
     }
 
     // ── 块级元素 ──────────────────────────────────────────────────
