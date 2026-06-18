@@ -54,6 +54,7 @@ public class PhrasesPicker : GLib.Object {
         current_list_box = new Gtk.ListBox ();
         current_list_box.set_selection_mode (Gtk.SelectionMode.NONE);
         current_list_box.add_css_class ("boxed-list");
+        current_list_box.add_css_class ("phrases-list");
         current_list_box.set_vexpand (true);
         box.append (current_list_box);
 
@@ -103,6 +104,7 @@ public class PhrasesPicker : GLib.Object {
         current_list_box = new Gtk.ListBox ();
         current_list_box.set_selection_mode (Gtk.SelectionMode.SINGLE);
         current_list_box.add_css_class ("boxed-list");
+        current_list_box.add_css_class ("phrases-list");
         current_list_box.set_vexpand (true);
         box.append (current_list_box);
 
@@ -199,13 +201,13 @@ public class PhrasesPicker : GLib.Object {
         header_bar.pack_end (ok_btn);
 
         var content = new Gtk.Box (Gtk.Orientation.VERTICAL, 12);
-        content.set_margin_top (12);
+        content.set_margin_top (0);
         content.set_margin_start (12);
         content.set_margin_end (12);
         content.set_margin_bottom (12);
 
         var frame = new Gtk.Frame (null);
-        frame.add_css_class ("card");
+        frame.add_css_class ("text-input-frame");
 
         var scrolled = new Gtk.ScrolledWindow ();
         scrolled.set_vexpand (true);

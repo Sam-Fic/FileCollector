@@ -1399,7 +1399,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         content.set_margin_bottom (12);
 
         var frame = new Gtk.Frame (null);
-        frame.add_css_class ("card");
+        frame.add_css_class ("text-input-frame");
 
         var scrolled = new Gtk.ScrolledWindow ();
         scrolled.set_vexpand (true);
@@ -2022,13 +2022,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         header_bar.pack_end (ok_btn);
 
         var content = new Gtk.Box (Gtk.Orientation.VERTICAL, 12);
-        content.set_margin_top (12);
+        content.set_margin_top (0);
         content.set_margin_start (12);
         content.set_margin_end (12);
         content.set_margin_bottom (12);
 
         var frame = new Gtk.Frame (null);
-        frame.add_css_class ("card");
+        frame.add_css_class ("text-input-frame");
 
         var scrolled = new Gtk.ScrolledWindow ();
         scrolled.set_vexpand (true);

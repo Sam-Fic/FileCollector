@@ -270,6 +270,26 @@ paned > separator {
     box-shadow: none;
 }
 
+/* 通用文本输入框: 保留卡片背景与圆角, 但去掉阴影 */
+.text-input-frame {
+    background: @card_bg_color;
+    border: 1px solid alpha(@borders, 0.5);
+    border-radius: 9px;
+    box-shadow: none;
+}
+
+.text-input-frame > border,
+.text-input-frame > frame {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+/* 常用语选择/管理弹窗列表: 去掉底部阴影, 保留圆角 */
+.phrases-list.boxed-list {
+    box-shadow: none;
+}
+
 /* AI 输入框占位文字: 与 TextView 内部文字基线对齐 */
 .ai-placeholder {
     padding: 0;
