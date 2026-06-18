@@ -213,8 +213,9 @@ public class AIPanel : GLib.Object {
 
         // 按钮行
         var btn_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-        btn_clear = new Gtk.Button.with_label (_("清空对话"));
-        btn_clear.set_size_request (90, 36);
+        btn_clear = new Gtk.Button.from_icon_name ("user-trash-symbolic");
+        btn_clear.set_tooltip_text (_("清空对话"));
+        btn_clear.set_size_request (36, 36);
         btn_clear.clicked.connect (on_clear_chat);
         btn_row.append (btn_clear);
 
