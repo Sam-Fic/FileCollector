@@ -295,7 +295,7 @@ private class DirChildInfo {
 
 [GtkTemplate (ui = "/com/github/samfic/filecollector/window.ui")]
 public class FileCollectorWindow : Adw.ApplicationWindow {
-    [GtkChild] private unowned Gtk.TreeView dir_tree;
+    [GtkChild] private unowned Gtk.ScrolledWindow dir_scrolled;
     [GtkChild] private unowned Gtk.ListView queue_list;
     [GtkChild] private unowned Gtk.TextView preview_view;
     [GtkChild] private unowned Gtk.Button open_folder_btn;
@@ -703,11 +703,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             return Source.REMOVE;
         });
 
-        var scrolled = dir_tree.get_parent () as Gtk.ScrolledWindow;
-        if (scrolled != null) {
-            dir_tree.visible = false;
-            scrolled.set_child (dir_column_view);
-        }
+        dir_scrolled.set_child (dir_column_view);
 
         tree_selection.selection_changed.connect (on_tree_selection_changed);
         dir_column_view.activate.connect (on_column_view_activated);
@@ -1306,6 +1302,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         inner_paned.notify["position"].connect (clamp_inner_paned_position);
 
         GLib.Idle.add (() => {
+            if (window_closing) return Source.REMOVE;
             measure_pane_minimums ();
             update_window_min_size ();
             clamp_outer_paned_position ();
@@ -3035,24 +3032,57 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (max_results <= 0) max_results = 500;
         if (max_depth <= 0) max_depth = 8;
 
-        // 空模式 → 匹配所有文件; PatternSpec("") 只匹配空字符串, 会导致无结果
         if (pattern.strip () == "") pattern = "*";
-        // schema 声明大小写不敏感: PatternSpec 是大小写敏感的, 转小写后匹配
-        var matcher = new PatternSpec (pattern.down ());
 
         var sb = new StringBuilder ();
         sb.append ("ROOT=").append (work_dir.get_path ()).append ("\n");
-        int count = 0;
-        int total = 0;
-        try {
+
+        if (pattern.contains ("**")) {
             string[] ignored_dirs = ConfigManager.get_ignored_dirs ();
-            list_files_recursive (work_dir.get_path (), work_dir.get_path (), 0, (int) max_depth,
-                matcher, sb, ref count, ref total, (int) max_results, ignored_dirs);
-        } catch (Error e) {
-            return "读取目录失败: " + e.message;
+            var results = GlobHelper.expand_glob (
+                work_dir.get_path (),
+                pattern,
+                (int) max_depth,
+                (int) max_results
+            );
+
+            int count = 0;
+            foreach (var path in results) {
+                if (count >= max_results) break;
+                var file = File.new_for_path (path);
+                try {
+                    var info = file.query_info (
+                        FileAttribute.STANDARD_TYPE + "," + FileAttribute.STANDARD_SIZE,
+                        FileQueryInfoFlags.NONE
+                    );
+                    string name = file.get_basename ();
+                    if (name in ignored_dirs) continue;
+                    if (info.get_file_type () == FileType.DIRECTORY) {
+                        sb.append ("DIR  ").append (rel_path (work_dir.get_path (), path)).append ("\n");
+                    } else {
+                        sb.append ("FILE ").append (rel_path (work_dir.get_path (), path))
+                          .append ("  (").append (format_size (info.get_size ())).append (")\n");
+                    }
+                    count++;
+                } catch (Error e) {
+                }
+            }
+            sb.append ("\n# total ").append (results.length.to_string ())
+              .append (" matched, listed ").append (count.to_string ());
+        } else {
+            var matcher = new PatternSpec (pattern.down ());
+            int count = 0;
+            int total = 0;
+            try {
+                string[] ignored_dirs = ConfigManager.get_ignored_dirs ();
+                list_files_recursive (work_dir.get_path (), work_dir.get_path (), 0, (int) max_depth,
+                    matcher, sb, ref count, ref total, (int) max_results, ignored_dirs);
+            } catch (Error e) {
+                return "读取目录失败: " + e.message;
+            }
+            sb.append ("\n# total ").append (total.to_string ())
+              .append (" matched, listed ").append (count.to_string ());
         }
-        sb.append ("\n# total ").append (total.to_string ())
-          .append (" matched, listed ").append (count.to_string ());
         return sb.str;
     }
 

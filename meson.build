@@ -70,6 +70,7 @@ sources = files(
   'src/services/project_manager.vala',
   'src/services/undo_manager.vala',
   'src/utils/encoding_helper.vala',
+  'src/utils/glob_helper.vala',
   'src/widgets/ai_panel.vala',
   'src/widgets/ai_settings_dialog.vala',
   'src/widgets/markdown_view.vala',
