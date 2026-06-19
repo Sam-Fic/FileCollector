@@ -3,6 +3,12 @@ public class ConfigManager : GLib.Object {
     public const string DEFAULT_AI_MODEL = "gpt-4o-mini";
     public const double DEFAULT_AI_TIMEOUT = 60.0;
 
+    // 默认忽略的目录列表
+    public const string[] DEFAULT_IGNORED_DIRS = {
+        ".git", "node_modules", "__pycache__", "build", ".venv", "venv",
+        "dist", "target", ".idea", ".vscode", "coverage"
+    };
+
     public struct AISettings {
         public bool enabled;
         public string base_url;
@@ -11,6 +17,60 @@ public class ConfigManager : GLib.Object {
         public string system_prompt_override;
         public double timeout;
     }
+
+    // ─── libsecret Schema (延迟初始化) ──────────────────────────────────
+
+    private static Secret.Schema? api_key_schema = null;
+
+    private static Secret.Schema get_api_key_schema () {
+        if (api_key_schema == null) {
+            api_key_schema = new Secret.Schema ("com.github.samfic.filecollector.api_key",
+                Secret.SchemaFlags.NONE,
+                "type", Secret.SchemaAttributeType.STRING);
+        }
+        return api_key_schema;
+    }
+
+    // ─── 密钥存储 (libsecret) ──────────────────────────────────────────
+
+    // 将 API Key 存入系统密钥环; key 为空时清除密钥环中的条目
+    private static bool store_api_key_to_keyring (string api_key) {
+        if (api_key.length > 0) {
+            try {
+                return Secret.password_store_sync (
+                    get_api_key_schema (),
+                    Secret.COLLECTION_DEFAULT,
+                    "FileCollector AI API Key",
+                    api_key,
+                    null,
+                    "type", "api_key", null);
+            } catch (Error e) {
+                warning ("Failed to store API key in keyring: %s", e.message);
+                return false;
+            }
+        } else {
+            try {
+                Secret.password_clear_sync (get_api_key_schema (), null,
+                    "type", "api_key", null);
+            } catch (Error e) {
+                warning ("Failed to clear API key from keyring: %s", e.message);
+            }
+            return true;
+        }
+    }
+
+    // 从系统密钥环读取 API Key; 失败或不存在时返回 null
+    private static string? load_api_key_from_keyring () {
+        try {
+            return Secret.password_lookup_sync (get_api_key_schema (), null,
+                "type", "api_key", null);
+        } catch (Error e) {
+            warning ("Failed to lookup API key from keyring: %s", e.message);
+            return null;
+        }
+    }
+
+    // ─── 配置目录 / 文件路径 ───────────────────────────────────────────
 
     private static string get_config_dir () {
         var dir = Environment.get_user_config_dir ();
@@ -34,39 +94,36 @@ public class ConfigManager : GLib.Object {
         return GLib.Path.build_filename (get_config_dir (), "settings.json");
     }
 
+    // ─── 全局互斥锁，保护配置文件原子操作 ──────────────────────────────
+
+    private static GLib.Mutex config_mutex;
+
+    // ─── 通用设置读写 ──────────────────────────────────────────────────
+
     public static string load_settings_language () {
-        var file = get_settings_file ();
-        if (!FileUtils.test (file, FileTest.EXISTS)) {
-            return "";
-        }
+        config_mutex.lock ();
         try {
-            string content;
-            size_t len;
-            FileUtils.get_contents (file, out content, out len);
-            var parser = new Json.Parser ();
-            parser.load_from_data (content);
-            var root = parser.get_root ().get_object ();
+            var root = load_settings_root_unlocked ();
+            if (root == null) return "";
             return root.get_string_member_with_default ("language", "");
         } catch (Error e) {
             warning ("Failed to load settings: %s", e.message);
             return "";
+        } finally {
+            config_mutex.unlock ();
         }
     }
 
     public static void save_language_setting (string lang) {
+        config_mutex.lock ();
         try {
-            // 先读取现有配置, 保留其他字段 (如 ai 设置), 只更新 language
-            Json.Object root;
-            var existing = load_settings_root ();
-            if (existing == null) {
-                root = new Json.Object ();
-            } else {
-                root = existing;
-            }
+            Json.Object root = load_settings_root_unlocked () ?? new Json.Object ();
             root.set_string_member ("language", lang);
-            write_settings_root (root);
+            write_settings_root_unlocked (root);
         } catch (Error e) {
             warning ("Failed to save language setting: %s", e.message);
+        } finally {
+            config_mutex.unlock ();
         }
     }
 
@@ -110,9 +167,51 @@ public class ConfigManager : GLib.Object {
         }
     }
 
+    // ─── 忽略目录列表读写 ────────────────────────────────────────────────
+
+    public static string[] get_ignored_dirs () {
+        config_mutex.lock ();
+        try {
+            var root = load_settings_root_unlocked ();
+            if (root != null && root.has_member ("ignored_dirs")) {
+                var arr = root.get_array_member ("ignored_dirs");
+                if (arr != null && arr.get_length () > 0) {
+                    string[] result = new string[arr.get_length ()];
+                    for (int i = 0; i < arr.get_length (); i++) {
+                        result[i] = arr.get_string_element (i);
+                    }
+                    return result;
+                }
+            }
+        } catch (Error e) {
+            warning ("Failed to load ignored_dirs: %s", e.message);
+        } finally {
+            config_mutex.unlock ();
+        }
+        return DEFAULT_IGNORED_DIRS;
+    }
+
+    public static void save_ignored_dirs (string[] dirs) {
+        config_mutex.lock ();
+        try {
+            Json.Object root = load_settings_root_unlocked () ?? new Json.Object ();
+            var arr = new Json.Array ();
+            foreach (var dir in dirs) {
+                arr.add_string_element (dir);
+            }
+            root.set_member ("ignored_dirs", AI.SchemaHelper.arr_to_node (arr));
+            write_settings_root_unlocked (root);
+        } catch (Error e) {
+            warning ("Failed to save ignored_dirs: %s", e.message);
+        } finally {
+            config_mutex.unlock ();
+        }
+    }
+
     // ─── AI 设置读写 ─────────────────────────────────────────────────────
 
-    private static Json.Object? load_settings_root () throws Error {
+    // 不加锁的内部读取
+    private static Json.Object? load_settings_root_unlocked () throws Error {
         var file = get_settings_file ();
         if (!FileUtils.test (file, FileTest.EXISTS)) {
             return null;
@@ -128,7 +227,8 @@ public class ConfigManager : GLib.Object {
         return parser.get_root ().get_object ();
     }
 
-    private static void write_settings_root (Json.Object root) throws Error {
+    // 不加锁的内部写入
+    private static void write_settings_root_unlocked (Json.Object root) throws Error {
         var gen = new Json.Generator ();
         gen.set_root (AI.SchemaHelper.obj_to_node (root));
         gen.pretty = true;
@@ -144,44 +244,64 @@ public class ConfigManager : GLib.Object {
             system_prompt_override = "",
             timeout = DEFAULT_AI_TIMEOUT
         };
+        config_mutex.lock ();
         try {
-            var root = load_settings_root ();
+            var root = load_settings_root_unlocked ();
             if (root == null) return defaults;
             var ai = root.get_object_member ("ai");
             if (ai == null) return defaults;
             defaults.enabled = ai.get_boolean_member_with_default ("enabled", false);
             defaults.base_url = ai.get_string_member_with_default ("base_url", DEFAULT_AI_BASE_URL);
-            defaults.api_key = ai.get_string_member_with_default ("api_key", "");
             defaults.model = ai.get_string_member_with_default ("model", DEFAULT_AI_MODEL);
             defaults.system_prompt_override = ai.get_string_member_with_default (
                 "system_prompt_override", "");
             defaults.timeout = ai.get_double_member_with_default ("timeout", DEFAULT_AI_TIMEOUT);
+
+            // API Key: 优先从系统密钥环读取
+            string? keyring_key = load_api_key_from_keyring ();
+            if (keyring_key != null && keyring_key.length > 0) {
+                defaults.api_key = keyring_key;
+            } else {
+                // 迁移: 如果密钥环中没有, 但 JSON 中有明文密钥, 迁移到密钥环并清除明文
+                string json_key = ai.get_string_member_with_default ("api_key", "");
+                if (json_key.length > 0) {
+                    defaults.api_key = json_key;
+                    if (store_api_key_to_keyring (json_key)) {
+                        // 迁移成功, 清除 JSON 中的明文密钥
+                        ai.set_string_member ("api_key", "");
+                        write_settings_root_unlocked (root);
+                    }
+                }
+            }
         } catch (Error e) {
             warning ("Failed to load AI settings: %s", e.message);
+        } finally {
+            config_mutex.unlock ();
         }
         return defaults;
     }
 
     public static void save_ai_settings (AISettings s) {
+        config_mutex.lock ();
         try {
-            Json.Object root;
-            var existing = load_settings_root ();
-            if (existing == null) {
-                root = new Json.Object ();
-            } else {
-                root = existing;
-            }
+            Json.Object root = load_settings_root_unlocked () ?? new Json.Object ();
             var ai = new Json.Object ();
             ai.set_boolean_member ("enabled", s.enabled);
             ai.set_string_member ("base_url", s.base_url ?? "");
-            ai.set_string_member ("api_key", s.api_key ?? "");
+            // API Key 不再写入 JSON, 改用系统密钥环存储
+            ai.set_string_member ("api_key", "");
             ai.set_string_member ("model", s.model ?? "");
             ai.set_string_member ("system_prompt_override", s.system_prompt_override ?? "");
             ai.set_double_member ("timeout", s.timeout > 0 ? s.timeout : DEFAULT_AI_TIMEOUT);
             root.set_member ("ai", AI.SchemaHelper.obj_to_node (ai));
-            write_settings_root (root);
+            write_settings_root_unlocked (root);
+
+            // 将 API Key 存入系统密钥环 (libsecret)
+            store_api_key_to_keyring (s.api_key ?? "");
         } catch (Error e) {
             warning ("Failed to save AI settings: %s", e.message);
+        } finally {
+            config_mutex.unlock ();
         }
     }
 }
