@@ -13,6 +13,13 @@ public class MarkdownView : Gtk.Box {
     }
 
     private void build (string markdown) {
+        // 防止极长/畸形 Markdown 导致解析资源耗尽: 超过 1MB 降级为纯文本
+        const size_t MAX_MARKDOWN_BYTES = 1024 * 1024;
+        if (markdown.length > (int) MAX_MARKDOWN_BYTES) {
+            append (make_label (markdown.substring (0, 1000) + "\n…(内容过长, 已截断)", false));
+            return;
+        }
+
         // 注册 GFM 核心扩展 (table, strikethrough 等), 只需一次
         if (!extensions_registered) {
             Cmark.core_extensions_ensure_registered ();
@@ -34,15 +41,20 @@ public class MarkdownView : Gtk.Box {
             append (make_label (markdown, false));
             return;
         }
-        unowned Cmark.Node? child = doc.first_child ();
-        while (child != null) {
-            var widget = build_block (child);
-            if (widget != null) append (widget);
-            child = child.next ();
+        // try-finally 确保 AST 在任何退出路径 (含异常) 下都被释放.
+        // Vala 编译器已为 owned Compact 变量自动生成 finally 释放, 此处显式标注以明确意图.
+        try {
+            unowned Cmark.Node? child = doc.first_child ();
+            while (child != null) {
+                var widget = build_block (child);
+                if (widget != null) append (widget);
+                child = child.next ();
+            }
+        } finally {
+            // doc 为 owned Compact 实例: 作用域结束时 Vala 自动调用 cmark_node_free,
+            // 该函数会递归释放整棵 AST (所有子节点), 无需手动管理.
+            // parser 同理, 由 cmark_parser_free 在作用域结束时释放.
         }
-        // doc 为 owned Compact 实例: 作用域结束时 Vala 自动调用 cmark_node_free,
-        // 该函数会递归释放整棵 AST (所有子节点), 无需手动管理.
-        // parser 同理, 由 cmark_parser_free 在作用域结束时释放.
     }
 
     // ── 块级元素 ──────────────────────────────────────────────────
