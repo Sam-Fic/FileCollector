@@ -378,7 +378,7 @@ public class AIClient : GLib.Object {
                     uint8[] raw = resp_bytes.get_data ();
                     int safe_len = (int) int64.min (resp_bytes.length, 4096);
                     detail = ((string) raw).substring (0, safe_len);
-                } catch (Error e) { /* ignore */ }
+                } catch (Error e) { warning ("Failed to read error response body: %s", e.message); }
                 if (detail.length > 500) detail = detail.substring (0, 500);
             }
             throw new AIClientError.HTTP (

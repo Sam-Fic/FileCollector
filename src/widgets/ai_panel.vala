@@ -288,9 +288,15 @@ public class AIPanel : GLib.Object {
 
         lbl_model.set_text (model_str.length > 0 ? model_str : _("未配置模型"));
         bool has_config = base_url_str.length > 0 && api_key_str.length > 0 && model_str.length > 0;
+
+        bool was_enabled = this.ai_enabled;
         this.ai_enabled = ai.enabled;
+
         if (has_config && ai.enabled) {
             client = new AIClient (base_url_str, api_key_str, model_str, timeout_v);
+            if (!was_enabled && ai.enabled) {
+                pending_welcome = true;
+            }
         } else {
             client = null;
         }
@@ -308,10 +314,19 @@ public class AIPanel : GLib.Object {
         if (request_cancellable != null) {
             request_cancellable.cancel ();
         }
+        // 唤醒可能在 invoke_on_main_sync 中等待主线程的 worker 线程, 防止 join 死锁
+        main_sync_mutex.lock ();
+        main_sync_cond.broadcast ();
+        main_sync_mutex.unlock ();
         if (worker_thread != null) {
             worker_thread.join ();
             worker_thread = null;
         }
+    }
+
+    // 供外部 (如 FileCollectorWindow) 查询 AI 是否已被用户停止
+    public bool is_stop_requested () {
+        return stop_requested;
     }
 
 
@@ -862,6 +877,8 @@ public class AIPanel : GLib.Object {
         // tool_executor 内部已用 Idle.add + Cond 跨线程, 必须从 worker 线程调用,
         // 否则会死锁 (主线程阻塞等待 Cond, Idle 永远无法执行).
 
+        if (stop_requested) return;
+
         // 数据: 构建 assistant 消息并写入历史 (纯数据操作, 线程安全)
         var assistant_msg = new Json.Object ();
         assistant_msg.set_string_member ("role", "assistant");
@@ -894,9 +911,12 @@ public class AIPanel : GLib.Object {
             });
         }
 
+        if (stop_requested) return;
+
         if (result.tool_calls.size > 0) {
             // tool_executor 在 worker 线程调用 (内部 Idle+Cond 跨线程同步)
             foreach (var tc in result.tool_calls) {
+                if (stop_requested) break;
                 string args_repr = format_tool_args (tc.name, tc.arguments_json);
                 var args_node = parse_args (tc.arguments_json);
                 string result_str;
@@ -909,6 +929,7 @@ public class AIPanel : GLib.Object {
                 } catch (Error e) {
                     result_str = _("执行出错: %s").printf (e.message);
                 }
+                if (stop_requested) break;
                 // 渲染工具结果回到主线程
                 string tname = tc.name;
                 string trepr = args_repr;
@@ -921,9 +942,11 @@ public class AIPanel : GLib.Object {
                 messages_lock.unlock ();
             }
             // 继续下一轮让 LLM 总结 (next_turn 会操作 GTK, 必须在主线程)
-            invoke_on_main_sync (() => {
-                next_turn ();
-            });
+            if (!stop_requested) {
+                invoke_on_main_sync (() => {
+                    next_turn ();
+                });
+            }
         } else {
             invoke_on_main_sync (() => {
                 set_busy (false);
@@ -944,14 +967,17 @@ public class AIPanel : GLib.Object {
         main_sync_mutex.lock ();
         main_sync_done = false;
         GLib.Idle.add (() => {
-            task ();
+            // stop_requested 时跳过 GTK 操作, 避免在窗口销毁后访问 widget
+            if (!stop_requested) {
+                task ();
+            }
             main_sync_mutex.lock ();
             main_sync_done = true;
             main_sync_cond.broadcast ();
             main_sync_mutex.unlock ();
             return GLib.Source.REMOVE;
         });
-        while (!main_sync_done) {
+        while (!main_sync_done && !stop_requested) {
             main_sync_cond.wait (main_sync_mutex);
         }
         main_sync_mutex.unlock ();
@@ -966,7 +992,7 @@ public class AIPanel : GLib.Object {
             if (root != null && root.get_node_type () == Json.NodeType.OBJECT) {
                 return root;
             }
-        } catch (Error e) { /* ignore */ }
+        } catch (Error e) { warning ("Failed to parse JSON args: %s", e.message); }
         return AI.SchemaHelper.obj_to_node (new Json.Object ());
     }
 

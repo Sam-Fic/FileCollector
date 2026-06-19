@@ -28,6 +28,7 @@ public class AISettingsDialog : GLib.Object {
     private Adw.EntryRow edit_model;
     private Adw.SpinRow spin_timeout;
     private Adw.EntryRow edit_prompt;
+    private Adw.EntryRow edit_ignored_dirs;
     private Gtk.Button btn_test;
     private Adw.ToastOverlay toast_overlay;
 
@@ -35,6 +36,8 @@ public class AISettingsDialog : GLib.Object {
 
     // 测试连接用的 Session: 提升为成员变量, 避免异步请求完成前局部变量超出作用域被回收
     private Soup.Session? test_session = null;
+    // 测试连接用的 Cancellable: 关闭对话框时取消请求, 防止回调访问已销毁的 widget
+    private GLib.Cancellable? test_cancellable = null;
 
     public AISettingsDialog (Gtk.Window? parent) {
         this.parent_window = parent;
@@ -146,6 +149,37 @@ public class AISettingsDialog : GLib.Object {
         test_row.add_suffix (btn_test);
         advanced_group.add (test_row);
 
+        // 扫描忽略目录组
+        var ignored_group = new Adw.PreferencesGroup ();
+        ignored_group.set_title (_("扫描忽略目录"));
+        ignored_group.set_description (
+            _("AI 扫描工作目录时将跳过这些目录名，用英文逗号分隔。"));
+        prefs_page.add (ignored_group);
+
+        var ignored_row = new Adw.EntryRow ();
+        ignored_row.set_title (_("忽略的目录名"));
+        ignored_row.set_show_apply_button (false);
+        string[] current_ignored = ConfigManager.get_ignored_dirs ();
+        ignored_row.set_text (string.joinv (", ", current_ignored));
+        edit_ignored_dirs = ignored_row;
+        ignored_group.add (ignored_row);
+
+        // 安全警告组
+        var security_group = new Adw.PreferencesGroup ();
+        security_group.set_title (_("安全警告"));
+        prefs_page.add (security_group);
+
+        var security_row = new Adw.ActionRow ();
+        security_row.set_title (_("HTTP 端点安全风险"));
+        security_row.set_subtitle (_("使用 HTTP (非 HTTPS) 端点时，API 密钥将在网络中明文传输，存在安全风险。"));
+
+        var warning_icon = new Gtk.Image.from_icon_name ("dialog-warning-symbolic");
+        warning_icon.add_css_class ("warning");
+        warning_icon.valign = Gtk.Align.CENTER;
+        security_row.add_prefix (warning_icon);
+
+        security_group.add (security_row);
+
         // Toast overlay
         toast_overlay = new Adw.ToastOverlay ();
         toast_overlay.set_child (prefs_page);
@@ -156,6 +190,15 @@ public class AISettingsDialog : GLib.Object {
         btn_test.clicked.connect (on_test);
 
         window.close_request.connect (() => {
+            // 取消正在进行的测试请求, 防止回调访问已销毁的 widget
+            if (test_cancellable != null) {
+                test_cancellable.cancel ();
+                test_cancellable = null;
+            }
+            if (test_session != null) {
+                test_session.abort ();
+                test_session = null;
+            }
             window = null;
             return false;
         });
@@ -183,8 +226,55 @@ public class AISettingsDialog : GLib.Object {
     }
 
     private void on_save () {
-        current = collect_from_ui ();
+        var s = collect_from_ui ();
+        if (s.base_url.has_prefix ("http://") && !s.base_url.has_prefix ("https://")) {
+            show_http_warning_dialog (s);
+        } else {
+            save_settings (s);
+        }
+    }
+
+    private void show_http_warning_dialog (ConfigManager.AISettings s) {
+        var warning_dialog = new Adw.AlertDialog (
+            _("安全警告"),
+            _("您正在配置 HTTP (非 HTTPS) 端点。\n\n"
+              + "这将导致 API 密钥在传输过程中以明文形式发送，存在被第三方截获的风险。\n\n"
+              + "建议使用 HTTPS 端点以确保安全。\n\n"
+              + "是否仍要继续保存？")
+        );
+
+        warning_dialog.add_response ("cancel", _("取消"));
+        warning_dialog.add_response ("continue", _("继续保存"));
+        warning_dialog.set_response_appearance ("continue", Adw.ResponseAppearance.DESTRUCTIVE);
+        warning_dialog.set_default_response ("cancel");
+        warning_dialog.set_close_response ("cancel");
+
+        warning_dialog.response.connect ((response) => {
+            if (response == "continue") {
+                save_settings (s);
+            }
+            warning_dialog.destroy ();
+        });
+
+        warning_dialog.present (window);
+    }
+
+    private void save_settings (ConfigManager.AISettings s) {
+        current = s;
         ConfigManager.save_ai_settings (current);
+
+        // 保存忽略目录列表
+        string raw_text = edit_ignored_dirs.get_text ();
+        string[] parts = raw_text.split (",");
+        var clean_list = new GenericArray<string> ();
+        foreach (unowned string p in parts) {
+            string trimmed = p.strip ();
+            if (trimmed.length > 0) {
+                clean_list.add (trimmed);
+            }
+        }
+        ConfigManager.save_ignored_dirs (clean_list.data);
+
         settings_changed ();
         window.close ();
     }
@@ -208,6 +298,7 @@ public class AISettingsDialog : GLib.Object {
         // Session 存为成员变量, 确保异步回调执行时引用仍然有效
         test_session = new Soup.Session ();
         test_session.timeout = (uint) (s.timeout > 0 ? s.timeout : 60.0);
+        test_cancellable = new GLib.Cancellable ();
 
         var payload = new Json.Object ();
         payload.set_string_member ("model", s.model);
@@ -232,7 +323,7 @@ public class AISettingsDialog : GLib.Object {
         msg.request_headers.append ("Content-Type", "application/json");
         msg.request_headers.append ("Authorization", "Bearer " + s.api_key);
 
-        test_session.send_and_read_async (msg, GLib.Priority.DEFAULT, null, (obj, res) => {
+        test_session.send_and_read_async (msg, GLib.Priority.DEFAULT, test_cancellable, (obj, res) => {
             on_test_done (test_session, msg, res);
         });
     }
@@ -245,6 +336,12 @@ public class AISettingsDialog : GLib.Object {
     }
 
     private void on_test_done (Soup.Session session, Soup.Message msg, AsyncResult res) {
+        // 窗口已关闭时不再访问 widget, 防止 use-after-free
+        if (window == null) {
+            test_session = null;
+            test_cancellable = null;
+            return;
+        }
         btn_test.set_sensitive (true);
         try {
             var bytes = session.send_and_read_async.end (res);
@@ -258,7 +355,7 @@ public class AISettingsDialog : GLib.Object {
                         uint8[] raw = bytes.get_data ();
                         int safe_len = (int) int64.min (bytes.length, 4096);
                         detail = ((string) raw).substring (0, safe_len);
-                    } catch (Error e) { /* ignore */ }
+                    } catch (Error e) { warning ("Failed to read error response body: %s", e.message); }
                     if (detail.length > 200) detail = detail.substring (0, 200) + "…";
                 }
                 string phrase = Soup.status_get_phrase (status);
