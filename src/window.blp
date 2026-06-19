@@ -223,7 +223,7 @@ title: _("FileCollector - 文件收集与编排工具");
                 css-classes: ["destructive-action"];
                 Box {
                   spacing: 4;
-                  Image { icon-name: "user-trash-symbolic"; }
+                  Image { icon-name: "edit-clear-symbolic"; }
                   Label { label: _("删除"); }
                 }
               }
@@ -231,7 +231,7 @@ title: _("FileCollector - 文件收集与编排工具");
                 css-classes: ["destructive-action"];
                 Box {
                   spacing: 4;
-                  Image { icon-name: "edit-clear-symbolic"; }
+                  Image { icon-name: "user-trash-symbolic"; }
                   Label { label: _("清空"); }
                 }
               }
@@ -244,7 +244,22 @@ title: _("FileCollector - 文件收集与编排工具");
               margin-top: 6;
               margin-start: 12;
               margin-end: 12;
-              CheckButton check_absolute_path { label: _("使用绝对路径"); }
+
+              Box {
+                orientation: horizontal;
+                spacing: 12;
+                halign: start;
+
+                CheckButton radio_relative_path {
+                  label: _("使用相对路径");
+                }
+
+                CheckButton radio_absolute_path {
+                  label: _("使用绝对路径");
+                  group: radio_relative_path;
+                }
+              }
+
               CheckButton check_write_header { label: _("在文件头部标注工作目录信息"); }
             }
 
