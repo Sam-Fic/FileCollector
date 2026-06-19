@@ -32,12 +32,42 @@ public class FileGenerator : GLib.Object {
                     }
                 }
                 dis.put_string ("%s:\n".printf (display));
-                string content;
-                size_t len;
-                FileUtils.get_contents (data.file_path, out content, out len);
-                dis.put_string (content);
+
+                // 以 uint8[] 原始字节流载入, 防止 \0 截断 (FileUtils.get_contents 的
+                // string 重载遇到二进制文件会丢失 \0 之后的内容)
+                uint8[] raw_contents;
+                if (FileUtils.get_data (data.file_path, out raw_contents)) {
+                    size_t raw_len = raw_contents.length;
+
+                    // 扫描前 2048 字节判定是否为二进制文件 (含 NULL 字节)
+                    bool is_binary = false;
+                    size_t check_len = size_t.min (raw_len, 2048);
+                    for (size_t j = 0; j < check_len; j++) {
+                        if (raw_contents[j] == 0) {
+                            is_binary = true;
+                            break;
+                        }
+                    }
+
+                    if (is_binary) {
+                        dis.put_string (_("[检测到二进制文件: 已跳过文本内容读取]\n"));
+                    } else {
+                        // 构建带安全终止符的副本, 防止越界
+                        uint8[] safe_buf = new uint8[raw_len + 1];
+                        Memory.copy (safe_buf, raw_contents, raw_len);
+                        safe_buf[raw_len] = 0;
+
+                        string text_content = (string) safe_buf;
+                        if (text_content.validate ()) {
+                            dis.put_string (text_content);
+                        } else {
+                            // 非 UTF-8 异常字节: 柔性容错而非硬性崩坏
+                            dis.put_string (text_content.make_valid ());
+                        }
+                    }
+                }
             } else {
-                dis.put_string (data.content);
+                dis.put_string (data.content ?? "");
             }
         }
     }
