@@ -1,21 +1,54 @@
+// ─── Diff-based 撤销系统 ──────────────────────────────────────────────
+// 用轻量差异 (UndoDelta) 替代全量快照 (UndoState), 避免大列表深拷贝导致内存膨胀。
+// 常见操作 (插入/删除/编辑/交换/移动/设置模式) 仅存储变更部分;
+// 复杂操作 (清空/批量应用/切换工作目录) 仍回退到全量快照。
+
+public enum UndoOp {
+    SNAPSHOT,       // 全量快照 (复杂操作回退)
+    INSERT,         // 在 index 处插入了 items
+    REMOVE,         // 在 index 处移除了 items (含可能被同步移除的 checked_paths)
+    EDIT,           // items[index] 的 content 从 old_content 变为 new_content
+    SWAP,           // items[index] 与 items[index2] 互换
+    MOVE,           // items 从 from_index 移到 to_index
+    SET_ABSOLUTE,   // use_absolute 变更 (可能连带 show_header)
+    SET_HEADER;     // show_header 变更
+}
+
+// ─── 全量快照 (仅 SNAPSHOT 使用) ─────────────────────────────────────
+// 使用紧凑的并行数组存储, 避免为每个条目创建 GObject 实例;
+// 字符串通过引用计数共享, 无需深拷贝。
+
 public class UndoState : GLib.Object {
-    public GenericArray<ItemData> items { get; private set; }
+    internal string[] _types;
+    internal string?[] _paths;
+    internal string?[] _contents;
+    internal bool[] _force_abs;
     public HashTable<string, bool> checked_paths { get; private set; }
     public HashTable<string, bool> checked_dirs { get; private set; }
+    public File? work_dir { get; private set; }
     public bool use_absolute { get; private set; }
     public bool show_header { get; private set; }
+    public int n_items { get { return _types.length; } }
 
     public UndoState (
         GenericArray<ItemData> src_items,
         HashTable<string, bool> src_checked_paths,
         HashTable<string, bool> src_checked_dirs,
+        File? src_work_dir,
         bool src_use_absolute,
         bool src_show_header
     ) {
-        items = new GenericArray<ItemData> ();
-        for (int i = 0; i < src_items.length; i++) {
+        int n = (int) src_items.length;
+        _types = new string[n];
+        _paths = new string?[n];
+        _contents = new string?[n];
+        _force_abs = new bool[n];
+        for (int i = 0; i < n; i++) {
             var it = src_items.get (i);
-            items.add (new ItemData (it.item_type, it.file_path, it.content, it.force_absolute));
+            _types[i] = it.item_type;        // 引用共享
+            _paths[i] = it.file_path;
+            _contents[i] = it.content;
+            _force_abs[i] = it.force_absolute;
         }
         checked_paths = new HashTable<string, bool> (str_hash, str_equal);
         foreach (var key in src_checked_paths.get_keys ()) {
@@ -25,30 +58,125 @@ public class UndoState : GLib.Object {
         foreach (var key in src_checked_dirs.get_keys ()) {
             checked_dirs.insert (key, true);
         }
+        work_dir = src_work_dir;
         use_absolute = src_use_absolute;
         show_header = src_show_header;
     }
+
+    public ItemData get_item (int index) {
+        return new ItemData (_types[index], _paths[index], _contents[index], _force_abs[index]);
+    }
 }
+
+// ─── 差异记录 ─────────────────────────────────────────────────────────
+
+public class UndoDelta : GLib.Object {
+    public UndoOp op { get; set; }
+
+    // SNAPSHOT
+    public UndoState? snapshot { get; set; }
+
+    // INSERT / REMOVE: 起始索引 + 涉及的条目
+    public int index { get; set; }
+    public GenericArray<ItemData>? items { get; set; }
+
+    // REMOVE: 被同步移除的 checked_paths (仅文件条目)
+    public GenericArray<string>? removed_checked_paths { get; set; }
+
+    // EDIT: 索引 + 旧/新内容
+    public string? old_content { get; set; }
+    public string? new_content { get; set; }
+
+    // SWAP: 两个索引
+    public int index2 { get; set; }
+
+    // MOVE: from → to
+    public int from_index { get; set; }
+    public int to_index { get; set; }
+
+    // SET_ABSOLUTE / SET_HEADER: 旧/新值
+    public bool old_bool_value { get; set; }
+    public bool new_bool_value { get; set; }
+    // SET_ABSOLUTE 连带保存旧 show_header
+    public bool old_show_header { get; set; }
+
+    // ─── 便捷构造 ──────────────────────────────────────────────────
+
+    public UndoDelta.for_snapshot (UndoState state) {
+        op = UndoOp.SNAPSHOT;
+        snapshot = state;
+    }
+
+    public UndoDelta.for_insert (int idx, GenericArray<ItemData> inserted) {
+        op = UndoOp.INSERT;
+        index = idx;
+        items = inserted;
+    }
+
+    public UndoDelta.for_remove (int idx, GenericArray<ItemData> removed,
+                                  owned GenericArray<string>? rm_checked = null) {
+        op = UndoOp.REMOVE;
+        index = idx;
+        items = removed;
+        removed_checked_paths = rm_checked;
+    }
+
+    public UndoDelta.for_edit (int idx, string old_c, string new_c) {
+        op = UndoOp.EDIT;
+        index = idx;
+        old_content = old_c;
+        new_content = new_c;
+    }
+
+    public UndoDelta.for_swap (int idx1, int idx2) {
+        op = UndoOp.SWAP;
+        index = idx1;
+        index2 = idx2;
+    }
+
+    public UndoDelta.for_move (int from, int to) {
+        op = UndoOp.MOVE;
+        from_index = from;
+        to_index = to;
+    }
+
+    public UndoDelta.for_absolute (bool old_abs, bool new_abs,
+                                    bool old_hdr, bool new_hdr) {
+        op = UndoOp.SET_ABSOLUTE;
+        old_bool_value = old_abs;
+        new_bool_value = new_abs;
+        old_show_header = old_hdr;
+        // new_show_header 不单独存: undo 时恢复 old_show_header 即可
+    }
+
+    public UndoDelta.for_header (bool old_val, bool new_val) {
+        op = UndoOp.SET_HEADER;
+        old_bool_value = old_val;
+        new_bool_value = new_val;
+    }
+}
+
+// ─── 撤销管理器 ──────────────────────────────────────────────────────
 
 public class UndoManager : GLib.Object {
     public bool can_undo { get { return undo_stack.length > 0; } }
     public bool can_redo { get { return redo_stack.length > 0; } }
 
-    private GenericArray<UndoState> undo_stack;
-    private GenericArray<UndoState> redo_stack;
+    private GenericArray<UndoDelta> undo_stack;
+    private GenericArray<UndoDelta> redo_stack;
     private bool in_progress = false;
     private const int MAX_STACK_DEPTH = 50;
 
     public signal void state_changed ();
 
     public UndoManager () {
-        undo_stack = new GenericArray<UndoState> ();
-        redo_stack = new GenericArray<UndoState> ();
+        undo_stack = new GenericArray<UndoDelta> ();
+        redo_stack = new GenericArray<UndoDelta> ();
     }
 
-    public void push (UndoState state) {
+    public void push (UndoDelta delta) {
         if (in_progress) return;
-        undo_stack.add (state);
+        undo_stack.add (delta);
         if (undo_stack.length > MAX_STACK_DEPTH) {
             undo_stack.remove_index (0);
         }
@@ -56,26 +184,34 @@ public class UndoManager : GLib.Object {
         state_changed ();
     }
 
-    public UndoState? undo (UndoState current) {
+    public UndoDelta? pop_undo () {
         if (undo_stack.length == 0) return null;
-        redo_stack.add (current);
-        var state = undo_stack.get ((int) undo_stack.length - 1);
+        var delta = undo_stack.get ((int) undo_stack.length - 1);
         undo_stack.remove_index ((int) undo_stack.length - 1);
         in_progress = true;
         state_changed ();
         in_progress = false;
-        return state;
+        return delta;
     }
 
-    public UndoState? redo (UndoState current) {
+    public void push_redo (UndoDelta delta) {
+        redo_stack.add (delta);
+        state_changed ();
+    }
+
+    public void push_undo (UndoDelta delta) {
+        undo_stack.add (delta);
+        state_changed ();
+    }
+
+    public UndoDelta? pop_redo () {
         if (redo_stack.length == 0) return null;
-        undo_stack.add (current);
-        var state = redo_stack.get ((int) redo_stack.length - 1);
+        var delta = redo_stack.get ((int) redo_stack.length - 1);
         redo_stack.remove_index ((int) redo_stack.length - 1);
         in_progress = true;
         state_changed ();
         in_progress = false;
-        return state;
+        return delta;
     }
 
     public void clear () {
