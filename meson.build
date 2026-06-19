@@ -10,6 +10,7 @@ dependency('libadwaita-1', version: '>= 1.5')
 dependency('json-glib-1.0')
 dependency('libsoup-3.0')
 dependency('gee-0.8')
+dependency('libsecret-1')
 
 # cmark-gfm (GitHub Flavored Markdown) — 用于 AI 聊天气泡的 Markdown 渲染 (含表格)
 # 不用 dependency() 避免 meson 自动注入错误的 --pkg 名
@@ -68,7 +69,6 @@ sources = files(
   'src/services/file_generator.vala',
   'src/services/project_manager.vala',
   'src/services/undo_manager.vala',
-  'src/utils/tree_helper.vala',
   'src/utils/encoding_helper.vala',
   'src/widgets/ai_panel.vala',
   'src/widgets/ai_settings_dialog.vala',
@@ -99,6 +99,7 @@ executable('filecollector',
     dependency('json-glib-1.0'),
     dependency('libsoup-3.0'),
     dependency('gee-0.8'),
+    dependency('libsecret-1'),
     cmark_dep,
     cmark_ext_dep
   ],
@@ -106,7 +107,8 @@ executable('filecollector',
     '--header', 'filecollector_types.h',
     '--includedir', meson.current_build_dir (),
     '--vapidir', join_paths(meson.current_source_dir(), 'src', 'vapi'),
-    '--pkg', 'cmark'
+    '--pkg', 'cmark',
+    '--pkg', 'libsecret-1'
   ],
   install: true
 )
