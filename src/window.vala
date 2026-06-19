@@ -10,24 +10,59 @@ using Json;
 public class CheckStateModel : GLib.Object {
     // 唯一的状态存储: 已勾选的文件绝对路径
     public HashTable<string, bool> checked_files { get; private set; }
+    // 被用户整体勾选的目录路径 (用于懒加载未展开目录的状态推导)
+    public HashTable<string, bool> checked_dirs { get; private set; }
 
     public signal void changed ();
 
+    // 缓存所有包含已选文件的祖先目录, 用于 O(1) 查询 has_checked_descendant
+    private HashTable<string, bool> implicit_checked_dirs;
+
     public CheckStateModel () {
         checked_files = new HashTable<string, bool> (str_hash, str_equal);
+        checked_dirs = new HashTable<string, bool> (str_hash, str_equal);
+        implicit_checked_dirs = new HashTable<string, bool> (str_hash, str_equal);
     }
 
     public void clear () {
         checked_files.remove_all ();
+        checked_dirs.remove_all ();
+        implicit_checked_dirs.remove_all ();
         changed ();
     }
 
-    public void replace_from (HashTable<string, bool> other) {
+    public void replace_from (HashTable<string, bool> other_files, HashTable<string, bool>? other_dirs = null) {
         checked_files.remove_all ();
-        foreach (var k in other.get_keys ()) {
+        implicit_checked_dirs.remove_all ();
+        foreach (var k in other_files.get_keys ()) {
             checked_files.insert (k, true);
+            add_to_implicit_dirs (k);
+        }
+        checked_dirs.remove_all ();
+        if (other_dirs != null) {
+            foreach (var k in other_dirs.get_keys ()) {
+                checked_dirs.insert (k, true);
+            }
         }
         changed ();
+    }
+
+    public void set_dir_checked (string path, bool value) {
+        if (value) {
+            checked_dirs.insert (path, true);
+        } else {
+            checked_dirs.remove (path);
+        }
+    }
+
+    // 将指定路径的所有祖先目录从 checked_dirs 中移除 (子节点局部变更时, 祖先降级用)
+    public void remove_ancestors_from_checked_dirs (string path) {
+        var file = File.new_for_path (path);
+        var parent = file.get_parent ();
+        while (parent != null) {
+            checked_dirs.remove (parent.get_path ());
+            parent = parent.get_parent ();
+        }
     }
 
     // 计算节点的三态: 0=未勾选, 1=部分勾选, 2=全勾选
@@ -39,12 +74,39 @@ public class CheckStateModel : GLib.Object {
     }
 
     private int compute_dir_state (DirectoryItem item) {
-        var stats = new FileStats ();
-        collect_file_stats (item, stats);
-        if (stats.total == 0) return 0;
-        if (stats.checked_count == 0) return 0;
-        if (stats.checked_count == stats.total) return 2;
-        return 1;
+        bool is_loaded = (item.children.get_n_items () > 0);
+        bool in_checked_dirs = item.path in checked_dirs;
+        bool has_checked = has_checked_descendant (item.path);
+
+        if (is_loaded) {
+            var stats = new FileStats ();
+            collect_file_stats (item, stats);
+
+            if (stats.total > 0) {
+                if (in_checked_dirs) {
+                    if (stats.checked_count < stats.total) return 1;
+                    return 2;
+                }
+                if (stats.checked_count == 0) {
+                    return has_checked ? 1 : 0;
+                }
+                if (stats.checked_count == stats.total) {
+                    return 1;
+                }
+                return 1;
+            } else {
+                if (in_checked_dirs) return 2;
+                return has_checked ? 1 : 0;
+            }
+        } else {
+            if (in_checked_dirs) return 2;
+            return has_checked ? 1 : 0;
+        }
+    }
+
+    // O(1) 查询: 利用 implicit_checked_dirs 缓存
+    public bool has_checked_descendant (string dir_path) {
+        return dir_path in implicit_checked_dirs;
     }
 
     private void collect_file_stats (DirectoryItem item, FileStats stats) {
@@ -63,16 +125,41 @@ public class CheckStateModel : GLib.Object {
         public int checked_count = 0;
     }
 
+    // ── implicit_checked_dirs 缓存维护 ──────────────────────────────────
+
+    private void add_to_implicit_dirs (string path) {
+        var file = File.new_for_path (path);
+        var parent = file.get_parent ();
+        while (parent != null) {
+            string p = parent.get_path ();
+            if (p in implicit_checked_dirs) break;
+            implicit_checked_dirs.insert (p, true);
+            parent = parent.get_parent ();
+        }
+    }
+
+    private void rebuild_implicit_dirs () {
+        implicit_checked_dirs.remove_all ();
+        checked_files.foreach ((key, val) => {
+            add_to_implicit_dirs ((string)key);
+        });
+    }
+
+    // ── 文件/目录勾选操作 ──────────────────────────────────────────────
+
     // 切换文件勾选状态, 返回新状态
     public bool toggle_file (string path) {
-        if (path in checked_files) {
+        bool is_checked = path in checked_files;
+        if (is_checked) {
             checked_files.remove (path);
-            changed ();
-            return false;
+            rebuild_implicit_dirs ();
+        } else {
+            checked_files.insert (path, true);
+            add_to_implicit_dirs (path);
         }
-        checked_files.insert (path, true);
+        remove_ancestors_from_checked_dirs (path);
         changed ();
-        return true;
+        return !is_checked;
     }
 
     // 设置目录的勾选状态 (递归应用到所有后代文件)
@@ -81,13 +168,17 @@ public class CheckStateModel : GLib.Object {
             if (value) {
                 if (!(item.path in checked_files)) {
                     checked_files.insert (item.path, true);
+                    add_to_implicit_dirs (item.path);
                 }
             } else {
                 checked_files.remove (item.path);
+                rebuild_implicit_dirs ();
             }
             return;
         }
+        set_dir_checked (item.path, value);
         set_subtree_files (item, value);
+        rebuild_implicit_dirs ();
         changed ();
     }
 
@@ -114,6 +205,8 @@ public class CheckStateModel : GLib.Object {
         foreach (var p in paths) {
             if (!(p in checked_files)) {
                 checked_files.insert (p, true);
+                add_to_implicit_dirs (p);
+                remove_ancestors_from_checked_dirs (p);
                 any = true;
             }
         }
@@ -125,10 +218,14 @@ public class CheckStateModel : GLib.Object {
         foreach (var p in paths) {
             if (p in checked_files) {
                 checked_files.remove (p);
+                remove_ancestors_from_checked_dirs (p);
                 any = true;
             }
         }
-        if (any) changed ();
+        if (any) {
+            rebuild_implicit_dirs ();
+            changed ();
+        }
     }
 }
 
@@ -263,6 +360,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private string ai_file_label = "文件";
     private int ai_max_files = 50;
 
+    // 后台线程引用: 防止 Thread 对象被提前回收, 并在窗口关闭时 join 确保安全退出
+    private Gee.ArrayList<GLib.Thread<void*>> bg_threads = new Gee.ArrayList<GLib.Thread<void*>> ();
+    private bool window_closing = false;
+    private GLib.Cancellable? app_cancellable = new GLib.Cancellable ();
 
 
     public FileCollectorWindow (Adw.Application app) {
@@ -291,9 +392,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private bool on_close_request () {
+        if (app_cancellable != null) {
+            app_cancellable.cancel ();
+        }
+        window_closing = true;
         if (ai_panel_instance != null) {
             ai_panel_instance.shutdown ();
         }
+        bg_threads.clear ();
         return false;
     }
 
@@ -354,42 +460,78 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             var label = icon.get_next_sibling () as Gtk.Label;
             if (label == null) return;
 
-            string display_name;
-            string icon_name;
-            if (data.item_type == "file") {
-                var file = File.new_for_path (data.file_path);
-                display_name = file.get_basename ();
-                icon_name = data.force_absolute ? "document-open-symbolic" : "text-x-generic-symbolic";
-            } else {
-                var preview = data.content;
-                if (preview.char_count () > 40) {
-                    int byte_pos = 0;
-                    int char_idx = 0;
-                    while (byte_pos < preview.length && char_idx < 40) {
-                        char b = preview[byte_pos];
-                        int char_bytes;
-                        if ((b & 0x80) == 0) char_bytes = 1;
-                        else if ((b & 0xE0) == 0xC0) char_bytes = 2;
-                        else if ((b & 0xF0) == 0xE0) char_bytes = 3;
-                        else if ((b & 0xF8) == 0xF0) char_bytes = 4;
-                        else char_bytes = 1;
-                        if (byte_pos + char_bytes > preview.length) break;
-                        byte_pos += char_bytes;
-                        char_idx++;
-                    }
-                    preview = preview.substring (0, byte_pos) + "…";
+            // 初始渲染
+            render_queue_row (list_item, data, label, icon);
+
+            // 监听 content 变化: 编辑确认后 edit_data.content = text 会触发 notify,
+            // 实时刷新行内预览 (splice 复用同一对象引用时 ListView 不会重新 bind)
+            ulong handler_id = data.notify["content"].connect (() => {
+                if (list_item != null && list_item.get_item () != null) {
+                    render_queue_row (list_item, data, label, icon);
                 }
-                display_name = preview;
-                icon_name = "edit-symbolic";
+            });
+
+            // 将句柄 ID 与所监视的数据模型指针弱挂载到 ListItem 容器上,
+            // 供 unbind 时双重校验安全剥离信号
+            list_item.set_data<ulong> ("content_notify_id", handler_id);
+            list_item.set_data<ItemData> ("monitored_data_ptr", data);
+        });
+
+        factory.unbind.connect ((obj) => {
+            var list_item = obj as Gtk.ListItem;
+            if (list_item == null) return;
+
+            ulong handler_id = list_item.get_data<ulong> ("content_notify_id");
+            var data = list_item.get_data<ItemData> ("monitored_data_ptr");
+
+            // 安全双重校验: 确认句柄未失效且数据对象依然存在于内存中, 方能安全剥离信号
+            if (handler_id != 0 && data != null && GLib.SignalHandler.is_connected (data, handler_id)) {
+                GLib.SignalHandler.disconnect (data, handler_id);
             }
 
-            var pos = list_item.get_position ();
-            label.set_text ("%d. %s".printf ((int)pos + 1, display_name));
-            icon.icon_name = icon_name;
+            // 显式清空存储节点引用, 防止生命周期残留导致内存泄露
+            list_item.set_data ("content_notify_id", null);
+            list_item.set_data ("monitored_data_ptr", null);
         });
 
         queue_list.model = queue_selection;
         queue_list.factory = factory;
+    }
+
+    // 渲染编排列表单行: 根据 item_type 计算 display_name 和 icon, 写入 label/icon
+    private void render_queue_row (Gtk.ListItem list_item, ItemData data, Gtk.Label label, Gtk.Image icon) {
+        string display_name;
+        string icon_name;
+        if (data.item_type == "file") {
+            var file = File.new_for_path (data.file_path);
+            display_name = file.get_basename ();
+            icon_name = data.force_absolute ? "document-open-symbolic" : "text-x-generic-symbolic";
+        } else {
+            var preview = data.content ?? "";
+            if (preview.char_count () > 40) {
+                int byte_pos = 0;
+                int char_idx = 0;
+                while (byte_pos < preview.length && char_idx < 40) {
+                    char b = preview[byte_pos];
+                    int char_bytes;
+                    if ((b & 0x80) == 0) char_bytes = 1;
+                    else if ((b & 0xE0) == 0xC0) char_bytes = 2;
+                    else if ((b & 0xF0) == 0xE0) char_bytes = 3;
+                    else if ((b & 0xF8) == 0xF0) char_bytes = 4;
+                    else char_bytes = 1;
+                    if (byte_pos + char_bytes > preview.length) break;
+                    byte_pos += char_bytes;
+                    char_idx++;
+                }
+                preview = preview.substring (0, byte_pos) + "…";
+            }
+            display_name = preview;
+            icon_name = "edit-symbolic";
+        }
+
+        var pos = list_item.get_position ();
+        label.set_text ("%d. %s".printf ((int)pos + 1, display_name));
+        icon.icon_name = icon_name;
     }
 
     private void setup_tree_view () {
@@ -649,24 +791,34 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // 统一的勾选变更处理: 修改 check_model -> 同步 items -> 刷新 UI 三态
     private void apply_check_change (DirectoryItem item, bool new_checked) {
         if (item.is_dir) {
-            // 目录: 后台线程递归收集文件路径, 完成后在主线程更新 UI, 避免阻塞
+            // 立即更新 checked_dirs 确保未展开目录状态正确
+            check_model.set_dir_checked (item.path, new_checked);
+            refresh_all_tree_states ();
+            dir_column_view.queue_draw ();
+
+            // 目录: 后台线程递归收集文件路径和子目录路径, 完成后在主线程更新 UI, 避免阻塞
             string dir_path = item.path;
             try {
-                new Thread<void*> ("collect-files", () => {
+                GLib.Thread<void*>? thread = null;
+                thread = new Thread<void*> ("collect-files", () => {
                     var file_paths = new GenericArray<string> ();
-                    collect_files_from_filesystem (dir_path, file_paths);
+                    var dir_paths = new GenericArray<string> ();
+                    collect_files_from_filesystem (dir_path, file_paths, dir_paths);
                     Idle.add (() => {
-                        apply_dir_check_result (new_checked, file_paths);
+                        apply_dir_check_result (new_checked, dir_paths, file_paths);
+                        if (thread != null) bg_threads.remove (thread);
                         return Source.REMOVE;
                     });
                     return null;
                 });
+                bg_threads.add (thread);
             } catch (ThreadError e) {
                 warning ("Failed to create collect-files thread: %s", e.message);
                 // 后备: 同步执行
                 var file_paths = new GenericArray<string> ();
-                collect_files_from_filesystem (dir_path, file_paths);
-                apply_dir_check_result (new_checked, file_paths);
+                var dir_paths = new GenericArray<string> ();
+                collect_files_from_filesystem (dir_path, file_paths, dir_paths);
+                apply_dir_check_result (new_checked, dir_paths, file_paths);
             }
         } else {
             // 文件: 直接切换 (无 I/O, 同步即可)
@@ -687,31 +839,60 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     // 目录勾选/取消勾选的后台收集结果处理 (主线程)
-    private void apply_dir_check_result (bool new_checked, GenericArray<string> file_paths) {
+    // items 增删分批在 Idle 中执行, 避免数万文件一次性处理阻塞 UI
+    private void apply_dir_check_result (bool new_checked, GenericArray<string> dir_paths, GenericArray<string> file_paths) {
+        // check_model 操作: 同步执行 (数据结构操作, 相对快速)
         if (new_checked) {
+            // 先加文件 (内部会移除祖先目录的 checked_dirs 标记)
             check_model.add_files (file_paths.data);
-            foreach (var p in file_paths) {
-                if (!(p in checked_paths) && !path_in_items (p)) {
-                    checked_paths.insert (p, true);
-                    items.add (new ItemData ("file", p, null, false));
-                }
+            // 再把当前目录及其所有子孙目录加回 checked_dirs
+            foreach (var d in dir_paths) {
+                check_model.set_dir_checked (d, true);
             }
         } else {
-            check_model.remove_files (file_paths.data);
-            foreach (var p in file_paths) {
-                if (p in checked_paths) {
-                    checked_paths.remove (p);
-                    remove_items_by_path (p);
-                }
+            foreach (var d in dir_paths) {
+                check_model.set_dir_checked (d, false);
             }
+            check_model.remove_files (file_paths.data);
+            // 将取消勾选的目录的祖先从 checked_dirs 中移除, 使其降级为半选
+            check_model.remove_ancestors_from_checked_dirs (dir_paths.get (0));
         }
+        // 树状态立即刷新 (基于 check_model, 已同步更新)
         refresh_all_tree_states ();
         dir_column_view.queue_draw ();
-        refresh_list ();
+
+        // items 增删: 分批在 Idle 中执行, 每批 200 个, 避免阻塞主循环
+        int chunk_size = 200;
+        int idx = 0;
+        Idle.add (() => {
+            int count = 0;
+            while (idx < file_paths.length && count < chunk_size) {
+                var p = file_paths.get (idx);
+                if (new_checked) {
+                    if (!(p in checked_paths) && !path_in_items (p)) {
+                        checked_paths.insert (p, true);
+                        items.add (new ItemData ("file", p, null, false));
+                    }
+                } else {
+                    if (p in checked_paths) {
+                        checked_paths.remove (p);
+                        remove_items_by_path (p);
+                    }
+                }
+                idx++;
+                count++;
+            }
+            if (idx < file_paths.length) {
+                return Source.CONTINUE;
+            }
+            refresh_list ();
+            return Source.REMOVE;
+        });
     }
 
-    // 从文件系统递归收集目录下所有文件路径
-    private void collect_files_from_filesystem (string dir_path, GenericArray<string> out_paths) {
+    // 从文件系统递归收集目录下所有文件路径和子目录路径
+    private void collect_files_from_filesystem (string dir_path, GenericArray<string> out_files, GenericArray<string> out_dirs) {
+        out_dirs.add (dir_path);
         var dir = File.new_for_path (dir_path);
         try {
             var enumerator = dir.enumerate_children (
@@ -722,9 +903,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             while ((info = enumerator.next_file ()) != null) {
                 var child = dir.get_child (info.get_name ());
                 if (info.get_file_type () == FileType.DIRECTORY) {
-                    collect_files_from_filesystem (child.get_path (), out_paths);
+                    collect_files_from_filesystem (child.get_path (), out_files, out_dirs);
                 } else {
-                    out_paths.add (child.get_path ());
+                    out_files.add (child.get_path ());
                 }
             }
         } catch (Error e) {
@@ -758,11 +939,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void push_undo_state () {
-        undo_manager.push (new UndoState (items, checked_paths, use_absolute, show_header));
+        undo_manager.push (new UndoState (items, checked_paths, check_model.checked_dirs, use_absolute, show_header));
     }
 
     private void on_undo () {
-        var current = new UndoState (items, checked_paths, use_absolute, show_header);
+        var current = new UndoState (items, checked_paths, check_model.checked_dirs, use_absolute, show_header);
         var state = undo_manager.undo (current);
         if (state != null) {
             restore_undo_state (state);
@@ -770,7 +951,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_redo () {
-        var current = new UndoState (items, checked_paths, use_absolute, show_header);
+        var current = new UndoState (items, checked_paths, check_model.checked_dirs, use_absolute, show_header);
         var state = undo_manager.redo (current);
         if (state != null) {
             restore_undo_state (state);
@@ -800,7 +981,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         if (work_dir != null && root_store.get_n_items () > 0) {
             // 用 check_model 作为单一真相源, 重新推导所有 UI 状态
-            check_model.replace_from (checked_paths);
+            check_model.replace_from (checked_paths, state.checked_dirs);
             refresh_all_tree_states ();
         }
 
@@ -1086,6 +1267,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             work_dir,
             items,
             checked_paths,
+            check_model.checked_dirs,
             common_phrases,
             use_absolute,
             show_header
@@ -1120,7 +1302,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             root_store.remove_all ();
             var root_item = new DirectoryItem (work_dir.get_basename (), work_dir.get_path (), true);
             root_store.append (root_item);
-            check_model.replace_from (checked_paths);
+            check_model.replace_from (checked_paths, cli.checked_dirs);
             load_directory_children_lazy (root_item);
             GLib.Idle.add (() => {
                 var root_row = tree_list_model.get_item (0) as Gtk.TreeListRow;
@@ -1131,7 +1313,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             });
             search_entry.visible = true;
         } else if (work_dir != null && root_store.get_n_items () > 0) {
-            check_model.replace_from (checked_paths);
+            check_model.replace_from (checked_paths, cli.checked_dirs);
             foreach (var path in checked_paths.get_keys ()) {
                 ensure_path_loaded (path);
             }
@@ -1277,27 +1459,60 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void load_directory_children_lazy (DirectoryItem parent_item) {
         if (!parent_item.is_dir) return;
         if (parent_item.children_loading) return;
+        if (window_closing) return;
         parent_item.children_loading = true;
         string dir_path = parent_item.path;
         try {
-            new Thread<void*> ("load-dir-children", () => {
+            GLib.Thread<void*>? thread = null;
+            thread = new Thread<void*> ("load-dir-children", () => {
                 var entries = enumerate_dir_children (dir_path);
-                Idle.add (() => {
-                    parent_item.children_loading = false;
-                    for (int i = 0; i < entries.length; i++) {
-                        var e = entries.get (i);
-                        parent_item.children.append (new DirectoryItem (e.name, e.path, e.is_dir));
-                    }
-                    refresh_subtree_states (parent_item);
-                    return Source.REMOVE;
-                });
+                // 分批流式插入 (Idle 回调在主线程执行, 防止大项目卡死 UI)
+                apply_directory_children_lazy (parent_item, entries, thread);
                 return null;
             });
+            bg_threads.add (thread);
         } catch (ThreadError e) {
             parent_item.children_loading = false;
             warning ("Failed to create load-dir-children thread: %s", e.message);
             load_directory_children_sync (parent_item);
         }
+    }
+
+    // 分批流式插入子节点 (每帧 100 个), 防止加载大项目时卡死 UI.
+    // 在主线程通过 Idle 分批执行; 完成后刷新子树状态并清理后台线程引用.
+    // 边界检查确保父容器没有在中途被销毁.
+    private void apply_directory_children_lazy (DirectoryItem parent,
+                                                 GenericArray<DirChildInfo> children,
+                                                 GLib.Thread<void*>? thread = null) {
+        int total_items = (int) children.length;
+        int chunk_size = 100;
+        int current_offset = 0;
+
+        GLib.Idle.add (() => {
+            // 边界检查: 父容器可能在中途被销毁
+            if (parent == null || parent.children == null) {
+                if (thread != null) bg_threads.remove (thread);
+                return GLib.Source.REMOVE;
+            }
+
+            int limit = int.min (current_offset + chunk_size, total_items);
+            for (int i = current_offset; i < limit; i++) {
+                var child_info = children.get (i);
+                var child_item = new DirectoryItem (child_info.name, child_info.path, child_info.is_dir);
+                parent.children.append (child_item);
+            }
+
+            current_offset = limit;
+            if (current_offset < total_items) {
+                return GLib.Source.CONTINUE; // 未完成, 下一帧主循环继续分批加载
+            }
+
+            // 加载完毕: 刷新子树勾选状态, 清理后台线程引用
+            parent.children_loading = false;
+            refresh_subtree_states (parent);
+            if (thread != null) bg_threads.remove (thread);
+            return GLib.Source.REMOVE;
+        });
     }
 
     // AI 工具入口: 设置某个文件路径的勾选状态
@@ -1721,10 +1936,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 bool loaded_use_absolute;
                 bool loaded_show_header;
 
+                var loaded_checked_dirs = new HashTable<string, bool> (str_hash, str_equal);
                 ProjectManager.load_project_file (
                     file.get_path (),
                     items,
                     checked_paths,
+                    loaded_checked_dirs,
                     common_phrases,
                     out loaded_work_dir,
                     out loaded_project_file,
@@ -1742,6 +1959,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
                     root_store.remove_all ();
 
+                    check_model.replace_from (checked_paths, loaded_checked_dirs);
+
                     var root_item = new DirectoryItem (work_dir.get_basename (), work_dir.get_path (), true);
                     root_store.append (root_item);
 
@@ -1758,6 +1977,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                         return Source.REMOVE;
                     });
                 } else {
+                    check_model.replace_from (checked_paths, loaded_checked_dirs);
                     update_subtitle (null);
                 }
 
@@ -1785,7 +2005,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         try {
             ProjectManager.write_project_file (
                 project_file, work_dir, use_absolute, show_header,
-                items, checked_paths, common_phrases
+                items, checked_paths, check_model.checked_dirs, common_phrases
             );
             show_toast (_("项目文件已更新"));
         } catch (Error e) {
@@ -1813,7 +2033,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 project_file = path;
                 ProjectManager.write_project_file (
                     project_file, work_dir, use_absolute, show_header,
-                    items, checked_paths, common_phrases
+                    items, checked_paths, check_model.checked_dirs, common_phrases
                 );
                 show_toast (_("项目文件已保存"));
             } catch (Error e) {

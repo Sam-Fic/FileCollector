@@ -6,6 +6,7 @@ public class CliController : GLib.Object {
     public bool use_absolute { get; private set; }
     public bool show_header { get; private set; }
     public HashTable<string, bool> checked_paths { get; private set; }
+    public HashTable<string, bool> checked_dirs { get; private set; }
     public GenericArray<string> common_phrases { get; private set; }
     public GenericArray<string> operation_messages { get; private set; }
 
@@ -15,6 +16,7 @@ public class CliController : GLib.Object {
     public CliController () {
         items = new GenericArray<ItemData> ();
         checked_paths = new HashTable<string, bool> (str_hash, str_equal);
+        checked_dirs = new HashTable<string, bool> (str_hash, str_equal);
         common_phrases = new GenericArray<string> ();
         operation_messages = new GenericArray<string> ();
     }
@@ -23,6 +25,7 @@ public class CliController : GLib.Object {
         File? wdir,
         GenericArray<ItemData> existing_items,
         HashTable<string, bool> existing_checked_paths,
+        HashTable<string, bool> existing_checked_dirs,
         GenericArray<string> existing_common_phrases,
         bool existing_use_absolute,
         bool existing_show_header
@@ -40,6 +43,11 @@ public class CliController : GLib.Object {
         checked_paths.remove_all ();
         foreach (var path in existing_checked_paths.get_keys ()) {
             checked_paths.insert (path, true);
+        }
+
+        checked_dirs.remove_all ();
+        foreach (var path in existing_checked_dirs.get_keys ()) {
+            checked_dirs.insert (path, true);
         }
 
         common_phrases.remove_range (0, common_phrases.length);
@@ -138,7 +146,7 @@ public class CliController : GLib.Object {
             try {
                 ProjectManager.write_project_file (
                     save_path, work_dir, use_absolute, show_header,
-                    items, checked_paths, common_phrases
+                    items, checked_paths, checked_dirs, common_phrases
                 );
                 stdout.printf (_("项目已保存到: %s\n"), save_path);
                 operation_messages.add (_("项目已保存到: %s").printf (save_path));
@@ -308,6 +316,7 @@ public class CliController : GLib.Object {
     private void clear_items () {
         items.remove_range (0, items.length);
         checked_paths.remove_all ();
+        checked_dirs.remove_all ();
         stdout.printf (_("✓ 已清空编排列表\n"));
         operation_messages.add (_("已清空编排列表"));
     }
@@ -369,12 +378,20 @@ public class CliController : GLib.Object {
 
             items.remove_range (0, items.length);
             checked_paths.remove_all ();
+            checked_dirs.remove_all ();
 
             var checked_arr = root.get_array_member ("checked_files");
             if (checked_arr != null) {
                 for (int i = 0; i < checked_arr.get_length (); i++) {
                     var p = checked_arr.get_string_element (i);
                     checked_paths.insert (p, true);
+                }
+            }
+
+            var checked_dirs_arr = root.get_array_member ("checked_dirs");
+            if (checked_dirs_arr != null) {
+                for (int i = 0; i < checked_dirs_arr.get_length (); i++) {
+                    checked_dirs.insert (checked_dirs_arr.get_string_element (i), true);
                 }
             }
 
