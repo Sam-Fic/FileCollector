@@ -84,10 +84,16 @@ public class FileCollectorApp : Adw.Application {
             if (has_cli_args) {
                 var cli = app_window.create_cli_from_state ();
                 if (cli.parse_args (filtered_args)) {
-                    cli.execute_save_export ();
-                    app_window.apply_cli_operations (cli);
-                    for (int i = 0; i < cli.operation_messages.length; i++) {
-                        command_line.print ("✓ %s\n".printf (cli.operation_messages.get (i)));
+                    if (cli.execute_save_export ()) {
+                        app_window.apply_cli_operations (cli);
+                        for (int i = 0; i < cli.operation_messages.length; i++) {
+                            command_line.print ("✓ %s\n".printf (cli.operation_messages.get (i)));
+                        }
+                    } else {
+                        for (int i = 0; i < cli.operation_messages.length; i++) {
+                            command_line.printerr ("✗ %s\n".printf (cli.operation_messages.get (i)));
+                        }
+                        return 1;
                     }
                 } else {
                     return 1;
@@ -122,13 +128,14 @@ public class FileCollectorApp : Adw.Application {
         if (force_gui && has_cli_args) {
             var cli = new CliController ();
             if (cli.parse_args (filtered_args) || cli.items.length > 0 || cli.work_dir != null) {
-                cli.execute_save_export ();
-                GLib.Idle.add (() => {
-                    if (app_window != null) {
-                        app_window.apply_cli_operations (cli);
-                    }
-                    return Source.REMOVE;
-                });
+                if (cli.execute_save_export ()) {
+                    GLib.Idle.add (() => {
+                        if (app_window != null) {
+                            app_window.apply_cli_operations (cli);
+                        }
+                        return Source.REMOVE;
+                    });
+                }
             }
         }
 
@@ -189,10 +196,21 @@ public class FileCollectorApp : Adw.Application {
                     mo_found = true;
                 }
             } catch (Error e) {
+                debug ("Locale dir check failed: %s", e.message);
             }
         }
 
-        // 3. 终极回退: 扫描 XDG 系统层级目录全盘兜底搜索
+        // 3. XDG 用户数据目录 (如 ~/.local/share), meson install --prefix=~/.local 安装在此
+        if (!mo_found) {
+            var user_data = GLib.Environment.get_user_data_dir ();
+            var candidate = Path.build_filename (user_data, "locale");
+            if (FileUtils.test (Path.build_filename (candidate, "en", "LC_MESSAGES", Config.GETTEXT_PACKAGE + ".mo"), FileTest.EXISTS)) {
+                locale_dir = candidate;
+                mo_found = true;
+            }
+        }
+
+        // 4. 终极回退: 扫描 XDG 系统层级目录全盘兜底搜索
         if (!mo_found) {
             foreach (unowned string data_dir in GLib.Environment.get_system_data_dirs ()) {
                 var candidate = Path.build_filename (data_dir, "locale");
