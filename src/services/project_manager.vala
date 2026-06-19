@@ -3,6 +3,7 @@ public class ProjectManager : GLib.Object {
         string file_path,
         GenericArray<ItemData> items,
         HashTable<string, bool> checked_paths,
+        HashTable<string, bool> checked_dirs,
         GenericArray<string> common_phrases,
         out File? work_dir,
         out string? project_file,
@@ -31,6 +32,7 @@ public class ProjectManager : GLib.Object {
         }
 
         checked_paths.remove_all ();
+        checked_dirs.remove_all ();
         items.remove_range (0, items.length);
 
         use_absolute = root.get_boolean_member_with_default ("use_absolute", false);
@@ -43,6 +45,13 @@ public class ProjectManager : GLib.Object {
                 if (File.new_for_path (p).query_exists ()) {
                     checked_paths.insert (p, true);
                 }
+            }
+        }
+
+        var checked_dirs_arr = root.get_array_member ("checked_dirs");
+        if (checked_dirs_arr != null) {
+            for (int i = 0; i < checked_dirs_arr.get_length (); i++) {
+                checked_dirs.insert (checked_dirs_arr.get_string_element (i), true);
             }
         }
 
@@ -84,6 +93,7 @@ public class ProjectManager : GLib.Object {
         bool show_header,
         GenericArray<ItemData> items,
         HashTable<string, bool> checked_paths,
+        HashTable<string, bool> checked_dirs,
         GenericArray<string> common_phrases
     ) throws Error {
         var builder = new Json.Builder ();
@@ -105,6 +115,13 @@ public class ProjectManager : GLib.Object {
         builder.set_member_name ("checked_files");
         builder.begin_array ();
         checked_paths.foreach ((key, val) => {
+            builder.add_string_value ((string) key);
+        });
+        builder.end_array ();
+
+        builder.set_member_name ("checked_dirs");
+        builder.begin_array ();
+        checked_dirs.foreach ((key, val) => {
             builder.add_string_value ((string) key);
         });
         builder.end_array ();
