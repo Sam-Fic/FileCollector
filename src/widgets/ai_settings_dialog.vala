@@ -33,6 +33,9 @@ public class AISettingsDialog : GLib.Object {
 
     private ConfigManager.AISettings current;
 
+    // 测试连接用的 Session: 提升为成员变量, 避免异步请求完成前局部变量超出作用域被回收
+    private Soup.Session? test_session = null;
+
     public AISettingsDialog (Gtk.Window? parent) {
         this.parent_window = parent;
         this.current = ConfigManager.load_ai_settings ();
@@ -202,8 +205,9 @@ public class AISettingsDialog : GLib.Object {
         show_toast (_("正在测试..."));
 
         // 异步发起测试请求, 不阻塞 UI
-        var session = new Soup.Session ();
-        session.timeout = (uint) (s.timeout > 0 ? s.timeout : 60.0);
+        // Session 存为成员变量, 确保异步回调执行时引用仍然有效
+        test_session = new Soup.Session ();
+        test_session.timeout = (uint) (s.timeout > 0 ? s.timeout : 60.0);
 
         var payload = new Json.Object ();
         payload.set_string_member ("model", s.model);
@@ -228,8 +232,8 @@ public class AISettingsDialog : GLib.Object {
         msg.request_headers.append ("Content-Type", "application/json");
         msg.request_headers.append ("Authorization", "Bearer " + s.api_key);
 
-        session.send_and_read_async (msg, GLib.Priority.DEFAULT, null, (obj, res) => {
-            on_test_done (session, msg, res);
+        test_session.send_and_read_async (msg, GLib.Priority.DEFAULT, null, (obj, res) => {
+            on_test_done (test_session, msg, res);
         });
     }
 
@@ -265,5 +269,7 @@ public class AISettingsDialog : GLib.Object {
         } catch (Error e) {
             show_toast (_("✗ 失败: %s").printf (e.message));
         }
+        // 请求完成, 释放 Session 引用
+        test_session = null;
     }
 }

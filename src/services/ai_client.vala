@@ -321,7 +321,8 @@ public class AIClient : GLib.Object {
     }
 
     // 同步 chat: 在 worker 线程中调用, 完成后由 main loop 把结果发回主线程.
-    public AIChatResult chat (Gee.ArrayList<Json.Node> messages, Json.Node? tools_node = null)
+    public AIChatResult chat (Gee.ArrayList<Json.Node> messages, Json.Node? tools_node = null,
+            GLib.Cancellable? cancellable = null)
             throws AIClientError {
         if (base_url == "")
             throw new AIClientError.CONFIG (_("API 基础地址未配置, 请在 设置 → AI 设置 中填写。"));
@@ -363,7 +364,7 @@ public class AIClient : GLib.Object {
         Bytes? resp_bytes = null;
         try {
             // 同步发送 (libsoup-3 的 sync API); worker 线程中执行, 不阻塞主线程.
-            resp_bytes = session.send_and_read (msg, null);
+            resp_bytes = session.send_and_read (msg, cancellable);
         } catch (Error e) {
             throw new AIClientError.NETWORK (_("网络错误: ") + e.message);
         }
@@ -389,6 +390,31 @@ public class AIClient : GLib.Object {
         }
 
         return parse_response_bytes (resp_bytes.get_data ());
+    }
+
+    // 异步非阻塞版本: 接收预构建的 JSON payload, 通过 Cancellable 支持即时取消.
+    // 适用于主线程或需要协程化调用的场景; 现有 worker 线程仍可使用同步 chat().
+    // 可被窗口关闭或用户点击"停止"时通过 cancellable 即时打断, 绝不卡死 UI.
+    public async string chat_async (string json_payload, GLib.Cancellable? cancellable) throws GLib.Error {
+        string url = base_url.has_suffix ("/") ? base_url + "chat/completions"
+                                              : base_url + "/chat/completions";
+        var msg = new Soup.Message ("POST", url);
+        msg.request_headers.append ("Authorization", "Bearer " + api_key);
+        msg.request_headers.append ("Content-Type", "application/json");
+        msg.set_request_body_from_bytes ("application/json", new Bytes (json_payload.data));
+
+        // 异步等待网络响应, 可被外部 cancellable 随时中断
+        var bytes = yield session.send_and_read_async (msg, GLib.Priority.DEFAULT, cancellable);
+
+        if (cancellable != null && cancellable.is_cancelled ()) {
+            throw new GLib.IOError.CANCELLED (_("AI 请求已被用户主动取消"));
+        }
+
+        if (msg.status_code != 200) {
+            throw new GLib.IOError.FAILED (_("API 返回错误状态码: %u").printf (msg.status_code));
+        }
+
+        return (string) bytes.get_data ();
     }
 
     private static AIChatResult parse_response_bytes (uint8[] raw) throws AIClientError {

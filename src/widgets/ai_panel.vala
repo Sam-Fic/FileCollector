@@ -60,6 +60,7 @@ public class AIPanel : GLib.Object {
     private bool stop_requested = false;
     private bool pending_welcome = true;
     private bool ai_enabled = false;
+    private GLib.Cancellable? request_cancellable = null;
     // 用户是否停留在底部附近 (用于判断是否自动滚动)
     private bool auto_scroll = true;
     // 标记正在 rerender, 抑制 adj.changed 的自动滚动 (由 rerender 自行处理)
@@ -68,6 +69,10 @@ public class AIPanel : GLib.Object {
     private Gee.ArrayList<Json.Node> messages = new Gee.ArrayList<Json.Node> ();
     private Gee.ArrayList<AIMessage> rendered = new Gee.ArrayList<AIMessage> ();
     private int tool_counter = 0;
+
+    // messages 在 worker 线程 (on_api_finished) 和主线程 (rebuild_system_message,
+    // send_user_message, on_clear_chat) 之间并发读写, 必须用锁保护
+    private GLib.Mutex messages_lock = GLib.Mutex ();
 
     // 用于从 worker 线程同步调用主线程上的 GTK 操作 (GTK4 非线程安全).
     private GLib.Mutex main_sync_mutex = GLib.Mutex ();
@@ -300,6 +305,9 @@ public class AIPanel : GLib.Object {
 
     public void shutdown () {
         stop_requested = true;
+        if (request_cancellable != null) {
+            request_cancellable.cancel ();
+        }
         if (worker_thread != null) {
             worker_thread.join ();
             worker_thread = null;
@@ -631,6 +639,9 @@ public class AIPanel : GLib.Object {
 
     private void request_stop () {
         stop_requested = true;
+        if (request_cancellable != null) {
+            request_cancellable.cancel ();
+        }
         lbl_status.set_text (_("已停止"));
         set_busy (false);
     }
@@ -665,7 +676,9 @@ public class AIPanel : GLib.Object {
             chat_container.remove (child);
             child = next;
         }
+        messages_lock.lock ();
         messages.clear ();
+        messages_lock.unlock ();
         rendered.clear ();
         tool_counter = 0;
         pending_welcome = true;
@@ -770,17 +783,21 @@ public class AIPanel : GLib.Object {
 
     private void send_user_message (string text) {
         rebuild_system_message ();
+        messages_lock.lock ();
         messages.add (build_chat_node ("user", text));
+        messages_lock.unlock ();
         next_turn ();
     }
 
     private void rebuild_system_message () {
-        // 移除已有 system 消息
+        // 移除已有 system 消息 (加锁保护并发读写)
+        messages_lock.lock ();
         var keep = new Gee.ArrayList<Json.Node> ();
         foreach (var m in messages) {
             if (get_role (m) != "system") keep.add (m);
         }
         messages = keep;
+        messages_lock.unlock ();
         if (state_provider == null) return;
         var snap = state_provider ();
         string prompt;
@@ -789,7 +806,9 @@ public class AIPanel : GLib.Object {
         } else {
             prompt = build_system_prompt (snap);
         }
+        messages_lock.lock ();
         messages.insert (0, build_chat_node ("system", prompt));
+        messages_lock.unlock ();
     }
 
     private static string get_role (Json.Node n) {
@@ -808,11 +827,14 @@ public class AIPanel : GLib.Object {
         if (client == null) return;
         set_busy (true);
 
-        // 浅拷贝消息列表传给 worker 线程, 避免读写竞争
+        // 浅拷贝消息列表传给 worker 线程, 避免读写竞争 (加锁保护遍历)
         var msgs_copy = new Gee.ArrayList<Json.Node> ();
+        messages_lock.lock ();
         foreach (var m in messages) msgs_copy.add (m);
+        messages_lock.unlock ();
 
         stop_requested = false;
+        request_cancellable = new GLib.Cancellable ();
         worker_thread = new GLib.Thread<void> ("ai-worker", () => {
             run_worker (msgs_copy);
         });
@@ -825,7 +847,7 @@ public class AIPanel : GLib.Object {
             return;
         }
         try {
-            var result = local.chat (msgs, build_full_tool_schema ());
+            var result = local.chat (msgs, build_full_tool_schema (), request_cancellable);
             if (stop_requested) return;
             on_api_finished (result);
         } catch (Error e) {
@@ -860,7 +882,9 @@ public class AIPanel : GLib.Object {
             }
             assistant_msg.set_member ("tool_calls", AI.SchemaHelper.arr_to_node (arr));
         }
+        messages_lock.lock ();
         messages.add (AI.SchemaHelper.obj_to_node (assistant_msg));
+        messages_lock.unlock ();
 
         // GTK 渲染必须回到主线程
         if (result.content.length > 0) {
@@ -892,7 +916,9 @@ public class AIPanel : GLib.Object {
                 invoke_on_main_sync (() => {
                     render_tool (tname, trepr, tresult);
                 });
+                messages_lock.lock ();
                 messages.add (build_tool_response (tc.id, result_str));
+                messages_lock.unlock ();
             }
             // 继续下一轮让 LLM 总结 (next_turn 会操作 GTK, 必须在主线程)
             invoke_on_main_sync (() => {
@@ -910,6 +936,11 @@ public class AIPanel : GLib.Object {
     private delegate void MainSyncTask ();
 
     private void invoke_on_main_sync (owned MainSyncTask task) {
+        if (GLib.MainContext.default ().is_owner ()) {
+            task ();
+            return;
+        }
+
         main_sync_mutex.lock ();
         main_sync_done = false;
         GLib.Idle.add (() => {
