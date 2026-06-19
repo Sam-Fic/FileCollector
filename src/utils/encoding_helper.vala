@@ -62,6 +62,7 @@ public class EncodingHelper {
                 return converted;
             }
         } catch (Error e) {
+            debug ("Encoding conversion from %s failed: %s", from_enc, e.message);
         }
         return null;
     }
