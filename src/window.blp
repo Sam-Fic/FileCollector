@@ -241,6 +241,7 @@ title: _("FileCollector - 文件收集与编排工具");
             Box {
               orientation: vertical;
               spacing: 4;
+              halign: center;
               margin-top: 6;
               margin-start: 12;
               margin-end: 12;
@@ -248,7 +249,7 @@ title: _("FileCollector - 文件收集与编排工具");
               Box {
                 orientation: horizontal;
                 spacing: 12;
-                halign: start;
+                halign: center;
 
                 CheckButton radio_relative_path {
                   label: _("使用相对路径");
@@ -260,7 +261,10 @@ title: _("FileCollector - 文件收集与编排工具");
                 }
               }
 
-              CheckButton check_write_header { label: _("在文件头部标注工作目录信息"); }
+              CheckButton check_write_header {
+                label: _("在文件头部标注工作目录信息");
+                halign: center;
+              }
             }
 
             // 生成按钮
