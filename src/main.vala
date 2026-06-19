@@ -166,25 +166,43 @@ public class FileCollectorApp : Adw.Application {
 
     private static void setup_i18n_default () {
         string locale_dir = Config.LOCALE_DIR;
-        var mo_path = Path.build_filename (locale_dir, "en", "LC_MESSAGES", Config.GETTEXT_PACKAGE + ".mo");
-        if (!FileUtils.test (mo_path, FileTest.EXISTS)) {
-            string? exe_path = null;
-            // AppImage: 通过环境变量获取挂载点路径 (AppImage 启动时由运行时设置)
-            var appimage = GLib.Environment.get_variable ("APPIMAGE");
-            if (appimage != null && appimage.length > 0) {
-                exe_path = appimage;
-            }
-            // Linux: /proc/self/exe 符号链接 (先检查存在性, 兼容 Flatpak/非 Linux 系统)
-            if (exe_path == null && FileUtils.test ("/proc/self/exe", FileTest.EXISTS)) {
-                try {
-                    exe_path = FileUtils.read_link ("/proc/self/exe");
-                } catch (Error e) {
-                }
-            }
-            if (exe_path != null) {
-                locale_dir = Path.get_dirname (exe_path);
+        bool mo_found = false;
+
+        // 1. AppImage 部署规范: APPDIR 才是程序真正挂载的沙盒内虚拟根路径
+        //    (例如 /tmp/.mount_xxxxx/), 多语言文件封包于 $APPDIR/usr/share/locale
+        var appdir = GLib.Environment.get_variable ("APPDIR");
+        if (appdir != null && appdir.length > 0) {
+            var candidate = Path.build_filename (appdir, "usr", "share", "locale");
+            if (FileUtils.test (Path.build_filename (candidate, "en", "LC_MESSAGES", Config.GETTEXT_PACKAGE + ".mo"), FileTest.EXISTS)) {
+                locale_dir = candidate;
+                mo_found = true;
             }
         }
+
+        // 2. 非 AppImage: 利用 /proc/self/exe 读取绿色版相对路径
+        if (!mo_found && FileUtils.test ("/proc/self/exe", FileTest.EXISTS)) {
+            try {
+                string exe_link = FileUtils.read_link ("/proc/self/exe");
+                var candidate = Path.build_filename (Path.get_dirname (exe_link), "locale");
+                if (FileUtils.test (Path.build_filename (candidate, "en", "LC_MESSAGES", Config.GETTEXT_PACKAGE + ".mo"), FileTest.EXISTS)) {
+                    locale_dir = candidate;
+                    mo_found = true;
+                }
+            } catch (Error e) {
+            }
+        }
+
+        // 3. 终极回退: 扫描 XDG 系统层级目录全盘兜底搜索
+        if (!mo_found) {
+            foreach (unowned string data_dir in GLib.Environment.get_system_data_dirs ()) {
+                var candidate = Path.build_filename (data_dir, "locale");
+                if (FileUtils.test (Path.build_filename (candidate, "en", "LC_MESSAGES", Config.GETTEXT_PACKAGE + ".mo"), FileTest.EXISTS)) {
+                    locale_dir = candidate;
+                    break;
+                }
+            }
+        }
+
         setup_i18n (locale_dir);
     }
 
