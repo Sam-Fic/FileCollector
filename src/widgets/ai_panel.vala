@@ -44,6 +44,8 @@ public class AIPanel : GLib.Object {
     private Gtk.ScrolledWindow chat_scroll;
     private Gtk.TextView input_view;
     private Gtk.Button btn_send;
+    private Gtk.Label lbl_send;
+    private Gtk.Image send_icon;
     private Gtk.Button btn_clear;
     private Gtk.Button btn_scroll_bottom;
     private Gtk.Label lbl_status;
@@ -228,9 +230,17 @@ public class AIPanel : GLib.Object {
         spacer.hexpand = true;
         btn_row.append (spacer);
 
-        btn_send = new Gtk.Button.with_label (_("发送"));
+        var send_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 4);
+        send_box.halign = Gtk.Align.CENTER;
+        send_icon = new Gtk.Image.from_icon_name ("mail-send-symbolic");
+        send_box.append (send_icon);
+        lbl_send = new Gtk.Label (_("发送"));
+        send_box.append (lbl_send);
+
+        btn_send = new Gtk.Button ();
+        btn_send.set_child (send_box);
         btn_send.add_css_class ("suggested-action");
-        btn_send.set_size_request (90, 36);
+        btn_send.set_size_request (-1, 36);
         btn_send.clicked.connect (on_send_or_stop);
         btn_row.append (btn_send);
         input_box.append (btn_row);
@@ -1097,12 +1107,14 @@ public class AIPanel : GLib.Object {
     private void set_busy (bool b) {
         busy = b;
         if (b) {
-            btn_send.set_label (_("停止"));
+            lbl_send.set_text (_("停止"));
+            send_icon.icon_name = "media-playback-stop-symbolic";
             btn_send.remove_css_class ("suggested-action");
             btn_send.add_css_class ("destructive-action");
             lbl_status.set_text (_("正在思考..."));
         } else {
-            btn_send.set_label (_("发送"));
+            lbl_send.set_text (_("发送"));
+            send_icon.icon_name = "mail-send-symbolic";
             btn_send.remove_css_class ("destructive-action");
             btn_send.add_css_class ("suggested-action");
             update_status ();
