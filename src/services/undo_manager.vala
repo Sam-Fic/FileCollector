@@ -1,12 +1,14 @@
 public class UndoState : GLib.Object {
     public GenericArray<ItemData> items { get; private set; }
     public HashTable<string, bool> checked_paths { get; private set; }
+    public HashTable<string, bool> checked_dirs { get; private set; }
     public bool use_absolute { get; private set; }
     public bool show_header { get; private set; }
 
     public UndoState (
         GenericArray<ItemData> src_items,
         HashTable<string, bool> src_checked_paths,
+        HashTable<string, bool> src_checked_dirs,
         bool src_use_absolute,
         bool src_show_header
     ) {
@@ -18,6 +20,10 @@ public class UndoState : GLib.Object {
         checked_paths = new HashTable<string, bool> (str_hash, str_equal);
         foreach (var key in src_checked_paths.get_keys ()) {
             checked_paths.insert (key, true);
+        }
+        checked_dirs = new HashTable<string, bool> (str_hash, str_equal);
+        foreach (var key in src_checked_dirs.get_keys ()) {
+            checked_dirs.insert (key, true);
         }
         use_absolute = src_use_absolute;
         show_header = src_show_header;
@@ -31,6 +37,7 @@ public class UndoManager : GLib.Object {
     private GenericArray<UndoState> undo_stack;
     private GenericArray<UndoState> redo_stack;
     private bool in_progress = false;
+    private const int MAX_STACK_DEPTH = 50;
 
     public signal void state_changed ();
 
@@ -42,6 +49,9 @@ public class UndoManager : GLib.Object {
     public void push (UndoState state) {
         if (in_progress) return;
         undo_stack.add (state);
+        if (undo_stack.length > MAX_STACK_DEPTH) {
+            undo_stack.remove_index (0);
+        }
         redo_stack.remove_range (0, redo_stack.length);
         state_changed ();
     }
