@@ -310,7 +310,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.Button btn_move_down;
     [GtkChild] private unowned Gtk.Button btn_delete;
     [GtkChild] private unowned Gtk.Button btn_clear;
-    [GtkChild] private unowned Gtk.CheckButton check_absolute_path;
+    [GtkChild] private unowned Gtk.CheckButton radio_relative_path;
+    [GtkChild] private unowned Gtk.CheckButton radio_absolute_path;
     [GtkChild] private unowned Gtk.CheckButton check_write_header;
     [GtkChild] private unowned Gtk.SearchEntry search_entry;
     [GtkChild] private unowned Adw.ToastOverlay toast_overlay;
@@ -382,6 +383,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         setup_queue_list ();
         setup_tree_view ();
+        sync_path_mode_radios ();
         setup_signals ();
         setup_ai_panel ();
         setup_pane_sizes ();
@@ -389,6 +391,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         search_entry.visible = false;
 
         this.close_request.connect (on_close_request);
+
+        GLib.Idle.add (() => {
+            cache_title_widget ();
+            return Source.REMOVE;
+        });
     }
 
     private bool on_close_request () {
@@ -398,6 +405,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         window_closing = true;
         if (ai_panel_instance != null) {
             ai_panel_instance.shutdown ();
+        }
+        // Join 所有后台线程, 确保线程退出后再销毁窗口, 防止 Idle 回调访问已释放的 widget
+        foreach (var t in bg_threads) {
+            t.join ();
         }
         bg_threads.clear ();
         return false;
@@ -509,20 +520,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         } else {
             var preview = data.content ?? "";
             if (preview.char_count () > 40) {
-                int byte_pos = 0;
-                int char_idx = 0;
-                while (byte_pos < preview.length && char_idx < 40) {
-                    char b = preview[byte_pos];
-                    int char_bytes;
-                    if ((b & 0x80) == 0) char_bytes = 1;
-                    else if ((b & 0xE0) == 0xC0) char_bytes = 2;
-                    else if ((b & 0xF0) == 0xE0) char_bytes = 3;
-                    else if ((b & 0xF8) == 0xF0) char_bytes = 4;
-                    else char_bytes = 1;
-                    if (byte_pos + char_bytes > preview.length) break;
-                    byte_pos += char_bytes;
-                    char_idx++;
-                }
+                int byte_pos = preview.index_of_nth_char (40);
                 preview = preview.substring (0, byte_pos) + "…";
             }
             display_name = preview;
@@ -805,6 +803,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     var dir_paths = new GenericArray<string> ();
                     collect_files_from_filesystem (dir_path, file_paths, dir_paths);
                     Idle.add (() => {
+                        if (window_closing) {
+                            if (thread != null) bg_threads.remove (thread);
+                            return Source.REMOVE;
+                        }
                         apply_dir_check_result (new_checked, dir_paths, file_paths);
                         if (thread != null) bg_threads.remove (thread);
                         return Source.REMOVE;
@@ -865,6 +867,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         int chunk_size = 200;
         int idx = 0;
         Idle.add (() => {
+            if (window_closing) return Source.REMOVE;
             int count = 0;
             while (idx < file_paths.length && count < chunk_size) {
                 var p = file_paths.get (idx);
@@ -885,13 +888,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (idx < file_paths.length) {
                 return Source.CONTINUE;
             }
-            refresh_list ();
+            if (!window_closing) {
+                refresh_list ();
+            }
             return Source.REMOVE;
         });
     }
 
     // 从文件系统递归收集目录下所有文件路径和子目录路径
     private void collect_files_from_filesystem (string dir_path, GenericArray<string> out_files, GenericArray<string> out_dirs) {
+        if (app_cancellable != null && app_cancellable.is_cancelled ()) return;
         out_dirs.add (dir_path);
         var dir = File.new_for_path (dir_path);
         try {
@@ -901,6 +907,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             );
             FileInfo info;
             while ((info = enumerator.next_file ()) != null) {
+                if (app_cancellable != null && app_cancellable.is_cancelled ()) return;
                 var child = dir.get_child (info.get_name ());
                 if (info.get_file_type () == FileType.DIRECTORY) {
                     collect_files_from_filesystem (child.get_path (), out_files, out_dirs);
@@ -914,55 +921,303 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     // 从 check_model 重新计算所有可见节点的三态
+    // 辅助结构体：自底向上递归中收集子树统计信息, 消除双重递归
+    private struct SubtreeStats {
+        public int total_files;
+        public int checked_files;
+    }
+
     private void refresh_all_tree_states () {
         for (uint i = 0; i < root_store.get_n_items (); i++) {
-            refresh_subtree_states ((DirectoryItem) root_store.get_item (i));
+            refresh_and_collect_stats ((DirectoryItem) root_store.get_item (i));
         }
     }
 
-    // 递归刷新子树状态: 先刷新子节点, 再根据子节点状态推导本节点
-    private void refresh_subtree_states (DirectoryItem item) {
-        if (item.is_dir) {
-            for (uint i = 0; i < item.children.get_n_items (); i++) {
-                refresh_subtree_states ((DirectoryItem) item.children.get_item (i));
-            }
-            // 目录三态由 check_model 计算
-            int state = check_model.compute_state (item);
-            item.checked = (state == 2);
-            item.inconsistent = (state == 1);
-        } else {
-            // 文件: 直接查 check_model
+    // 自底向上刷新并收集统计信息, 消除原有的 refresh_subtree_states + compute_state + collect_file_stats 三重递归
+    private SubtreeStats refresh_and_collect_stats (DirectoryItem item) {
+        SubtreeStats stats = SubtreeStats ();
+
+        if (!item.is_dir) {
+            // 文件节点：直接查 check_model
             bool is_checked = item.path in check_model.checked_files;
             item.checked = is_checked;
             item.inconsistent = false;
+
+            stats.total_files = 1;
+            stats.checked_files = is_checked ? 1 : 0;
+            return stats;
         }
+
+        // 目录节点：先递归处理所有子节点, 顺带收集统计
+        stats.total_files = 0;
+        stats.checked_files = 0;
+        for (uint i = 0; i < item.children.get_n_items (); i++) {
+            var child_stats = refresh_and_collect_stats ((DirectoryItem) item.children.get_item (i));
+            stats.total_files += child_stats.total_files;
+            stats.checked_files += child_stats.checked_files;
+        }
+
+        // 根据子节点统计结果推导当前目录的三态 (保持原 compute_dir_state 逻辑)
+        bool in_checked_dirs = item.path in check_model.checked_dirs;
+        bool has_checked = check_model.has_checked_descendant (item.path);
+
+        if (stats.total_files > 0) {
+            if (in_checked_dirs) {
+                if (stats.checked_files < stats.total_files) {
+                    item.checked = false;
+                    item.inconsistent = true; // 部分选中
+                } else {
+                    item.checked = true;
+                    item.inconsistent = false; // 全选中
+                }
+            } else {
+                if (stats.checked_files == 0) {
+                    item.checked = false;
+                    item.inconsistent = has_checked; // 无选中但后代可能有选中
+                } else if (stats.checked_files == stats.total_files) {
+                    item.checked = false;
+                    item.inconsistent = true; // 全选但未标记为 checked_dirs
+                } else {
+                    item.checked = false;
+                    item.inconsistent = true; // 部分选中
+                }
+            }
+        } else {
+            // 空目录或未加载子节点的目录
+            if (in_checked_dirs) {
+                item.checked = true;
+                item.inconsistent = false;
+            } else {
+                item.checked = false;
+                item.inconsistent = has_checked;
+            }
+        }
+        return stats;
+    }
+
+    // 保留兼容接口
+    private void refresh_subtree_states (DirectoryItem item) {
+        refresh_and_collect_stats (item);
     }
 
     private void push_undo_state () {
-        undo_manager.push (new UndoState (items, checked_paths, check_model.checked_dirs, use_absolute, show_header));
+        undo_manager.push (new UndoDelta.for_snapshot (
+            new UndoState (items, checked_paths, check_model.checked_dirs, work_dir, use_absolute, show_header)));
+    }
+
+    private void push_undo_delta (UndoDelta delta) {
+        undo_manager.push (delta);
+    }
+
+    private int find_item_index (ItemData data) {
+        for (int i = 0; i < items.length; i++) {
+            if (items.get (i) == data) return i;
+        }
+        return -1;
     }
 
     private void on_undo () {
-        var current = new UndoState (items, checked_paths, check_model.checked_dirs, use_absolute, show_header);
-        var state = undo_manager.undo (current);
-        if (state != null) {
-            restore_undo_state (state);
+        var delta = undo_manager.pop_undo ();
+        if (delta == null) return;
+        var redo_delta = build_redo_delta (delta);
+        apply_undo_delta (delta);
+        undo_manager.push_redo (redo_delta);
+        if (delta.op != UndoOp.SNAPSHOT) {
+            refresh_list ();
         }
+        update_undo_redo_buttons ();
     }
 
     private void on_redo () {
-        var current = new UndoState (items, checked_paths, check_model.checked_dirs, use_absolute, show_header);
-        var state = undo_manager.redo (current);
-        if (state != null) {
-            restore_undo_state (state);
+        var delta = undo_manager.pop_redo ();
+        if (delta == null) return;
+        var undo_delta = build_undo_delta (delta);
+        apply_redo_delta (delta);
+        undo_manager.push_undo (undo_delta);
+        if (delta.op != UndoOp.SNAPSHOT) {
+            refresh_list ();
         }
+        update_undo_redo_buttons ();
+    }
+
+    // 根据 undo delta 构建对应的 redo delta (捕获当前状态作为 redo 依据)
+    private UndoDelta build_redo_delta (UndoDelta d) {
+        switch (d.op) {
+            case UndoOp.SNAPSHOT:
+                return new UndoDelta.for_snapshot (
+                    new UndoState (items, checked_paths, check_model.checked_dirs, work_dir, use_absolute, show_header));
+            case UndoOp.INSERT:
+                // redo = 重新插入同样的 items
+                return new UndoDelta.for_insert (d.index, d.items);
+            case UndoOp.REMOVE:
+                // redo = 再次移除
+                return new UndoDelta.for_remove (d.index, d.items, d.removed_checked_paths);
+            case UndoOp.EDIT:
+                return new UndoDelta.for_edit (d.index, d.old_content, d.new_content);
+            case UndoOp.SWAP:
+                return new UndoDelta.for_swap (d.index, d.index2);
+            case UndoOp.MOVE:
+                return new UndoDelta.for_move (d.from_index, d.to_index);
+            case UndoOp.SET_ABSOLUTE:
+                return new UndoDelta.for_absolute (d.old_bool_value, d.new_bool_value,
+                                                    d.old_show_header, show_header);
+            case UndoOp.SET_HEADER:
+                return new UndoDelta.for_header (d.old_bool_value, d.new_bool_value);
+            default:
+                return new UndoDelta.for_snapshot (
+                    new UndoState (items, checked_paths, check_model.checked_dirs, work_dir, use_absolute, show_header));
+        }
+    }
+
+    // 根据 redo delta 构建对应的 undo delta
+    private UndoDelta build_undo_delta (UndoDelta d) {
+        switch (d.op) {
+            case UndoOp.SNAPSHOT:
+                return new UndoDelta.for_snapshot (
+                    new UndoState (items, checked_paths, check_model.checked_dirs, work_dir, use_absolute, show_header));
+            case UndoOp.INSERT:
+                return new UndoDelta.for_insert (d.index, d.items);
+            case UndoOp.REMOVE:
+                return new UndoDelta.for_remove (d.index, d.items, d.removed_checked_paths);
+            case UndoOp.EDIT:
+                return new UndoDelta.for_edit (d.index, d.old_content, d.new_content);
+            case UndoOp.SWAP:
+                return new UndoDelta.for_swap (d.index, d.index2);
+            case UndoOp.MOVE:
+                return new UndoDelta.for_move (d.from_index, d.to_index);
+            case UndoOp.SET_ABSOLUTE:
+                return new UndoDelta.for_absolute (d.old_bool_value, d.new_bool_value,
+                                                    d.old_show_header, show_header);
+            case UndoOp.SET_HEADER:
+                return new UndoDelta.for_header (d.old_bool_value, d.new_bool_value);
+            default:
+                return new UndoDelta.for_snapshot (
+                    new UndoState (items, checked_paths, check_model.checked_dirs, work_dir, use_absolute, show_header));
+        }
+    }
+
+    private void apply_undo_delta (UndoDelta d) {
+        switch (d.op) {
+            case UndoOp.SNAPSHOT:
+                restore_undo_state (d.snapshot);
+                return;
+            case UndoOp.INSERT:
+                // undo 插入 = 移除
+                items.remove_range (d.index, d.items.length);
+                break;
+            case UndoOp.REMOVE:
+                // undo 移除 = 重新插入
+                for (int i = 0; i < d.items.length; i++) {
+                    items.insert (d.index + i, d.items.get (i));
+                }
+                if (d.removed_checked_paths != null) {
+                    for (int i = 0; i < d.removed_checked_paths.length; i++) {
+                        checked_paths.insert (d.removed_checked_paths.get (i), true);
+                        set_tree_item_check (d.removed_checked_paths.get (i), true);
+                    }
+                }
+                break;
+            case UndoOp.EDIT:
+                items.get (d.index).content = d.old_content;
+                break;
+            case UndoOp.SWAP:
+                var tmp = items.get (d.index);
+                items.set (d.index, items.get (d.index2));
+                items.set (d.index2, tmp);
+                break;
+            case UndoOp.MOVE:
+                // undo: 从 to_index 移回 from_index
+                var it = items.get (d.to_index);
+                items.remove_index (d.to_index);
+                items.insert (d.from_index, it);
+                break;
+            case UndoOp.SET_ABSOLUTE:
+                apply_absolute_change (d.old_bool_value, d.old_show_header);
+                break;
+            case UndoOp.SET_HEADER:
+                apply_header_change (d.old_bool_value);
+                break;
+        }
+    }
+
+    private void apply_redo_delta (UndoDelta d) {
+        switch (d.op) {
+            case UndoOp.SNAPSHOT:
+                restore_undo_state (d.snapshot);
+                return;
+            case UndoOp.INSERT:
+                for (int i = 0; i < d.items.length; i++) {
+                    items.insert (d.index + i, d.items.get (i));
+                }
+                break;
+            case UndoOp.REMOVE:
+                items.remove_range (d.index, d.items.length);
+                if (d.removed_checked_paths != null) {
+                    for (int i = 0; i < d.removed_checked_paths.length; i++) {
+                        checked_paths.remove (d.removed_checked_paths.get (i));
+                        set_tree_item_check (d.removed_checked_paths.get (i), false);
+                    }
+                }
+                break;
+            case UndoOp.EDIT:
+                items.get (d.index).content = d.new_content;
+                break;
+            case UndoOp.SWAP:
+                var tmp = items.get (d.index);
+                items.set (d.index, items.get (d.index2));
+                items.set (d.index2, tmp);
+                break;
+            case UndoOp.MOVE:
+                var it = items.get (d.from_index);
+                items.remove_index (d.from_index);
+                items.insert (d.to_index, it);
+                break;
+            case UndoOp.SET_ABSOLUTE:
+                apply_absolute_change (d.new_bool_value, d.old_show_header);
+                break;
+            case UndoOp.SET_HEADER:
+                apply_header_change (d.new_bool_value);
+                break;
+        }
+    }
+
+    // 同步单选按钮到 use_absolute 状态
+    private void sync_path_mode_radios () {
+        radio_absolute_path.notify["active"].disconnect (on_path_mode_changed);
+        radio_relative_path.notify["active"].disconnect (on_path_mode_changed);
+        radio_absolute_path.active = use_absolute;
+        radio_relative_path.active = !use_absolute;
+        radio_absolute_path.notify["active"].connect (on_path_mode_changed);
+        radio_relative_path.notify["active"].connect (on_path_mode_changed);
+    }
+
+    // 统一应用 use_absolute 变更 (undo/redo 共用)
+    private void apply_absolute_change (bool new_abs, bool new_hdr) {
+        use_absolute = new_abs;
+        show_header = new_hdr;
+        radio_absolute_path.notify["active"].disconnect (on_path_mode_changed);
+        radio_relative_path.notify["active"].disconnect (on_path_mode_changed);
+        check_write_header.notify["active"].disconnect (on_header_check_changed);
+        radio_absolute_path.active = new_abs;
+        radio_relative_path.active = !new_abs;
+        check_write_header.active = new_hdr;
+        radio_absolute_path.notify["active"].connect (on_path_mode_changed);
+        radio_relative_path.notify["active"].connect (on_path_mode_changed);
+        check_write_header.notify["active"].connect (on_header_check_changed);
+    }
+
+    // 统一应用 show_header 变更 (undo/redo 共用)
+    private void apply_header_change (bool new_hdr) {
+        show_header = new_hdr;
+        check_write_header.notify["active"].disconnect (on_header_check_changed);
+        check_write_header.active = new_hdr;
+        check_write_header.notify["active"].connect (on_header_check_changed);
     }
 
     private void restore_undo_state (UndoState state) {
         items.remove_range (0, items.length);
-        for (int i = 0; i < state.items.length; i++) {
-            var it = state.items.get (i);
-            items.add (new ItemData (it.item_type, it.file_path, it.content, it.force_absolute));
+        for (int i = 0; i < state.n_items; i++) {
+            items.add (state.get_item (i));
         }
 
         checked_paths.remove_all ();
@@ -972,15 +1227,41 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         use_absolute = state.use_absolute;
         show_header = state.show_header;
-        check_absolute_path.notify["active"].disconnect (on_path_mode_changed);
+        radio_absolute_path.notify["active"].disconnect (on_path_mode_changed);
+        radio_relative_path.notify["active"].disconnect (on_path_mode_changed);
         check_write_header.notify["active"].disconnect (on_header_check_changed);
-        check_absolute_path.active = use_absolute;
+        radio_absolute_path.active = use_absolute;
+        radio_relative_path.active = !use_absolute;
         check_write_header.active = show_header;
-        check_absolute_path.notify["active"].connect (on_path_mode_changed);
+        radio_absolute_path.notify["active"].connect (on_path_mode_changed);
+        radio_relative_path.notify["active"].connect (on_path_mode_changed);
         check_write_header.notify["active"].connect (on_header_check_changed);
 
-        if (work_dir != null && root_store.get_n_items () > 0) {
-            // 用 check_model 作为单一真相源, 重新推导所有 UI 状态
+        bool work_dir_changed = false;
+        if (state.work_dir != null && work_dir != null) {
+            work_dir_changed = state.work_dir.get_path () != work_dir.get_path ();
+        } else if (state.work_dir != null || work_dir != null) {
+            work_dir_changed = true;
+        }
+
+        if (work_dir_changed) {
+            work_dir = state.work_dir;
+            if (work_dir != null) {
+                update_subtitle (work_dir.get_path ());
+                root_store.remove_all ();
+                check_model.replace_from (checked_paths, state.checked_dirs);
+                var root_item = new DirectoryItem (work_dir.get_basename (), work_dir.get_path (), true);
+                root_store.append (root_item);
+                load_directory_children_lazy (root_item);
+                search_entry.visible = true;
+                var root_row = tree_list_model.get_item (0) as Gtk.TreeListRow;
+                if (root_row != null) root_row.set_expanded (true);
+            } else {
+                update_subtitle (null);
+                root_store.remove_all ();
+                search_entry.visible = false;
+            }
+        } else if (work_dir != null && root_store.get_n_items () > 0) {
             check_model.replace_from (checked_paths, state.checked_dirs);
             refresh_all_tree_states ();
         }
@@ -1007,7 +1288,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         btn_clear.clicked.connect (on_clear_items);
         btn_generate.clicked.connect (on_generate_clicked);
         btn_generate_clipboard.clicked.connect (on_generate_to_clipboard_clicked);
-        check_absolute_path.notify["active"].connect (on_path_mode_changed);
+        radio_absolute_path.notify["active"].connect (on_path_mode_changed);
+        radio_relative_path.notify["active"].connect (on_path_mode_changed);
         check_write_header.notify["active"].connect (on_header_check_changed);
 
         queue_selection.selection_changed.connect (on_queue_selection_changed);
@@ -1289,11 +1571,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         common_phrases = cli.common_phrases;
         use_absolute = cli.use_absolute;
         show_header = cli.show_header;
-        check_absolute_path.notify["active"].disconnect (on_path_mode_changed);
+        radio_absolute_path.notify["active"].disconnect (on_path_mode_changed);
+        radio_relative_path.notify["active"].disconnect (on_path_mode_changed);
         check_write_header.notify["active"].disconnect (on_header_check_changed);
-        check_absolute_path.active = use_absolute;
+        radio_absolute_path.active = use_absolute;
+        radio_relative_path.active = !use_absolute;
         check_write_header.active = show_header;
-        check_absolute_path.notify["active"].connect (on_path_mode_changed);
+        radio_absolute_path.notify["active"].connect (on_path_mode_changed);
+        radio_relative_path.notify["active"].connect (on_path_mode_changed);
         check_write_header.notify["active"].connect (on_header_check_changed);
 
         if (work_dir_changed) {
@@ -1401,7 +1686,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     // 后台线程: 枚举单个目录的子条目 (纯文件系统 I/O, 不访问实例状态)
-    private static GenericArray<DirChildInfo> enumerate_dir_children (string dir_path) {
+    private static GenericArray<DirChildInfo> enumerate_dir_children (string dir_path, GLib.Cancellable? cancellable = null) {
         var dirs = new GenericArray<DirChildInfo> ();
         var files = new GenericArray<DirChildInfo> ();
         var dir = File.new_for_path (dir_path);
@@ -1413,6 +1698,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             );
             FileInfo info;
             while ((info = enumerator.next_file ()) != null) {
+                if (cancellable != null && cancellable.is_cancelled ()) break;
                 var child_path = dir.get_child (info.get_name ()).get_path ();
                 bool is_dir = info.get_file_type () == FileType.DIRECTORY;
                 var entry = new DirChildInfo (info.get_name (), child_path, is_dir);
@@ -1462,10 +1748,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (window_closing) return;
         parent_item.children_loading = true;
         string dir_path = parent_item.path;
+        var cancellable = app_cancellable;
         try {
             GLib.Thread<void*>? thread = null;
             thread = new Thread<void*> ("load-dir-children", () => {
-                var entries = enumerate_dir_children (dir_path);
+                var entries = enumerate_dir_children (dir_path, cancellable);
                 // 分批流式插入 (Idle 回调在主线程执行, 防止大项目卡死 UI)
                 apply_directory_children_lazy (parent_item, entries, thread);
                 return null;
@@ -1489,6 +1776,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         int current_offset = 0;
 
         GLib.Idle.add (() => {
+            // 窗口关闭时不再更新 UI, 直接清理线程引用
+            if (window_closing) {
+                if (thread != null) bg_threads.remove (thread);
+                return GLib.Source.REMOVE;
+            }
             // 边界检查: 父容器可能在中途被销毁
             if (parent == null || parent.children == null) {
                 if (thread != null) bg_threads.remove (thread);
@@ -1591,15 +1883,58 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void refresh_list () {
         bool had_selection = (int)queue_selection.selected >= 0;
         uint old_selected = queue_selection.selected;
-
-        // 一次性批量替换: 移除全部旧条目并插入新条目, 只触发一次 items-changed 信号
         uint n = queue_store.get_n_items ();
-        GLib.Object[] additions = new GLib.Object[items.length];
-        for (int i = 0; i < items.length; i++) {
-            additions[i] = items.get (i);
-        }
-        queue_store.splice (0, n, additions);
+        int m = items.length;
 
+        // 差分同步: 只替换发生变化的段, 避免全量重建
+        // 1. 寻找第一个不一致的索引
+        int first_diff = -1;
+        int min_len = (int) uint.min (n, (uint) m);
+        for (int i = 0; i < min_len; i++) {
+            if (queue_store.get_item (i) != items.get (i)) {
+                first_diff = i;
+                break;
+            }
+        }
+
+        // 2. 根据差异类型执行最小化 splice
+        if (first_diff == -1) {
+            if (n == m) {
+                // 完全一致，无需任何操作
+            } else if (n < m) {
+                // 仅尾部追加
+                GLib.Object[] adds = new GLib.Object[m - n];
+                for (int i = (int)n; i < m; i++) adds[i - (int)n] = items.get (i);
+                queue_store.splice (n, 0, adds);
+            } else {
+                // 仅尾部删除
+                queue_store.splice (m, n - m, {});
+            }
+        } else {
+            // 3. 存在中间差异，寻找最后一个不一致的索引
+            int last_diff_old = (int)n - 1;
+            int last_diff_new = m - 1;
+            while (last_diff_old >= first_diff && last_diff_new >= first_diff) {
+                if (queue_store.get_item (last_diff_old) == items.get (last_diff_new)) {
+                    last_diff_old--;
+                    last_diff_new--;
+                } else {
+                    break;
+                }
+            }
+
+            int replace_len_old = last_diff_old - first_diff + 1;
+            int replace_len_new = last_diff_new - first_diff + 1;
+
+            GLib.Object[] adds = new GLib.Object[replace_len_new];
+            for (int i = 0; i < replace_len_new; i++) {
+                adds[i] = items.get (first_diff + i);
+            }
+            // 仅替换发生变化的中间段
+            queue_store.splice (first_diff, replace_len_old, adds);
+        }
+
+        // 4. 恢复选择状态
         if (had_selection && old_selected < items.length) {
             queue_selection.selected = old_selected;
         } else if (items.length > 0) {
@@ -1716,7 +2051,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             var text = buffer.get_text (start, end, false);
             if (text != null && text.strip () != "") {
                 if (edit_data != null) {
+                    // Bug #12 修复: 编辑文本项时记录 undo delta
+                    int edit_index = find_item_index (edit_data);
+                    string old_content = edit_data.content;
                     edit_data.content = text;
+                    if (edit_index >= 0) {
+                        push_undo_delta (new UndoDelta.for_edit (edit_index, old_content, text));
+                    }
                     refresh_list ();
                     update_preview (edit_data);
                 } else {
@@ -1739,7 +2080,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void do_insert_text (string text, bool above) {
-        push_undo_state ();
         int current = (int)queue_selection.selected;
         int index;
         if (current < 0) {
@@ -1747,7 +2087,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         } else {
             index = above ? current : current + 1;
         }
-        items.insert (index, new ItemData ("text", null, text, false));
+        var inserted = new GenericArray<ItemData> ();
+        var item = new ItemData ("text", null, text, false);
+        items.insert (index, item);
+        inserted.add (item);
+        push_undo_delta (new UndoDelta.for_insert (index, inserted));
         refresh_list ();
     }
 
@@ -1755,10 +2099,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         int index = (int)queue_selection.selected;
         if (index < 0) return;
         if (index <= 0) return;
-        push_undo_state ();
         var tmp = items.get (index);
         items.set (index, items.get (index - 1));
         items.set (index - 1, tmp);
+        push_undo_delta (new UndoDelta.for_swap (index - 1, index));
         refresh_list ();
         select_queue_row (index - 1);
     }
@@ -1767,10 +2111,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         int index = (int)queue_selection.selected;
         if (index < 0) return;
         if (index >= items.length - 1) return;
-        push_undo_state ();
         var tmp = items.get (index);
         items.set (index, items.get (index + 1));
         items.set (index + 1, tmp);
+        push_undo_delta (new UndoDelta.for_swap (index, index + 1));
         refresh_list ();
         select_queue_row (index + 1);
     }
@@ -1778,15 +2122,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void on_delete_item () {
         int index = (int)queue_selection.selected;
         if (index < 0) return;
-        push_undo_state ();
         var data = items.get (index);
+        var removed = new GenericArray<ItemData> ();
+        removed.add (data);
+        var rm_checked = new GenericArray<string> ();
         if (data.item_type == "file" && !data.force_absolute) {
             if (data.file_path in checked_paths) {
+                rm_checked.add (data.file_path);
                 checked_paths.remove (data.file_path);
                 set_tree_item_check (data.file_path, false);
             }
         }
         items.remove_index (index);
+        push_undo_delta (new UndoDelta.for_remove (index, removed, rm_checked));
         refresh_list ();
     }
 
@@ -1848,23 +2196,17 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // ─── Options ─────────────────────────────────────────────────────────
 
     private void on_path_mode_changed () {
-        push_undo_state ();
-        use_absolute = check_absolute_path.active;
-        if (use_absolute) {
-            check_write_header.notify["active"].disconnect (on_header_check_changed);
-            check_write_header.active = false;
-            check_write_header.notify["active"].connect (on_header_check_changed);
-            show_header = false;
-            check_write_header.sensitive = false;
-        } else {
-            check_write_header.sensitive = true;
-        }
+        bool old_abs = use_absolute;
+        bool old_hdr = show_header;
+        use_absolute = radio_absolute_path.active;
+        push_undo_delta (new UndoDelta.for_absolute (old_abs, use_absolute, old_hdr, show_header));
         refresh_list ();
     }
 
     private void on_header_check_changed () {
-        push_undo_state ();
+        bool old_val = show_header;
         show_header = check_write_header.active;
+        push_undo_delta (new UndoDelta.for_header (old_val, show_header));
     }
 
     // ─── Generate ────────────────────────────────────────────────────────
@@ -1981,11 +2323,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     update_subtitle (null);
                 }
 
-                check_absolute_path.notify["active"].disconnect (on_path_mode_changed);
+                radio_absolute_path.notify["active"].disconnect (on_path_mode_changed);
+                radio_relative_path.notify["active"].disconnect (on_path_mode_changed);
                 check_write_header.notify["active"].disconnect (on_header_check_changed);
-                check_absolute_path.active = use_absolute;
+                radio_absolute_path.active = use_absolute;
+                radio_relative_path.active = !use_absolute;
                 check_write_header.active = show_header;
-                check_absolute_path.notify["active"].connect (on_path_mode_changed);
+                radio_absolute_path.notify["active"].connect (on_path_mode_changed);
+                radio_relative_path.notify["active"].connect (on_path_mode_changed);
                 check_write_header.notify["active"].connect (on_header_check_changed);
                 undo_manager.clear ();
                 update_undo_redo_buttons ();
@@ -2045,11 +2390,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // ─── Subtitle ────────────────────────────────────────────────────────
 
-    private void update_subtitle (string? text) {
-        string subtitle = text ?? _("未设置工作目录");
-
-        title = (text != null) ? text : _("FileCollector");
-
+    private void cache_title_widget () {
         if (_title_widget == null) {
             var header = get_titlebar () as Adw.HeaderBar;
             if (header != null && header.title_widget is Adw.WindowTitle) {
@@ -2057,6 +2398,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             } else {
                 _title_widget = find_window_title (this);
             }
+        }
+    }
+
+    private void update_subtitle (string? text) {
+        string subtitle = text ?? _("未设置工作目录");
+
+        title = (text != null) ? text : _("FileCollector");
+
+        if (_title_widget == null) {
+            cache_title_widget ();
         }
         if (_title_widget != null) {
             _title_widget.set_subtitle (subtitle);
@@ -2586,6 +2937,15 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         ai_exec_result = null;
         ai_exec_done = false;
         GLib.Idle.add (() => {
+            // 窗口关闭或 AI 停止时跳过工具执行, 避免访问已销毁的 widget
+            if (window_closing || (ai_panel_instance != null && ai_panel_instance.is_stop_requested ())) {
+                ai_exec_mutex.lock ();
+                ai_exec_result = "";
+                ai_exec_done = true;
+                ai_exec_cond.broadcast ();
+                ai_exec_mutex.unlock ();
+                return GLib.Source.REMOVE;
+            }
             string r = "";
             try {
                 var a = json_parse_args (json_local);
@@ -2600,8 +2960,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             ai_exec_mutex.unlock ();
             return GLib.Source.REMOVE;
         });
+        // 使用超时等待, 周期性检查停止条件, 使"停止"按钮能打断工具执行等待
         while (!ai_exec_done) {
-            ai_exec_cond.wait (ai_exec_mutex);
+            if (window_closing || (ai_panel_instance != null && ai_panel_instance.is_stop_requested ())) {
+                ai_exec_mutex.unlock ();
+                return "";
+            }
+            int64 end_time = GLib.get_monotonic_time () + 200 * 1000; // 200ms 超时
+            ai_exec_cond.wait_until (ai_exec_mutex, end_time);
         }
         ai_exec_mutex.unlock ();
         return ai_exec_result ?? "";
@@ -2679,8 +3045,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         int count = 0;
         int total = 0;
         try {
+            string[] ignored_dirs = ConfigManager.get_ignored_dirs ();
             list_files_recursive (work_dir.get_path (), work_dir.get_path (), 0, (int) max_depth,
-                matcher, sb, ref count, ref total, (int) max_results);
+                matcher, sb, ref count, ref total, (int) max_results, ignored_dirs);
         } catch (Error e) {
             return "读取目录失败: " + e.message;
         }
@@ -2690,7 +3057,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private static void list_files_recursive (string root, string dir, int depth, int max_depth,
-            PatternSpec matcher, StringBuilder sb, ref int count, ref int total, int max_results)
+            PatternSpec matcher, StringBuilder sb, ref int count, ref int total, int max_results,
+            string[] ignored_dirs)
             throws Error {
         if (count >= max_results) return;
         if (depth > max_depth) return;
@@ -2705,8 +3073,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             string name = info.get_name ();
             string full = dir_file.get_child (name).get_path ();
             if (info.get_file_type () == FileType.DIRECTORY) {
-                if (name == ".git" || name == "node_modules" || name == "__pycache__"
-                    || name == "build" || name == ".venv" || name == "venv") {
+                if (name in ignored_dirs) {
                     continue;
                 }
                 if (matcher.match_string (name.down ()) && count < max_results) {
@@ -2714,7 +3081,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     count++;
                 }
                 list_files_recursive (root, full, depth + 1, max_depth, matcher, sb,
-                    ref count, ref total, max_results);
+                    ref count, ref total, max_results, ignored_dirs);
             } else {
                 total++;
                 if (matcher.match_string (name.down ())) {
@@ -2752,6 +3119,56 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         return "%.1f GB".printf (size / 1024.0 / 1024.0 / 1024.0);
     }
 
+    // ─── AI 工具路径安全校验 ────────────────────────────────────────────
+
+    // 将路径规范化: 解析 . 和 .., 消除重复 /, 防止路径遍历攻击
+    private static string normalize_path (string path) {
+        var stack = new GenericArray<string> ();
+        foreach (unowned string part in path.split ("/")) {
+            if (part == "" || part == ".") continue;
+            if (part == "..") {
+                if (stack.length > 0) stack.remove_index (stack.length - 1);
+            } else {
+                stack.add ((string) part);
+            }
+        }
+        string joined = string.joinv ("/", (string*[]) stack.data);
+        return path.has_prefix ("/") ? "/" + joined : joined;
+    }
+
+    // 解析 AI 工具的路径参数: 相对路径基于 work_dir, 然后规范化
+    private string? resolve_ai_path (string path) {
+        string abs = path;
+        if (!GLib.Path.is_absolute (path)) {
+            if (work_dir != null) {
+                abs = GLib.Path.build_filename (work_dir.get_path (), path);
+            } else {
+                return null; // 无 work_dir 时无法解析相对路径
+            }
+        }
+        return normalize_path (abs);
+    }
+
+    // 检查规范化路径是否在 work_dir 内 (防止路径遍历读取敏感文件)
+    private bool is_path_in_work_dir (string normalized_path) {
+        if (work_dir == null) return false;
+        string allowed = normalize_path (work_dir.get_path ());
+        return normalized_path == allowed || normalized_path.has_prefix (allowed + "/");
+    }
+
+    // 检查规范化路径是否允许作为新工作目录 (必须在当前 work_dir 树内或用户主目录内)
+    private bool is_path_allowed_for_work_dir (string normalized_path) {
+        // 允许在用户主目录内
+        string home = normalize_path (Environment.get_home_dir ());
+        if (normalized_path == home || normalized_path.has_prefix (home + "/")) return true;
+        // 允许在当前工作目录树内
+        if (work_dir != null) {
+            string wd = normalize_path (work_dir.get_path ());
+            if (normalized_path == wd || normalized_path.has_prefix (wd + "/")) return true;
+        }
+        return false;
+    }
+
     private string ai_tool_read_file (Json.Node args) throws GLib.Error {
         if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
         var o = args.get_object ();
@@ -2764,11 +3181,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (max_bytes <= 0) max_bytes = 102400;
         if (max_lines <= 0) max_lines = 500;
 
-        // 路径解析: 相对路径基于 work_dir
-        string abs = path;
-        if (work_dir != null && !GLib.Path.is_absolute (path)) {
-            abs = GLib.Path.build_filename (work_dir.get_path (), path);
-        }
+        // 路径解析与安全校验: 相对路径基于 work_dir, 必须在 work_dir 内
+        string? resolved = resolve_ai_path (path);
+        if (resolved == null) return "无法解析路径 (未设置工作目录)";
+        if (!is_path_in_work_dir (resolved)) return "拒绝访问: 路径超出工作目录范围";
+        string abs = resolved;
         var file = File.new_for_path (abs);
         if (!file.query_exists ()) return "文件不存在: " + abs;
 
@@ -2782,13 +3199,17 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
 
         // 流式读取: 只读取前 max_bytes 字节, 避免全量加载大文件导致 OOM
-        Bytes bytes;
+        Bytes? bytes = null;
+        FileInputStream? fis = null;
         try {
-            var fis = file.read ();
+            fis = file.read ();
             bytes = fis.read_bytes ((size_t) max_bytes);
-            fis.close ();
         } catch (Error e) {
             return "读取失败: " + e.message;
+        } finally {
+            if (fis != null) {
+                try { fis.close (); } catch (Error e) { debug ("Close failed: %s", e.message); }
+            }
         }
         unowned uint8[] raw = bytes.get_data ();
         bool read_all = (raw.length >= file_size);
@@ -2827,16 +3248,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
         string path = args.get_object ().get_string_member_with_default ("path", "");
         if (path == "") return "缺少 path";
-        if (!GLib.Path.is_absolute (path)) {
-            if (work_dir != null) {
-                path = GLib.Path.build_filename (work_dir.get_path (), path);
-            }
-        }
-        var file = File.new_for_path (path);
-        if (!file.query_exists ()) return "目录不存在: " + path;
+        // 路径解析与安全校验: 新工作目录必须在当前 work_dir 树内或用户主目录内
+        string? resolved = resolve_ai_path (path);
+        if (resolved == null) return "无法解析路径 (未设置工作目录)";
+        if (!is_path_allowed_for_work_dir (resolved))
+            return "拒绝访问: 工作目录必须在当前项目目录或用户主目录内";
+        var file = File.new_for_path (resolved);
+        if (!file.query_exists ()) return "目录不存在: " + resolved;
         // 已在主线程 (ai_tool_executor_cb 通过 Idle 投递), 直接执行
-        ai_apply_set_work_dir (path);
-        return "工作目录已切换到: " + path;
+        ai_apply_set_work_dir (resolved);
+        return "工作目录已切换到: " + resolved;
     }
 
     private void ai_apply_set_work_dir (string path) {
@@ -2883,10 +3304,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
         for (int i = 0; i < total; i++) {
             string p = paths_arr.get_string_element (i);
-            string abs = p;
-            if (work_dir != null && !GLib.Path.is_absolute (p)) {
-                abs = GLib.Path.build_filename (work_dir.get_path (), p);
-            }
+            string? resolved = resolve_ai_path (p);
+            if (resolved == null || !is_path_in_work_dir (resolved)) continue;
+            string abs = resolved;
             if (!FileUtils.test (abs, FileTest.EXISTS)) continue;
             // 是否已存在
             bool exists = false;
@@ -2916,10 +3336,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         push_undo_state ();
         for (int i = 0; i < total; i++) {
             string p = arr.get_string_element (i);
-            string abs = p;
-            if (work_dir != null && !GLib.Path.is_absolute (p)) {
-                abs = GLib.Path.build_filename (work_dir.get_path (), p);
-            }
+            string? resolved = resolve_ai_path (p);
+            if (resolved == null || !is_path_in_work_dir (resolved)) continue;
+            string abs = resolved;
             // 从 items 移除
             for (int j = items.length - 1; j >= 0; j--) {
                 var it = items.get (j);
@@ -2947,7 +3366,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         string? after = o.has_member ("after_path") ? o.get_string_member ("after_path") : null;
         string? before = o.has_member ("before_path") ? o.get_string_member ("before_path") : null;
         // 已在主线程 (ai_tool_executor_cb 通过 Idle 投递), 直接执行
-        push_undo_state ();
         int insert_at = items.length;
         if (o.has_member ("position")) {
             // schema 标准: position 是 0-based 索引
@@ -2973,7 +3391,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 }
             }
         }
-        items.insert (insert_at, new ItemData ("text", null, text, false));
+        var inserted = new GenericArray<ItemData> ();
+        var new_item = new ItemData ("text", null, text, false);
+        items.insert (insert_at, new_item);
+        inserted.add (new_item);
+        push_undo_delta (new UndoDelta.for_insert (insert_at, inserted));
         refresh_list ();
         return "已插入文本 (位置 %d)".printf (insert_at);
     }
@@ -2986,15 +3408,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (idx < 0 || idx >= items.length) {
             return "索引越界: %d (列表共 %d 项)".printf (idx, items.length);
         }
-        push_undo_state ();
         var removed = items.get (idx);
+        var rm_items = new GenericArray<ItemData> ();
+        rm_items.add (removed);
+        var rm_checked = new GenericArray<string> ();
         if (removed.item_type == "file" && removed.file_path != null) {
             if (removed.file_path in checked_paths) {
+                rm_checked.add (removed.file_path);
                 checked_paths.remove (removed.file_path);
                 set_tree_item_check (removed.file_path, false);
             }
         }
         items.remove_index (idx);
+        push_undo_delta (new UndoDelta.for_remove (idx, rm_items, rm_checked));
         refresh_list ();
         return "已删除第 %d 项 (%s)".printf (idx, removed.item_type);
     }
@@ -3012,10 +3438,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (to < 0 || to >= items.length) {
             return "to_index 越界: %d (列表共 %d 项)".printf (to, items.length);
         }
-        push_undo_state ();
         var item = items.get (from);
         items.remove_index (from);
         items.insert (to, item);
+        push_undo_delta (new UndoDelta.for_move (from, to));
         refresh_list ();
         return "已移动: %d → %d".printf (from, to);
     }
@@ -3025,21 +3451,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var o = args.get_object ();
         if (!o.has_member ("value")) return "缺少 value";
         bool val = o.get_boolean_member ("value");
-        push_undo_state ();
+        bool old_abs = use_absolute;
+        bool old_hdr = show_header;
         use_absolute = val;
-        // 临时断开信号, 避免 on_path_mode_changed / on_header_check_changed 重复 push_undo_state / 联动 header
-        check_absolute_path.notify["active"].disconnect (on_path_mode_changed);
+        // 临时断开信号, 避免 on_path_mode_changed / on_header_check_changed 重复 push_undo_delta
+        radio_absolute_path.notify["active"].disconnect (on_path_mode_changed);
+        radio_relative_path.notify["active"].disconnect (on_path_mode_changed);
         check_write_header.notify["active"].disconnect (on_header_check_changed);
-        check_absolute_path.active = val;
-        if (val) {
-            check_write_header.active = false;
-            check_write_header.sensitive = false;
-            show_header = false;
-        } else {
-            check_write_header.sensitive = true;
-        }
-        check_absolute_path.notify["active"].connect (on_path_mode_changed);
+        radio_absolute_path.active = val;
+        radio_relative_path.active = !val;
+        radio_absolute_path.notify["active"].connect (on_path_mode_changed);
+        radio_relative_path.notify["active"].connect (on_path_mode_changed);
         check_write_header.notify["active"].connect (on_header_check_changed);
+        push_undo_delta (new UndoDelta.for_absolute (old_abs, val, old_hdr, show_header));
         refresh_list ();
         return "use_absolute=" + val.to_string ();
     }
@@ -3049,14 +3473,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var o = args.get_object ();
         if (!o.has_member ("value")) return "缺少 value";
         bool val = o.get_boolean_member ("value");
-        if (use_absolute) {
-            return "无法设置 show_header: 当前为绝对路径模式, header 已禁用";
-        }
-        push_undo_state ();
+        bool old_val = show_header;
         show_header = val;
         check_write_header.notify["active"].disconnect (on_header_check_changed);
         check_write_header.active = val;
         check_write_header.notify["active"].connect (on_header_check_changed);
+        push_undo_delta (new UndoDelta.for_header (old_val, val));
         return "show_header=" + val.to_string ();
     }
 
@@ -3065,11 +3487,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (!args.get_object ().has_member ("index")) return "缺少 index";
         int idx = (int) args.get_object ().get_int_member ("index");
         // 已在主线程 (ai_tool_executor_cb 通过 Idle 投递), 直接执行
-        push_undo_state ();
         int removed = 0;
+        int remove_at = -1;
+        ItemData? removed_item = null;
         for (int i = items.length - 1; i >= 0; i--) {
             if (items.get (i).item_type == "text") {
                 if (idx == 0) {
+                    remove_at = i;
+                    removed_item = items.get (i);
                     items.remove_index (i);
                     removed = 1;
                     break;
@@ -3077,6 +3502,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     idx--;
                 }
             }
+        }
+        if (removed > 0 && removed_item != null) {
+            var rm_items = new GenericArray<ItemData> ();
+            rm_items.add (removed_item);
+            push_undo_delta (new UndoDelta.for_remove (remove_at, rm_items));
         }
         refresh_list ();
         return "已删除文本 (removed=%d)".printf (removed);
