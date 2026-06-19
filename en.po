@@ -144,9 +144,13 @@ msgstr "Export Settings:"
 msgid "导出合并文本到 PATH"
 msgstr "Export merged text to PATH"
 
-#: src/cli.vala:198 src/window.blp:206
+#: src/cli.vala:198 src/window.blp:258
 msgid "使用绝对路径"
 msgstr "Use Absolute Paths"
+
+#: src/window.blp:253
+msgid "使用相对路径"
+msgstr "Use Relative Paths"
 
 #: src/cli.vala:199
 msgid "添加头部信息 (工作目录路径)"
@@ -639,15 +643,6 @@ msgstr ""
 msgid "[文件不存在: %s]\n"
 msgstr "[File does not exist: %s]\n"
 
-#: src/utils/tree_helper.vala:57
-msgid "正在加载..."
-msgstr "Loading..."
-
-#: src/utils/tree_helper.vala:70
-#, c-format
-msgid "无法读取目录: %s"
-msgstr "Unable to read directory: %s"
-
 #: src/window.blp:336
 msgid "AI 设置..."
 msgstr "AI Settings..."
@@ -684,7 +679,7 @@ msgstr "Send"
 msgid "未配置模型"
 msgstr "No model configured"
 
-#: src/widgets/ai_panel.vala:239
+#: src/widgets/ai_panel.vala:239 src/widgets/ai_panel.vala:307
 msgid ""
 "你好, 我是 AI 编排助手。告诉我你想收集哪些文件, 我来帮你编排。\n"
 "例如: \"把 src 目录下所有 Python 文件加进去, 然后在开头插入一段任务说明。\""
@@ -757,7 +752,7 @@ msgstr "Save"
 msgid "通用"
 msgstr "General"
 
-#: src/widgets/ai_settings_dialog.vala:82
+#: src/widgets/ai_settings_dialog.vala:82 src/widgets/ai_settings_dialog.vala:87
 msgid ""
 "配置 OpenAI 兼容 API, 即可在 AI 边栏使用自然语言编排文件。\n"
 "支持 OpenAI、Azure OpenAI、Microsoft Foundry 上的 Fast Context 等特化模型, "
@@ -811,6 +806,18 @@ msgstr "Send a minimal request to the API with current settings to verify it wor
 #: src/widgets/ai_settings_dialog.vala:139
 msgid "测试"
 msgstr "Test"
+
+#: src/widgets/ai_settings_dialog.vala:152
+msgid "扫描忽略目录"
+msgstr "Scan Ignored Directories"
+
+#: src/widgets/ai_settings_dialog.vala:153
+msgid "AI 扫描工作目录时将跳过这些目录名，用英文逗号分隔。"
+msgstr "These directory names will be skipped when AI scans the working directory. Separate with commas."
+
+#: src/widgets/ai_settings_dialog.vala:159
+msgid "忽略的目录名"
+msgstr "Ignored Directory Names"
 
 #: src/widgets/ai_settings_dialog.vala:192
 msgid "请先填写 API 基础地址、密钥和模型名称。"
@@ -866,6 +873,89 @@ msgstr "Response is not valid JSON: "
 #: src/services/ai_client.vala:415
 msgid "响应顶层不是对象"
 msgstr "Response top-level is not an object"
+
+#: src/services/ai_client.vala:410
+msgid "AI 请求已被用户主动取消"
+msgstr "AI request was cancelled by user"
+
+#: src/services/ai_client.vala:414
+#, c-format
+msgid "API 返回错误状态码: %u"
+msgstr "API returned error status code: %u"
+
+#: src/services/file_generator.vala:46
+#, c-format
+msgid "[无法获取文件信息: %s]\n"
+msgstr "[Unable to get file info: %s]\n"
+
+#: src/services/file_generator.vala:50
+#, c-format
+msgid "[文件过大 (%s), 已跳过内容读取]\n"
+msgstr "[File too large (%s), content reading skipped]\n"
+
+#: src/services/file_generator.vala:75
+msgid "[检测到二进制文件: 已跳过文本内容读取]\n"
+msgstr "[Binary file detected: text content reading skipped]\n"
+
+#: src/services/file_generator.vala:98
+#, c-format
+msgid "[读取文件失败: %s]\n"
+msgstr "[Failed to read file: %s]\n"
+
+#: src/widgets/ai_panel.vala:119 src/widgets/ai_panel.vala:123
+#: src/widgets/ai_panel.vala:418 src/widgets/ai_panel.vala:432
+msgid "滚动到底部"
+msgstr "Scroll to Bottom"
+
+#: src/widgets/ai_panel.vala:675
+msgid "请先在 设置 → AI 设置 中启用 AI 助手。"
+msgstr "Please enable the AI assistant in Settings → AI Settings first."
+
+#: src/widgets/ai_panel.vala:677
+msgid "请先在 设置 → AI 设置 中配置 API。"
+msgstr "Please configure the API in Settings → AI Settings first."
+
+#: src/widgets/ai_panel.vala:1117
+msgid "未启用"
+msgstr "Disabled"
+
+#: src/window.vala:2469 src/window.vala:2520
+msgid "切换 AI 面板"
+msgstr "Toggle AI Panel"
+
+#: src/widgets/ai_settings_dialog.vala:173
+msgid "HTTP 端点安全风险"
+msgstr "HTTP Endpoint Security Risk"
+
+#: src/widgets/ai_settings_dialog.vala:174
+msgid "使用 HTTP (非 HTTPS) 端点时，API 密钥将在网络中明文传输，存在安全风险。"
+msgstr "When using an HTTP (non-HTTPS) endpoint, the API key will be transmitted in plaintext over the network, which poses a security risk."
+
+#: src/widgets/ai_settings_dialog.vala:239 src/widgets/ai_settings_dialog.vala:243
+msgid "安全警告"
+msgstr "Security Warning"
+
+#: src/widgets/ai_settings_dialog.vala:240
+msgid ""
+"您正在配置 HTTP (非 HTTPS) 端点。\n"
+"\n"
+"这将导致 API 密钥在传输过程中以明文形式发送，存在被第三方截获的风险。\n"
+"\n"
+"建议使用 HTTPS 端点以确保安全。\n"
+"\n"
+"是否仍要继续保存？"
+msgstr ""
+"You are configuring an HTTP (non-HTTPS) endpoint.\n"
+"\n"
+"This will cause the API key to be sent in plaintext during transmission, with the risk of being intercepted by third parties.\n"
+"\n"
+"It is recommended to use an HTTPS endpoint for security.\n"
+"\n"
+"Do you still want to continue saving?"
+
+#: src/widgets/ai_settings_dialog.vala:247
+msgid "继续保存"
+msgstr "Continue Saving"
 
 
 
