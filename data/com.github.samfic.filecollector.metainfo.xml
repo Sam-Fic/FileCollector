@@ -23,6 +23,24 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="4.1.0" date="2026-06-19">
+      <description>
+        <p>新特性与修复：</p>
+        <ul>
+          <li>新增目录三态勾选状态的单一真相源模型，修复文件树勾选同步问题</li>
+          <li>AI 助手网络请求支持取消，关闭窗口不再阻塞等待超时</li>
+          <li>窗口关闭时采用非阻塞策略，避免后台线程死锁导致界面挂起</li>
+          <li>新增 invoke_on_main_sync 主线程自检，防止跨线程同步死锁</li>
+          <li>大目录树加载改为分批插入，消除数万文件导致的 UI 卡顿</li>
+          <li>撤销栈限制最大 50 步，防止长时间使用导致内存无限增长</li>
+          <li>修复二进制文件因空字符截断导致的编码误判问题</li>
+          <li>修复 Markdown 超长内容导致的资源耗尽问题</li>
+          <li>新增已选目录的序列化与反序列化支持</li>
+          <li>重构多语言文件加载逻辑，适配更多 Flatpak 部署场景</li>
+          <li>优化常用语弹窗与 AI 聊天面板的 UI 样式</li>
+        </ul>
+      </description>
+    </release>
     <release version="4.0.1" date="2026-06-17">
       <description>
         <p>问题修复：</p>
