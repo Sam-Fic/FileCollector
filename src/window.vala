@@ -2210,7 +2210,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void on_generate_clicked () {
         if (items.length == 0) {
-            show_warning (_("编排列表为空"), _("请先勾选文件或添加文字内容。"));
+            show_toast (_("编排列表为空，请先勾选文件或添加文字内容"));
             return;
         }
 
@@ -2233,7 +2233,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 FileGenerator.generate_file (path, items, use_absolute, show_header, work_dir);
                 show_toast (_("合并文本已保存"));
             } catch (Error e) {
-                if (e is GLib.IOError.CANCELLED) return;
+                if (e is GLib.IOError.CANCELLED || e is Gtk.DialogError.DISMISSED) {
+                    show_toast (_("保存已取消"));
+                    return;
+                }
                 show_error (_("保存失败"), e.message);
             }
         });
@@ -2241,7 +2244,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void on_generate_to_clipboard_clicked () {
         if (items.length == 0) {
-            show_warning (_("编排列表为空"), _("请先勾选文件或添加文字内容。"));
+            show_toast (_("编排列表为空，请先勾选文件或添加文字内容"));
             return;
         }
 

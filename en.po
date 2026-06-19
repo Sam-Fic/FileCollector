@@ -377,13 +377,13 @@ msgstr "OK"
 msgid "常用语"
 msgstr "Common Phrases"
 
-#: src/window.vala:1257 src/window.vala:1288
+#: src/cli.vala:162 src/cli.vala:163 src/cli.vala:336
 msgid "编排列表为空"
 msgstr "Queue is Empty"
 
-#: src/window.vala:1257 src/window.vala:1288
-msgid "请先勾选文件或添加文字内容。"
-msgstr "Please select files or add text content first."
+#: src/window.vala:2213 src/window.vala:2247
+msgid "编排列表为空，请先勾选文件或添加文字内容"
+msgstr "The queue is empty. Please check some files or add text content first"
 
 #: src/window.vala:1262
 msgid "保存合并文本"
@@ -956,6 +956,10 @@ msgstr ""
 #: src/widgets/ai_settings_dialog.vala:247
 msgid "继续保存"
 msgstr "Continue Saving"
+
+#: src/window.vala:2237
+msgid "保存已取消"
+msgstr "Save cancelled"
 
 
 
