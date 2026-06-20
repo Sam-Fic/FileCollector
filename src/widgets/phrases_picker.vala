@@ -44,6 +44,10 @@ public class PhrasesPicker : GLib.Object {
         add_btn.set_label (_("添加"));
         header_bar.pack_end (add_btn);
 
+        var btn_size_group = new Gtk.SizeGroup (Gtk.SizeGroupMode.HORIZONTAL);
+        btn_size_group.add_widget (cancel_btn);
+        btn_size_group.add_widget (add_btn);
+
         var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 12);
         box.set_margin_top (0);
         box.set_margin_start (12);
@@ -117,6 +121,10 @@ public class PhrasesPicker : GLib.Object {
         add_btn.set_label (_("添加"));
         add_btn.add_css_class ("suggested-action");
         header_bar.pack_end (add_btn);
+
+        var btn_size_group = new Gtk.SizeGroup (Gtk.SizeGroupMode.HORIZONTAL);
+        btn_size_group.add_widget (cancel_btn);
+        btn_size_group.add_widget (add_btn);
 
         cancel_btn.clicked.connect (() => {
             dialog.close ();
@@ -197,6 +205,10 @@ public class PhrasesPicker : GLib.Object {
         ok_btn.set_label (_("添加"));
         ok_btn.add_css_class ("suggested-action");
         header_bar.pack_end (ok_btn);
+
+        var btn_size_group = new Gtk.SizeGroup (Gtk.SizeGroupMode.HORIZONTAL);
+        btn_size_group.add_widget (cancel_btn);
+        btn_size_group.add_widget (ok_btn);
 
         var content = new Gtk.Box (Gtk.Orientation.VERTICAL, 12);
         content.set_margin_top (0);

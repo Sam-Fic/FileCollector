@@ -2002,6 +2002,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         ok_btn.add_css_class ("suggested-action");
         header_bar.pack_end (ok_btn);
 
+        var btn_size_group = new Gtk.SizeGroup (Gtk.SizeGroupMode.HORIZONTAL);
+        btn_size_group.add_widget (cancel_btn);
+        btn_size_group.add_widget (ok_btn);
+
         var phrases_btn = new Gtk.Button ();
         phrases_btn.set_label (_("常用语"));
         header_bar.pack_end (phrases_btn);
@@ -2672,6 +2676,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         ok_btn.set_label (_("确定"));
         ok_btn.add_css_class ("suggested-action");
         header_bar.pack_end (ok_btn);
+
+        var btn_size_group = new Gtk.SizeGroup (Gtk.SizeGroupMode.HORIZONTAL);
+        btn_size_group.add_widget (cancel_btn);
+        btn_size_group.add_widget (ok_btn);
 
         var content = new Gtk.Box (Gtk.Orientation.VERTICAL, 12);
         content.set_margin_top (0);
