@@ -25,10 +25,10 @@ flatpak install --user flathub org.gnome.Platform//50 org.gnome.Sdk//50
 
 ### 2.1 版本发布提交规范
 
-**每个版本发布需要两个 commit**：
+**每次版本发布包含多个功能提交 + 1 个版本更新提交**：
 
-1. **功能提交**：将代码变更提交到主分支
-2. **发布提交**：修改版本号
+1. **功能提交**：将代码变更提交到主分支（数量不限）
+2. **发布提交**：修改版本号到 meson.build 和 metainfo.xml
 
 **版本发布 commit 格式**：
 
@@ -69,7 +69,7 @@ git log v2.0.3..HEAD --stat --name-only
 | 文件           | 修改内容                                                          |
 | -------------- | ----------------------------------------------------------------- |
 | `meson.build`  | 第 2 行 `version: 'x.y.z'`（此为唯一版本源）                      |
-| `metainfo.xml` | 在 `<releases>` 内新增 `<release>` 条目，按版本号**从新到旧**排列 |
+| `metainfo.xml` | 在 `<releases>` 内新增 `<release>` 条目，按版本号**从新到旧**排列，`date` 使用当天日期（格式 `YYYY-MM-DD`） |
 
 `metainfo.xml` 新增条目的格式示例：
 
@@ -84,6 +84,8 @@ git log v2.0.3..HEAD --stat --name-only
   </description>
 </release>
 ```
+
+> 💡 `date` 属性使用当天日期，格式为 `YYYY-MM-DD`。
 
 ### 2.4 提交、打标签与推送
 
@@ -137,12 +139,15 @@ flatpak build-bundle flatpak-repo filecollector-2.0.4.flatpak com.github.samfic.
 # 检查 bundle 文件大小
 ls -lh filecollector-*.flatpak
 
+# 确认 flathub 源已添加（首次需要）
+flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
 # 安装并运行验证
 flatpak install --user --or-update -y filecollector-2.0.4.flatpak
 flatpak run com.github.samfic.filecollector
 
 # 确认 metainfo 中的版本号正确
-grep "release version" build-dir/files/share/metainfo/com.github.samfic.filecollector.metainfo.xml
+flatpak info com.github.samfic.filecollector
 ```
 
 > 💡 **交互式确认**：`flatpak install` 可能弹出确认提示 `[Y/n]`，在脚本中可添加 `--noninteractive` 标志：
@@ -252,11 +257,38 @@ Configure this as new remote 'flathub' [Y/n]:
 flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 ```
 
-### 5.4 文件路径不被 Git 跟踪
+### 5.4 网络超时/重试
+
+构建时下载 Git 源（blueprint-compiler、cmark-gfm）可能因网络不稳定失败：
+
+```bash
+# 失败后直接重试即可，部分下载会被缓存
+flatpak-builder --repo=flatpak-repo build-dir com.github.samfic.filecollector.json --force-clean
+```
+
+如果多次失败，可尝试手动预下载：
+
+```bash
+flatpak-builder --repo=flatpak-repo build-dir com.github.samfic.filecollector.json 2>&1 | tee build.log
+```
+
+### 5.5 文件路径不被 Git 跟踪
 
 构建产生的 `*.flatpak`、`build-dir/`、`flatpak-repo/`、`.flatpak-builder/` 等均已包含在 `.gitignore` 中。如果希望保留某个版本的 bundle，手动复制到其他目录或发布到 GitHub Releases。
 
-### 5.5 跨版本构建注意事项
+### 5.6 构建产物清理
+
+构建产物不会自动清理，建议定期删除旧版本 bundle 以节省磁盘空间：
+
+```bash
+# 删除旧版本 bundle，保留当前版本
+find . -name "filecollector-*.flatpak" ! -name "filecollector-4.3.0.flatpak" -delete
+
+# 清理旧的 flatpak 安装（如有）
+flatpak uninstall --user -y com.github.samfic.filecollector  # 重新安装新版本
+```
+
+### 5.7 跨版本构建注意事项
 
 从旧版本构建升级时，注意 `.flatpak-builder/` 缓存可能导致问题。使用 `--force-clean` 可确保完全重新构建。
 
@@ -289,19 +321,37 @@ flatpak-builder build-dir com.github.samfic.filecollector.json --user --install 
 
 AI 应使用 `gh` CLI 自动完成，无需用户手动操作。
 
-确保 `gh` 已安装并登录（`sudo apt install gh && gh auth login`）。
+### 7.1 前置检查
 
-创建 Release 并上传 Flatpak bundle：
+```bash
+# 确认 gh 已安装
+gh --version
+
+# 确认已登录（未登录则提示）
+gh auth status 2>&1 || {
+  echo "未登录 GitHub CLI，请先执行 gh auth login"
+  exit 1
+}
+```
+
+### 7.2 创建 Release
+
+创建 Release 并上传 Flatpak bundle（注意格式按照模板写）：
 
 ```bash
 gh release create vX.Y.Z --title "FileCollector vX.Y.Z" --notes "$(cat <<'EOF'
 ### 主要改进
 
 - **简洁描述**：详细内容
+- **简洁描述**：详细内容
+- **简洁描述**：详细内容
 
 ### Improvements
 
 - **Brief description**: Detailed content
+- **Brief description**: Detailed content
+- **Brief description**: Detailed content
+
 EOF
 )" filecollector-X.Y.Z.flatpak
 ```
