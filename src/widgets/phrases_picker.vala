@@ -1,13 +1,15 @@
+using Gee;
+
 public class PhrasesPicker : GLib.Object {
     private Gtk.Window parent_window;
-    private GenericArray<string> common_phrases;
+    private Gee.ArrayList<string> common_phrases;
     private Gtk.ListBox? current_list_box;
 
     public signal void phrase_selected (string phrase, bool above);
     public signal void phrases_changed ();
     public signal void edit_phrase_requested (string old_text, int index);
 
-    public PhrasesPicker (Gtk.Window parent, GenericArray<string> phrases) {
+    public PhrasesPicker (Gtk.Window parent, Gee.ArrayList<string> phrases) {
         this.parent_window = parent;
         this.common_phrases = phrases;
     }
@@ -142,12 +144,12 @@ public class PhrasesPicker : GLib.Object {
             list_box.remove (list_box.get_first_child ());
         }
 
-        if (common_phrases.length == 0) {
+        if (common_phrases.size == 0) {
             var empty_label = new Gtk.Label (_("暂无常用语"));
             empty_label.set_halign (Gtk.Align.CENTER);
             list_box.append (empty_label);
         } else {
-            for (int i = 0; i < common_phrases.length; i++) {
+            for (int i = 0; i < common_phrases.size; i++) {
                 var phrase = common_phrases.get (i);
                 var row = new Adw.ActionRow ();
                 if (phrase.char_count () > 40) {
@@ -164,7 +166,7 @@ public class PhrasesPicker : GLib.Object {
                 delete_btn.set_valign (Gtk.Align.CENTER);
                 int captured_index = i;
                 delete_btn.clicked.connect (() => {
-                    common_phrases.remove_index (captured_index);
+                    common_phrases.remove_at (captured_index);
                     ConfigManager.save_common_phrases (common_phrases);
                     populate_phrases_picker_list (list_box, dialog, above);
                     phrases_changed ();
@@ -268,7 +270,7 @@ public class PhrasesPicker : GLib.Object {
         while (list_box.get_first_child () != null) {
             list_box.remove (list_box.get_first_child ());
         }
-        for (int i = 0; i < common_phrases.length; i++) {
+        for (int i = 0; i < common_phrases.size; i++) {
             var phrase = common_phrases.get (i);
             var row = new Adw.ActionRow ();
             if (phrase.char_count () > 40) {
@@ -285,7 +287,7 @@ public class PhrasesPicker : GLib.Object {
             delete_btn.set_valign (Gtk.Align.CENTER);
             int captured_index = i;
             delete_btn.clicked.connect (() => {
-                common_phrases.remove_index (captured_index);
+                common_phrases.remove_at (captured_index);
                 ConfigManager.save_common_phrases (common_phrases);
                 refresh_phrases_list (list_box);
                 phrases_changed ();

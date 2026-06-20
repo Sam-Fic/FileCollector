@@ -76,11 +76,6 @@ public class AIPanel : GLib.Object {
     // send_user_message, on_clear_chat) 之间并发读写, 必须用锁保护
     private GLib.Mutex messages_lock = GLib.Mutex ();
 
-    // 用于从 worker 线程同步调用主线程上的 GTK 操作 (GTK4 非线程安全).
-    private GLib.Mutex main_sync_mutex = GLib.Mutex ();
-    private GLib.Cond main_sync_cond = GLib.Cond ();
-    private bool main_sync_done = false;
-
     // 由主窗口创建并配置; 本身只是个 widget 工厂
     public AIPanel (Gtk.Window? parent) {
         this.parent_window = parent;
@@ -324,10 +319,6 @@ public class AIPanel : GLib.Object {
         if (request_cancellable != null) {
             request_cancellable.cancel ();
         }
-        // 唤醒可能在 invoke_on_main_sync 中等待主线程的 worker 线程, 防止 join 死锁
-        main_sync_mutex.lock ();
-        main_sync_cond.broadcast ();
-        main_sync_mutex.unlock ();
         if (worker_thread != null) {
             worker_thread.join ();
             worker_thread = null;
@@ -861,11 +852,11 @@ public class AIPanel : GLib.Object {
         stop_requested = false;
         request_cancellable = new GLib.Cancellable ();
         worker_thread = new GLib.Thread<void> ("ai-worker", () => {
-            run_worker (msgs_copy);
+            run_worker.begin (msgs_copy);
         });
     }
 
-    private void run_worker (Gee.ArrayList<Json.Node> msgs) {
+    private async void run_worker (Gee.ArrayList<Json.Node> msgs) {
         AIClient local = client;
         if (local == null) {
             on_api_failed (_("客户端未配置"));
@@ -874,22 +865,26 @@ public class AIPanel : GLib.Object {
         try {
             var result = local.chat (msgs, build_full_tool_schema (), request_cancellable);
             if (stop_requested) return;
-            on_api_finished (result);
+            yield on_api_finished (result);
         } catch (Error e) {
             if (stop_requested) return;
             on_api_failed (e.message);
         }
     }
 
-    private void on_api_finished (AIChatResult result) {
-        // 此函数在 worker 线程调用.
-        // GTK4 非线程安全: 所有 GTK 操作必须通过 invoke_on_main_sync 投递到主线程.
-        // tool_executor 内部已用 Idle.add + Cond 跨线程, 必须从 worker 线程调用,
-        // 否则会死锁 (主线程阻塞等待 Cond, Idle 永远无法执行).
-
+    private async void on_api_finished (AIChatResult result) {
+        // 网络响应目前在 worker 线程; 先通过 yield 切换到主线程,
+        // 后续所有 GTK/状态操作都在主线程执行, 避免跨线程访问 GTK4 widget.
+        if (!GLib.MainContext.default ().is_owner ()) {
+            GLib.Idle.add (() => {
+                on_api_finished.callback ();
+                return GLib.Source.REMOVE;
+            });
+            yield;
+        }
         if (stop_requested) return;
 
-        // 数据: 构建 assistant 消息并写入历史 (纯数据操作, 线程安全)
+        // 数据: 构建 assistant 消息并写入历史
         var assistant_msg = new Json.Object ();
         assistant_msg.set_string_member ("role", "assistant");
         assistant_msg.set_string_member ("content", result.content ?? "");
@@ -913,84 +908,63 @@ public class AIPanel : GLib.Object {
         messages.add (AI.SchemaHelper.obj_to_node (assistant_msg));
         messages_lock.unlock ();
 
-        // GTK 渲染必须回到主线程
         if (result.content.length > 0) {
-            string content = result.content;
-            invoke_on_main_sync (() => {
-                render_assistant (content);
-            });
+            render_assistant (result.content);
         }
 
         if (stop_requested) return;
 
         if (result.tool_calls.size > 0) {
-            // tool_executor 在 worker 线程调用 (内部 Idle+Cond 跨线程同步)
             foreach (var tc in result.tool_calls) {
                 if (stop_requested) break;
                 string args_repr = format_tool_args (tc.name, tc.arguments_json);
-                var args_node = parse_args (tc.arguments_json);
-                string result_str;
-                try {
-                    if (tool_executor == null) {
-                        result_str = _("未配置工具执行器");
-                    } else {
-                        result_str = tool_executor (tc.name, args_node);
-                    }
-                } catch (Error e) {
-                    result_str = _("执行出错: %s").printf (e.message);
-                }
+                string result_str = yield execute_tool_async (tc.name, tc.arguments_json);
                 if (stop_requested) break;
-                // 渲染工具结果回到主线程
-                string tname = tc.name;
-                string trepr = args_repr;
-                string tresult = result_str;
-                invoke_on_main_sync (() => {
-                    render_tool (tname, trepr, tresult);
-                });
+                render_tool (tc.name, args_repr, result_str);
                 messages_lock.lock ();
                 messages.add (build_tool_response (tc.id, result_str));
                 messages_lock.unlock ();
             }
-            // 继续下一轮让 LLM 总结 (next_turn 会操作 GTK, 必须在主线程)
             if (!stop_requested) {
-                invoke_on_main_sync (() => {
-                    next_turn ();
-                });
+                next_turn ();
             }
         } else {
-            invoke_on_main_sync (() => {
-                set_busy (false);
-            });
+            set_busy (false);
         }
     }
 
-    // 从 worker 线程同步调用主线程上的 GTK 操作.
-    // 使用 Idle + Cond 模式: 投递到主线程后阻塞等待完成.
-    private delegate void MainSyncTask ();
-
-    private void invoke_on_main_sync (owned MainSyncTask task) {
+    // 异步工具执行: 若已在主线程则直接调用 tool_executor;
+    // 否则通过 Idle 投递到主线程, yield 等待结果, 不阻塞 worker 线程.
+    private async string execute_tool_async (string name, string args_json) {
+        if (stop_requested) return "";
         if (GLib.MainContext.default ().is_owner ()) {
-            task ();
-            return;
-        }
-
-        main_sync_mutex.lock ();
-        main_sync_done = false;
-        GLib.Idle.add (() => {
-            // stop_requested 时跳过 GTK 操作, 避免在窗口销毁后访问 widget
-            if (!stop_requested) {
-                task ();
+            try {
+                if (tool_executor == null) return _("未配置工具执行器");
+                return tool_executor (name, parse_args (args_json));
+            } catch (Error e) {
+                return _("执行出错: %s").printf (e.message);
             }
-            main_sync_mutex.lock ();
-            main_sync_done = true;
-            main_sync_cond.broadcast ();
-            main_sync_mutex.unlock ();
+        }
+        string result = "";
+        GLib.Idle.add (() => {
+            if (stop_requested) {
+                result = "";
+            } else {
+                try {
+                    if (tool_executor == null) {
+                        result = _("未配置工具执行器");
+                    } else {
+                        result = tool_executor (name, parse_args (args_json));
+                    }
+                } catch (Error e) {
+                    result = _("执行出错: %s").printf (e.message);
+                }
+            }
+            execute_tool_async.callback ();
             return GLib.Source.REMOVE;
         });
-        while (!main_sync_done && !stop_requested) {
-            main_sync_cond.wait (main_sync_mutex);
-        }
-        main_sync_mutex.unlock ();
+        yield;
+        return result;
     }
 
     private static Json.Node parse_args (string raw) {
@@ -1039,12 +1013,12 @@ public class AIPanel : GLib.Object {
                             for (int i = 0; i < n; i++) {
                                 parts.add ("\"" + paths.get_string_element (i) + "\"");
                             }
-                            return "paths=[" + string.joinv (", ", parts.to_array ()) + "]";
+                            return "paths=[" + string.joinv (", ", (string[]) parts.to_array ()) + "]";
                         } else {
                             for (int i = 0; i < 5; i++) {
                                 parts.add ("\"" + paths.get_string_element (i) + "\"");
                             }
-                            return "paths=[" + string.joinv (", ", parts.to_array ())
+                            return "paths=[" + string.joinv (", ", (string[]) parts.to_array ())
                                  + ", … (+%d more)".printf (n - 5) + "]";
                         }
                     }
@@ -1058,13 +1032,13 @@ public class AIPanel : GLib.Object {
                 string p = o.get_string_member_with_default ("path", "");
                 var extras = new Gee.ArrayList<string> ();
                 if (o.has_member ("start_line"))
-                    extras.add ("start_line=%lld".printf (o.get_int_member ("start_line")));
+                    extras.add ("start_line=%s".printf (o.get_int_member ("start_line").to_string ()));
                 if (o.has_member ("max_lines"))
-                    extras.add ("max_lines=%lld".printf (o.get_int_member ("max_lines")));
+                    extras.add ("max_lines=%s".printf (o.get_int_member ("max_lines").to_string ()));
                 if (o.has_member ("max_bytes"))
-                    extras.add ("max_bytes=%lld".printf (o.get_int_member ("max_bytes")));
+                    extras.add ("max_bytes=%s".printf (o.get_int_member ("max_bytes").to_string ()));
                 if (extras.size > 0) {
-                    return "\"" + p + "\", " + string.joinv (", ", extras.to_array ());
+                    return "\"" + p + "\", " + string.joinv (", ", (string[]) extras.to_array ());
                 }
                 return "\"" + p + "\"";
             }
@@ -1079,10 +1053,10 @@ public class AIPanel : GLib.Object {
                 if (o.has_member ("directory"))
                     parts.add ("directory='" + o.get_string_member ("directory") + "'");
                 if (o.has_member ("max_depth"))
-                    parts.add ("max_depth=%lld".printf (o.get_int_member ("max_depth")));
+                    parts.add ("max_depth=%s".printf (o.get_int_member ("max_depth").to_string ()));
                 if (o.has_member ("max_results"))
-                    parts.add ("max_results=%lld".printf (o.get_int_member ("max_results")));
-                return parts.size > 0 ? string.joinv (", ", parts.to_array ()) : "(no filter)";
+                    parts.add ("max_results=%s".printf (o.get_int_member ("max_results").to_string ()));
+                return parts.size > 0 ? string.joinv (", ", (string[]) parts.to_array ()) : "(no filter)";
             }
         }
         if (name == "list_items") {
@@ -1093,8 +1067,8 @@ public class AIPanel : GLib.Object {
                 if (o.has_member ("kind"))
                     parts.add ("kind='" + o.get_string_member ("kind") + "'");
                 if (o.has_member ("max_items"))
-                    parts.add ("max_items=%lld".printf (o.get_int_member ("max_items")));
-                return parts.size > 0 ? string.joinv (", ", parts.to_array ()) : "(all items)";
+                    parts.add ("max_items=%s".printf (o.get_int_member ("max_items").to_string ()));
+                return parts.size > 0 ? string.joinv (", ", (string[]) parts.to_array ()) : "(all items)";
             }
         }
         // 默认: 直接展示原始 JSON

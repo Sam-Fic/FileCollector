@@ -1,3 +1,5 @@
+using Gee;
+
 public class ConfigManager : GLib.Object {
     public const string DEFAULT_AI_BASE_URL = "https://api.openai.com/v1";
     public const string DEFAULT_AI_MODEL = "gpt-4o-mini";
@@ -127,7 +129,7 @@ public class ConfigManager : GLib.Object {
         }
     }
 
-    public static void load_common_phrases (GenericArray<string> common_phrases) {
+    public static void load_common_phrases (Gee.ArrayList<string> common_phrases) {
         var file = get_phrases_file ();
         if (!FileUtils.test (file, FileTest.EXISTS)) {
             return;
@@ -147,11 +149,11 @@ public class ConfigManager : GLib.Object {
         }
     }
 
-    public static void save_common_phrases (GenericArray<string> common_phrases) {
+    public static void save_common_phrases (Gee.ArrayList<string> common_phrases) {
         try {
             var builder = new Json.Builder ();
             builder.begin_array ();
-            for (int i = 0; i < common_phrases.length; i++) {
+            for (int i = 0; i < common_phrases.size; i++) {
                 builder.add_string_value (common_phrases.get (i));
             }
             builder.end_array ();

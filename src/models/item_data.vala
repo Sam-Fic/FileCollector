@@ -1,3 +1,5 @@
+using Gee;
+
 public class ItemData : GLib.Object {
     public string item_type { get; set; }
     public string? file_path { get; set; }

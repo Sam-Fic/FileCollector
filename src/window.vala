@@ -2,6 +2,11 @@ using GLib;
 using Gtk;
 using Adw;
 using Json;
+using Gee;
+
+// 绕过 Vala 生成 GObject** 导致的 C 编译器 incompatible-pointer-types 警告
+[CCode (cname = "g_list_store_splice")]
+private extern void list_store_splice_void (GLib.ListStore store, uint position, uint n_removals, [CCode (array_length = false)] void*[] additions, uint n_additions);
 
 // ─── Directory Item Model ───────────────────────────────────────────────
 
@@ -9,39 +14,39 @@ using Json;
 // 状态完全由 checked_files (文件路径集合) 推导, 目录的三态由其后代文件状态计算
 public class CheckStateModel : GLib.Object {
     // 唯一的状态存储: 已勾选的文件绝对路径
-    public HashTable<string, bool> checked_files { get; private set; }
+    public Gee.HashSet<string> checked_files { get; private set; }
     // 被用户整体勾选的目录路径 (用于懒加载未展开目录的状态推导)
-    public HashTable<string, bool> checked_dirs { get; private set; }
+    public Gee.HashSet<string> checked_dirs { get; private set; }
 
     public signal void changed ();
 
     // 缓存所有包含已选文件的祖先目录, 用于 O(1) 查询 has_checked_descendant
-    private HashTable<string, bool> implicit_checked_dirs;
+    private Gee.HashSet<string> implicit_checked_dirs;
 
     public CheckStateModel () {
-        checked_files = new HashTable<string, bool> (str_hash, str_equal);
-        checked_dirs = new HashTable<string, bool> (str_hash, str_equal);
-        implicit_checked_dirs = new HashTable<string, bool> (str_hash, str_equal);
+        checked_files = new Gee.HashSet<string> ();
+        checked_dirs = new Gee.HashSet<string> ();
+        implicit_checked_dirs = new Gee.HashSet<string> ();
     }
 
     public void clear () {
-        checked_files.remove_all ();
-        checked_dirs.remove_all ();
-        implicit_checked_dirs.remove_all ();
+        checked_files.clear ();
+        checked_dirs.clear ();
+        implicit_checked_dirs.clear ();
         changed ();
     }
 
-    public void replace_from (HashTable<string, bool> other_files, HashTable<string, bool>? other_dirs = null) {
-        checked_files.remove_all ();
-        implicit_checked_dirs.remove_all ();
-        foreach (var k in other_files.get_keys ()) {
-            checked_files.insert (k, true);
+    public void replace_from (Gee.HashSet<string> other_files, Gee.HashSet<string>? other_dirs = null) {
+        checked_files.clear ();
+        implicit_checked_dirs.clear ();
+        foreach (var k in other_files) {
+            checked_files.add (k);
             add_to_implicit_dirs (k);
         }
-        checked_dirs.remove_all ();
+        checked_dirs.clear ();
         if (other_dirs != null) {
-            foreach (var k in other_dirs.get_keys ()) {
-                checked_dirs.insert (k, true);
+            foreach (var k in other_dirs) {
+                checked_dirs.add (k);
             }
         }
         changed ();
@@ -49,7 +54,7 @@ public class CheckStateModel : GLib.Object {
 
     public void set_dir_checked (string path, bool value) {
         if (value) {
-            checked_dirs.insert (path, true);
+            checked_dirs.add (path);
         } else {
             checked_dirs.remove (path);
         }
@@ -86,14 +91,15 @@ public class CheckStateModel : GLib.Object {
                 if (in_checked_dirs) {
                     if (stats.checked_count < stats.total) return 1;
                     return 2;
+                } else {
+                    if (stats.checked_count == 0) {
+                        return has_checked ? 1 : 0;
+                    } else if (stats.checked_count == stats.total) {
+                        return 2; // 修复：全选中
+                    } else {
+                        return 1;
+                    }
                 }
-                if (stats.checked_count == 0) {
-                    return has_checked ? 1 : 0;
-                }
-                if (stats.checked_count == stats.total) {
-                    return 1;
-                }
-                return 1;
             } else {
                 if (in_checked_dirs) return 2;
                 return has_checked ? 1 : 0;
@@ -133,16 +139,16 @@ public class CheckStateModel : GLib.Object {
         while (parent != null) {
             string p = parent.get_path ();
             if (p in implicit_checked_dirs) break;
-            implicit_checked_dirs.insert (p, true);
+            implicit_checked_dirs.add (p);
             parent = parent.get_parent ();
         }
     }
 
     private void rebuild_implicit_dirs () {
-        implicit_checked_dirs.remove_all ();
-        checked_files.foreach ((key, val) => {
-            add_to_implicit_dirs ((string)key);
-        });
+        implicit_checked_dirs.clear ();
+        foreach (var key in checked_files) {
+            add_to_implicit_dirs (key);
+        }
     }
 
     // ── 文件/目录勾选操作 ──────────────────────────────────────────────
@@ -154,7 +160,7 @@ public class CheckStateModel : GLib.Object {
             checked_files.remove (path);
             rebuild_implicit_dirs ();
         } else {
-            checked_files.insert (path, true);
+            checked_files.add (path);
             add_to_implicit_dirs (path);
         }
         remove_ancestors_from_checked_dirs (path);
@@ -167,7 +173,7 @@ public class CheckStateModel : GLib.Object {
         if (!item.is_dir) {
             if (value) {
                 if (!(item.path in checked_files)) {
-                    checked_files.insert (item.path, true);
+                    checked_files.add (item.path);
                     add_to_implicit_dirs (item.path);
                 }
             } else {
@@ -188,7 +194,7 @@ public class CheckStateModel : GLib.Object {
             if (!child.is_dir) {
                 if (value) {
                     if (!(child.path in checked_files)) {
-                        checked_files.insert (child.path, true);
+                        checked_files.add (child.path);
                     }
                 } else {
                     checked_files.remove (child.path);
@@ -204,7 +210,7 @@ public class CheckStateModel : GLib.Object {
         bool any = false;
         foreach (var p in paths) {
             if (!(p in checked_files)) {
-                checked_files.insert (p, true);
+                checked_files.add (p);
                 add_to_implicit_dirs (p);
                 remove_ancestors_from_checked_dirs (p);
                 any = true;
@@ -327,21 +333,29 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private Gtk.CustomFilter tree_filter;
     private Gtk.SingleSelection tree_selection;
     private GLib.ListStore root_store;
-    private File? work_dir = null;
     private string search_text = "";
-    private string? project_file = null;
-    private bool use_absolute = false;
-    private bool show_header = false;
 
     private GLib.ListStore queue_store;
     private Gtk.SingleSelection queue_selection;
 
-    private GenericArray<ItemData> items;
-    private HashTable<string, bool> checked_paths;  // 保留用于向后兼容 (undo/redo/cli)
-    private CheckStateModel check_model;  // 单一真相源: 三态勾选状态
-    private GenericArray<string> common_phrases;
+    private AppState app_state;
+    // 向后兼容访问器, 逐步迁移到直接通过 app_state 访问
+    private Gee.ArrayList<ItemData> items { get { return app_state.items; } }
+    private Gee.HashSet<string> checked_paths { get { return app_state.checked_paths; } }
+    private CheckStateModel check_model { get { return app_state.check_model; } }
+    private Gee.ArrayList<string> common_phrases { get { return app_state.common_phrases; } }
+    private File? work_dir { get { return app_state.work_dir; } set { app_state.work_dir = value; } }
+    private bool use_absolute { get { return app_state.use_absolute; } set { app_state.use_absolute = value; } }
+    private bool show_header { get { return app_state.show_header; } set { app_state.show_header = value; } }
+    private string? project_file { get { return app_state.project_file; } set { app_state.project_file = value; } }
+    private string ai_mode { get { return app_state.ai_mode; } set { app_state.ai_mode = value; } }
+    private string ai_file_extension { get { return app_state.ai_file_extension; } set { app_state.ai_file_extension = value; } }
+    private string ai_file_label { get { return app_state.ai_file_label; } set { app_state.ai_file_label = value; } }
+    private int ai_max_files { get { return app_state.ai_max_files; } set { app_state.ai_max_files = value; } }
 
     private UndoManager undo_manager;
+    private ProjectController project_controller;
+    private AIController ai_controller;
 
     private Adw.WindowTitle? _title_widget;
 
@@ -355,16 +369,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private int pre_ai_width = 0;
     // 缓存 col-resize 光标, 避免 motion 事件每次都创建新对象
     private Gdk.Cursor? col_resize_cursor = null;
-    // 编排模式: "default" | "directory" | "single" (与多平台版本 1:1)
-    private string ai_mode = "default";
-    private string ai_file_extension = "";
-    private string ai_file_label = "文件";
-    private int ai_max_files = 50;
 
     // 后台线程引用: 防止 Thread 对象被提前回收, 并在窗口关闭时 join 确保安全退出
     private Gee.ArrayList<GLib.Thread<void*>> bg_threads = new Gee.ArrayList<GLib.Thread<void*>> ();
     private bool window_closing = false;
     private GLib.Cancellable? app_cancellable = new GLib.Cancellable ();
+    // 操作令牌: 目录勾选等分批任务递增, 旧令牌任务在 Idle 中自行放弃, 防止上下文切换后仍修改旧列表
+    private uint current_operation_token = 0;
 
 
     public FileCollectorWindow (Adw.Application app) {
@@ -372,14 +383,15 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     construct {
-        items = new GenericArray<ItemData> ();
-        checked_paths = new HashTable<string, bool> (str_hash, str_equal);
-        check_model = new CheckStateModel ();
-        common_phrases = new GenericArray<string> ();
+        app_state = new AppState ();
+        project_controller = new ProjectController (app_state);
+        ai_controller = new AIController (app_state);
         undo_manager = new UndoManager ();
 
-        ConfigManager.load_common_phrases (common_phrases);
+        ConfigManager.load_common_phrases (app_state.common_phrases);
         load_css ();
+
+        bind_app_state_signals ();
 
         setup_queue_list ();
         setup_tree_view ();
@@ -395,6 +407,28 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         GLib.Idle.add (() => {
             cache_title_widget ();
             return Source.REMOVE;
+        });
+    }
+
+    private void bind_app_state_signals () {
+        app_state.items_changed.connect (refresh_list);
+        app_state.state_changed.connect (() => {
+            sync_path_mode_radios ();
+            sync_header_checkbox ();
+            update_title ();
+            update_undo_redo_buttons ();
+        });
+
+        // AIController 信号 → View 层 UI 操作
+        ai_controller.undo_snapshot_requested.connect (() => push_undo_state ());
+        ai_controller.undo_delta_requested.connect ((delta) => push_undo_delta (delta));
+        ai_controller.tree_check_changed.connect ((path, checked) => set_tree_item_check (path, checked));
+        ai_controller.work_dir_change_requested.connect ((path) => ai_apply_set_work_dir (path));
+        ai_controller.clear_items_requested.connect (() => on_clear_items ());
+        ai_controller.refresh_list_requested.connect (() => refresh_list ());
+        ai_controller.state_changed.connect (() => {
+            sync_path_mode_radios ();
+            sync_header_checkbox ();
         });
     }
 
@@ -795,8 +829,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             try {
                 GLib.Thread<void*>? thread = null;
                 thread = new Thread<void*> ("collect-files", () => {
-                    var file_paths = new GenericArray<string> ();
-                    var dir_paths = new GenericArray<string> ();
+                    var file_paths = new Gee.ArrayList<string> ();
+                    var dir_paths = new Gee.ArrayList<string> ();
                     collect_files_from_filesystem (dir_path, file_paths, dir_paths);
                     Idle.add (() => {
                         if (window_closing) {
@@ -813,8 +847,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             } catch (ThreadError e) {
                 warning ("Failed to create collect-files thread: %s", e.message);
                 // 后备: 同步执行
-                var file_paths = new GenericArray<string> ();
-                var dir_paths = new GenericArray<string> ();
+                var file_paths = new Gee.ArrayList<string> ();
+                var dir_paths = new Gee.ArrayList<string> ();
                 collect_files_from_filesystem (dir_path, file_paths, dir_paths);
                 apply_dir_check_result (new_checked, dir_paths, file_paths);
             }
@@ -823,7 +857,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             check_model.toggle_file (item.path);
             if (new_checked) {
                 if (!(item.path in checked_paths) && !path_in_items (item.path)) {
-                    checked_paths.insert (item.path, true);
+                    checked_paths.add (item.path);
                     items.add (new ItemData ("file", item.path, null, false));
                 }
             } else {
@@ -838,11 +872,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // 目录勾选/取消勾选的后台收集结果处理 (主线程)
     // items 增删分批在 Idle 中执行, 避免数万文件一次性处理阻塞 UI
-    private void apply_dir_check_result (bool new_checked, GenericArray<string> dir_paths, GenericArray<string> file_paths) {
+    private void apply_dir_check_result (bool new_checked, Gee.ArrayList<string> dir_paths, Gee.ArrayList<string> file_paths) {
+        current_operation_token++;
+        uint my_token = current_operation_token;
+
         // check_model 操作: 同步执行 (数据结构操作, 相对快速)
         if (new_checked) {
             // 先加文件 (内部会移除祖先目录的 checked_dirs 标记)
-            check_model.add_files (file_paths.data);
+            check_model.add_files ((string[]) file_paths.to_array ());
             // 再把当前目录及其所有子孙目录加回 checked_dirs
             foreach (var d in dir_paths) {
                 check_model.set_dir_checked (d, true);
@@ -851,7 +888,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             foreach (var d in dir_paths) {
                 check_model.set_dir_checked (d, false);
             }
-            check_model.remove_files (file_paths.data);
+            check_model.remove_files ((string[]) file_paths.to_array ());
             // 将取消勾选的目录的祖先从 checked_dirs 中移除, 使其降级为半选
             check_model.remove_ancestors_from_checked_dirs (dir_paths.get (0));
         }
@@ -863,13 +900,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         int chunk_size = 200;
         int idx = 0;
         Idle.add (() => {
-            if (window_closing) return Source.REMOVE;
+            if (window_closing || my_token != current_operation_token) return Source.REMOVE;
             int count = 0;
-            while (idx < file_paths.length && count < chunk_size) {
+            while (idx < file_paths.size && count < chunk_size) {
                 var p = file_paths.get (idx);
                 if (new_checked) {
                     if (!(p in checked_paths) && !path_in_items (p)) {
-                        checked_paths.insert (p, true);
+                        checked_paths.add (p);
                         items.add (new ItemData ("file", p, null, false));
                     }
                 } else {
@@ -881,10 +918,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 idx++;
                 count++;
             }
-            if (idx < file_paths.length) {
+            if (idx < file_paths.size) {
                 return Source.CONTINUE;
             }
-            if (!window_closing) {
+            if (!window_closing && my_token == current_operation_token) {
                 refresh_list ();
             }
             return Source.REMOVE;
@@ -892,7 +929,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     // 从文件系统递归收集目录下所有文件路径和子目录路径
-    private void collect_files_from_filesystem (string dir_path, GenericArray<string> out_files, GenericArray<string> out_dirs) {
+    private void collect_files_from_filesystem (string dir_path, Gee.ArrayList<string> out_files, Gee.ArrayList<string> out_dirs) {
         if (app_cancellable != null && app_cancellable.is_cancelled ()) return;
         out_dirs.add (dir_path);
         var dir = File.new_for_path (dir_path);
@@ -967,12 +1004,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     item.inconsistent = false; // 全选中
                 }
             } else {
+                // 目录未被显式勾选，状态完全由已加载的子文件决定
                 if (stats.checked_files == 0) {
                     item.checked = false;
-                    item.inconsistent = has_checked; // 无选中但后代可能有选中
+                    item.inconsistent = has_checked; // 无选中但后代(未加载部分)可能有选中
                 } else if (stats.checked_files == stats.total_files) {
-                    item.checked = false;
-                    item.inconsistent = true; // 全选但未标记为 checked_dirs
+                    item.checked = true; // 修复：只要所有文件都勾选，目录即显示为全勾选
+                    item.inconsistent = false;
                 } else {
                     item.checked = false;
                     item.inconsistent = true; // 部分选中
@@ -1006,7 +1044,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private int find_item_index (ItemData data) {
-        for (int i = 0; i < items.length; i++) {
+        for (int i = 0; i < items.size; i++) {
             if (items.get (i) == data) return i;
         }
         return -1;
@@ -1099,16 +1137,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 return;
             case UndoOp.INSERT:
                 // undo 插入 = 移除
-                items.remove_range (d.index, d.items.length);
+                for (int i = 0; i < d.items.size; i++) items.remove_at (d.index);
                 break;
             case UndoOp.REMOVE:
                 // undo 移除 = 重新插入
-                for (int i = 0; i < d.items.length; i++) {
+                for (int i = 0; i < d.items.size; i++) {
                     items.insert (d.index + i, d.items.get (i));
                 }
                 if (d.removed_checked_paths != null) {
-                    for (int i = 0; i < d.removed_checked_paths.length; i++) {
-                        checked_paths.insert (d.removed_checked_paths.get (i), true);
+                    for (int i = 0; i < d.removed_checked_paths.size; i++) {
+                        checked_paths.add (d.removed_checked_paths.get (i));
                         set_tree_item_check (d.removed_checked_paths.get (i), true);
                     }
                 }
@@ -1124,7 +1162,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             case UndoOp.MOVE:
                 // undo: 从 to_index 移回 from_index
                 var it = items.get (d.to_index);
-                items.remove_index (d.to_index);
+                items.remove_at (d.to_index);
                 items.insert (d.from_index, it);
                 break;
             case UndoOp.SET_ABSOLUTE:
@@ -1142,14 +1180,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 restore_undo_state (d.snapshot);
                 return;
             case UndoOp.INSERT:
-                for (int i = 0; i < d.items.length; i++) {
+                for (int i = 0; i < d.items.size; i++) {
                     items.insert (d.index + i, d.items.get (i));
                 }
                 break;
             case UndoOp.REMOVE:
-                items.remove_range (d.index, d.items.length);
+                for (int i = 0; i < d.items.size; i++) items.remove_at (d.index);
                 if (d.removed_checked_paths != null) {
-                    for (int i = 0; i < d.removed_checked_paths.length; i++) {
+                    for (int i = 0; i < d.removed_checked_paths.size; i++) {
                         checked_paths.remove (d.removed_checked_paths.get (i));
                         set_tree_item_check (d.removed_checked_paths.get (i), false);
                     }
@@ -1165,7 +1203,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 break;
             case UndoOp.MOVE:
                 var it = items.get (d.from_index);
-                items.remove_index (d.from_index);
+                items.remove_at (d.from_index);
                 items.insert (d.to_index, it);
                 break;
             case UndoOp.SET_ABSOLUTE:
@@ -1185,6 +1223,22 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         radio_relative_path.active = !use_absolute;
         radio_absolute_path.notify["active"].connect (on_path_mode_changed);
         radio_relative_path.notify["active"].connect (on_path_mode_changed);
+    }
+
+    // 同步头部复选框到 show_header 状态
+    private void sync_header_checkbox () {
+        check_write_header.notify["active"].disconnect (on_header_check_changed);
+        check_write_header.active = show_header;
+        check_write_header.notify["active"].connect (on_header_check_changed);
+    }
+
+    // 根据 work_dir 更新窗口标题/副标题
+    private void update_title () {
+        if (work_dir != null) {
+            update_subtitle (work_dir.get_path ());
+        } else {
+            update_subtitle (null);
+        }
     }
 
     // 统一应用 use_absolute 变更 (undo/redo 共用)
@@ -1211,14 +1265,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void restore_undo_state (UndoState state) {
-        items.remove_range (0, items.length);
+        items.clear ();
         for (int i = 0; i < state.n_items; i++) {
             items.add (state.get_item (i));
         }
 
-        checked_paths.remove_all ();
-        foreach (var key in state.checked_paths.get_keys ()) {
-            checked_paths.insert (key, true);
+        checked_paths.clear ();
+        foreach (var key in state.checked_paths) {
+            checked_paths.add (key);
         }
 
         use_absolute = state.use_absolute;
@@ -1542,49 +1596,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     public CliController create_cli_from_state () {
         var cli = new CliController ();
-        cli.initialize_from_state (
-            work_dir,
-            items,
-            checked_paths,
-            check_model.checked_dirs,
-            common_phrases,
-            use_absolute,
-            show_header
-        );
+        cli.initialize_from_app_state (app_state);
         return cli;
     }
 
     public void apply_cli_operations (CliController cli) {
         push_undo_state ();
-        bool work_dir_changed = false;
-        if (cli.work_dir != null) {
-            if (work_dir == null || cli.work_dir.get_path () != work_dir.get_path ()) {
-                work_dir_changed = true;
-            }
-        }
-
-        items = cli.items;
-        checked_paths = cli.checked_paths;
-        common_phrases = cli.common_phrases;
-        use_absolute = cli.use_absolute;
-        show_header = cli.show_header;
-        radio_absolute_path.notify["active"].disconnect (on_path_mode_changed);
-        radio_relative_path.notify["active"].disconnect (on_path_mode_changed);
-        check_write_header.notify["active"].disconnect (on_header_check_changed);
-        radio_absolute_path.active = use_absolute;
-        radio_relative_path.active = !use_absolute;
-        check_write_header.active = show_header;
-        radio_absolute_path.notify["active"].connect (on_path_mode_changed);
-        radio_relative_path.notify["active"].connect (on_path_mode_changed);
-        check_write_header.notify["active"].connect (on_header_check_changed);
+        bool work_dir_changed = cli.apply_to_state (app_state);
 
         if (work_dir_changed) {
-            work_dir = cli.work_dir;
             update_subtitle (work_dir.get_path ());
             root_store.remove_all ();
             var root_item = new DirectoryItem (work_dir.get_basename (), work_dir.get_path (), true);
             root_store.append (root_item);
-            check_model.replace_from (checked_paths, cli.checked_dirs);
             load_directory_children_lazy (root_item);
             GLib.Idle.add (() => {
                 var root_row = tree_list_model.get_item (0) as Gtk.TreeListRow;
@@ -1595,8 +1619,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             });
             search_entry.visible = true;
         } else if (work_dir != null && root_store.get_n_items () > 0) {
-            check_model.replace_from (checked_paths, cli.checked_dirs);
-            foreach (var path in checked_paths.get_keys ()) {
+            foreach (var path in checked_paths) {
                 ensure_path_loaded (path);
             }
             refresh_all_tree_states ();
@@ -1604,13 +1627,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         refresh_list ();
 
-        if (cli.operation_messages.length > 0) {
-            var messages = new GenericArray<string> ();
-            for (int i = 0; i < cli.operation_messages.length; i++) {
+        if (cli.operation_messages.size > 0) {
+            var messages = new Gee.ArrayList<string> ();
+            for (int i = 0; i < cli.operation_messages.size; i++) {
                 messages.add (cli.operation_messages.get (i));
             }
             GLib.Idle.add (() => {
-                for (int i = 0; i < messages.length; i++) {
+                for (int i = 0; i < messages.size; i++) {
                     var toast = new Adw.Toast (messages.get (i));
                     toast.timeout = 2;
                     toast_overlay.add_toast (toast);
@@ -1627,17 +1650,17 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // ─── Tree View ───────────────────────────────────────────────────────
 
     private void remove_items_by_path (string path) {
-        for (int i = items.length - 1; i >= 0; i--) {
+        for (int i = items.size - 1; i >= 0; i--) {
             var item = items.get (i);
             if (item.item_type == "file" && item.file_path == path) {
-                items.remove_index (i);
+                items.remove_at (i);
             }
         }
     }
 
     // 检查 items 中是否已存在指定路径的文件项 (含 force_absolute 外部文件)
     private bool path_in_items (string path) {
-        for (int i = 0; i < items.length; i++) {
+        for (int i = 0; i < items.size; i++) {
             var item = items.get (i);
             if (item.item_type == "file" && item.file_path == path) {
                 return true;
@@ -1656,8 +1679,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             update_subtitle (folder.get_path ());
 
             root_store.remove_all ();
-            checked_paths.remove_all ();
-            items.remove_range (0, items.length);
+            checked_paths.clear ();
+            items.clear ();
             check_model.clear ();
             undo_manager.clear ();
             update_undo_redo_buttons ();
@@ -1683,11 +1706,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     // 后台线程: 枚举单个目录的子条目 (纯文件系统 I/O, 不访问实例状态)
-    private static GenericArray<DirChildInfo> enumerate_dir_children (string dir_path, GLib.Cancellable? cancellable = null) {
-        var dirs = new GenericArray<DirChildInfo> ();
-        var files = new GenericArray<DirChildInfo> ();
+    private static Gee.ArrayList<DirChildInfo> enumerate_dir_children (string dir_path, GLib.Cancellable? cancellable = null) {
+        var dirs = new Gee.ArrayList<DirChildInfo> ();
+        var files = new Gee.ArrayList<DirChildInfo> ();
         var dir = File.new_for_path (dir_path);
-        if (!dir.query_exists ()) return new GenericArray<DirChildInfo> ();
+        if (!dir.query_exists ()) return new Gee.ArrayList<DirChildInfo> ();
         try {
             var enumerator = dir.enumerate_children (
                 FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE,
@@ -1721,9 +1744,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (a_dot != b_dot) return a_dot ? -1 : 1;
             return a.name.casefold ().collate (b.name.casefold ());
         });
-        var result = new GenericArray<DirChildInfo> ();
-        for (int i = 0; i < dirs.length; i++) result.add (dirs.get (i));
-        for (int i = 0; i < files.length; i++) result.add (files.get (i));
+        var result = new Gee.ArrayList<DirChildInfo> ();
+        for (int i = 0; i < dirs.size; i++) result.add (dirs.get (i));
+        for (int i = 0; i < files.size; i++) result.add (files.get (i));
         return result;
     }
 
@@ -1731,7 +1754,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void load_directory_children_sync (DirectoryItem parent_item) {
         if (!parent_item.is_dir) return;
         var entries = enumerate_dir_children (parent_item.path);
-        for (int i = 0; i < entries.length; i++) {
+        for (int i = 0; i < entries.size; i++) {
             var e = entries.get (i);
             parent_item.children.append (new DirectoryItem (e.name, e.path, e.is_dir));
         }
@@ -1766,9 +1789,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // 在主线程通过 Idle 分批执行; 完成后刷新子树状态并清理后台线程引用.
     // 边界检查确保父容器没有在中途被销毁.
     private void apply_directory_children_lazy (DirectoryItem parent,
-                                                 GenericArray<DirChildInfo> children,
+                                                 Gee.ArrayList<DirChildInfo> children,
                                                  GLib.Thread<void*>? thread = null) {
-        int total_items = (int) children.length;
+        int total_items = (int) children.size;
         int chunk_size = 100;
         int current_offset = 0;
 
@@ -1810,7 +1833,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (checked) {
             check_model.add_files ({ abs_path });
             if (!(abs_path in checked_paths)) {
-                checked_paths.insert (abs_path, true);
+                checked_paths.add (abs_path);
                 items.add (new ItemData ("file", abs_path, null, false));
             }
         } else {
@@ -1881,7 +1904,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         bool had_selection = (int)queue_selection.selected >= 0;
         uint old_selected = queue_selection.selected;
         uint n = queue_store.get_n_items ();
-        int m = items.length;
+        int m = items.size;
 
         // 差分同步: 只替换发生变化的段, 避免全量重建
         // 1. 寻找第一个不一致的索引
@@ -1900,12 +1923,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 // 完全一致，无需任何操作
             } else if (n < m) {
                 // 仅尾部追加
-                GLib.Object[] adds = new GLib.Object[m - n];
+                void*[] adds = new void*[m - n];
                 for (int i = (int)n; i < m; i++) adds[i - (int)n] = items.get (i);
-                queue_store.splice (n, 0, adds);
+                list_store_splice_void (queue_store, n, 0, adds, adds.length);
             } else {
                 // 仅尾部删除
-                queue_store.splice (m, n - m, {});
+                list_store_splice_void (queue_store, m, n - m, new void*[0], 0);
             }
         } else {
             // 3. 存在中间差异，寻找最后一个不一致的索引
@@ -1923,25 +1946,25 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             int replace_len_old = last_diff_old - first_diff + 1;
             int replace_len_new = last_diff_new - first_diff + 1;
 
-            GLib.Object[] adds = new GLib.Object[replace_len_new];
+            void*[] adds = new void*[replace_len_new];
             for (int i = 0; i < replace_len_new; i++) {
                 adds[i] = items.get (first_diff + i);
             }
             // 仅替换发生变化的中间段
-            queue_store.splice (first_diff, replace_len_old, adds);
+            list_store_splice_void (queue_store, first_diff, replace_len_old, adds, adds.length);
         }
 
         // 4. 恢复选择状态
-        if (had_selection && old_selected < items.length) {
+        if (had_selection && old_selected < items.size) {
             queue_selection.selected = old_selected;
-        } else if (items.length > 0) {
+        } else if (items.size > 0) {
             queue_selection.selected = 0;
         }
 
         update_queue_buttons ();
 
         int sel = (int)queue_selection.selected;
-        if (sel >= 0 && sel < items.length) {
+        if (sel >= 0 && sel < items.size) {
             update_preview (items.get (sel));
         } else {
             preview_view.get_buffer ().set_text ("", -1);
@@ -1950,11 +1973,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void update_queue_buttons () {
         int sel = (int)queue_selection.selected;
-        bool has_selection = sel >= 0 && sel < items.length;
+        bool has_selection = sel >= 0 && sel < items.size;
         btn_add_text_above.sensitive = has_selection;
         btn_add_text_below.sensitive = has_selection;
-        btn_move_up.sensitive = has_selection && items.length > 1 && sel > 0;
-        btn_move_down.sensitive = has_selection && items.length > 1 && sel < items.length - 1;
+        btn_move_up.sensitive = has_selection && items.size > 1 && sel > 0;
+        btn_move_down.sensitive = has_selection && items.size > 1 && sel < items.size - 1;
         btn_delete.sensitive = has_selection;
     }
 
@@ -2084,11 +2107,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         int current = (int)queue_selection.selected;
         int index;
         if (current < 0) {
-            index = above ? 0 : (int) items.length;
+            index = above ? 0 : (int) items.size;
         } else {
             index = above ? current : current + 1;
         }
-        var inserted = new GenericArray<ItemData> ();
+        var inserted = new Gee.ArrayList<ItemData> ();
         var item = new ItemData ("text", null, text, false);
         items.insert (index, item);
         inserted.add (item);
@@ -2111,7 +2134,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void on_move_down () {
         int index = (int)queue_selection.selected;
         if (index < 0) return;
-        if (index >= items.length - 1) return;
+        if (index >= items.size - 1) return;
         var tmp = items.get (index);
         items.set (index, items.get (index + 1));
         items.set (index + 1, tmp);
@@ -2124,9 +2147,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         int index = (int)queue_selection.selected;
         if (index < 0) return;
         var data = items.get (index);
-        var removed = new GenericArray<ItemData> ();
+        var removed = new Gee.ArrayList<ItemData> ();
         removed.add (data);
-        var rm_checked = new GenericArray<string> ();
+        var rm_checked = new Gee.ArrayList<string> ();
         if (data.item_type == "file" && !data.force_absolute) {
             if (data.file_path in checked_paths) {
                 rm_checked.add (data.file_path);
@@ -2134,22 +2157,22 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 set_tree_item_check (data.file_path, false);
             }
         }
-        items.remove_index (index);
+        items.remove_at (index);
         push_undo_delta (new UndoDelta.for_remove (index, removed, rm_checked));
         refresh_list ();
     }
 
     private void on_clear_items () {
         push_undo_state ();
-        items.remove_range (0, items.length);
-        checked_paths.remove_all ();
+        items.clear ();
+        checked_paths.clear ();
         check_model.clear ();
         refresh_all_tree_states ();
         refresh_list ();
     }
 
     private void select_queue_row (int index) {
-        if (index >= 0 && index < items.length) {
+        if (index >= 0 && index < items.size) {
             queue_selection.selected = index;
         }
     }
@@ -2158,7 +2181,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         update_queue_buttons ();
 
         int sel = (int)queue_selection.selected;
-        if (sel < 0 || sel >= items.length) {
+        if (sel < 0 || sel >= items.size) {
             return;
         }
         update_preview (items.get (sel));
@@ -2167,7 +2190,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void on_queue_row_activated (uint position) {
         int index = (int)position;
-        if (index < 0 || index >= items.length) return;
+        if (index < 0 || index >= items.size) return;
         var data = items.get (index);
         if (data.item_type == "text") {
             insert_text (false, data.content, data);
@@ -2194,6 +2217,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
     }
 
+    // 按字节长度截断, 但不切断多字节 UTF-8 字符, 避免乱码
+    private static string truncate_utf8 (string text, int max_bytes) {
+        if (text.length <= max_bytes) return text;
+        int cut = max_bytes;
+        while (cut > 0 && !text[0:cut].validate (-1)) {
+            cut--;
+        }
+        return text[0:cut];
+    }
+
     // ─── Options ─────────────────────────────────────────────────────────
 
     private void on_path_mode_changed () {
@@ -2213,7 +2246,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // ─── Generate ────────────────────────────────────────────────────────
 
     private void on_generate_clicked () {
-        if (items.length == 0) {
+        if (items.size == 0) {
             show_toast (_("编排列表为空，请先勾选文件或添加文字内容"));
             return;
         }
@@ -2247,7 +2280,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_generate_to_clipboard_clicked () {
-        if (items.length == 0) {
+        if (items.size == 0) {
             show_toast (_("编排列表为空，请先勾选文件或添加文字内容"));
             return;
         }
@@ -2277,68 +2310,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         dialog.open.begin (this, null, (obj, res) => {
             try {
                 var file = dialog.open.end (res);
-                File? loaded_work_dir;
-                string? loaded_project_file;
-                bool loaded_use_absolute;
-                bool loaded_show_header;
-
-                var loaded_checked_dirs = new HashTable<string, bool> (str_hash, str_equal);
-                ProjectManager.load_project_file (
-                    file.get_path (),
-                    items,
-                    checked_paths,
-                    loaded_checked_dirs,
-                    common_phrases,
-                    out loaded_work_dir,
-                    out loaded_project_file,
-                    out loaded_use_absolute,
-                    out loaded_show_header
-                );
-
-                work_dir = loaded_work_dir;
-                project_file = loaded_project_file;
-                use_absolute = loaded_use_absolute;
-                show_header = loaded_show_header;
-
-                if (work_dir != null) {
-                    update_subtitle (work_dir.get_path ());
-
-                    root_store.remove_all ();
-
-                    check_model.replace_from (checked_paths, loaded_checked_dirs);
-
-                    var root_item = new DirectoryItem (work_dir.get_basename (), work_dir.get_path (), true);
-                    root_store.append (root_item);
-
-                    load_directory_children_lazy (root_item);
-                    search_entry.visible = true;
-
-                    var root_row = tree_list_model.get_item (0) as Gtk.TreeListRow;
-                    if (root_row != null) {
-                        root_row.set_expanded (true);
-                    }
-
-                    GLib.Idle.add (() => {
-                        refresh_list ();
-                        return Source.REMOVE;
-                    });
-                } else {
-                    check_model.replace_from (checked_paths, loaded_checked_dirs);
-                    update_subtitle (null);
-                }
-
-                radio_absolute_path.notify["active"].disconnect (on_path_mode_changed);
-                radio_relative_path.notify["active"].disconnect (on_path_mode_changed);
-                check_write_header.notify["active"].disconnect (on_header_check_changed);
-                radio_absolute_path.active = use_absolute;
-                radio_relative_path.active = !use_absolute;
-                check_write_header.active = show_header;
-                radio_absolute_path.notify["active"].connect (on_path_mode_changed);
-                radio_relative_path.notify["active"].connect (on_path_mode_changed);
-                check_write_header.notify["active"].connect (on_header_check_changed);
+                project_controller.load (file.get_path ());
                 undo_manager.clear ();
-                update_undo_redo_buttons ();
-                refresh_list ();
+                update_ui_after_project_load ();
             } catch (Error e) {
                 if (e is GLib.IOError.CANCELLED) return;
                 show_error (_("打开失败"), e.message);
@@ -2346,17 +2320,30 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         });
     }
 
-    public void on_save_project () {
-        if (project_file == null) {
-            on_save_project_as ();
-            return;
+    private void update_ui_after_project_load () {
+        if (work_dir != null) {
+            update_subtitle (work_dir.get_path ());
+            root_store.remove_all ();
+            var root_item = new DirectoryItem (work_dir.get_basename (), work_dir.get_path (), true);
+            root_store.append (root_item);
+            load_directory_children_lazy (root_item);
+            search_entry.visible = true;
+            var root_row = tree_list_model.get_item (0) as Gtk.TreeListRow;
+            if (root_row != null) root_row.set_expanded (true);
+        } else {
+            update_subtitle (null);
         }
+        update_undo_redo_buttons ();
+        refresh_list ();
+    }
+
+    public void on_save_project () {
         try {
-            ProjectManager.write_project_file (
-                project_file, work_dir, use_absolute, show_header,
-                items, checked_paths, check_model.checked_dirs, common_phrases
-            );
-            show_toast (_("项目文件已更新"));
+            if (project_controller.save_current ()) {
+                show_toast (_("项目文件已更新"));
+            } else {
+                on_save_project_as ();
+            }
         } catch (Error e) {
             show_error (_("保存失败"), e.message);
         }
@@ -2379,11 +2366,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 if (!path.has_suffix (".fcol")) {
                     path += ".fcol";
                 }
-                project_file = path;
-                ProjectManager.write_project_file (
-                    project_file, work_dir, use_absolute, show_header,
-                    items, checked_paths, check_model.checked_dirs, common_phrases
-                );
+                project_controller.save (path);
                 show_toast (_("项目文件已保存"));
             } catch (Error e) {
                 if (e is GLib.IOError.CANCELLED) return;
@@ -2873,11 +2856,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (ai_panel_instance == null) return;
         var s = ConfigManager.load_ai_settings ();
         if (!s.enabled) {
-            // 即使用户把开关关掉, 面板仍可显示, 但提示未启用
-            ai_panel_instance.configure (s, ai_tool_executor_cb, ai_state_provider_cb);
+            ai_panel_instance.configure (s, ai_controller.execute_tool, ai_controller.get_system_snapshot);
             return;
         }
-        ai_panel_instance.configure (s, ai_tool_executor_cb, ai_state_provider_cb);
+        ai_panel_instance.configure (s, ai_controller.execute_tool, ai_controller.get_system_snapshot);
     }
 
     public void on_ai_settings () {
@@ -2890,422 +2872,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         ai_settings_dialog_instance.present ();
     }
 
-    // ── AI 状态提供 (供 AIPanel 在生成 system prompt 时调用) ──────────
-    private AISystemSnapshot ai_state_provider_cb () {
-        var snap = AISystemSnapshot ();
-        snap.work_dir = (work_dir != null) ? work_dir.get_path () : "";
-        snap.mode = ai_mode;
-        snap.file_extension = ai_file_extension;
-        snap.file_label = ai_file_label;
-        snap.max_files = ai_max_files;
-        snap.use_absolute = use_absolute;
-        snap.show_header = show_header;
-        snap.selected_paths = new string[0];
-        snap.custom_instructions = new string[0];
-
-        var paths = new Gee.ArrayList<string> ();
-        var instructions = new Gee.ArrayList<string> ();
-        for (int i = 0; i < items.length; i++) {
-            var it = items.get (i);
-            if (it.item_type == "file") {
-                if (it.file_path != null) {
-                    string rel;
-                    if (work_dir != null && it.file_path.has_prefix (work_dir.get_path ())) {
-                        rel = it.file_path.substring (work_dir.get_path ().length);
-                        while (rel.has_prefix ("/")) rel = rel.substring (1);
-                    } else {
-                        rel = it.file_path;
-                    }
-                    paths.add (rel);
-                }
-            } else if (it.item_type == "text") {
-                string t = it.content ?? "";
-                t = t.strip ();
-                instructions.add (t);
-            }
-        }
-        snap.selected_paths = paths.to_array ();
-        snap.custom_instructions = instructions.to_array ();
-        return snap;
-    }
-
-    // ── AI 工具执行 (主线程上跑, 通过 Idle + Cond 跨线程同步) ──────
-    // AI worker 线程调用 → Idle 投递到主线程 → 主线程执行工具
-    // 完成 → 通过 Cond 唤醒 worker 线程返回结果.
-    private GLib.Mutex ai_exec_mutex = GLib.Mutex ();
-    private GLib.Cond ai_exec_cond = GLib.Cond ();
-    private string? ai_exec_result = null;
-    private bool ai_exec_done = false;
-
-    private string ai_tool_executor_cb (string name, Json.Node args) throws GLib.Error {
-        string json_str = json_serialize_for_main (args);
-        string name_local = name;
-        string json_local = json_str;
-        ai_exec_mutex.lock ();
-        ai_exec_result = null;
-        ai_exec_done = false;
-        GLib.Idle.add (() => {
-            // 窗口关闭或 AI 停止时跳过工具执行, 避免访问已销毁的 widget
-            if (window_closing || (ai_panel_instance != null && ai_panel_instance.is_stop_requested ())) {
-                ai_exec_mutex.lock ();
-                ai_exec_result = "";
-                ai_exec_done = true;
-                ai_exec_cond.broadcast ();
-                ai_exec_mutex.unlock ();
-                return GLib.Source.REMOVE;
-            }
-            string r = "";
-            try {
-                var a = json_parse_args (json_local);
-                r = ai_tool_executor_main (name_local, a);
-            } catch (Error e) {
-                r = "工具执行失败: " + e.message;
-            }
-            ai_exec_mutex.lock ();
-            ai_exec_result = r;
-            ai_exec_done = true;
-            ai_exec_cond.broadcast ();
-            ai_exec_mutex.unlock ();
-            return GLib.Source.REMOVE;
-        });
-        // 使用超时等待, 周期性检查停止条件, 使"停止"按钮能打断工具执行等待
-        while (!ai_exec_done) {
-            if (window_closing || (ai_panel_instance != null && ai_panel_instance.is_stop_requested ())) {
-                ai_exec_mutex.unlock ();
-                return "";
-            }
-            int64 end_time = GLib.get_monotonic_time () + 200 * 1000; // 200ms 超时
-            ai_exec_cond.wait_until (ai_exec_mutex, end_time);
-        }
-        ai_exec_mutex.unlock ();
-        return ai_exec_result ?? "";
-    }
-
-    // 工具真实执行 (必须在主线程调用)
-    private string ai_tool_executor_main (string name, Json.Node args) throws GLib.Error {
-        switch (name) {
-            case "list_files": return ai_tool_list_files (args);
-            case "read_file":  return ai_tool_read_file (args);
-            case "set_work_dir": return ai_tool_set_work_dir (args);
-            case "add_files":  return ai_tool_add_files (args);
-            case "remove_files": return ai_tool_remove_files (args);
-            // add_text (schema 名) / insert_text (旧名)
-            case "add_text":
-            case "add_custom_instruction":
-            case "insert_text": return ai_tool_add_text (args);
-            // remove_item (schema 名, 按 0-based 索引删除任意项) / remove_text (旧名, 按文本索引)
-            case "remove_item": return ai_tool_remove_item (args);
-            case "remove_custom_instruction": return ai_tool_remove_text (args);
-            case "move_item": return ai_tool_move_item (args);
-            // clear_items (schema 名) / clear_all (旧名)
-            case "clear_items":
-            case "clear_all":   return ai_tool_clear_all (args);
-            case "list_items":  return ai_tool_list_items (args);
-            case "set_use_absolute": return ai_tool_set_use_absolute (args);
-            case "set_show_header": return ai_tool_set_show_header (args);
-            case "set_mode":
-            case "set_file_extension":
-            case "set_file_label":
-            case "set_max_files":
-                return ai_tool_set_meta (name, args);
-            default:
-                return "未知工具: " + name;
-        }
-    }
-
-    // 跨线程传递 Json 工具参数: 序列化为字符串 (主线程收到后重新解析)
-    private static string json_serialize_for_main (Json.Node n) {
-        if (n == null) return "{}";
-        var g = new Json.Generator ();
-        g.set_root (n);
-        g.pretty = false;
-        size_t len = 0;
-        return g.to_data (out len) ?? "{}";
-    }
-
-    private static Json.Node json_parse_args (string raw) throws Error {
-        var p = new Json.Parser ();
-        p.load_from_data (raw, raw.length);
-        var r = p.get_root ();
-        if (r == null) return AI.SchemaHelper.obj_to_node (new Json.Object ());
-        return r;
-    }
-
-    private string ai_tool_list_files (Json.Node args) throws GLib.Error {
-        if (work_dir == null) return "工作目录未设置";
-        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
-        var o = args.get_object ();
-
-        string pattern = o.has_member ("pattern") ? o.get_string_member ("pattern") : "";
-        int64 max_results = o.has_member ("max_results") ? o.get_int_member ("max_results") : 500;
-        int64 max_depth = o.has_member ("max_depth") ? o.get_int_member ("max_depth") : 8;
-
-        if (max_results <= 0) max_results = 500;
-        if (max_depth <= 0) max_depth = 8;
-
-        if (pattern.strip () == "") pattern = "*";
-
-        var sb = new StringBuilder ();
-        sb.append ("ROOT=").append (work_dir.get_path ()).append ("\n");
-
-        if (pattern.contains ("**")) {
-            string[] ignored_dirs = ConfigManager.get_ignored_dirs ();
-            var results = GlobHelper.expand_glob (
-                work_dir.get_path (),
-                pattern,
-                (int) max_depth,
-                (int) max_results
-            );
-
-            int count = 0;
-            foreach (var path in results) {
-                if (count >= max_results) break;
-                var file = File.new_for_path (path);
-                try {
-                    var info = file.query_info (
-                        FileAttribute.STANDARD_TYPE + "," + FileAttribute.STANDARD_SIZE,
-                        FileQueryInfoFlags.NONE
-                    );
-                    string name = file.get_basename ();
-                    if (name in ignored_dirs) continue;
-                    if (info.get_file_type () == FileType.DIRECTORY) {
-                        sb.append ("DIR  ").append (rel_path (work_dir.get_path (), path)).append ("\n");
-                    } else {
-                        sb.append ("FILE ").append (rel_path (work_dir.get_path (), path))
-                          .append ("  (").append (format_size (info.get_size ())).append (")\n");
-                    }
-                    count++;
-                } catch (Error e) {
-                }
-            }
-            sb.append ("\n# total ").append (results.length.to_string ())
-              .append (" matched, listed ").append (count.to_string ());
-        } else {
-            var matcher = new PatternSpec (pattern.down ());
-            int count = 0;
-            int total = 0;
-            try {
-                string[] ignored_dirs = ConfigManager.get_ignored_dirs ();
-                list_files_recursive (work_dir.get_path (), work_dir.get_path (), 0, (int) max_depth,
-                    matcher, sb, ref count, ref total, (int) max_results, ignored_dirs);
-            } catch (Error e) {
-                return "读取目录失败: " + e.message;
-            }
-            sb.append ("\n# total ").append (total.to_string ())
-              .append (" matched, listed ").append (count.to_string ());
-        }
-        return sb.str;
-    }
-
-    private static void list_files_recursive (string root, string dir, int depth, int max_depth,
-            PatternSpec matcher, StringBuilder sb, ref int count, ref int total, int max_results,
-            string[] ignored_dirs)
-            throws Error {
-        if (count >= max_results) return;
-        if (depth > max_depth) return;
-        var dir_file = File.new_for_path (dir);
-        if (!dir_file.query_exists ()) return;
-        var en = dir_file.enumerate_children (
-            FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE + "," + FileAttribute.STANDARD_SIZE,
-            FileQueryInfoFlags.NOFOLLOW_SYMLINKS);
-        FileInfo info;
-        while ((info = en.next_file ()) != null) {
-            if (count >= max_results) break;
-            string name = info.get_name ();
-            string full = dir_file.get_child (name).get_path ();
-            if (info.get_file_type () == FileType.DIRECTORY) {
-                if (name in ignored_dirs) {
-                    continue;
-                }
-                if (matcher.match_string (name.down ()) && count < max_results) {
-                    sb.append ("DIR  ").append (rel_path (root, full)).append ("\n");
-                    count++;
-                }
-                list_files_recursive (root, full, depth + 1, max_depth, matcher, sb,
-                    ref count, ref total, max_results, ignored_dirs);
-            } else {
-                total++;
-                if (matcher.match_string (name.down ())) {
-                    sb.append ("FILE ").append (rel_path (root, full))
-                      .append ("  (").append (format_size (info.get_size ())).append (")\n");
-                    count++;
-                }
-            }
-        }
-    }
-
-    private static string rel_path (string root, string full) {
-        if (full.has_prefix (root)) {
-            string r = full.substring (root.length);
-            while (r.has_prefix ("/")) r = r.substring (1);
-            return r.length > 0 ? r : full;
-        }
-        return full;
-    }
-
-    // 按字节长度截断, 但不切断多字节 UTF-8 字符, 避免乱码
-    private static string truncate_utf8 (string text, int max_bytes) {
-        if (text.length <= max_bytes) return text;
-        int cut = max_bytes;
-        while (cut > 0 && !text[0:cut].validate (-1)) {
-            cut--;
-        }
-        return text[0:cut];
-    }
-
-    private static string format_size (int64 size) {
-        if (size < 1024) return "%lld B".printf (size);
-        if (size < 1024 * 1024) return "%.1f KB".printf (size / 1024.0);
-        if (size < 1024 * 1024 * 1024) return "%.1f MB".printf (size / 1024.0 / 1024.0);
-        return "%.1f GB".printf (size / 1024.0 / 1024.0 / 1024.0);
-    }
-
-    // ─── AI 工具路径安全校验 ────────────────────────────────────────────
-
-    // 将路径规范化: 解析 . 和 .., 消除重复 /, 防止路径遍历攻击
-    private static string normalize_path (string path) {
-        var stack = new GenericArray<string> ();
-        foreach (unowned string part in path.split ("/")) {
-            if (part == "" || part == ".") continue;
-            if (part == "..") {
-                if (stack.length > 0) stack.remove_index (stack.length - 1);
-            } else {
-                stack.add ((string) part);
-            }
-        }
-        string joined = string.joinv ("/", (string*[]) stack.data);
-        return path.has_prefix ("/") ? "/" + joined : joined;
-    }
-
-    // 解析 AI 工具的路径参数: 相对路径基于 work_dir, 然后规范化
-    private string? resolve_ai_path (string path) {
-        string abs = path;
-        if (!GLib.Path.is_absolute (path)) {
-            if (work_dir != null) {
-                abs = GLib.Path.build_filename (work_dir.get_path (), path);
-            } else {
-                return null; // 无 work_dir 时无法解析相对路径
-            }
-        }
-        return normalize_path (abs);
-    }
-
-    // 检查规范化路径是否在 work_dir 内 (防止路径遍历读取敏感文件)
-    private bool is_path_in_work_dir (string normalized_path) {
-        if (work_dir == null) return false;
-        string allowed = normalize_path (work_dir.get_path ());
-        return normalized_path == allowed || normalized_path.has_prefix (allowed + "/");
-    }
-
-    // 检查规范化路径是否允许作为新工作目录 (必须在当前 work_dir 树内或用户主目录内)
-    private bool is_path_allowed_for_work_dir (string normalized_path) {
-        // 允许在用户主目录内
-        string home = normalize_path (Environment.get_home_dir ());
-        if (normalized_path == home || normalized_path.has_prefix (home + "/")) return true;
-        // 允许在当前工作目录树内
-        if (work_dir != null) {
-            string wd = normalize_path (work_dir.get_path ());
-            if (normalized_path == wd || normalized_path.has_prefix (wd + "/")) return true;
-        }
-        return false;
-    }
-
-    private string ai_tool_read_file (Json.Node args) throws GLib.Error {
-        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
-        var o = args.get_object ();
-        string path = o.has_member ("path") ? o.get_string_member ("path") : "";
-        if (path == "") return "缺少 path";
-        // 默认值与 schema 一致: max_bytes=102400, start_line=1 (1-based), max_lines=500
-        int64 max_bytes = o.has_member ("max_bytes") ? o.get_int_member ("max_bytes") : 102400;
-        int64 start_line = o.has_member ("start_line") ? o.get_int_member ("start_line") : 1;
-        int64 max_lines = o.has_member ("max_lines") ? o.get_int_member ("max_lines") : 500;
-        if (max_bytes <= 0) max_bytes = 102400;
-        if (max_lines <= 0) max_lines = 500;
-
-        // 路径解析与安全校验: 相对路径基于 work_dir, 必须在 work_dir 内
-        string? resolved = resolve_ai_path (path);
-        if (resolved == null) return "无法解析路径 (未设置工作目录)";
-        if (!is_path_in_work_dir (resolved)) return "拒绝访问: 路径超出工作目录范围";
-        string abs = resolved;
-        var file = File.new_for_path (abs);
-        if (!file.query_exists ()) return "文件不存在: " + abs;
-
-        // 获取文件大小 (不加载内容到内存)
-        int64 file_size = 0;
-        try {
-            var info = file.query_info (FileAttribute.STANDARD_SIZE, FileQueryInfoFlags.NONE);
-            file_size = info.get_size ();
-        } catch (Error e) {
-            return "读取文件信息失败: " + e.message;
-        }
-
-        // 流式读取: 只读取前 max_bytes 字节, 避免全量加载大文件导致 OOM
-        Bytes? bytes = null;
-        FileInputStream? fis = null;
-        try {
-            fis = file.read ();
-            bytes = fis.read_bytes ((size_t) max_bytes);
-        } catch (Error e) {
-            return "读取失败: " + e.message;
-        } finally {
-            if (fis != null) {
-                try { fis.close (); } catch (Error e) { debug ("Close failed: %s", e.message); }
-            }
-        }
-        unowned uint8[] raw = bytes.get_data ();
-        bool read_all = (raw.length >= file_size);
-
-        string content = EncodingHelper.decode_to_utf8 (raw);
-        // 行过滤
-        string[] lines = content.split ("\n");
-        // start_line 是 1-based, 转为 0-based 数组索引
-        int start = (int) start_line - 1;
-        if (start < 0) start = 0;
-        if (start >= lines.length) {
-            if (read_all) {
-                return "[文件总行数: %d, start_line %lld 越界]".printf (lines.length, start_line);
-            }
-            return "[start_line %lld 超出前 %lld 字节可读范围, 请减小 start_line 或增大 max_bytes]".printf (start_line, max_bytes);
-        }
-        int end = int.min (lines.length, start + (int) max_lines);
-        var sb = new StringBuilder ();
-        sb.append ("# file: ").append (rel_path (work_dir != null ? work_dir.get_path () : "/", abs))
-          .append ("  (").append (format_size (file_size));
-        if (!read_all) {
-            sb.append (", 前 ").append (max_bytes.to_string ()).append (" 字节");
-        }
-        sb.append (", ").append (lines.length.to_string ()).append (" lines)\n");
-        for (int i = start; i < end; i++) {
-            sb.append ("%4d  ".printf (i + 1)).append (lines[i]).append ("\n");
-            if (sb.str.length > max_bytes) {
-                sb.append ("\n# ... [内容过长, 截断到 ").append (max_bytes.to_string ()).append (" 字节]");
-                break;
-            }
-        }
-        return sb.str;
-    }
-
-    private string ai_tool_set_work_dir (Json.Node args) throws GLib.Error {
-        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
-        string path = args.get_object ().get_string_member_with_default ("path", "");
-        if (path == "") return "缺少 path";
-        // 路径解析与安全校验: 新工作目录必须在当前 work_dir 树内或用户主目录内
-        string? resolved = resolve_ai_path (path);
-        if (resolved == null) return "无法解析路径 (未设置工作目录)";
-        if (!is_path_allowed_for_work_dir (resolved))
-            return "拒绝访问: 工作目录必须在当前项目目录或用户主目录内";
-        var file = File.new_for_path (resolved);
-        if (!file.query_exists ()) return "目录不存在: " + resolved;
-        // 已在主线程 (ai_tool_executor_cb 通过 Idle 投递), 直接执行
-        ai_apply_set_work_dir (resolved);
-        return "工作目录已切换到: " + resolved;
-    }
-
+    // AIController.work_dir_change_requested 信号处理: 切换工作目录并刷新 UI
     private void ai_apply_set_work_dir (string path) {
         push_undo_state ();
-        items.remove_range (0, items.length);
-        checked_paths.remove_all ();
-        check_model.clear ();
+        app_state.items.clear ();
+        app_state.checked_paths.clear ();
+        app_state.check_model.clear ();
         var folder = File.new_for_path (path);
         work_dir = folder;
         update_subtitle (path);
@@ -3319,309 +2891,5 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             root_row.set_expanded (true);
         }
         refresh_list ();
-    }
-
-    private string ai_tool_add_files (Json.Node args) throws GLib.Error {
-        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
-        var o = args.get_object ();
-        if (!o.has_member ("paths")) return "缺少 paths";
-        var paths_arr = o.get_array_member ("paths");
-        if (paths_arr == null) return "paths 必须是数组";
-
-        string? after = o.has_member ("after_path") ? o.get_string_member ("after_path") : null;
-        int added = 0;
-        int total = (int) paths_arr.get_length ();
-        // 已在主线程 (ai_tool_executor_cb 通过 Idle 投递), 直接执行
-        push_undo_state ();
-        int insert_at = items.length;
-        if (after != null) {
-            for (int i = 0; i < items.length; i++) {
-                var it = items.get (i);
-                if (it.item_type == "file" && it.file_path == after) {
-                    insert_at = i + 1;
-                    break;
-                }
-            }
-        }
-        for (int i = 0; i < total; i++) {
-            string p = paths_arr.get_string_element (i);
-            string? resolved = resolve_ai_path (p);
-            if (resolved == null || !is_path_in_work_dir (resolved)) continue;
-            string abs = resolved;
-            if (!FileUtils.test (abs, FileTest.EXISTS)) continue;
-            // 是否已存在
-            bool exists = false;
-            for (int j = 0; j < items.length; j++) {
-                if (items.get (j).file_path == abs) { exists = true; break; }
-            }
-            if (exists) continue;
-            items.insert (insert_at + added, new ItemData ("file", abs, null, false));
-            if (!(abs in checked_paths)) {
-                checked_paths.insert (abs, true);
-            }
-            set_tree_item_check (abs, true);
-            added++;
-        }
-        refresh_list ();
-        return "已添加 %d 个文件 (请求 %d)".printf (added, total);
-    }
-
-    private string ai_tool_remove_files (Json.Node args) throws GLib.Error {
-        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
-        if (!args.get_object ().has_member ("paths")) return "缺少 paths";
-        var arr = args.get_object ().get_array_member ("paths");
-        if (arr == null) return "paths 必须是数组";
-        int total = (int) arr.get_length ();
-        // 已在主线程 (ai_tool_executor_cb 通过 Idle 投递), 直接执行
-        int result = 0;
-        push_undo_state ();
-        for (int i = 0; i < total; i++) {
-            string p = arr.get_string_element (i);
-            string? resolved = resolve_ai_path (p);
-            if (resolved == null || !is_path_in_work_dir (resolved)) continue;
-            string abs = resolved;
-            // 从 items 移除
-            for (int j = items.length - 1; j >= 0; j--) {
-                var it = items.get (j);
-                if (it.item_type == "file" && it.file_path == abs) {
-                    items.remove_index (j);
-                    result++;
-                }
-            }
-            if (abs in checked_paths) {
-                checked_paths.remove (abs);
-                set_tree_item_check (abs, false);
-            }
-        }
-        refresh_list ();
-        return "已移除 %d 个文件 (请求 %d)".printf (result, total);
-    }
-
-    // add_text (schema 名) / insert_text (旧名): 支持 position (0-based) 和旧版 after_path/before_path
-    private string ai_tool_add_text (Json.Node args) throws GLib.Error {
-        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
-        var o = args.get_object ();
-        string text = o.has_member ("text") ? o.get_string_member ("text") :
-                      (o.has_member ("content") ? o.get_string_member ("content") : "");
-        if (text == "") return "缺少 text / content";
-        string? after = o.has_member ("after_path") ? o.get_string_member ("after_path") : null;
-        string? before = o.has_member ("before_path") ? o.get_string_member ("before_path") : null;
-        // 已在主线程 (ai_tool_executor_cb 通过 Idle 投递), 直接执行
-        int insert_at = items.length;
-        if (o.has_member ("position")) {
-            // schema 标准: position 是 0-based 索引
-            int pos = (int) o.get_int_member ("position");
-            if (pos < 0) pos = 0;
-            if (pos > items.length) pos = items.length;
-            insert_at = pos;
-        } else if (after != null) {
-            for (int i = 0; i < items.length; i++) {
-                var it = items.get (i);
-                if (it.item_type == "file" && it.file_path == after) {
-                    insert_at = i + 1;
-                    break;
-                }
-            }
-        } else if (before != null) {
-            insert_at = 0;
-            for (int i = 0; i < items.length; i++) {
-                var it = items.get (i);
-                if (it.item_type == "file" && it.file_path == before) {
-                    insert_at = i;
-                    break;
-                }
-            }
-        }
-        var inserted = new GenericArray<ItemData> ();
-        var new_item = new ItemData ("text", null, text, false);
-        items.insert (insert_at, new_item);
-        inserted.add (new_item);
-        push_undo_delta (new UndoDelta.for_insert (insert_at, inserted));
-        refresh_list ();
-        return "已插入文本 (位置 %d)".printf (insert_at);
-    }
-
-    // remove_item (schema 名): 按 0-based 索引删除任意项 (file 或 text)
-    private string ai_tool_remove_item (Json.Node args) throws GLib.Error {
-        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
-        if (!args.get_object ().has_member ("index")) return "缺少 index";
-        int idx = (int) args.get_object ().get_int_member ("index");
-        if (idx < 0 || idx >= items.length) {
-            return "索引越界: %d (列表共 %d 项)".printf (idx, items.length);
-        }
-        var removed = items.get (idx);
-        var rm_items = new GenericArray<ItemData> ();
-        rm_items.add (removed);
-        var rm_checked = new GenericArray<string> ();
-        if (removed.item_type == "file" && removed.file_path != null) {
-            if (removed.file_path in checked_paths) {
-                rm_checked.add (removed.file_path);
-                checked_paths.remove (removed.file_path);
-                set_tree_item_check (removed.file_path, false);
-            }
-        }
-        items.remove_index (idx);
-        push_undo_delta (new UndoDelta.for_remove (idx, rm_items, rm_checked));
-        refresh_list ();
-        return "已删除第 %d 项 (%s)".printf (idx, removed.item_type);
-    }
-
-    // move_item (schema 名): 从 from_index 移到 to_index
-    private string ai_tool_move_item (Json.Node args) throws GLib.Error {
-        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
-        var o = args.get_object ();
-        if (!o.has_member ("from_index") || !o.has_member ("to_index")) return "缺少 from_index / to_index";
-        int from = (int) o.get_int_member ("from_index");
-        int to = (int) o.get_int_member ("to_index");
-        if (from < 0 || from >= items.length) {
-            return "from_index 越界: %d (列表共 %d 项)".printf (from, items.length);
-        }
-        if (to < 0 || to >= items.length) {
-            return "to_index 越界: %d (列表共 %d 项)".printf (to, items.length);
-        }
-        var item = items.get (from);
-        items.remove_index (from);
-        items.insert (to, item);
-        push_undo_delta (new UndoDelta.for_move (from, to));
-        refresh_list ();
-        return "已移动: %d → %d".printf (from, to);
-    }
-
-    private string ai_tool_set_use_absolute (Json.Node args) throws GLib.Error {
-        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
-        var o = args.get_object ();
-        if (!o.has_member ("value")) return "缺少 value";
-        bool val = o.get_boolean_member ("value");
-        bool old_abs = use_absolute;
-        bool old_hdr = show_header;
-        use_absolute = val;
-        // 临时断开信号, 避免 on_path_mode_changed / on_header_check_changed 重复 push_undo_delta
-        radio_absolute_path.notify["active"].disconnect (on_path_mode_changed);
-        radio_relative_path.notify["active"].disconnect (on_path_mode_changed);
-        check_write_header.notify["active"].disconnect (on_header_check_changed);
-        radio_absolute_path.active = val;
-        radio_relative_path.active = !val;
-        radio_absolute_path.notify["active"].connect (on_path_mode_changed);
-        radio_relative_path.notify["active"].connect (on_path_mode_changed);
-        check_write_header.notify["active"].connect (on_header_check_changed);
-        push_undo_delta (new UndoDelta.for_absolute (old_abs, val, old_hdr, show_header));
-        refresh_list ();
-        return "use_absolute=" + val.to_string ();
-    }
-
-    private string ai_tool_set_show_header (Json.Node args) throws GLib.Error {
-        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
-        var o = args.get_object ();
-        if (!o.has_member ("value")) return "缺少 value";
-        bool val = o.get_boolean_member ("value");
-        bool old_val = show_header;
-        show_header = val;
-        check_write_header.notify["active"].disconnect (on_header_check_changed);
-        check_write_header.active = val;
-        check_write_header.notify["active"].connect (on_header_check_changed);
-        push_undo_delta (new UndoDelta.for_header (old_val, val));
-        return "show_header=" + val.to_string ();
-    }
-
-    private string ai_tool_remove_text (Json.Node args) throws GLib.Error {
-        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
-        if (!args.get_object ().has_member ("index")) return "缺少 index";
-        int idx = (int) args.get_object ().get_int_member ("index");
-        // 已在主线程 (ai_tool_executor_cb 通过 Idle 投递), 直接执行
-        int removed = 0;
-        int remove_at = -1;
-        ItemData? removed_item = null;
-        for (int i = items.length - 1; i >= 0; i--) {
-            if (items.get (i).item_type == "text") {
-                if (idx == 0) {
-                    remove_at = i;
-                    removed_item = items.get (i);
-                    items.remove_index (i);
-                    removed = 1;
-                    break;
-                } else {
-                    idx--;
-                }
-            }
-        }
-        if (removed > 0 && removed_item != null) {
-            var rm_items = new GenericArray<ItemData> ();
-            rm_items.add (removed_item);
-            push_undo_delta (new UndoDelta.for_remove (remove_at, rm_items));
-        }
-        refresh_list ();
-        return "已删除文本 (removed=%d)".printf (removed);
-    }
-
-    private string ai_tool_clear_all (Json.Node args) throws GLib.Error {
-        // 已在主线程 (ai_tool_executor_cb 通过 Idle 投递), 直接执行
-        on_clear_items ();
-        return "已清空编排列表";
-    }
-
-    private string ai_tool_list_items (Json.Node args) throws GLib.Error {
-        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
-        var o = args.get_object ();
-        string kind = o.has_member ("kind") ? o.get_string_member ("kind") : "all";
-        int max_items = o.has_member ("max_items") ? (int) o.get_int_member ("max_items") : 200;
-        if (max_items <= 0) max_items = 200;
-        var sb = new StringBuilder ();
-        int count = 0;
-        for (int i = 0; i < items.length && count < max_items; i++) {
-            var it = items.get (i);
-            if (kind == "file" && it.item_type != "file") continue;
-            if (kind == "text" && it.item_type != "text") continue;
-            if (it.item_type == "file") {
-                string rel;
-                if (work_dir != null && it.file_path.has_prefix (work_dir.get_path ())) {
-                    rel = it.file_path.substring (work_dir.get_path ().length);
-                    while (rel.has_prefix ("/")) rel = rel.substring (1);
-                } else {
-                    rel = it.file_path;
-                }
-                sb.append ("#" + (i + 1).to_string () + "  [file] ").append (rel).append ("\n");
-            } else {
-                string preview = it.content ?? "";
-                if (preview.length > 80) preview = truncate_utf8 (preview, 80) + "…";
-                // 用 split/join 替代 string.replace, 避免 Vala 的 Regex 实现在某些情况下 assert_not_reached
-                preview = string.joinv ("\\n", preview.split ("\n"));
-                sb.append ("#").append ((i + 1).to_string ()).append ("  [text] ").append (preview).append ("\n");
-            }
-            count++;
-        }
-        sb.append ("\n# total ").append (items.length.to_string ());
-        return sb.str;
-    }
-
-    private string ai_tool_set_meta (string name, Json.Node args) throws GLib.Error {
-        switch (name) {
-            case "set_mode": {
-                if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
-                string m = args.get_object ().get_string_member_with_default ("mode", "default");
-                if (m != "default" && m != "directory" && m != "single") {
-                    return "无效 mode: " + m;
-                }
-                ai_mode = m;
-                return "mode=" + m;
-            }
-            case "set_file_extension": {
-                if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
-                ai_file_extension = args.get_object ().get_string_member_with_default ("extension", "");
-                return "extension=" + ai_file_extension;
-            }
-            case "set_file_label": {
-                if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
-                ai_file_label = args.get_object ().get_string_member_with_default ("label", "文件");
-                return "label=" + ai_file_label;
-            }
-            case "set_max_files": {
-                if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
-                int n = (int) args.get_object ().get_int_member ("max_files");
-                if (n < 1) n = 1;
-                ai_max_files = n;
-                return "max_files=" + ai_max_files.to_string ();
-            }
-        }
-        return "未知 meta 工具: " + name;
     }
 }

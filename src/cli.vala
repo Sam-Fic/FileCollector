@@ -1,32 +1,34 @@
 using GLib;
+using Gee;
 
 public class CliController : GLib.Object {
     public File? work_dir { get; private set; }
-    public GenericArray<ItemData> items { get; private set; }
+    public Gee.ArrayList<ItemData> items { get; private set; }
     public bool use_absolute { get; private set; }
     public bool show_header { get; private set; }
-    public HashTable<string, bool> checked_paths { get; private set; }
-    public HashTable<string, bool> checked_dirs { get; private set; }
-    public GenericArray<string> common_phrases { get; private set; }
-    public GenericArray<string> operation_messages { get; private set; }
+    public Gee.HashSet<string> checked_paths { get; private set; }
+    public Gee.HashSet<string> checked_dirs { get; private set; }
+    public Gee.ArrayList<string> common_phrases { get; private set; }
+    public Gee.ArrayList<string> operation_messages { get; private set; }
 
     private string? export_path = null;
     private string? save_path = null;
+    private bool project_loaded = false;
 
     public CliController () {
-        items = new GenericArray<ItemData> ();
-        checked_paths = new HashTable<string, bool> (str_hash, str_equal);
-        checked_dirs = new HashTable<string, bool> (str_hash, str_equal);
-        common_phrases = new GenericArray<string> ();
-        operation_messages = new GenericArray<string> ();
+        items = new Gee.ArrayList<ItemData> ();
+        checked_paths = new Gee.HashSet<string> ();
+        checked_dirs = new Gee.HashSet<string> ();
+        common_phrases = new Gee.ArrayList<string> ();
+        operation_messages = new Gee.ArrayList<string> ();
     }
 
     public void initialize_from_state (
         File? wdir,
-        GenericArray<ItemData> existing_items,
-        HashTable<string, bool> existing_checked_paths,
-        HashTable<string, bool> existing_checked_dirs,
-        GenericArray<string> existing_common_phrases,
+        Gee.ArrayList<ItemData> existing_items,
+        Gee.HashSet<string> existing_checked_paths,
+        Gee.HashSet<string> existing_checked_dirs,
+        Gee.ArrayList<string> existing_common_phrases,
         bool existing_use_absolute,
         bool existing_show_header
     ) {
@@ -34,26 +36,70 @@ public class CliController : GLib.Object {
         use_absolute = existing_use_absolute;
         show_header = existing_show_header;
 
-        items.remove_range (0, items.length);
-        for (int i = 0; i < existing_items.length; i++) {
+        items.clear ();
+        for (int i = 0; i < existing_items.size; i++) {
             var item = existing_items.get (i);
             items.add (new ItemData (item.item_type, item.file_path, item.content, item.force_absolute));
         }
 
-        checked_paths.remove_all ();
-        foreach (var path in existing_checked_paths.get_keys ()) {
-            checked_paths.insert (path, true);
+        checked_paths.clear ();
+        foreach (var path in existing_checked_paths) {
+            checked_paths.add (path);
         }
 
-        checked_dirs.remove_all ();
-        foreach (var path in existing_checked_dirs.get_keys ()) {
-            checked_dirs.insert (path, true);
+        checked_dirs.clear ();
+        foreach (var path in existing_checked_dirs) {
+            checked_dirs.add (path);
         }
 
-        common_phrases.remove_range (0, common_phrases.length);
-        for (int i = 0; i < existing_common_phrases.length; i++) {
+        common_phrases.clear ();
+        for (int i = 0; i < existing_common_phrases.size; i++) {
             common_phrases.add (existing_common_phrases.get (i));
         }
+    }
+
+    // 从 AppState 初始化 CLI 状态
+    public void initialize_from_app_state (AppState state) {
+        initialize_from_state (
+            state.work_dir,
+            state.items,
+            state.checked_paths,
+            state.check_model.checked_dirs,
+            state.common_phrases,
+            state.use_absolute,
+            state.show_header
+        );
+    }
+
+    // 将 CLI 操作结果应用回 AppState，返回 work_dir 是否变更
+    public bool apply_to_state (AppState state) {
+        bool work_dir_changed = false;
+        if (work_dir != null) {
+            if (state.work_dir == null || work_dir.get_path () != state.work_dir.get_path ()) {
+                work_dir_changed = true;
+            }
+        }
+
+        state.items.clear ();
+        for (int i = 0; i < items.size; i++) state.items.add (items.get (i));
+        state.checked_paths.clear ();
+        foreach (var p in checked_paths) state.checked_paths.add (p);
+        // 常用语是全局设置, 仅在 CLI 加载了项目文件时才覆盖
+        if (project_loaded) {
+            state.common_phrases.clear ();
+            for (int i = 0; i < common_phrases.size; i++) state.common_phrases.add (common_phrases.get (i));
+        }
+        state.check_model.replace_from (state.checked_paths, checked_dirs);
+        state.use_absolute = use_absolute;
+        state.show_header = show_header;
+
+        if (work_dir_changed) {
+            state.work_dir = work_dir;
+        }
+
+        state.items_changed ();
+        state.state_changed ();
+        return work_dir_changed;
     }
 
     public static bool is_cli_mode (string[] args) {
@@ -158,7 +204,7 @@ public class CliController : GLib.Object {
         }
 
         if (export_path != null) {
-            if (items.length == 0) {
+            if (items.size == 0) {
                 stderr.printf (_("错误: 编排列表为空，无法导出\n"));
                 operation_messages.add (_("导出失败: 编排列表为空"));
                 success = false;
@@ -266,27 +312,27 @@ public class CliController : GLib.Object {
         }
         var abs_path = file.get_path ();
         items.add (new ItemData ("file", abs_path, null, false));
-        checked_paths.insert (abs_path, true);
-        stdout.printf (_("✓ 已添加文件 [%d]: %s\n"), (int)items.length, abs_path);
+        checked_paths.add (abs_path);
+        stdout.printf (_("✓ 已添加文件 [%d]: %s\n"), (int)items.size, abs_path);
         operation_messages.add (_("已添加文件: %s").printf (file.get_basename ()));
         return true;
     }
 
     private void add_text (string text) {
         items.add (new ItemData ("text", null, text, false));
-        stdout.printf (_("✓ 已添加文字 [%d]: %s\n"), (int)items.length, text);
+        stdout.printf (_("✓ 已添加文字 [%d]: %s\n"), (int)items.size, text);
         var preview = text;
         if (preview.length > 30) preview = preview.substring (0, 30) + "...";
         operation_messages.add (_("已添加文字: %s").printf (preview));
     }
 
     private bool move_item (int from, int to) {
-        if (from < 0 || from >= items.length) {
-            stderr.printf (_("错误: 源索引 %d 超出范围 (0-%d)\n"), from, items.length - 1);
+        if (from < 0 || from >= items.size) {
+            stderr.printf (_("错误: 源索引 %d 超出范围 (0-%d)\n"), from, items.size - 1);
             return false;
         }
-        if (to < 0 || to >= items.length) {
-            stderr.printf (_("错误: 目标索引 %d 超出范围 (0-%d)\n"), to, items.length - 1);
+        if (to < 0 || to >= items.size) {
+            stderr.printf (_("错误: 目标索引 %d 超出范围 (0-%d)\n"), to, items.size - 1);
             return false;
         }
         if (from == to) return true;
@@ -309,39 +355,39 @@ public class CliController : GLib.Object {
     }
 
     private bool remove_item (int index) {
-        if (index < 0 || index >= items.length) {
-            stderr.printf (_("错误: 索引 %d 超出范围 (0-%d)\n"), index, items.length - 1);
+        if (index < 0 || index >= items.size) {
+            stderr.printf (_("错误: 索引 %d 超出范围 (0-%d)\n"), index, items.size - 1);
             return false;
         }
         var data = items.get (index);
         if (data.item_type == "file" && !data.force_absolute) {
             checked_paths.remove (data.file_path);
         }
-        items.remove_index (index);
+        items.remove_at (index);
         stdout.printf (_("✓ 已删除索引 %d 处的项目\n"), index);
         operation_messages.add (_("已删除项目 %d").printf (index));
         return true;
     }
 
     private void clear_items () {
-        items.remove_range (0, items.length);
-        checked_paths.remove_all ();
-        checked_dirs.remove_all ();
+        items.clear ();
+        checked_paths.clear ();
+        checked_dirs.clear ();
         stdout.printf (_("✓ 已清空编排列表\n"));
         operation_messages.add (_("已清空编排列表"));
     }
 
     private void list_items () {
-        if (items.length == 0) {
+        if (items.size == 0) {
             stdout.printf (_("编排列表为空\n"));
             return;
         }
         var dashes = new StringBuilder ();
         for (int j = 0; j < 60; j++) dashes.append_c('-');
         var dash_str = dashes.str;
-        stdout.printf (_("当前编排列表 (%d 项):\n"), items.length);
+        stdout.printf (_("当前编排列表 (%d 项):\n"), items.size);
         stdout.printf ("%s\n", dash_str);
-        for (int i = 0; i < items.length; i++) {
+        for (int i = 0; i < items.size; i++) {
             var data = items.get (i);
             if (data.item_type == "file") {
                 stdout.printf ("  %d. [%s] %s\n", i, _("文件"), data.file_path);
@@ -374,6 +420,7 @@ public class CliController : GLib.Object {
             parser.load_from_data (content);
 
             var root = parser.get_root ().get_object ();
+            project_loaded = true;
 
             var wd_str = root.get_string_member_with_default ("work_dir", "");
             if (wd_str != "") {
@@ -386,22 +433,22 @@ public class CliController : GLib.Object {
             use_absolute = root.get_boolean_member_with_default ("use_absolute", false);
             show_header = root.get_boolean_member_with_default ("show_header", false);
 
-            items.remove_range (0, items.length);
-            checked_paths.remove_all ();
-            checked_dirs.remove_all ();
+            items.clear ();
+            checked_paths.clear ();
+            checked_dirs.clear ();
 
             var checked_arr = root.get_array_member ("checked_files");
             if (checked_arr != null) {
                 for (int i = 0; i < checked_arr.get_length (); i++) {
                     var p = checked_arr.get_string_element (i);
-                    checked_paths.insert (p, true);
+                    checked_paths.add (p);
                 }
             }
 
             var checked_dirs_arr = root.get_array_member ("checked_dirs");
             if (checked_dirs_arr != null) {
                 for (int i = 0; i < checked_dirs_arr.get_length (); i++) {
-                    checked_dirs.insert (checked_dirs_arr.get_string_element (i), true);
+                    checked_dirs.add (checked_dirs_arr.get_string_element (i));
                 }
             }
 
@@ -421,7 +468,7 @@ public class CliController : GLib.Object {
                 }
             }
 
-            common_phrases.remove_range (0, common_phrases.length);
+            common_phrases.clear ();
             var phrases_arr = root.get_array_member ("common_phrases");
             if (phrases_arr != null) {
                 for (int i = 0; i < phrases_arr.get_length (); i++) {
@@ -429,8 +476,8 @@ public class CliController : GLib.Object {
                 }
             }
 
-            stdout.printf (_("✓ 已从项目文件加载: %s (共 %d 项)\n"), path, items.length);
-            operation_messages.add (_("已加载项目: %s (%d 项)").printf (File.new_for_path (path).get_basename (), items.length));
+            stdout.printf (_("✓ 已从项目文件加载: %s (共 %d 项)\n"), path, items.size);
+            operation_messages.add (_("已加载项目: %s (%d 项)").printf (File.new_for_path (path).get_basename (), items.size));
             return true;
         } catch (Error e) {
             stderr.printf (_("加载项目失败: %s\n"), e.message);

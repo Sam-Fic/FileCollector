@@ -1,3 +1,5 @@
+using Gee;
+
 public class GlobHelper : GLib.Object {
 
     public static bool match_glob (string pattern, string text) {
@@ -48,13 +50,13 @@ public class GlobHelper : GLib.Object {
         return p_idx == pattern.length;
     }
 
-    public static GenericArray<string> expand_glob (
+    public static Gee.ArrayList<string> expand_glob (
         string base_dir,
         string pattern,
         int max_depth = 8,
         int max_results = 200
     ) {
-        var results = new GenericArray<string> ();
+        var results = new Gee.ArrayList<string> ();
         expand_glob_recursive (base_dir, base_dir, pattern, 0, max_depth, max_results, results);
         return results;
     }
@@ -66,9 +68,9 @@ public class GlobHelper : GLib.Object {
         int depth,
         int max_depth,
         int max_results,
-        GenericArray<string> results
+        Gee.ArrayList<string> results
     ) {
-        if (results.length >= max_results || depth > max_depth) return;
+        if (results.size >= max_results || depth > max_depth) return;
 
         try {
             var dir = File.new_for_path (current_dir);
@@ -78,7 +80,7 @@ public class GlobHelper : GLib.Object {
             );
 
             FileInfo info;
-            while ((info = enumerator.next_file ()) != null && results.length < max_results) {
+            while ((info = enumerator.next_file ()) != null && results.size < max_results) {
                 var child_path = Path.build_filename (current_dir, info.get_name ());
                 string rel = child_path.substring (base_dir.length);
                 if (rel.has_prefix ("/")) rel = rel.substring (1);

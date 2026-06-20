@@ -1,0 +1,630 @@
+using Gee;
+using Json;
+
+// 封装 AI 工具调用路由，与 AppState 交互。
+// 纯逻辑工具 (list_files, read_file, list_items) 直接执行；
+// 状态变更工具操作 AppState 并通过信号通知 View 层执行 UI 刷新。
+public class AIController : GLib.Object {
+    public AppState app_state { get; construct; }
+
+    // 信号: 通知 View 层执行 UI 相关操作
+    public signal void undo_snapshot_requested ();
+    public signal void undo_delta_requested (UndoDelta delta);
+    public signal void tree_check_changed (string path, bool checked);
+    public signal void work_dir_change_requested (string path);
+    public signal void clear_items_requested ();
+    public signal void refresh_list_requested ();
+    public signal void state_changed ();
+
+    public AIController (AppState state) {
+        GLib.Object (app_state: state);
+    }
+
+    // ── AI 状态提供 (供 AIPanel 在生成 system prompt 时调用) ──────────
+    public AISystemSnapshot get_system_snapshot () {
+        var snap = AISystemSnapshot ();
+        snap.work_dir = (app_state.work_dir != null) ? app_state.work_dir.get_path () : "";
+        snap.mode = app_state.ai_mode;
+        snap.file_extension = app_state.ai_file_extension;
+        snap.file_label = app_state.ai_file_label;
+        snap.max_files = app_state.ai_max_files;
+        snap.use_absolute = app_state.use_absolute;
+        snap.show_header = app_state.show_header;
+        snap.selected_paths = new string[0];
+        snap.custom_instructions = new string[0];
+
+        var paths = new Gee.ArrayList<string> ();
+        var instructions = new Gee.ArrayList<string> ();
+        for (int i = 0; i < app_state.items.size; i++) {
+            var it = app_state.items.get (i);
+            if (it.item_type == "file") {
+                if (it.file_path != null) {
+                    string rel;
+                    if (app_state.work_dir != null && it.file_path.has_prefix (app_state.work_dir.get_path ())) {
+                        rel = it.file_path.substring (app_state.work_dir.get_path ().length);
+                        while (rel.has_prefix ("/")) rel = rel.substring (1);
+                    } else {
+                        rel = it.file_path;
+                    }
+                    paths.add (rel);
+                }
+            } else if (it.item_type == "text") {
+                string t = it.content ?? "";
+                t = t.strip ();
+                instructions.add (t);
+            }
+        }
+        snap.selected_paths = (string[]) paths.to_array ();
+        snap.custom_instructions = (string[]) instructions.to_array ();
+        return snap;
+    }
+
+    // ── AI 工具执行路由 ───────────────────────────────────────────────
+    public string execute_tool (string name, Json.Node args) throws GLib.Error {
+        switch (name) {
+            case "list_files": return tool_list_files (args);
+            case "read_file":  return tool_read_file (args);
+            case "set_work_dir": return tool_set_work_dir (args);
+            case "add_files":  return tool_add_files (args);
+            case "remove_files": return tool_remove_files (args);
+            case "add_text":
+            case "add_custom_instruction":
+            case "insert_text": return tool_add_text (args);
+            case "remove_item": return tool_remove_item (args);
+            case "remove_custom_instruction": return tool_remove_text (args);
+            case "move_item": return tool_move_item (args);
+            case "clear_items":
+            case "clear_all":   return tool_clear_all (args);
+            case "list_items":  return tool_list_items (args);
+            case "set_use_absolute": return tool_set_use_absolute (args);
+            case "set_show_header": return tool_set_show_header (args);
+            case "set_mode":
+            case "set_file_extension":
+            case "set_file_label":
+            case "set_max_files":
+                return tool_set_meta (name, args);
+            default:
+                return "未知工具: " + name;
+        }
+    }
+
+    // ─── 工具实现 ────────────────────────────────────────────────────
+
+    private string tool_list_files (Json.Node args) throws GLib.Error {
+        if (app_state.work_dir == null) return "工作目录未设置";
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        var o = args.get_object ();
+
+        string pattern = o.has_member ("pattern") ? o.get_string_member ("pattern") : "";
+        int64 max_results = o.has_member ("max_results") ? o.get_int_member ("max_results") : 500;
+        int64 max_depth = o.has_member ("max_depth") ? o.get_int_member ("max_depth") : 8;
+
+        if (max_results <= 0) max_results = 500;
+        if (max_depth <= 0) max_depth = 8;
+
+        if (pattern.strip () == "") pattern = "*";
+
+        var sb = new StringBuilder ();
+        sb.append ("ROOT=").append (app_state.work_dir.get_path ()).append ("\n");
+
+        if (pattern.contains ("**")) {
+            string[] ignored_dirs = ConfigManager.get_ignored_dirs ();
+            var results = GlobHelper.expand_glob (
+                app_state.work_dir.get_path (),
+                pattern,
+                (int) max_depth,
+                (int) max_results
+            );
+
+            int count = 0;
+            foreach (var path in results) {
+                if (count >= max_results) break;
+                var file = File.new_for_path (path);
+                try {
+                    var info = file.query_info (
+                        FileAttribute.STANDARD_TYPE + "," + FileAttribute.STANDARD_SIZE,
+                        FileQueryInfoFlags.NONE
+                    );
+                    string name = file.get_basename ();
+                    if (name in ignored_dirs) continue;
+                    if (info.get_file_type () == FileType.DIRECTORY) {
+                        sb.append ("DIR  ").append (rel_path (app_state.work_dir.get_path (), path)).append ("\n");
+                    } else {
+                        sb.append ("FILE ").append (rel_path (app_state.work_dir.get_path (), path))
+                          .append ("  (").append (format_size (info.get_size ())).append (")\n");
+                    }
+                    count++;
+                } catch (Error e) {
+                }
+            }
+            sb.append ("\n# total ").append (results.size.to_string ())
+              .append (" matched, listed ").append (count.to_string ());
+        } else {
+            var matcher = new PatternSpec (pattern.down ());
+            int count = 0;
+            int total = 0;
+            try {
+                string[] ignored_dirs = ConfigManager.get_ignored_dirs ();
+                list_files_recursive (app_state.work_dir.get_path (), app_state.work_dir.get_path (), 0, (int) max_depth,
+                    matcher, sb, ref count, ref total, (int) max_results, ignored_dirs);
+            } catch (Error e) {
+                return "读取目录失败: " + e.message;
+            }
+            sb.append ("\n# total ").append (total.to_string ())
+              .append (" matched, listed ").append (count.to_string ());
+        }
+        return sb.str;
+    }
+
+    private static void list_files_recursive (string root, string dir, int depth, int max_depth,
+            PatternSpec matcher, StringBuilder sb, ref int count, ref int total, int max_results,
+            string[] ignored_dirs)
+            throws Error {
+        if (count >= max_results) return;
+        if (depth > max_depth) return;
+        var dir_file = File.new_for_path (dir);
+        if (!dir_file.query_exists ()) return;
+        var en = dir_file.enumerate_children (
+            FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE + "," + FileAttribute.STANDARD_SIZE,
+            FileQueryInfoFlags.NOFOLLOW_SYMLINKS);
+        FileInfo info;
+        while ((info = en.next_file ()) != null) {
+            if (count >= max_results) break;
+            string name = info.get_name ();
+            string full = dir_file.get_child (name).get_path ();
+            if (info.get_file_type () == FileType.DIRECTORY) {
+                if (name in ignored_dirs) {
+                    continue;
+                }
+                if (matcher.match_string (name.down ()) && count < max_results) {
+                    sb.append ("DIR  ").append (rel_path (root, full)).append ("\n");
+                    count++;
+                }
+                list_files_recursive (root, full, depth + 1, max_depth, matcher, sb,
+                    ref count, ref total, max_results, ignored_dirs);
+            } else {
+                total++;
+                if (matcher.match_string (name.down ())) {
+                    sb.append ("FILE ").append (rel_path (root, full))
+                      .append ("  (").append (format_size (info.get_size ())).append (")\n");
+                    count++;
+                }
+            }
+        }
+    }
+
+    private string tool_read_file (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        var o = args.get_object ();
+        string path = o.has_member ("path") ? o.get_string_member ("path") : "";
+        if (path == "") return "缺少 path";
+        int64 max_bytes = o.has_member ("max_bytes") ? o.get_int_member ("max_bytes") : 102400;
+        int64 start_line = o.has_member ("start_line") ? o.get_int_member ("start_line") : 1;
+        int64 max_lines = o.has_member ("max_lines") ? o.get_int_member ("max_lines") : 500;
+        if (max_bytes <= 0) max_bytes = 102400;
+        if (max_lines <= 0) max_lines = 500;
+
+        string? resolved = resolve_ai_path (path);
+        if (resolved == null) return "无法解析路径 (未设置工作目录)";
+        if (!is_path_in_work_dir (resolved)) return "拒绝访问: 路径超出工作目录范围";
+        string abs = resolved;
+        var file = File.new_for_path (abs);
+        if (!file.query_exists ()) return "文件不存在: " + abs;
+
+        int64 file_size = 0;
+        try {
+            var info = file.query_info (FileAttribute.STANDARD_SIZE, FileQueryInfoFlags.NONE);
+            file_size = info.get_size ();
+        } catch (Error e) {
+            return "读取文件信息失败: " + e.message;
+        }
+
+        uint8[] raw = new uint8[max_bytes];
+        FileInputStream? fis = null;
+        size_t bytes_read = 0;
+        try {
+            fis = file.read ();
+            bytes_read = fis.read (raw);
+        } catch (Error e) {
+            return "读取失败: " + e.message;
+        } finally {
+            if (fis != null) {
+                try { fis.close (); } catch (Error e) { debug ("Close failed: %s", e.message); }
+            }
+        }
+        raw.resize ((int) bytes_read);
+        bool read_all = (bytes_read >= file_size);
+
+        string content = EncodingHelper.decode_to_utf8 (raw);
+        string[] lines = content.split ("\n");
+        int start = (int) start_line - 1;
+        if (start < 0) start = 0;
+        if (start >= lines.length) {
+            if (read_all) {
+                return "[文件总行数: %d, start_line %s 越界]".printf (lines.length, start_line.to_string ());
+            }
+            return "[start_line %s 超出前 %s 字节可读范围, 请减小 start_line 或增大 max_bytes]".printf (start_line.to_string (), max_bytes.to_string ());
+        }
+        int end = int.min (lines.length, start + (int) max_lines);
+        var sb = new StringBuilder ();
+        sb.append ("# file: ").append (rel_path (app_state.work_dir != null ? app_state.work_dir.get_path () : "/", abs))
+          .append ("  (").append (format_size (file_size));
+        if (!read_all) {
+            sb.append (", 前 ").append (max_bytes.to_string ()).append (" 字节");
+        }
+        sb.append (", ").append (lines.length.to_string ()).append (" lines)\n");
+        for (int i = start; i < end; i++) {
+            sb.append ("%4d  ".printf (i + 1)).append (lines[i]).append ("\n");
+            if (sb.str.length > max_bytes) {
+                sb.append ("\n# ... [内容过长, 截断到 ").append (max_bytes.to_string ()).append (" 字节]");
+                break;
+            }
+        }
+        return sb.str;
+    }
+
+    private string tool_set_work_dir (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        string path = args.get_object ().get_string_member_with_default ("path", "");
+        if (path == "") return "缺少 path";
+        string? resolved = resolve_ai_path (path);
+        if (resolved == null) return "无法解析路径 (未设置工作目录)";
+        if (!is_path_allowed_for_work_dir (resolved))
+            return "拒绝访问: 工作目录必须在当前项目目录或用户主目录内";
+        var file = File.new_for_path (resolved);
+        if (!file.query_exists ()) return "目录不存在: " + resolved;
+        work_dir_change_requested (resolved);
+        return "工作目录已切换到: " + resolved;
+    }
+
+    private string tool_add_files (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        var o = args.get_object ();
+        if (!o.has_member ("paths")) return "缺少 paths";
+        var paths_arr = o.get_array_member ("paths");
+        if (paths_arr == null) return "paths 必须是数组";
+
+        string? after = o.has_member ("after_path") ? o.get_string_member ("after_path") : null;
+        int added = 0;
+        int total = (int) paths_arr.get_length ();
+        undo_snapshot_requested ();
+        int insert_at = app_state.items.size;
+        if (after != null) {
+            for (int i = 0; i < app_state.items.size; i++) {
+                var it = app_state.items.get (i);
+                if (it.item_type == "file" && it.file_path == after) {
+                    insert_at = i + 1;
+                    break;
+                }
+            }
+        }
+        for (int i = 0; i < total; i++) {
+            string p = paths_arr.get_string_element (i);
+            string? resolved = resolve_ai_path (p);
+            if (resolved == null || !is_path_in_work_dir (resolved)) continue;
+            string abs = resolved;
+            if (!FileUtils.test (abs, FileTest.EXISTS)) continue;
+            bool exists = false;
+            for (int j = 0; j < app_state.items.size; j++) {
+                if (app_state.items.get (j).file_path == abs) { exists = true; break; }
+            }
+            if (exists) continue;
+            app_state.items.insert (insert_at + added, new ItemData ("file", abs, null, false));
+            if (!(abs in app_state.checked_paths)) {
+                app_state.checked_paths.add (abs);
+            }
+            tree_check_changed (abs, true);
+            added++;
+        }
+        refresh_list_requested ();
+        return "已添加 %d 个文件 (请求 %d)".printf (added, total);
+    }
+
+    private string tool_remove_files (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        if (!args.get_object ().has_member ("paths")) return "缺少 paths";
+        var arr = args.get_object ().get_array_member ("paths");
+        if (arr == null) return "paths 必须是数组";
+        int total = (int) arr.get_length ();
+        int result = 0;
+        undo_snapshot_requested ();
+        for (int i = 0; i < total; i++) {
+            string p = arr.get_string_element (i);
+            string? resolved = resolve_ai_path (p);
+            if (resolved == null || !is_path_in_work_dir (resolved)) continue;
+            string abs = resolved;
+            for (int j = app_state.items.size - 1; j >= 0; j--) {
+                var it = app_state.items.get (j);
+                if (it.item_type == "file" && it.file_path == abs) {
+                    app_state.items.remove_at (j);
+                    result++;
+                }
+            }
+            if (abs in app_state.checked_paths) {
+                app_state.checked_paths.remove (abs);
+                tree_check_changed (abs, false);
+            }
+        }
+        refresh_list_requested ();
+        return "已移除 %d 个文件 (请求 %d)".printf (result, total);
+    }
+
+    private string tool_add_text (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        var o = args.get_object ();
+        string text = o.has_member ("text") ? o.get_string_member ("text") :
+                      (o.has_member ("content") ? o.get_string_member ("content") : "");
+        if (text == "") return "缺少 text / content";
+        string? after = o.has_member ("after_path") ? o.get_string_member ("after_path") : null;
+        string? before = o.has_member ("before_path") ? o.get_string_member ("before_path") : null;
+        int insert_at = app_state.items.size;
+        if (o.has_member ("position")) {
+            int pos = (int) o.get_int_member ("position");
+            if (pos < 0) pos = 0;
+            if (pos > app_state.items.size) pos = app_state.items.size;
+            insert_at = pos;
+        } else if (after != null) {
+            for (int i = 0; i < app_state.items.size; i++) {
+                var it = app_state.items.get (i);
+                if (it.item_type == "file" && it.file_path == after) {
+                    insert_at = i + 1;
+                    break;
+                }
+            }
+        } else if (before != null) {
+            insert_at = 0;
+            for (int i = 0; i < app_state.items.size; i++) {
+                var it = app_state.items.get (i);
+                if (it.item_type == "file" && it.file_path == before) {
+                    insert_at = i;
+                    break;
+                }
+            }
+        }
+        var inserted = new Gee.ArrayList<ItemData> ();
+        var new_item = new ItemData ("text", null, text, false);
+        app_state.items.insert (insert_at, new_item);
+        inserted.add (new_item);
+        undo_delta_requested (new UndoDelta.for_insert (insert_at, inserted));
+        refresh_list_requested ();
+        return "已插入文本 (位置 %d)".printf (insert_at);
+    }
+
+    private string tool_remove_item (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        if (!args.get_object ().has_member ("index")) return "缺少 index";
+        int idx = (int) args.get_object ().get_int_member ("index");
+        if (idx < 0 || idx >= app_state.items.size) {
+            return "索引越界: %d (列表共 %d 项)".printf (idx, app_state.items.size);
+        }
+        var removed = app_state.items.get (idx);
+        var rm_items = new Gee.ArrayList<ItemData> ();
+        rm_items.add (removed);
+        var rm_checked = new Gee.ArrayList<string> ();
+        if (removed.item_type == "file" && removed.file_path != null) {
+            if (removed.file_path in app_state.checked_paths) {
+                rm_checked.add (removed.file_path);
+                app_state.checked_paths.remove (removed.file_path);
+                tree_check_changed (removed.file_path, false);
+            }
+        }
+        app_state.items.remove_at (idx);
+        undo_delta_requested (new UndoDelta.for_remove (idx, rm_items, rm_checked));
+        refresh_list_requested ();
+        return "已删除第 %d 项 (%s)".printf (idx, removed.item_type);
+    }
+
+    private string tool_move_item (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        var o = args.get_object ();
+        if (!o.has_member ("from_index") || !o.has_member ("to_index")) return "缺少 from_index / to_index";
+        int from = (int) o.get_int_member ("from_index");
+        int to = (int) o.get_int_member ("to_index");
+        if (from < 0 || from >= app_state.items.size) {
+            return "from_index 越界: %d (列表共 %d 项)".printf (from, app_state.items.size);
+        }
+        if (to < 0 || to >= app_state.items.size) {
+            return "to_index 越界: %d (列表共 %d 项)".printf (to, app_state.items.size);
+        }
+        var item = app_state.items.get (from);
+        app_state.items.remove_at (from);
+        app_state.items.insert (to, item);
+        undo_delta_requested (new UndoDelta.for_move (from, to));
+        refresh_list_requested ();
+        return "已移动: %d → %d".printf (from, to);
+    }
+
+    private string tool_set_use_absolute (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        var o = args.get_object ();
+        if (!o.has_member ("value")) return "缺少 value";
+        bool val = o.get_boolean_member ("value");
+        bool old_abs = app_state.use_absolute;
+        bool old_hdr = app_state.show_header;
+        app_state.use_absolute = val;
+        undo_delta_requested (new UndoDelta.for_absolute (old_abs, val, old_hdr, app_state.show_header));
+        state_changed ();
+        refresh_list_requested ();
+        return "use_absolute=" + val.to_string ();
+    }
+
+    private string tool_set_show_header (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        var o = args.get_object ();
+        if (!o.has_member ("value")) return "缺少 value";
+        bool val = o.get_boolean_member ("value");
+        bool old_val = app_state.show_header;
+        app_state.show_header = val;
+        undo_delta_requested (new UndoDelta.for_header (old_val, val));
+        state_changed ();
+        return "show_header=" + val.to_string ();
+    }
+
+    private string tool_remove_text (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        if (!args.get_object ().has_member ("index")) return "缺少 index";
+        int idx = (int) args.get_object ().get_int_member ("index");
+        int removed = 0;
+        int remove_at = -1;
+        ItemData? removed_item = null;
+        for (int i = app_state.items.size - 1; i >= 0; i--) {
+            if (app_state.items.get (i).item_type == "text") {
+                if (idx == 0) {
+                    remove_at = i;
+                    removed_item = app_state.items.get (i);
+                    app_state.items.remove_at (i);
+                    removed = 1;
+                    break;
+                } else {
+                    idx--;
+                }
+            }
+        }
+        if (removed > 0 && removed_item != null) {
+            var rm_items = new Gee.ArrayList<ItemData> ();
+            rm_items.add (removed_item);
+            undo_delta_requested (new UndoDelta.for_remove (remove_at, rm_items));
+        }
+        refresh_list_requested ();
+        return "已删除文本 (removed=%d)".printf (removed);
+    }
+
+    private string tool_clear_all (Json.Node args) throws GLib.Error {
+        clear_items_requested ();
+        return "已清空编排列表";
+    }
+
+    private string tool_list_items (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        var o = args.get_object ();
+        string kind = o.has_member ("kind") ? o.get_string_member ("kind") : "all";
+        int max_items = o.has_member ("max_items") ? (int) o.get_int_member ("max_items") : 200;
+        if (max_items <= 0) max_items = 200;
+        var sb = new StringBuilder ();
+        int count = 0;
+        for (int i = 0; i < app_state.items.size && count < max_items; i++) {
+            var it = app_state.items.get (i);
+            if (kind == "file" && it.item_type != "file") continue;
+            if (kind == "text" && it.item_type != "text") continue;
+            if (it.item_type == "file") {
+                string rel;
+                if (app_state.work_dir != null && it.file_path.has_prefix (app_state.work_dir.get_path ())) {
+                    rel = it.file_path.substring (app_state.work_dir.get_path ().length);
+                    while (rel.has_prefix ("/")) rel = rel.substring (1);
+                } else {
+                    rel = it.file_path;
+                }
+                sb.append ("#" + (i + 1).to_string () + "  [file] ").append (rel).append ("\n");
+            } else {
+                string preview = it.content ?? "";
+                if (preview.length > 80) preview = truncate_utf8 (preview, 80) + "…";
+                preview = string.joinv ("\\n", preview.split ("\n"));
+                sb.append ("#").append ((i + 1).to_string ()).append ("  [text] ").append (preview).append ("\n");
+            }
+            count++;
+        }
+        sb.append ("\n# total ").append (app_state.items.size.to_string ());
+        return sb.str;
+    }
+
+    private string tool_set_meta (string name, Json.Node args) throws GLib.Error {
+        switch (name) {
+            case "set_mode": {
+                if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+                string m = args.get_object ().get_string_member_with_default ("mode", "default");
+                if (m != "default" && m != "directory" && m != "single") {
+                    return "无效 mode: " + m;
+                }
+                app_state.ai_mode = m;
+                return "mode=" + m;
+            }
+            case "set_file_extension": {
+                if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+                app_state.ai_file_extension = args.get_object ().get_string_member_with_default ("extension", "");
+                return "extension=" + app_state.ai_file_extension;
+            }
+            case "set_file_label": {
+                if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+                app_state.ai_file_label = args.get_object ().get_string_member_with_default ("label", "文件");
+                return "label=" + app_state.ai_file_label;
+            }
+            case "set_max_files": {
+                if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+                int n = (int) args.get_object ().get_int_member ("max_files");
+                if (n < 1) n = 1;
+                app_state.ai_max_files = n;
+                return "max_files=" + app_state.ai_max_files.to_string ();
+            }
+        }
+        return "未知 meta 工具: " + name;
+    }
+
+    // ─── 静态辅助方法 ────────────────────────────────────────────────
+
+    private static string rel_path (string root, string full) {
+        if (full.has_prefix (root)) {
+            string r = full.substring (root.length);
+            while (r.has_prefix ("/")) r = r.substring (1);
+            return r.length > 0 ? r : full;
+        }
+        return full;
+    }
+
+    private static string truncate_utf8 (string text, int max_bytes) {
+        if (text.length <= max_bytes) return text;
+        int cut = max_bytes;
+        while (cut > 0 && !text[0:cut].validate (-1)) {
+            cut--;
+        }
+        return text[0:cut];
+    }
+
+    private static string format_size (int64 size) {
+        if (size < 1024) return size.to_string () + " B";
+        if (size < 1024 * 1024) return "%.1f KB".printf (size / 1024.0);
+        if (size < 1024 * 1024 * 1024) return "%.1f MB".printf (size / 1024.0 / 1024.0);
+        return "%.1f GB".printf (size / 1024.0 / 1024.0 / 1024.0);
+    }
+
+    private static string normalize_path (string path) {
+        var stack = new Gee.ArrayList<string> ();
+        foreach (unowned string part in path.split ("/")) {
+            if (part == "" || part == ".") continue;
+            if (part == "..") {
+                if (stack.size > 0) stack.remove_at (stack.size - 1);
+            } else {
+                stack.add ((string) part);
+            }
+        }
+        string joined = string.joinv ("/", (string[]) stack.to_array ());
+        return path.has_prefix ("/") ? "/" + joined : joined;
+    }
+
+    private string? resolve_ai_path (string path) {
+        string abs = path;
+        if (!GLib.Path.is_absolute (path)) {
+            if (app_state.work_dir != null) {
+                abs = GLib.Path.build_filename (app_state.work_dir.get_path (), path);
+            } else {
+                return null;
+            }
+        }
+        return normalize_path (abs);
+    }
+
+    private bool is_path_in_work_dir (string normalized_path) {
+        if (app_state.work_dir == null) return false;
+        string allowed = normalize_path (app_state.work_dir.get_path ());
+        return normalized_path == allowed || normalized_path.has_prefix (allowed + "/");
+    }
+
+    private bool is_path_allowed_for_work_dir (string normalized_path) {
+        string home = normalize_path (Environment.get_home_dir ());
+        if (normalized_path == home || normalized_path.has_prefix (home + "/")) return true;
+        if (app_state.work_dir != null) {
+            string wd = normalize_path (app_state.work_dir.get_path ());
+            if (normalized_path == wd || normalized_path.has_prefix (wd + "/")) return true;
+        }
+        return false;
+    }
+}

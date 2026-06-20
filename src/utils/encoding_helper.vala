@@ -1,3 +1,5 @@
+using Gee;
+
 public class EncodingHelper {
     public static string decode_to_utf8 (uint8[] data) {
         size_t len = data.length;

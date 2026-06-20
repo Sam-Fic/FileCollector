@@ -14,6 +14,7 @@ using Gtk;
 using Adw;
 using Json;
 using Soup;
+using Gee;
 
 public class AISettingsDialog : GLib.Object {
     public signal void settings_changed ();
@@ -266,14 +267,14 @@ public class AISettingsDialog : GLib.Object {
         // 保存忽略目录列表
         string raw_text = edit_ignored_dirs.get_text ();
         string[] parts = raw_text.split (",");
-        var clean_list = new GenericArray<string> ();
+        var clean_list = new Gee.ArrayList<string> ();
         foreach (unowned string p in parts) {
             string trimmed = p.strip ();
             if (trimmed.length > 0) {
                 clean_list.add (trimmed);
             }
         }
-        ConfigManager.save_ignored_dirs (clean_list.data);
+        ConfigManager.save_ignored_dirs ((string[]) clean_list.to_array ());
 
         settings_changed ();
         window.close ();

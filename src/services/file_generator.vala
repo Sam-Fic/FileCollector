@@ -1,3 +1,5 @@
+using Gee;
+
 public class FileGenerator : GLib.Object {
 
     // 单个文件内容大小上限 (10 MB), 超过此大小跳过内容读取
@@ -5,7 +7,7 @@ public class FileGenerator : GLib.Object {
 
     public static void write_items_to_stream (
         DataOutputStream dis,
-        GenericArray<ItemData> items,
+        Gee.ArrayList<ItemData> items,
         bool use_absolute,
         bool show_header,
         File? work_dir
@@ -15,7 +17,7 @@ public class FileGenerator : GLib.Object {
             dis.put_string (header);
         }
 
-        for (int i = 0; i < items.length; i++) {
+        for (int i = 0; i < items.size; i++) {
             if (i > 0) dis.put_string ("\n\n");
             var data = items.get (i);
             if (data.item_type == "file") {
@@ -109,7 +111,7 @@ public class FileGenerator : GLib.Object {
 
     public static void generate_file (
         string file_path,
-        GenericArray<ItemData> items,
+        Gee.ArrayList<ItemData> items,
         bool use_absolute,
         bool show_header,
         File? work_dir
@@ -128,7 +130,7 @@ public class FileGenerator : GLib.Object {
     }
 
     public static void generate_to_clipboard (
-        GenericArray<ItemData> items,
+        Gee.ArrayList<ItemData> items,
         bool use_absolute,
         bool show_header,
         File? work_dir,
@@ -158,7 +160,7 @@ public class FileGenerator : GLib.Object {
                 FileQueryInfoFlags.NONE
             );
             FileInfo info;
-            var files = new GenericArray<FileInfo> ();
+            var files = new Gee.ArrayList<FileInfo> ();
             while ((info = enumerator.next_file ()) != null) {
                 if (info.get_file_type () == FileType.REGULAR &&
                     info.get_name ().has_prefix ("export-") &&
@@ -167,7 +169,7 @@ public class FileGenerator : GLib.Object {
                 }
             }
 
-            if (files.length > 10) {
+            if (files.size > 5) {
                 files.sort ((a, b) => {
                     uint64 time_a = a.get_attribute_uint64 (FileAttribute.TIME_MODIFIED);
                     uint64 time_b = b.get_attribute_uint64 (FileAttribute.TIME_MODIFIED);
@@ -176,7 +178,7 @@ public class FileGenerator : GLib.Object {
                     return 0;
                 });
 
-                int to_delete = files.length - 10;
+                int to_delete = files.size - 5;
                 for (int i = 0; i < to_delete; i++) {
                     var f = dir.get_child (files.get (i).get_name ());
                     try {
@@ -192,7 +194,7 @@ public class FileGenerator : GLib.Object {
     }
 
     private static string format_gen_size (int64 size) {
-        if (size < 1024) return "%lld B".printf (size);
+        if (size < 1024) return size.to_string () + " B";
         if (size < 1024 * 1024) return "%.1f KB".printf (size / 1024.0);
         if (size < 1024 * 1024 * 1024) return "%.1f MB".printf (size / 1024.0 / 1024.0);
         return "%.1f GB".printf (size / 1024.0 / 1024.0 / 1024.0);

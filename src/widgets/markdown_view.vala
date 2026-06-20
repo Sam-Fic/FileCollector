@@ -1,6 +1,7 @@
 // MarkdownView: 用 cmark-gfm AST 构建 GTK4 widget 树, 渲染 Markdown 内容.
 // 支持: 标题, 段落, 粗体/斜体/代码, 链接, 列表, 代码块, 引用, 分割线, 表格.
 using GLib;
+using Gee;
 
 public class MarkdownView : Gtk.Box {
 

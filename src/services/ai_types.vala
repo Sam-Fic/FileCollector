@@ -6,6 +6,7 @@
  */
 
 using Gtk;
+using Gee;
 
 public struct AISystemSnapshot {
     public string work_dir;            // 当前工作目录

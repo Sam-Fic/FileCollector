@@ -1,3 +1,5 @@
+using Gee;
+
 // ─── Diff-based 撤销系统 ──────────────────────────────────────────────
 // 用轻量差异 (UndoDelta) 替代全量快照 (UndoState), 避免大列表深拷贝导致内存膨胀。
 // 常见操作 (插入/删除/编辑/交换/移动/设置模式) 仅存储变更部分;
@@ -23,22 +25,22 @@ public class UndoState : GLib.Object {
     internal string?[] _paths;
     internal string?[] _contents;
     internal bool[] _force_abs;
-    public HashTable<string, bool> checked_paths { get; private set; }
-    public HashTable<string, bool> checked_dirs { get; private set; }
+    public Gee.HashSet<string> checked_paths { get; private set; }
+    public Gee.HashSet<string> checked_dirs { get; private set; }
     public File? work_dir { get; private set; }
     public bool use_absolute { get; private set; }
     public bool show_header { get; private set; }
     public int n_items { get { return _types.length; } }
 
     public UndoState (
-        GenericArray<ItemData> src_items,
-        HashTable<string, bool> src_checked_paths,
-        HashTable<string, bool> src_checked_dirs,
+        Gee.ArrayList<ItemData> src_items,
+        Gee.HashSet<string> src_checked_paths,
+        Gee.HashSet<string> src_checked_dirs,
         File? src_work_dir,
         bool src_use_absolute,
         bool src_show_header
     ) {
-        int n = (int) src_items.length;
+        int n = (int) src_items.size;
         _types = new string[n];
         _paths = new string?[n];
         _contents = new string?[n];
@@ -50,13 +52,13 @@ public class UndoState : GLib.Object {
             _contents[i] = it.content;
             _force_abs[i] = it.force_absolute;
         }
-        checked_paths = new HashTable<string, bool> (str_hash, str_equal);
-        foreach (var key in src_checked_paths.get_keys ()) {
-            checked_paths.insert (key, true);
+        checked_paths = new Gee.HashSet<string> ();
+        foreach (var key in src_checked_paths) {
+            checked_paths.add (key);
         }
-        checked_dirs = new HashTable<string, bool> (str_hash, str_equal);
-        foreach (var key in src_checked_dirs.get_keys ()) {
-            checked_dirs.insert (key, true);
+        checked_dirs = new Gee.HashSet<string> ();
+        foreach (var key in src_checked_dirs) {
+            checked_dirs.add (key);
         }
         work_dir = src_work_dir;
         use_absolute = src_use_absolute;
@@ -78,10 +80,10 @@ public class UndoDelta : GLib.Object {
 
     // INSERT / REMOVE: 起始索引 + 涉及的条目
     public int index { get; set; }
-    public GenericArray<ItemData>? items { get; set; }
+    public Gee.ArrayList<ItemData>? items { get; set; }
 
     // REMOVE: 被同步移除的 checked_paths (仅文件条目)
-    public GenericArray<string>? removed_checked_paths { get; set; }
+    public Gee.ArrayList<string>? removed_checked_paths { get; set; }
 
     // EDIT: 索引 + 旧/新内容
     public string? old_content { get; set; }
@@ -107,14 +109,14 @@ public class UndoDelta : GLib.Object {
         snapshot = state;
     }
 
-    public UndoDelta.for_insert (int idx, GenericArray<ItemData> inserted) {
+    public UndoDelta.for_insert (int idx, Gee.ArrayList<ItemData> inserted) {
         op = UndoOp.INSERT;
         index = idx;
         items = inserted;
     }
 
-    public UndoDelta.for_remove (int idx, GenericArray<ItemData> removed,
-                                  owned GenericArray<string>? rm_checked = null) {
+    public UndoDelta.for_remove (int idx, Gee.ArrayList<ItemData> removed,
+                                  owned Gee.ArrayList<string>? rm_checked = null) {
         op = UndoOp.REMOVE;
         index = idx;
         items = removed;
@@ -159,35 +161,35 @@ public class UndoDelta : GLib.Object {
 // ─── 撤销管理器 ──────────────────────────────────────────────────────
 
 public class UndoManager : GLib.Object {
-    public bool can_undo { get { return undo_stack.length > 0; } }
-    public bool can_redo { get { return redo_stack.length > 0; } }
+    public bool can_undo { get { return undo_stack.size > 0; } }
+    public bool can_redo { get { return redo_stack.size > 0; } }
 
-    private GenericArray<UndoDelta> undo_stack;
-    private GenericArray<UndoDelta> redo_stack;
+    private Gee.ArrayList<UndoDelta> undo_stack;
+    private Gee.ArrayList<UndoDelta> redo_stack;
     private bool in_progress = false;
     private const int MAX_STACK_DEPTH = 50;
 
     public signal void state_changed ();
 
     public UndoManager () {
-        undo_stack = new GenericArray<UndoDelta> ();
-        redo_stack = new GenericArray<UndoDelta> ();
+        undo_stack = new Gee.ArrayList<UndoDelta> ();
+        redo_stack = new Gee.ArrayList<UndoDelta> ();
     }
 
     public void push (UndoDelta delta) {
         if (in_progress) return;
         undo_stack.add (delta);
-        if (undo_stack.length > MAX_STACK_DEPTH) {
-            undo_stack.remove_index (0);
+        if (undo_stack.size > MAX_STACK_DEPTH) {
+            undo_stack.remove_at (0);
         }
-        redo_stack.remove_range (0, redo_stack.length);
+        redo_stack.clear ();
         state_changed ();
     }
 
     public UndoDelta? pop_undo () {
-        if (undo_stack.length == 0) return null;
-        var delta = undo_stack.get ((int) undo_stack.length - 1);
-        undo_stack.remove_index ((int) undo_stack.length - 1);
+        if (undo_stack.size == 0) return null;
+        var delta = undo_stack.get ((int) undo_stack.size - 1);
+        undo_stack.remove_at ((int) undo_stack.size - 1);
         in_progress = true;
         state_changed ();
         in_progress = false;
@@ -205,9 +207,9 @@ public class UndoManager : GLib.Object {
     }
 
     public UndoDelta? pop_redo () {
-        if (redo_stack.length == 0) return null;
-        var delta = redo_stack.get ((int) redo_stack.length - 1);
-        redo_stack.remove_index ((int) redo_stack.length - 1);
+        if (redo_stack.size == 0) return null;
+        var delta = redo_stack.get ((int) redo_stack.size - 1);
+        redo_stack.remove_at ((int) redo_stack.size - 1);
         in_progress = true;
         state_changed ();
         in_progress = false;
@@ -215,8 +217,8 @@ public class UndoManager : GLib.Object {
     }
 
     public void clear () {
-        undo_stack.remove_range (0, undo_stack.length);
-        redo_stack.remove_range (0, redo_stack.length);
+        undo_stack.clear ();
+        redo_stack.clear ();
         state_changed ();
     }
 }

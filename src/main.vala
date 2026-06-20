@@ -1,3 +1,5 @@
+using Gee;
+
 public class FileCollectorApp : Adw.Application {
     private FileCollectorWindow? app_window = null;
 
@@ -67,7 +69,7 @@ public class FileCollectorApp : Adw.Application {
         var args = command_line.get_arguments ();
 
         bool force_gui = false;
-        var filtered = new GenericArray<string> ();
+        var filtered = new Gee.ArrayList<string> ();
         filtered.add (args[0]);
         for (int i = 1; i < args.length; i++) {
             if (args[i] == "--gui") {
@@ -76,7 +78,7 @@ public class FileCollectorApp : Adw.Application {
                 filtered.add (args[i]);
             }
         }
-        var filtered_args = filtered.data;
+        var filtered_args = (string[]) filtered.to_array ();
 
         bool has_cli_args = CliController.is_cli_mode (filtered_args);
 
@@ -86,11 +88,11 @@ public class FileCollectorApp : Adw.Application {
                 if (cli.parse_args (filtered_args)) {
                     if (cli.execute_save_export ()) {
                         app_window.apply_cli_operations (cli);
-                        for (int i = 0; i < cli.operation_messages.length; i++) {
+                        for (int i = 0; i < cli.operation_messages.size; i++) {
                             command_line.print ("✓ %s\n".printf (cli.operation_messages.get (i)));
                         }
                     } else {
-                        for (int i = 0; i < cli.operation_messages.length; i++) {
+                        for (int i = 0; i < cli.operation_messages.size; i++) {
                             command_line.printerr ("✗ %s\n".printf (cli.operation_messages.get (i)));
                         }
                         return 1;
@@ -127,7 +129,7 @@ public class FileCollectorApp : Adw.Application {
 
         if (force_gui && has_cli_args) {
             var cli = new CliController ();
-            if (cli.parse_args (filtered_args) || cli.items.length > 0 || cli.work_dir != null) {
+            if (cli.parse_args (filtered_args) || cli.items.size > 0 || cli.work_dir != null) {
                 if (cli.execute_save_export ()) {
                     GLib.Idle.add (() => {
                         if (app_window != null) {

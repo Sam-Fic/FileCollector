@@ -1,3 +1,5 @@
+using Gee;
+
 public class SettingsDialog : GLib.Object {
     public signal void language_changed (string new_lang);
     public signal void restart_requested ();
