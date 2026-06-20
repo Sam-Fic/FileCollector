@@ -134,26 +134,61 @@ public class FileGenerator : GLib.Object {
         File? work_dir,
         Gdk.Display display
     ) throws Error {
-        var config_dir = Path.build_filename (
-            Environment.get_user_config_dir (), "filecollector"
+        var cache_dir_path = Path.build_filename (
+            Environment.get_user_cache_dir (), "filecollector", "clipboard"
         );
-        DirUtils.create_with_parents (config_dir, 0755);
+        DirUtils.create_with_parents (cache_dir_path, 0755);
 
-        var file_path = Path.build_filename (config_dir, "merged.txt");
+        cleanup_old_clipboard_files (cache_dir_path);
+
+        var now = new DateTime.now_local ();
+        var filename = "export-%s.txt".printf (now.format ("%Y%m%d-%H%M%S"));
+        var file_path = Path.build_filename (cache_dir_path, filename);
+
         generate_file (file_path, items, use_absolute, show_header, work_dir);
-
         var file = File.new_for_path (file_path);
         display.get_clipboard ().set (typeof (File), file);
+    }
 
-        // 延迟清理临时文件: 剪贴板需要先完成读取, 用 Idle 确保主循环处理完剪贴板事件后再删除
-        GLib.Idle.add (() => {
-            try {
-                file.delete ();
-            } catch (Error e) {
-                // 忽略删除失败 (文件可能已被其他进程清理)
+    private static void cleanup_old_clipboard_files (string dir_path) {
+        var dir = File.new_for_path (dir_path);
+        try {
+            var enumerator = dir.enumerate_children (
+                FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE + "," + FileAttribute.TIME_MODIFIED,
+                FileQueryInfoFlags.NONE
+            );
+            FileInfo info;
+            var files = new GenericArray<FileInfo> ();
+            while ((info = enumerator.next_file ()) != null) {
+                if (info.get_file_type () == FileType.REGULAR &&
+                    info.get_name ().has_prefix ("export-") &&
+                    info.get_name ().has_suffix (".txt")) {
+                    files.add (info);
+                }
             }
-            return GLib.Source.REMOVE;
-        });
+
+            if (files.length > 10) {
+                files.sort ((a, b) => {
+                    uint64 time_a = a.get_attribute_uint64 (FileAttribute.TIME_MODIFIED);
+                    uint64 time_b = b.get_attribute_uint64 (FileAttribute.TIME_MODIFIED);
+                    if (time_a < time_b) return -1;
+                    if (time_a > time_b) return 1;
+                    return 0;
+                });
+
+                int to_delete = files.length - 10;
+                for (int i = 0; i < to_delete; i++) {
+                    var f = dir.get_child (files.get (i).get_name ());
+                    try {
+                        f.delete ();
+                    } catch (Error e) {
+                        debug ("清理剪贴板缓存文件失败: %s", e.message);
+                    }
+                }
+            }
+        } catch (Error e) {
+            debug ("枚举剪贴板缓存目录失败: %s", e.message);
+        }
     }
 
     private static string format_gen_size (int64 size) {
