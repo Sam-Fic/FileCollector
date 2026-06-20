@@ -86,27 +86,51 @@ public class CheckStateModel : GLib.Object {
         if (is_loaded) {
             var stats = new FileStats ();
             collect_file_stats (item, stats);
-
+            bool has_unloaded;
+            bool all_unloaded_checked;
+            check_unloaded_subdirs (item, out has_unloaded, out all_unloaded_checked);
             if (stats.total > 0) {
                 if (in_checked_dirs) {
-                    if (stats.checked_count < stats.total) return 1;
-                    return 2;
+                    if (stats.checked_count < stats.total) return 1; // 半选 (加载中或部分取消)
+                    return 2; // 全选
                 } else {
-                    if (stats.checked_count == 0) {
-                        return has_checked ? 1 : 0;
-                    } else if (stats.checked_count == stats.total) {
-                        return 2; // 修复：全选中
-                    } else {
-                        return 1;
+                    if (stats.checked_count == 0) return has_checked ? 1 : 0;
+                    if (stats.checked_count == stats.total && (!has_unloaded || all_unloaded_checked)) return 2;
+                    return 1; // 有未加载后代且不在 checked_dirs 中时保守半选
+                }
+            }
+        }
+
+        // 未加载或空目录的占位逻辑 (checked_dirs 已在加载时清理, 可信赖)
+        if (in_checked_dirs) return 2; // 全选态 (占位)
+        if (has_checked) return 1;     // 半选态 (占位)
+        return 0;
+    }
+
+    // 检查目录树中是否有未加载的子目录, 以及这些子目录是否都在 checked_dirs 中
+    private void check_unloaded_subdirs (DirectoryItem item, out bool has_unloaded, out bool all_in_checked_dirs) {
+        has_unloaded = false;
+        all_in_checked_dirs = true;
+        for (uint i = 0; i < item.children.get_n_items (); i++) {
+            var child = (DirectoryItem) item.children.get_item (i);
+            if (child.is_dir) {
+                if (!child.children_loaded) {
+                    has_unloaded = true;
+                    if (!(child.path in checked_dirs)) {
+                        all_in_checked_dirs = false;
+                    }
+                } else {
+                    bool child_has_unloaded;
+                    bool child_all_checked;
+                    check_unloaded_subdirs (child, out child_has_unloaded, out child_all_checked);
+                    if (child_has_unloaded) {
+                        has_unloaded = true;
+                        if (!child_all_checked) {
+                            all_in_checked_dirs = false;
+                        }
                     }
                 }
-            } else {
-                if (in_checked_dirs) return 2;
-                return has_checked ? 1 : 0;
             }
-        } else {
-            if (in_checked_dirs) return 2;
-            return has_checked ? 1 : 0;
         }
     }
 
@@ -264,6 +288,8 @@ public class DirectoryItem : GLib.Object {
     public GLib.ListStore children { get; private set; }
     // 标记子节点是否正在后台加载, 防止重复加载
     public bool children_loading = false;
+    // 标记是否已经尝试过加载 (无论成功与否), 防止路径不存在时陷入无限重试
+    public bool children_loaded = false;
 
     public signal void state_changed ();
 
@@ -341,7 +367,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private AppState app_state;
     // 向后兼容访问器, 逐步迁移到直接通过 app_state 访问
     private Gee.ArrayList<ItemData> items { get { return app_state.items; } }
-    private Gee.HashSet<string> checked_paths { get { return app_state.checked_paths; } }
     private CheckStateModel check_model { get { return app_state.check_model; } }
     private Gee.ArrayList<string> common_phrases { get { return app_state.common_phrases; } }
     private File? work_dir { get { return app_state.work_dir; } set { app_state.work_dir = value; } }
@@ -376,6 +401,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private GLib.Cancellable? app_cancellable = new GLib.Cancellable ();
     // 操作令牌: 目录勾选等分批任务递增, 旧令牌任务在 Idle 中自行放弃, 防止上下文切换后仍修改旧列表
     private uint current_operation_token = 0;
+    private uint ensure_path_token = 0;
 
 
     public FileCollectorWindow (Adw.Application app) {
@@ -426,10 +452,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         ai_controller.work_dir_change_requested.connect ((path) => ai_apply_set_work_dir (path));
         ai_controller.clear_items_requested.connect (() => on_clear_items ());
         ai_controller.refresh_list_requested.connect (() => refresh_list ());
-        ai_controller.state_changed.connect (() => {
-            sync_path_mode_radios ();
-            sync_header_checkbox ();
-        });
     }
 
     private bool on_close_request () {
@@ -508,6 +530,15 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             // 初始渲染
             render_queue_row (list_item, data, label, icon);
 
+            // 监听 position 变化: 上下移动时 ListView 可能复用 ListItem 跟随 item 移动,
+            // 而不触发 bind, 仅更新 position; 需监听 position 以重新渲染编号
+            ulong pos_handler = list_item.notify["position"].connect (() => {
+                var current_data = list_item.get_item () as ItemData;
+                if (current_data != null) {
+                    render_queue_row (list_item, current_data, label, icon);
+                }
+            });
+
             // 监听 content 变化: 编辑确认后 edit_data.content = text 会触发 notify,
             // 实时刷新行内预览 (splice 复用同一对象引用时 ListView 不会重新 bind)
             ulong handler_id = data.notify["content"].connect (() => {
@@ -519,6 +550,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             // 将句柄 ID 与所监视的数据模型指针弱挂载到 ListItem 容器上,
             // 供 unbind 时双重校验安全剥离信号
             list_item.set_data<ulong> ("content_notify_id", handler_id);
+            list_item.set_data<ulong> ("position_notify_id", pos_handler);
             list_item.set_data<ItemData> ("monitored_data_ptr", data);
         });
 
@@ -527,15 +559,20 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (list_item == null) return;
 
             ulong handler_id = list_item.get_data<ulong> ("content_notify_id");
+            ulong pos_handler = list_item.get_data<ulong> ("position_notify_id");
             var data = list_item.get_data<ItemData> ("monitored_data_ptr");
 
             // 安全双重校验: 确认句柄未失效且数据对象依然存在于内存中, 方能安全剥离信号
             if (handler_id != 0 && data != null && GLib.SignalHandler.is_connected (data, handler_id)) {
                 GLib.SignalHandler.disconnect (data, handler_id);
             }
+            if (pos_handler != 0 && GLib.SignalHandler.is_connected (list_item, pos_handler)) {
+                GLib.SignalHandler.disconnect (list_item, pos_handler);
+            }
 
             // 显式清空存储节点引用, 防止生命周期残留导致内存泄露
             list_item.set_data ("content_notify_id", null);
+            list_item.set_data ("position_notify_id", null);
             list_item.set_data ("monitored_data_ptr", null);
         });
 
@@ -550,7 +587,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (data.item_type == "file") {
             var file = File.new_for_path (data.file_path);
             display_name = file.get_basename ();
-            icon_name = data.force_absolute ? "document-open-symbolic" : "text-x-generic-symbolic";
+            if (data.is_missing) {
+                icon_name = "dialog-warning-symbolic";
+                display_name = _("⚠ %s (缺失)").printf (display_name);
+            } else {
+                icon_name = data.force_absolute ? "document-open-symbolic" : "text-x-generic-symbolic";
+            }
         } else {
             var preview = data.content ?? "";
             if (preview.char_count () > 40) {
@@ -834,7 +876,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     collect_files_from_filesystem (dir_path, file_paths, dir_paths);
                     Idle.add (() => {
                         if (window_closing) {
-                            if (thread != null) bg_threads.remove (thread);
                             return Source.REMOVE;
                         }
                         apply_dir_check_result (new_checked, dir_paths, file_paths);
@@ -856,12 +897,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             // 文件: 直接切换 (无 I/O, 同步即可)
             check_model.toggle_file (item.path);
             if (new_checked) {
-                if (!(item.path in checked_paths) && !path_in_items (item.path)) {
-                    checked_paths.add (item.path);
+                if (!path_in_items (item.path)) {
                     items.add (new ItemData ("file", item.path, null, false));
                 }
             } else {
-                checked_paths.remove (item.path);
                 remove_items_by_path (item.path);
             }
             refresh_all_tree_states ();
@@ -905,15 +944,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             while (idx < file_paths.size && count < chunk_size) {
                 var p = file_paths.get (idx);
                 if (new_checked) {
-                    if (!(p in checked_paths) && !path_in_items (p)) {
-                        checked_paths.add (p);
+                    if (!path_in_items (p)) {
                         items.add (new ItemData ("file", p, null, false));
                     }
                 } else {
-                    if (p in checked_paths) {
-                        checked_paths.remove (p);
-                        remove_items_by_path (p);
-                    }
+                    remove_items_by_path (p);
                 }
                 idx++;
                 count++;
@@ -935,13 +970,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var dir = File.new_for_path (dir_path);
         try {
             var enumerator = dir.enumerate_children (
-                FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE,
-                FileQueryInfoFlags.NONE
+                FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE + "," + FileAttribute.STANDARD_IS_SYMLINK,
+                FileQueryInfoFlags.NOFOLLOW_SYMLINKS
             );
             FileInfo info;
             while ((info = enumerator.next_file ()) != null) {
                 if (app_cancellable != null && app_cancellable.is_cancelled ()) return;
                 var child = dir.get_child (info.get_name ());
+                if (info.get_is_symlink () && info.get_file_type () == FileType.DIRECTORY) {
+                    continue;
+                }
                 if (info.get_file_type () == FileType.DIRECTORY) {
                     collect_files_from_filesystem (child.get_path (), out_files, out_dirs);
                 } else {
@@ -958,6 +996,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private struct SubtreeStats {
         public int total_files;
         public int checked_files;
+        public bool has_unloaded_descendants;
+        public bool all_unloaded_in_checked_dirs;
     }
 
     private void refresh_all_tree_states () {
@@ -984,46 +1024,72 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 目录节点：先递归处理所有子节点, 顺带收集统计
         stats.total_files = 0;
         stats.checked_files = 0;
+        stats.has_unloaded_descendants = false;
+        stats.all_unloaded_in_checked_dirs = true; // 默认真空为真
         for (uint i = 0; i < item.children.get_n_items (); i++) {
-            var child_stats = refresh_and_collect_stats ((DirectoryItem) item.children.get_item (i));
+            var child = (DirectoryItem) item.children.get_item (i);
+            var child_stats = refresh_and_collect_stats (child);
             stats.total_files += child_stats.total_files;
             stats.checked_files += child_stats.checked_files;
+            if (child_stats.has_unloaded_descendants) {
+                stats.has_unloaded_descendants = true;
+                if (!child_stats.all_unloaded_in_checked_dirs) {
+                    stats.all_unloaded_in_checked_dirs = false;
+                }
+            }
+            // 子目录未加载时, 其后代文件不在树中, stats 无法覆盖
+            if (child.is_dir && !child.children_loaded) {
+                stats.has_unloaded_descendants = true;
+                // 未加载的子目录若不在 checked_dirs 中, 则无法确认其后代是否全选
+                if (!(child.path in check_model.checked_dirs)) {
+                    stats.all_unloaded_in_checked_dirs = false;
+                }
+            }
         }
 
-        // 根据子节点统计结果推导当前目录的三态 (保持原 compute_dir_state 逻辑)
-        bool in_checked_dirs = item.path in check_model.checked_dirs;
+        // 根据子节点统计结果推导当前目录的三态 (统一状态机)
         bool has_checked = check_model.has_checked_descendant (item.path);
+        bool in_checked_dirs = item.path in check_model.checked_dirs;
 
         if (stats.total_files > 0) {
             if (in_checked_dirs) {
+                // 用户显式勾选该目录，但子文件可能还在后台加入 checked_files，或用户手动取消了部分
                 if (stats.checked_files < stats.total_files) {
                     item.checked = false;
-                    item.inconsistent = true; // 部分选中
+                    item.inconsistent = true; // 半选 (加载中或部分取消)
                 } else {
                     item.checked = true;
-                    item.inconsistent = false; // 全选中
+                    item.inconsistent = false; // 全选
                 }
             } else {
                 // 目录未被显式勾选，状态完全由已加载的子文件决定
                 if (stats.checked_files == 0) {
                     item.checked = false;
-                    item.inconsistent = has_checked; // 无选中但后代(未加载部分)可能有选中
-                } else if (stats.checked_files == stats.total_files) {
-                    item.checked = true; // 修复：只要所有文件都勾选，目录即显示为全勾选
+                    item.inconsistent = has_checked; // 若未加载的深层后代有选中，则半选；否则未选
+                } else if (stats.checked_files == stats.total_files
+                           && (!stats.has_unloaded_descendants || stats.all_unloaded_in_checked_dirs)) {
+                    // 所有已加载文件均勾选, 且无未加载后代或未加载后代均在 checked_dirs 中 → 确认全选
+                    item.checked = true;
                     item.inconsistent = false;
                 } else {
+                    // 有未加载后代且不在 checked_dirs 中, 无法确认是否所有文件均勾选 → 半选 (保守)
                     item.checked = false;
-                    item.inconsistent = true; // 部分选中
+                    item.inconsistent = true;
                 }
             }
         } else {
-            // 空目录或未加载子节点的目录
+            // 空目录或未加载子节点的目录 (懒加载占位逻辑)
+            // checked_dirs 已在项目加载时清理过时条目 (移除有缺失文件的目录)
+            // 因此 in_checked_dirs 可靠地表示全选态
             if (in_checked_dirs) {
                 item.checked = true;
-                item.inconsistent = false;
+                item.inconsistent = false; // 全选态 (占位)
+            } else if (has_checked) {
+                item.checked = false;
+                item.inconsistent = true; // 半选态 (占位)
             } else {
                 item.checked = false;
-                item.inconsistent = has_checked;
+                item.inconsistent = false; // 彻底未勾选
             }
         }
         return stats;
@@ -1036,7 +1102,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void push_undo_state () {
         undo_manager.push (new UndoDelta.for_snapshot (
-            new UndoState (items, checked_paths, check_model.checked_dirs, work_dir, use_absolute, show_header)));
+            new UndoState (items, check_model.checked_files, check_model.checked_dirs, work_dir, use_absolute, show_header)));
     }
 
     private void push_undo_delta (UndoDelta delta) {
@@ -1079,7 +1145,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         switch (d.op) {
             case UndoOp.SNAPSHOT:
                 return new UndoDelta.for_snapshot (
-                    new UndoState (items, checked_paths, check_model.checked_dirs, work_dir, use_absolute, show_header));
+                    new UndoState (items, check_model.checked_files, check_model.checked_dirs, work_dir, use_absolute, show_header));
             case UndoOp.INSERT:
                 // redo = 重新插入同样的 items
                 return new UndoDelta.for_insert (d.index, d.items);
@@ -1099,7 +1165,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 return new UndoDelta.for_header (d.old_bool_value, d.new_bool_value);
             default:
                 return new UndoDelta.for_snapshot (
-                    new UndoState (items, checked_paths, check_model.checked_dirs, work_dir, use_absolute, show_header));
+                    new UndoState (items, check_model.checked_files, check_model.checked_dirs, work_dir, use_absolute, show_header));
         }
     }
 
@@ -1108,7 +1174,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         switch (d.op) {
             case UndoOp.SNAPSHOT:
                 return new UndoDelta.for_snapshot (
-                    new UndoState (items, checked_paths, check_model.checked_dirs, work_dir, use_absolute, show_header));
+                    new UndoState (items, check_model.checked_files, check_model.checked_dirs, work_dir, use_absolute, show_header));
             case UndoOp.INSERT:
                 return new UndoDelta.for_insert (d.index, d.items);
             case UndoOp.REMOVE:
@@ -1126,7 +1192,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 return new UndoDelta.for_header (d.old_bool_value, d.new_bool_value);
             default:
                 return new UndoDelta.for_snapshot (
-                    new UndoState (items, checked_paths, check_model.checked_dirs, work_dir, use_absolute, show_header));
+                    new UndoState (items, check_model.checked_files, check_model.checked_dirs, work_dir, use_absolute, show_header));
         }
     }
 
@@ -1146,7 +1212,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 }
                 if (d.removed_checked_paths != null) {
                     for (int i = 0; i < d.removed_checked_paths.size; i++) {
-                        checked_paths.add (d.removed_checked_paths.get (i));
                         set_tree_item_check (d.removed_checked_paths.get (i), true);
                     }
                 }
@@ -1188,7 +1253,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 for (int i = 0; i < d.items.size; i++) items.remove_at (d.index);
                 if (d.removed_checked_paths != null) {
                     for (int i = 0; i < d.removed_checked_paths.size; i++) {
-                        checked_paths.remove (d.removed_checked_paths.get (i));
                         set_tree_item_check (d.removed_checked_paths.get (i), false);
                     }
                 }
@@ -1207,7 +1271,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 items.insert (d.to_index, it);
                 break;
             case UndoOp.SET_ABSOLUTE:
-                apply_absolute_change (d.new_bool_value, d.old_show_header);
+                apply_absolute_change (d.new_bool_value, d.new_show_header);
                 break;
             case UndoOp.SET_HEADER:
                 apply_header_change (d.new_bool_value);
@@ -1270,10 +1334,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             items.add (state.get_item (i));
         }
 
-        checked_paths.clear ();
-        foreach (var key in state.checked_paths) {
-            checked_paths.add (key);
-        }
+        check_model.replace_from (state.checked_paths, state.checked_dirs);
 
         use_absolute = state.use_absolute;
         show_header = state.show_header;
@@ -1299,7 +1360,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (work_dir != null) {
                 update_subtitle (work_dir.get_path ());
                 root_store.remove_all ();
-                check_model.replace_from (checked_paths, state.checked_dirs);
                 var root_item = new DirectoryItem (work_dir.get_basename (), work_dir.get_path (), true);
                 root_store.append (root_item);
                 load_directory_children_lazy (root_item);
@@ -1312,7 +1372,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 search_entry.visible = false;
             }
         } else if (work_dir != null && root_store.get_n_items () > 0) {
-            check_model.replace_from (checked_paths, state.checked_dirs);
             refresh_all_tree_states ();
         }
 
@@ -1619,7 +1678,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             });
             search_entry.visible = true;
         } else if (work_dir != null && root_store.get_n_items () > 0) {
-            foreach (var path in checked_paths) {
+            foreach (var path in check_model.checked_files) {
                 ensure_path_loaded (path);
             }
             refresh_all_tree_states ();
@@ -1679,7 +1738,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             update_subtitle (folder.get_path ());
 
             root_store.remove_all ();
-            checked_paths.clear ();
+            check_model.clear ();
             items.clear ();
             check_model.clear ();
             undo_manager.clear ();
@@ -1713,12 +1772,15 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (!dir.query_exists ()) return new Gee.ArrayList<DirChildInfo> ();
         try {
             var enumerator = dir.enumerate_children (
-                FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE,
-                FileQueryInfoFlags.NONE
+                FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE + "," + FileAttribute.STANDARD_IS_SYMLINK,
+                FileQueryInfoFlags.NOFOLLOW_SYMLINKS
             );
             FileInfo info;
             while ((info = enumerator.next_file ()) != null) {
                 if (cancellable != null && cancellable.is_cancelled ()) break;
+                if (info.get_is_symlink () && info.get_file_type () == FileType.DIRECTORY) {
+                    continue;
+                }
                 var child_path = dir.get_child (info.get_name ()).get_path ();
                 bool is_dir = info.get_file_type () == FileType.DIRECTORY;
                 var entry = new DirChildInfo (info.get_name (), child_path, is_dir);
@@ -1796,14 +1858,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         int current_offset = 0;
 
         GLib.Idle.add (() => {
-            // 窗口关闭时不再更新 UI, 直接清理线程引用
             if (window_closing) {
-                if (thread != null) bg_threads.remove (thread);
                 return GLib.Source.REMOVE;
             }
-            // 边界检查: 父容器可能在中途被销毁
             if (parent == null || parent.children == null) {
-                if (thread != null) bg_threads.remove (thread);
                 return GLib.Source.REMOVE;
             }
 
@@ -1819,9 +1877,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 return GLib.Source.CONTINUE; // 未完成, 下一帧主循环继续分批加载
             }
 
-            // 加载完毕: 刷新子树勾选状态, 清理后台线程引用
+            // 加载完毕: 标记已加载，刷新整个树的状态 (确保祖先节点能汇总新加载的子树)
             parent.children_loading = false;
-            refresh_subtree_states (parent);
+            parent.children_loaded = true;
+            refresh_all_tree_states ();
+            dir_column_view.queue_draw ();
             if (thread != null) bg_threads.remove (thread);
             return GLib.Source.REMOVE;
         });
@@ -1832,16 +1892,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 1. 更新 check_model (单一真相源)
         if (checked) {
             check_model.add_files ({ abs_path });
-            if (!(abs_path in checked_paths)) {
-                checked_paths.add (abs_path);
+            if (!path_in_items (abs_path)) {
                 items.add (new ItemData ("file", abs_path, null, false));
             }
         } else {
             check_model.remove_files ({ abs_path });
-            if (abs_path in checked_paths) {
-                checked_paths.remove (abs_path);
-                remove_items_by_path (abs_path);
-            }
+            remove_items_by_path (abs_path);
         }
 
         // 2. 触发懒加载, 确保该路径的父目录已加载 (这样 UI 才能显示)
@@ -1856,6 +1912,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void ensure_path_loaded (string abs_path) {
         if (work_dir == null || !abs_path.has_prefix (work_dir.get_path () + "/")) return;
         if (root_store.get_n_items () == 0) return;
+        ensure_path_token++;
+        uint my_token = ensure_path_token;
 
         string rel = abs_path.substring (work_dir.get_path ().length + 1);
         string[] parts = rel.split ("/");
@@ -1872,19 +1930,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 }
             }
             if (!found) {
-                load_directory_children_sync (current);
-                for (uint c = 0; c < current.children.get_n_items (); c++) {
-                    var child = (DirectoryItem) current.children.get_item (c);
-                    if (child.name == parts[p]) {
-                        current = child;
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) return;
+                if (current.children_loaded) return;
+                load_directory_children_lazy (current);
+                schedule_ensure_path_retry (abs_path, my_token);
+                return;
             }
         }
-        // 确保目标文件所在目录也已加载
+
         bool target_found = false;
         for (uint c = 0; c < current.children.get_n_items (); c++) {
             var child = (DirectoryItem) current.children.get_item (c);
@@ -1894,8 +1946,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             }
         }
         if (!target_found) {
+            if (current.children_loaded) return;
             load_directory_children_lazy (current);
         }
+    }
+
+    private void schedule_ensure_path_retry (string abs_path, uint token) {
+        GLib.Timeout.add (50, () => {
+            if (window_closing || token != ensure_path_token) {
+                return Source.REMOVE;
+            }
+            ensure_path_loaded (abs_path);
+            return Source.REMOVE;
+        });
     }
 
     // ─── Queue List ──────────────────────────────────────────────────────
@@ -1988,13 +2051,41 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             try {
                 var files = dialog.open_multiple.end (res);
                 if (files.get_n_items () == 0) return;
-                push_undo_state ();
+                int added = 0;
+                int skipped = 0;
+                var to_add = new Gee.ArrayList<ItemData> ();
                 for (uint i = 0; i < files.get_n_items (); i++) {
                     var file = (File) files.get_item (i);
                     var path = file.get_path ();
-                    items.add (new ItemData ("file", path, null, true));
+                    bool exists = false;
+                    for (int j = 0; j < items.size; j++) {
+                        var existing = items.get (j);
+                        if (existing.item_type == "file" && existing.file_path == path) {
+                            exists = true;
+                            break;
+                        }
+                    }
+                    if (exists) {
+                        skipped++;
+                    } else {
+                        to_add.add (new ItemData ("file", path, null, true));
+                    }
                 }
-                refresh_list ();
+                if (to_add.size > 0) {
+                    push_undo_state ();
+                    foreach (var item in to_add) {
+                        items.add (item);
+                        added++;
+                    }
+                    refresh_list ();
+                }
+                if (added > 0 && skipped > 0) {
+                    show_toast (_("已添加 %d 个文件，跳过 %d 个重复文件").printf (added, skipped));
+                } else if (added > 0) {
+                    show_toast (_("已添加 %d 个文件").printf (added));
+                } else if (skipped > 0) {
+                    show_toast (_("所选文件已全部存在，跳过 %d 个重复文件").printf (skipped));
+                }
             } catch (Error e) {
                 if (e is GLib.IOError.CANCELLED) return;
                 warning ("添加文件失败: %s", e.message);
@@ -2150,22 +2241,25 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var removed = new Gee.ArrayList<ItemData> ();
         removed.add (data);
         var rm_checked = new Gee.ArrayList<string> ();
-        if (data.item_type == "file" && !data.force_absolute) {
-            if (data.file_path in checked_paths) {
+        bool was_checked = false;
+        if (data.item_type == "file" && !data.force_absolute && data.file_path != null) {
+            if (data.file_path in check_model.checked_files) {
                 rm_checked.add (data.file_path);
-                checked_paths.remove (data.file_path);
-                set_tree_item_check (data.file_path, false);
+                was_checked = true;
             }
         }
-        items.remove_at (index);
         push_undo_delta (new UndoDelta.for_remove (index, removed, rm_checked));
-        refresh_list ();
+        if (was_checked) {
+            set_tree_item_check (data.file_path, false);
+        } else {
+            items.remove_at (index);
+            refresh_list ();
+        }
     }
 
     private void on_clear_items () {
         push_undo_state ();
         items.clear ();
-        checked_paths.clear ();
         check_model.clear ();
         refresh_all_tree_states ();
         refresh_list ();
@@ -2203,18 +2297,67 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             buffer.set_text (item.content.make_valid (), -1);
         } else {
             try {
-                uint8[] file_data;
-                FileUtils.get_data (item.file_path, out file_data);
-                var preview = EncodingHelper.decode_to_utf8 (file_data);
-                if (preview.length > 2000) {
-                    preview = truncate_utf8 (preview, 2000);
-                    preview += "\n\n... [预览截断]";
+                var file = File.new_for_path (item.file_path);
+                int64 file_size = 0;
+                try {
+                    var info = file.query_info (FileAttribute.STANDARD_SIZE, FileQueryInfoFlags.NONE);
+                    file_size = info.get_size ();
+                } catch (Error e) {
+                    buffer.set_text ("[读取错误: " + e.message + "]", -1);
+                    return;
                 }
-                buffer.set_text (preview, -1);
+                const int64 PREVIEW_MAX_BYTES = 8192;
+                int64 read_size = int64.min (file_size, PREVIEW_MAX_BYTES);
+                FileInputStream? fis = null;
+                try {
+                    fis = file.read ();
+                    uint8[] buf = new uint8[read_size];
+                    size_t bytes_read = 0;
+                    while (bytes_read < (size_t) read_size) {
+                        size_t chunk = size_t.min (4096, (size_t) read_size - bytes_read);
+                        ssize_t n = fis.read (buf[bytes_read:bytes_read + chunk]);
+                        if (n <= 0) break;
+                        bytes_read += (size_t) n;
+                    }
+                    buf.resize ((int) bytes_read);
+                    bool is_binary = false;
+                    for (size_t i = 0; i < bytes_read; i++) {
+                        if (buf[i] == 0) { is_binary = true; break; }
+                    }
+                    string preview;
+                    if (is_binary) {
+                        preview = "[二进制文件，预览不可用]";
+                    } else {
+                        preview = EncodingHelper.decode_to_utf8 (buf);
+                        if (preview.length > 2000) {
+                            preview = truncate_utf8 (preview, 2000);
+                            if (file_size > PREVIEW_MAX_BYTES) {
+                                preview += "\n\n... [预览截断，文件总大小: %s]".printf (format_preview_size (file_size));
+                            } else {
+                                preview += "\n\n... [预览截断]";
+                            }
+                        } else if (file_size > PREVIEW_MAX_BYTES) {
+                            preview += "\n\n... [文件较大 (%s)，预览仅显示前 %s]".printf (
+                                format_preview_size (file_size), format_preview_size (read_size));
+                        }
+                    }
+                    buffer.set_text (preview, -1);
+                } finally {
+                    if (fis != null) {
+                        try { fis.close (); } catch (Error e) { debug ("Close failed: %s", e.message); }
+                    }
+                }
             } catch (Error e) {
                 buffer.set_text ("[读取错误: " + e.message + "]", -1);
             }
         }
+    }
+
+    private static string format_preview_size (int64 size) {
+        if (size < 1024) return size.to_string () + " B";
+        if (size < 1024 * 1024) return "%.1f KB".printf (size / 1024.0);
+        if (size < 1024 * 1024 * 1024) return "%.1f MB".printf (size / 1024.0 / 1024.0);
+        return "%.1f GB".printf (size / 1024.0 / 1024.0 / 1024.0);
     }
 
     // 按字节长度截断, 但不切断多字节 UTF-8 字符, 避免乱码
@@ -2326,6 +2469,23 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             root_store.remove_all ();
             var root_item = new DirectoryItem (work_dir.get_basename (), work_dir.get_path (), true);
             root_store.append (root_item);
+
+            // 【核心修复】清理 checked_dirs 中的过时条目
+            // checked_paths 在加载时按文件系统存在性过滤, 但 checked_dirs 未过滤
+            // 若文件在保存后被删除, 其所在目录仍留在 checked_dirs 中, 但实际已非全选
+            // 遍历 items, 找出不在 checked_files 中的文件 (缺失文件), 移除其祖先目录的 checked_dirs 标记
+            foreach (var item in items) {
+                if (item.item_type == "file" && !(item.file_path in check_model.checked_files)) {
+                    check_model.remove_ancestors_from_checked_dirs (item.file_path);
+                }
+            }
+
+            // 确保所有已勾选文件的祖先目录被标记或预加载
+            // 防止深层目录因未展开导致 implicit_checked_dirs 断层或统计遗漏
+            foreach (var path in check_model.checked_files) {
+                ensure_path_loaded (path);
+            }
+
             load_directory_children_lazy (root_item);
             search_entry.visible = true;
             var root_row = tree_list_model.get_item (0) as Gtk.TreeListRow;
@@ -2876,7 +3036,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void ai_apply_set_work_dir (string path) {
         push_undo_state ();
         app_state.items.clear ();
-        app_state.checked_paths.clear ();
         app_state.check_model.clear ();
         var folder = File.new_for_path (path);
         work_dir = folder;

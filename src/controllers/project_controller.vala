@@ -38,7 +38,7 @@ public class ProjectController : GLib.Object {
             app_state.use_absolute,
             app_state.show_header,
             app_state.items,
-            app_state.checked_paths,
+            app_state.check_model.checked_files,
             app_state.check_model.checked_dirs,
             app_state.common_phrases
         );

@@ -68,7 +68,7 @@ public class ProjectManager : GLib.Object {
                     if (File.new_for_path (p).query_exists ()) {
                         items.add (new ItemData ("file", p, null, fa));
                     } else {
-                        items.add (new ItemData ("text", null, _("[缺失文件: %s]").printf (p), false));
+                        items.add (new ItemData ("file", p, null, fa, true));
                     }
                 } else {
                     var c = obj.get_string_member_with_default ("content", "");
@@ -140,6 +140,10 @@ public class ProjectManager : GLib.Object {
                 builder.add_string_value (data.file_path);
                 builder.set_member_name ("force_absolute");
                 builder.add_boolean_value (data.force_absolute);
+                if (data.is_missing) {
+                    builder.set_member_name ("missing");
+                    builder.add_boolean_value (true);
+                }
             } else {
                 builder.set_member_name ("content");
                 builder.add_string_value (data.content);

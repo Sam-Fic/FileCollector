@@ -75,12 +75,15 @@ public class GlobHelper : GLib.Object {
         try {
             var dir = File.new_for_path (current_dir);
             var enumerator = dir.enumerate_children (
-                FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE,
-                FileQueryInfoFlags.NONE
+                FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE + "," + FileAttribute.STANDARD_IS_SYMLINK,
+                FileQueryInfoFlags.NOFOLLOW_SYMLINKS
             );
 
             FileInfo info;
             while ((info = enumerator.next_file ()) != null && results.size < max_results) {
+                if (info.get_is_symlink () && info.get_file_type () == FileType.DIRECTORY) {
+                    continue;
+                }
                 var child_path = Path.build_filename (current_dir, info.get_name ());
                 string rel = child_path.substring (base_dir.length);
                 if (rel.has_prefix ("/")) rel = rel.substring (1);

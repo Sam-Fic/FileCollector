@@ -295,11 +295,18 @@ public class AISettingsDialog : GLib.Object {
         btn_test.set_sensitive (false);
         show_toast (_("正在测试..."));
 
-        // 异步发起测试请求, 不阻塞 UI
-        // Session 存为成员变量, 确保异步回调执行时引用仍然有效
-        test_session = new Soup.Session ();
-        test_session.timeout = (uint) (s.timeout > 0 ? s.timeout : 60.0);
-        test_cancellable = new GLib.Cancellable ();
+        if (test_cancellable != null) {
+            test_cancellable.cancel ();
+        }
+        if (test_session != null) {
+            test_session.abort ();
+        }
+
+        var session = new Soup.Session ();
+        session.timeout = (uint) (s.timeout > 0 ? s.timeout : 60.0);
+        var cancellable = new GLib.Cancellable ();
+        test_session = session;
+        test_cancellable = cancellable;
 
         var payload = new Json.Object ();
         payload.set_string_member ("model", s.model);
@@ -324,8 +331,13 @@ public class AISettingsDialog : GLib.Object {
         msg.request_headers.append ("Content-Type", "application/json");
         msg.request_headers.append ("Authorization", "Bearer " + s.api_key);
 
-        test_session.send_and_read_async (msg, GLib.Priority.DEFAULT, test_cancellable, (obj, res) => {
-            on_test_done (test_session, msg, res);
+        weak AISettingsDialog self = this;
+        session.send_and_read_async (msg, GLib.Priority.DEFAULT, cancellable, (obj, res) => {
+            if (self.window == null) return;
+            if (self.test_session != session) return;
+            self.test_session = null;
+            self.test_cancellable = null;
+            self.on_test_done (session, msg, res);
         });
     }
 

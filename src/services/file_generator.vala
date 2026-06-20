@@ -22,8 +22,8 @@ public class FileGenerator : GLib.Object {
             var data = items.get (i);
             if (data.item_type == "file") {
                 var f = File.new_for_path (data.file_path);
-                if (!f.query_exists ()) {
-                    dis.put_string (_("[文件不存在: %s]\n").printf (data.file_path));
+                if (!f.query_exists () || data.is_missing) {
+                    dis.put_string (_("[缺失文件: %s]\n").printf (data.file_path));
                     continue;
                 }
                 string display;
@@ -76,24 +76,17 @@ public class FileGenerator : GLib.Object {
                     if (is_binary) {
                         dis.put_string (_("[检测到二进制文件: 已跳过文本内容读取]\n"));
                     } else {
-                        // 读取剩余内容: 先写入已 peek 的部分, 再读取剩余
-                        var content_buf = new uint8[file_size + 1];
-                        Memory.copy (content_buf, head_buf, head_read);
-                        size_t total_read = head_read;
-                        // 继续读取剩余部分
-                        while (total_read < (size_t) file_size) {
-                            size_t chunk = size_t.min (8192, (size_t) file_size - total_read);
-                            ssize_t n = fis.read (content_buf[total_read:total_read + chunk]);
+                        // 流式写入：先写入已 peek 的部分
+                        dis.put_string ((string) head_buf[0:head_read]);
+                        // 流式读取剩余部分，分块写入
+                        size_t remaining = (size_t) file_size - head_read;
+                        uint8[] chunk_buf = new uint8[8192];
+                        while (remaining > 0) {
+                            size_t to_read = size_t.min (8192, remaining);
+                            ssize_t n = fis.read (chunk_buf[0:to_read]);
                             if (n <= 0) break;
-                            total_read += (size_t) n;
-                        }
-                        content_buf[total_read] = 0;
-
-                        string text_content = (string) content_buf;
-                        if (text_content.validate ()) {
-                            dis.put_string (text_content);
-                        } else {
-                            dis.put_string (text_content.make_valid ());
+                            dis.put_string ((string) chunk_buf[0:n]);
+                            remaining -= (size_t) n;
                         }
                     }
                 } catch (Error e) {

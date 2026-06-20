@@ -14,7 +14,6 @@ public class AIController : GLib.Object {
     public signal void work_dir_change_requested (string path);
     public signal void clear_items_requested ();
     public signal void refresh_list_requested ();
-    public signal void state_changed ();
 
     public AIController (AppState state) {
         GLib.Object (app_state: state);
@@ -287,6 +286,7 @@ public class AIController : GLib.Object {
         string? after = o.has_member ("after_path") ? o.get_string_member ("after_path") : null;
         int added = 0;
         int total = (int) paths_arr.get_length ();
+        var skipped = new Gee.ArrayList<string> ();
         undo_snapshot_requested ();
         int insert_at = app_state.items.size;
         if (after != null) {
@@ -301,23 +301,44 @@ public class AIController : GLib.Object {
         for (int i = 0; i < total; i++) {
             string p = paths_arr.get_string_element (i);
             string? resolved = resolve_ai_path (p);
-            if (resolved == null || !is_path_in_work_dir (resolved)) continue;
+            if (resolved == null) {
+                skipped.add (@"$p (无法解析路径)");
+                continue;
+            }
+            if (!is_path_in_work_dir (resolved)) {
+                skipped.add (@"$p (路径超出工作目录)");
+                continue;
+            }
             string abs = resolved;
-            if (!FileUtils.test (abs, FileTest.EXISTS)) continue;
+            if (!FileUtils.test (abs, FileTest.EXISTS)) {
+                skipped.add (@"$p (文件不存在)");
+                continue;
+            }
             bool exists = false;
             for (int j = 0; j < app_state.items.size; j++) {
                 if (app_state.items.get (j).file_path == abs) { exists = true; break; }
             }
-            if (exists) continue;
-            app_state.items.insert (insert_at + added, new ItemData ("file", abs, null, false));
-            if (!(abs in app_state.checked_paths)) {
-                app_state.checked_paths.add (abs);
+            if (exists) {
+                skipped.add (@"$p (已在列表中)");
+                continue;
+            }
+            app_state.add_file (abs, insert_at + added);
+            if (!(abs in app_state.check_model.checked_files)) {
+                app_state.check_model.add_files ({ abs });
             }
             tree_check_changed (abs, true);
             added++;
         }
         refresh_list_requested ();
-        return "已添加 %d 个文件 (请求 %d)".printf (added, total);
+        var sb = new StringBuilder ();
+        sb.append ("已添加 %d 个文件 (请求 %d)".printf (added, total));
+        if (skipped.size > 0) {
+            sb.append ("\n跳过 %d 个:\n".printf (skipped.size));
+            foreach (var s in skipped) {
+                sb.append ("  - ").append (s).append ("\n");
+            }
+        }
+        return sb.str;
     }
 
     private string tool_remove_files (Json.Node args) throws GLib.Error {
@@ -336,13 +357,13 @@ public class AIController : GLib.Object {
             for (int j = app_state.items.size - 1; j >= 0; j--) {
                 var it = app_state.items.get (j);
                 if (it.item_type == "file" && it.file_path == abs) {
-                    app_state.items.remove_at (j);
+                    bool was_checked = abs in app_state.check_model.checked_files;
+                    app_state.remove_item_at (j);
                     result++;
+                    if (was_checked) {
+                        tree_check_changed (abs, false);
+                    }
                 }
-            }
-            if (abs in app_state.checked_paths) {
-                app_state.checked_paths.remove (abs);
-                tree_check_changed (abs, false);
             }
         }
         refresh_list_requested ();
@@ -383,7 +404,7 @@ public class AIController : GLib.Object {
         }
         var inserted = new Gee.ArrayList<ItemData> ();
         var new_item = new ItemData ("text", null, text, false);
-        app_state.items.insert (insert_at, new_item);
+        app_state.add_item (new_item, insert_at);
         inserted.add (new_item);
         undo_delta_requested (new UndoDelta.for_insert (insert_at, inserted));
         refresh_list_requested ();
@@ -402,13 +423,12 @@ public class AIController : GLib.Object {
         rm_items.add (removed);
         var rm_checked = new Gee.ArrayList<string> ();
         if (removed.item_type == "file" && removed.file_path != null) {
-            if (removed.file_path in app_state.checked_paths) {
+            if (removed.file_path in app_state.check_model.checked_files) {
                 rm_checked.add (removed.file_path);
-                app_state.checked_paths.remove (removed.file_path);
                 tree_check_changed (removed.file_path, false);
             }
         }
-        app_state.items.remove_at (idx);
+        app_state.remove_item_at (idx);
         undo_delta_requested (new UndoDelta.for_remove (idx, rm_items, rm_checked));
         refresh_list_requested ();
         return "已删除第 %d 项 (%s)".printf (idx, removed.item_type);
@@ -426,9 +446,7 @@ public class AIController : GLib.Object {
         if (to < 0 || to >= app_state.items.size) {
             return "to_index 越界: %d (列表共 %d 项)".printf (to, app_state.items.size);
         }
-        var item = app_state.items.get (from);
-        app_state.items.remove_at (from);
-        app_state.items.insert (to, item);
+        app_state.move_item (from, to);
         undo_delta_requested (new UndoDelta.for_move (from, to));
         refresh_list_requested ();
         return "已移动: %d → %d".printf (from, to);
@@ -443,7 +461,7 @@ public class AIController : GLib.Object {
         bool old_hdr = app_state.show_header;
         app_state.use_absolute = val;
         undo_delta_requested (new UndoDelta.for_absolute (old_abs, val, old_hdr, app_state.show_header));
-        state_changed ();
+        app_state.notify_state_changed ();
         refresh_list_requested ();
         return "use_absolute=" + val.to_string ();
     }
@@ -456,7 +474,7 @@ public class AIController : GLib.Object {
         bool old_val = app_state.show_header;
         app_state.show_header = val;
         undo_delta_requested (new UndoDelta.for_header (old_val, val));
-        state_changed ();
+        app_state.notify_state_changed ();
         return "show_header=" + val.to_string ();
     }
 
@@ -472,7 +490,7 @@ public class AIController : GLib.Object {
                 if (idx == 0) {
                     remove_at = i;
                     removed_item = app_state.items.get (i);
-                    app_state.items.remove_at (i);
+                    app_state.remove_item_at (i);
                     removed = 1;
                     break;
                 } else {

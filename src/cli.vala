@@ -39,7 +39,7 @@ public class CliController : GLib.Object {
         items.clear ();
         for (int i = 0; i < existing_items.size; i++) {
             var item = existing_items.get (i);
-            items.add (new ItemData (item.item_type, item.file_path, item.content, item.force_absolute));
+            items.add (new ItemData (item.item_type, item.file_path, item.content, item.force_absolute, item.is_missing));
         }
 
         checked_paths.clear ();
@@ -63,7 +63,7 @@ public class CliController : GLib.Object {
         initialize_from_state (
             state.work_dir,
             state.items,
-            state.checked_paths,
+            state.check_model.checked_files,
             state.check_model.checked_dirs,
             state.common_phrases,
             state.use_absolute,
@@ -82,14 +82,12 @@ public class CliController : GLib.Object {
 
         state.items.clear ();
         for (int i = 0; i < items.size; i++) state.items.add (items.get (i));
-        state.checked_paths.clear ();
-        foreach (var p in checked_paths) state.checked_paths.add (p);
         // 常用语是全局设置, 仅在 CLI 加载了项目文件时才覆盖
         if (project_loaded) {
             state.common_phrases.clear ();
             for (int i = 0; i < common_phrases.size; i++) state.common_phrases.add (common_phrases.get (i));
         }
-        state.check_model.replace_from (state.checked_paths, checked_dirs);
+        state.check_model.replace_from (checked_paths, checked_dirs);
         state.use_absolute = use_absolute;
         state.show_header = show_header;
 
@@ -327,6 +325,10 @@ public class CliController : GLib.Object {
     }
 
     private bool move_item (int from, int to) {
+        if (items.size == 0) {
+            stderr.printf (_("错误: 编排列表为空\n"));
+            return false;
+        }
         if (from < 0 || from >= items.size) {
             stderr.printf (_("错误: 源索引 %d 超出范围 (0-%d)\n"), from, items.size - 1);
             return false;
@@ -460,7 +462,8 @@ public class CliController : GLib.Object {
                     if (type == "file") {
                         var p = obj.get_string_member ("path");
                         var fa = obj.get_boolean_member_with_default ("force_absolute", false);
-                        items.add (new ItemData ("file", p, null, fa));
+                        var miss = obj.get_boolean_member_with_default ("missing", false);
+                        items.add (new ItemData ("file", p, null, fa, miss));
                     } else {
                         var c = obj.get_string_member_with_default ("content", "");
                         items.add (new ItemData ("text", null, c, false));

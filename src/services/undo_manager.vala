@@ -25,6 +25,7 @@ public class UndoState : GLib.Object {
     internal string?[] _paths;
     internal string?[] _contents;
     internal bool[] _force_abs;
+    internal bool[] _is_missing;
     public Gee.HashSet<string> checked_paths { get; private set; }
     public Gee.HashSet<string> checked_dirs { get; private set; }
     public File? work_dir { get; private set; }
@@ -45,12 +46,14 @@ public class UndoState : GLib.Object {
         _paths = new string?[n];
         _contents = new string?[n];
         _force_abs = new bool[n];
+        _is_missing = new bool[n];
         for (int i = 0; i < n; i++) {
             var it = src_items.get (i);
             _types[i] = it.item_type;        // 引用共享
             _paths[i] = it.file_path;
             _contents[i] = it.content;
             _force_abs[i] = it.force_absolute;
+            _is_missing[i] = it.is_missing;
         }
         checked_paths = new Gee.HashSet<string> ();
         foreach (var key in src_checked_paths) {
@@ -66,7 +69,7 @@ public class UndoState : GLib.Object {
     }
 
     public ItemData get_item (int index) {
-        return new ItemData (_types[index], _paths[index], _contents[index], _force_abs[index]);
+        return new ItemData (_types[index], _paths[index], _contents[index], _force_abs[index], _is_missing[index]);
     }
 }
 
@@ -99,8 +102,9 @@ public class UndoDelta : GLib.Object {
     // SET_ABSOLUTE / SET_HEADER: 旧/新值
     public bool old_bool_value { get; set; }
     public bool new_bool_value { get; set; }
-    // SET_ABSOLUTE 连带保存旧 show_header
+    // SET_ABSOLUTE 连带保存旧/新 show_header
     public bool old_show_header { get; set; }
+    public bool new_show_header { get; set; }
 
     // ─── 便捷构造 ──────────────────────────────────────────────────
 
@@ -148,7 +152,7 @@ public class UndoDelta : GLib.Object {
         old_bool_value = old_abs;
         new_bool_value = new_abs;
         old_show_header = old_hdr;
-        // new_show_header 不单独存: undo 时恢复 old_show_header 即可
+        new_show_header = new_hdr;
     }
 
     public UndoDelta.for_header (bool old_val, bool new_val) {

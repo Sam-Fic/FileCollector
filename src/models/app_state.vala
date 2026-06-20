@@ -4,7 +4,6 @@ using Gee;
 // 持有 FileCollector 的核心业务状态，并通过信号通知 View/Controller 变更。
 public class AppState : GLib.Object {
     public Gee.ArrayList<ItemData> items { get; private set; }
-    public Gee.HashSet<string> checked_paths { get; private set; }
     public CheckStateModel check_model { get; private set; }
     public Gee.ArrayList<string> common_phrases { get; private set; }
 
@@ -24,7 +23,6 @@ public class AppState : GLib.Object {
 
     public AppState () {
         items = new Gee.ArrayList<ItemData> ();
-        checked_paths = new Gee.HashSet<string> ();
         check_model = new CheckStateModel ();
         common_phrases = new Gee.ArrayList<string> ();
         ai_mode = "default";
@@ -56,7 +54,6 @@ public class AppState : GLib.Object {
         if (index < 0 || index >= items.size) return false;
         var data = items.get (index);
         if (data.item_type == "file" && !data.force_absolute && data.file_path != null) {
-            checked_paths.remove (data.file_path);
             check_model.remove_files ({ data.file_path });
         }
         items.remove_at (index);
@@ -85,7 +82,6 @@ public class AppState : GLib.Object {
 
     public void clear_items () {
         items.clear ();
-        checked_paths.clear ();
         check_model.clear ();
         items_changed ();
         state_changed ();
@@ -94,18 +90,17 @@ public class AppState : GLib.Object {
     // ─── 勾选路径 ────────────────────────────────────────────────────────
 
     public void add_checked_path (string path) {
-        checked_paths.add (path);
+        check_model.add_files ({ path });
     }
 
     public void remove_checked_path (string path) {
-        checked_paths.remove (path);
+        check_model.remove_files ({ path });
     }
 
     // ─── 整体状态替换 ────────────────────────────────────────────────────
 
     public void reset () {
         items.clear ();
-        checked_paths.clear ();
         check_model.clear ();
         work_dir = null;
         use_absolute = false;
@@ -131,23 +126,10 @@ public class AppState : GLib.Object {
         items.clear ();
         for (int i = 0; i < new_items.size; i++) {
             var it = new_items.get (i);
-            items.add (new ItemData (it.item_type, it.file_path, it.content, it.force_absolute));
+            items.add (new ItemData (it.item_type, it.file_path, it.content, it.force_absolute, it.is_missing));
         }
 
-        checked_paths.clear ();
-        foreach (var p in new_checked_paths) {
-            checked_paths.add (p);
-        }
-
-        check_model.clear ();
-        foreach (var p in checked_paths) {
-            check_model.add_files ({ p });
-        }
-        if (new_checked_dirs != null) {
-            foreach (var d in new_checked_dirs) {
-                check_model.set_dir_checked (d, true);
-            }
-        }
+        check_model.replace_from (new_checked_paths, new_checked_dirs);
 
         common_phrases.clear ();
         for (int i = 0; i < new_common_phrases.size; i++) {
