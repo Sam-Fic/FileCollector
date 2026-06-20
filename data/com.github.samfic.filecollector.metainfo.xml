@@ -23,6 +23,31 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="4.2.0" date="2026-06-20">
+      <description>
+        <p>新特性与修复：</p>
+        <ul>
+          <li>使用 SizeGroup 统一对话框按钮宽度，界面更加规整</li>
+          <li>重构发送按钮布局，改为图标加文字，提升可读性</li>
+          <li>优化空队列提示和保存取消处理，改善交互体验</li>
+          <li>新增 glob helper，重构文件匹配逻辑，提升鲁棒性</li>
+          <li>调整界面元素对齐方式与排版样式，视觉更统一</li>
+          <li>更新英文翻译文件，完善多语言支持</li>
+          <li>修复文件树三态复选框状态同步问题</li>
+          <li>修复命令行执行错误处理并补充本地化目录搜索</li>
+          <li>优化文件读取逻辑，增加大小限制和错误处理</li>
+          <li>添加编码转换失败的 debug log，便于排查问题</li>
+          <li>新增忽略目录支持与安全 API key 存储机制</li>
+          <li>添加 libsecret 依赖和 Flatpak portal 权限</li>
+          <li>实现基于差异的撤销系统，内存占用显著降低</li>
+          <li>AI 助手新增忽略目录配置，改进错误处理与线程安全</li>
+          <li>删除不再使用的 tree_helper 工具类，精简代码结构</li>
+          <li>修复按钮图标与文字不匹配问题，重构路径选择控件</li>
+          <li>优化 CLI 列表项移动逻辑，提升操作流畅度</li>
+          <li>文档更新：明确 AI 应自动化完成全部构建发布流程</li>
+        </ul>
+      </description>
+    </release>
     <release version="4.1.0" date="2026-06-19">
       <description>
         <p>新特性与修复：</p>
