@@ -23,6 +23,16 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="4.3.0" date="2026-06-21">
+      <description>
+        <p>代码重构与优化：</p>
+        <ul>
+          <li>重构勾选状态管理，统一使用 CheckStateModel，状态管理更加清晰</li>
+          <li>替换 GLib 内置集合为 Gee 集合，提升集合操作的类型安全与可维护性</li>
+          <li>重构剪贴板文件生成与清理逻辑，代码结构更简洁</li>
+        </ul>
+      </description>
+    </release>
     <release version="4.2.0" date="2026-06-20">
       <description>
         <p>新特性与修复：</p>
