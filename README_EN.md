@@ -119,26 +119,30 @@ You can also hand [BUILD_FLATPAK.md](BUILD_FLATPAK.md) directly to programming t
 │   ├── window.vala                        # Main window logic
 │   ├── window.blp                         # Blueprint UI description
 │   ├── config.vala.in                     # Config template (version, etc.)
+│   ├── controllers/
+│   │   ├── ai_controller.vala             # AI assistant controller
+│   │   └── project_controller.vala        # Project controller
 │   ├── models/
+│   │   ├── app_state.vala                 # Application state model
 │   │   └── item_data.vala                 # Queue item data model
 │   ├── services/
-│   │   ├── ai_client.vala                # AI assistant backend (OpenAI-compatible API + Function Calling)
-│   │   ├── ai_types.vala                 # AI shared type definitions
+│   │   ├── ai_client.vala                 # AI assistant backend (OpenAI-compatible API + Function Calling)
+│   │   ├── ai_types.vala                  # AI shared type definitions
 │   │   ├── config_manager.vala            # Config/settings/phrases persistence
 │   │   ├── file_generator.vala            # File merging and clipboard copy
 │   │   ├── project_manager.vala           # Project save and load
-│   │   └── undo_manager.vala             # Undo/redo management
+│   │   └── undo_manager.vala              # Undo/redo management
 │   ├── utils/
-│   │   ├── tree_helper.vala               # Directory tree utility functions
-│   │   └── encoding_helper.vala           # Encoding auto-detection and conversion
+│   │   ├── encoding_helper.vala           # Encoding auto-detection and conversion
+│   │   └── glob_helper.vala               # Glob pattern matching utilities
 │   ├── vapi/
 │   │   └── cmark.vapi                     # cmark (Markdown) Vala bindings
 │   └── widgets/
 │       ├── ai_panel.vala                  # AI assistant chat panel (bubbles + tool call cards)
 │       ├── ai_settings_dialog.vala        # AI assistant settings dialog
 │       ├── markdown_view.vala             # Markdown rendering view
-│       ├── settings_dialog.vala           # Settings dialog
-│       └── phrases_picker.vala            # Common phrases picker and management
+│       ├── phrases_picker.vala            # Common phrases picker and management
+│       └── settings_dialog.vala           # Settings dialog
 ├── docs/                                  # Usage documentation
 │   ├── images/                            # Documentation images
 │   ├── USAGE.md                           # Chinese usage guide

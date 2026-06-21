@@ -119,26 +119,30 @@ flatpak run com.github.samfic.filecollector
 │   ├── window.vala                        # 主窗口逻辑
 │   ├── window.blp                         # Blueprint UI 描述
 │   ├── config.vala.in                     # 版本号等配置模板
+│   ├── controllers/
+│   │   ├── ai_controller.vala             # AI 助手控制器
+│   │   └── project_controller.vala        # 项目控制器
 │   ├── models/
+│   │   ├── app_state.vala                 # 应用状态模型
 │   │   └── item_data.vala                 # 队列项数据模型
 │   ├── services/
-│   │   ├── ai_client.vala                # AI 助手后端（OpenAI 兼容接口 + Function Calling）
-│   │   ├── ai_types.vala                 # AI 共享类型定义
+│   │   ├── ai_client.vala                 # AI 助手后端（OpenAI 兼容接口 + Function Calling）
+│   │   ├── ai_types.vala                  # AI 共享类型定义
 │   │   ├── config_manager.vala            # 配置/设置/常用语持久化
 │   │   ├── file_generator.vala            # 文件合并生成与剪贴板复制
 │   │   ├── project_manager.vala           # 项目保存与加载
-│   │   └── undo_manager.vala             # 撤销/重做管理
+│   │   └── undo_manager.vala              # 撤销/重做管理
 │   ├── utils/
-│   │   ├── tree_helper.vala               # 目录树操作工具函数
-│   │   └── encoding_helper.vala           # 编码自动检测与转换
+│   │   ├── encoding_helper.vala           # 编码自动检测与转换
+│   │   └── glob_helper.vala               # 全局路径匹配工具
 │   ├── vapi/
 │   │   └── cmark.vapi                     # cmark (Markdown) Vala 绑定
 │   └── widgets/
 │       ├── ai_panel.vala                  # AI 助手聊天面板（气泡 + 工具调用卡片）
 │       ├── ai_settings_dialog.vala        # AI 助手配置对话框
 │       ├── markdown_view.vala             # Markdown 渲染视图
-│       ├── settings_dialog.vala           # 设置对话框
-│       └── phrases_picker.vala            # 常用语选择器与管理
+│       ├── phrases_picker.vala            # 常用语选择器与管理
+│       └── settings_dialog.vala           # 设置对话框
 ├── docs/                                  # 使用说明文档
 │   ├── images/                            # 文档图片
 │   ├── USAGE.md                           # 中文使用说明
