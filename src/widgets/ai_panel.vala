@@ -217,7 +217,7 @@ public class AIPanel : GLib.Object {
         var btn_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         btn_clear = new Gtk.Button.from_icon_name ("user-trash-symbolic");
         btn_clear.set_tooltip_text (_("清空对话"));
-        btn_clear.set_size_request (36, 36);
+        btn_clear.set_size_request (-1, -1);
         btn_clear.clicked.connect (on_clear_chat);
         btn_row.append (btn_clear);
 
@@ -235,7 +235,6 @@ public class AIPanel : GLib.Object {
         btn_send = new Gtk.Button ();
         btn_send.set_child (send_box);
         btn_send.add_css_class ("suggested-action");
-        btn_send.set_size_request (-1, 36);
         btn_send.clicked.connect (on_send_or_stop);
         btn_row.append (btn_send);
         input_box.append (btn_row);
