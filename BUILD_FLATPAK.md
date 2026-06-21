@@ -336,7 +336,7 @@ gh auth status 2>&1 || {
 
 ### 7.2 创建 Release
 
-创建 Release 并上传 Flatpak bundle（注意格式按照模板写）：
+创建 Release 并上传 Flatpak bundle（注意格式按照模板写，中英文日志都有冒号）：
 
 ```bash
 gh release create vX.Y.Z --title "FileCollector vX.Y.Z" --notes "$(cat <<'EOF'
