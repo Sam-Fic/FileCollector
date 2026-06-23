@@ -30,7 +30,7 @@ For the usage process and tips of the graphical interface, please refer to the [
 - **Internationalization**: Supports Chinese and English UI, automatically follows system language
 - **Modern UI**: Designed following GNOME Human Interface Guidelines
 
-> **Tip**: If you are on a non-GNOME platform (such as Windows or macOS), please check out the [PySide6 version repository](https://github.com/Sam-Fic/filecollector). This version supports Windows, macOS, and Linux, and is built with PySide6.
+> **Tip**: If you are on a non-GNOME platform (such as Windows or macOS), please check out the [Flet version repository](https://github.com/Sam-Fic/filecollector). This version supports Windows, macOS, and Linux, and is built with Flet.
 
 ## Why Use This Tool?
 

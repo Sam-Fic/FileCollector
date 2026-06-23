@@ -30,7 +30,7 @@ FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排
 - **国际化**：支持中文和英文界面，跟随系统语言自动切换
 - **现代化界面**：采用 GNOME Human Interface Guidelines 设计
 
-> **提示**：如果您使用的是非 GNOME 平台（如 Windows 或 macOS），请移步 [PySide6 版本仓库](https://github.com/Sam-Fic/filecollector)。该版本跨平台支持 Windows、macOS 和 Linux，基于 PySide6 构建。
+> **提示**：如果您使用的是非 GNOME 平台（如 Windows 或 macOS），请移步 [Flet 版本仓库](https://github.com/Sam-Fic/filecollector)。该版本跨平台支持 Windows、macOS 和 Linux，基于 Flet 构建。
 
 ## 为什么使用此工具？
 
