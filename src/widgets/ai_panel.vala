@@ -92,8 +92,8 @@ public class AIPanel : GLib.Object {
 
         // ── 聊天区 ──
         chat_container = new Gtk.Box (Gtk.Orientation.VERTICAL, 8);
-        chat_container.margin_start = 10;
-        chat_container.margin_end = 10;
+        chat_container.margin_start = 0;
+        chat_container.margin_end = 0;
         chat_container.margin_top = 0;
         chat_container.margin_bottom = 6;
         chat_container.set_homogeneous (false);
@@ -111,6 +111,9 @@ public class AIPanel : GLib.Object {
         chat_scroll.set_child (chat_alignment);
         chat_scroll.set_vexpand (true);
         chat_scroll.set_hexpand (true);
+        // 滚动条与滚动区分隔线整体内缩 12, 与其他卡片左右内边距对齐
+        chat_scroll.set_margin_start (12);
+        chat_scroll.set_margin_end (12);
         chat_scroll.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
 
         // 滚动到底部按钮 (悬浮在聊天区右下角, 不在底部时显示)
@@ -120,7 +123,8 @@ public class AIPanel : GLib.Object {
         btn_scroll_bottom.set_tooltip_text (_("滚动到底部"));
         btn_scroll_bottom.set_halign (Gtk.Align.END);
         btn_scroll_bottom.set_valign (Gtk.Align.END);
-        btn_scroll_bottom.set_margin_end (8);
+        // 12 (scroll 内缩) + 8 (原视觉边距) = 20, 与内缩后的滚动区右下角对齐
+        btn_scroll_bottom.set_margin_end (20);
         btn_scroll_bottom.set_margin_bottom (8);
         btn_scroll_bottom.set_visible (false);
         btn_scroll_bottom.clicked.connect (() => {
@@ -150,8 +154,8 @@ public class AIPanel : GLib.Object {
         var input_frame = new Gtk.Frame (null);
         input_frame.add_css_class ("card");
         input_frame.add_css_class ("ai-input-frame");
-        input_frame.margin_start = 8;
-        input_frame.margin_end = 8;
+        input_frame.margin_start = 12;
+        input_frame.margin_end = 12;
         input_frame.margin_top = 2;
         input_frame.margin_bottom = 6;
 
