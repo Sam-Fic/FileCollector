@@ -23,6 +23,17 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="4.3.1" date="2026-06-23">
+      <description>
+        <p>样式优化与文档更新：</p>
+        <ul>
+          <li>调整 AI 面板边距对齐样式，统一聊天区、滚动条和输入框的左右内边距</li>
+          <li>调整清空按钮和发送按钮的尺寸请求，移除固定尺寸设置</li>
+          <li>更新项目目录结构描述，同步代码架构变更</li>
+          <li>完善 Flatpak 构建文档与发布流程规范</li>
+        </ul>
+      </description>
+    </release>
     <release version="4.3.0" date="2026-06-21">
       <description>
         <p>代码重构与优化：</p>
