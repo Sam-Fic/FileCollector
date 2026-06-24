@@ -1979,6 +1979,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             parent_item.children.append (new DirectoryItem (e.name, e.path, e.is_dir));
         }
         refresh_subtree_states (parent_item);
+        parent_item.children_loaded = true; // 强制标记已尝试加载, 防止 ensure_path_loaded 无限重试
     }
 
     // 异步版本: 后台线程枚举目录, 完成后通过 Idle 批量更新 UI, 避免阻塞主线程
