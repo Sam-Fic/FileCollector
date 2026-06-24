@@ -154,13 +154,13 @@ public class AISettingsDialog : GLib.Object {
         // Section 2: 多模态 AI
         // ═══════════════════════════════════════════════════════
         var mm_group = new Adw.PreferencesGroup ();
-        mm_group.set_title (_("多模态 AI (二进制文件预处理)"));
+        mm_group.set_title (_("视觉语言大模型 (VLM) (二进制文件预处理)"));
         mm_group.set_description (
-            _("配置多模态视觉大模型 API，用于将 PDF、Word、PPT、图片等文件转换为 Markdown。"));
+            _("配置视觉语言大模型 (VLM) API，用于将 PDF、Word、PPT、图片等文件转换为 Markdown。"));
         prefs_page.add (mm_group);
 
         var mm_enabled_row = new Adw.ActionRow ();
-        mm_enabled_row.set_title (_("启用多模态 AI"));
+        mm_enabled_row.set_title (_("启用视觉语言大模型 (VLM)"));
         mm_enabled_row.set_subtitle (_("关闭后二进制文件将不会自动转换"));
         chk_mm_enabled = new Gtk.Switch ();
         chk_mm_enabled.valign = Gtk.Align.CENTER;
@@ -215,7 +215,7 @@ public class AISettingsDialog : GLib.Object {
 
         var mm_test_row = new Adw.ActionRow ();
         mm_test_row.set_title (_("测试连接"));
-        mm_test_row.set_subtitle (_("验证多模态 AI 配置是否可用"));
+        mm_test_row.set_subtitle (_("验证视觉语言大模型 (VLM) 配置是否可用"));
         btn_mm_test = new Gtk.Button.with_label (_("测试"));
         btn_mm_test.valign = Gtk.Align.CENTER;
         btn_mm_test.add_css_class ("suggested-action");

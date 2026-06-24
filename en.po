@@ -974,28 +974,28 @@ msgid "关闭后二进制文件将不会自动转换"
 msgstr "Binary files will not be auto-converted when disabled"
 
 #: src/widgets/ai_settings_dialog.vala
-msgid "启用多模态 AI"
-msgstr "Enable Multimodal AI"
+msgid "启用视觉语言大模型 (VLM)"
+msgstr "Enable Vision-Language Model (VLM)"
 
 #: src/widgets/ai_settings_dialog.vala
-msgid "多模态 AI (二进制文件预处理)"
-msgstr "Multimodal AI (Binary File Preprocessing)"
+msgid "视觉语言大模型 (VLM) (二进制文件预处理)"
+msgstr "Vision-Language Model (VLM) (Binary File Preprocessing)"
 
 #: src/widgets/ai_settings_dialog.vala
 msgid "自定义系统提示词 (可选)"
 msgstr "Custom System Prompt (Optional)"
 
 #: src/widgets/ai_settings_dialog.vala
-msgid "配置多模态视觉大模型 API，用于将 PDF、Word、PPT、图片等文件转换为 Markdown。"
-msgstr "Configure a multimodal vision API to convert PDF, Word, PPT, images, etc. into Markdown."
+msgid "配置视觉语言大模型 (VLM) API，用于将 PDF、Word、PPT、图片等文件转换为 Markdown。"
+msgstr "Configure a VLM (Vision-Language Model) API to convert PDF, Word, PPT, images, etc. into Markdown."
 
 #: src/widgets/ai_settings_dialog.vala
 msgid "验证侧边栏 AI 配置是否可用"
 msgstr "Verify sidebar AI configuration"
 
 #: src/widgets/ai_settings_dialog.vala
-msgid "验证多模态 AI 配置是否可用"
-msgstr "Verify multimodal AI configuration"
+msgid "验证视觉语言大模型 (VLM) 配置是否可用"
+msgstr "Verify VLM (Vision-Language Model) configuration"
 
 #: src/window.vala
 #, c-format
@@ -1035,8 +1035,8 @@ msgid "已读取本地缓存"
 msgstr "Loaded from local cache"
 
 #: src/window.vala
-msgid "强制重新调用多模态模型转换"
-msgstr "Force re-run multimodal model conversion"
+msgid "强制重新调用视觉语言大模型 (VLM) 转换"
+msgstr "Force re-run VLM (Vision-Language Model) conversion"
 
 #: src/window.vala
 msgid "正在处理中..."
@@ -1065,10 +1065,10 @@ msgstr "Confirm Cache Deletion?"
 #: src/window.vala
 msgid ""
 "这将删除当前工作目录下的 .filecollector_cache 隐藏文件夹。\n"
-"下次处理相同文件时，将重新调用多模态模型并消耗 API Token。"
+"下次处理相同文件时，将重新调用视觉语言大模型 (VLM) 并消耗 API Token。"
 msgstr ""
 "This will delete the .filecollector_cache hidden folder in the current working directory.\n"
-"The next time the same files are processed, the multimodal model will be called again, consuming API tokens."
+"The next time the same files are processed, the VLM (Vision-Language Model) will be called again, consuming API tokens."
 
 #: src/window.vala
 msgid "清除"
@@ -1122,7 +1122,21 @@ msgstr "Failed to read file"
 msgid "无法打开文件管理器"
 msgstr "Cannot open file manager"
 
+#: src/window.vala
+msgid "文件内容已复制"
+msgstr "File content copied"
 
+#: src/widgets/ai_settings_dialog.vala
+msgid "允许转换的二进制扩展名 (逗号分隔, 如 .pdf, .docx)"
+msgstr "Allowed binary extensions (comma-separated, e.g. .pdf, .docx)"
+
+#: src/widgets/ai_settings_dialog.vala
+msgid "恢复为默认扩展名列表"
+msgstr "Reset to default extension list"
+
+#: src/widgets/ai_settings_dialog.vala
+msgid "默认"
+msgstr "Default"
 
 #~ msgid "Ctrl+,    语言设置"
 #~ msgstr "Ctrl+,    Language Settings"

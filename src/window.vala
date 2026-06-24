@@ -2447,8 +2447,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 case PreprocessStatus.COMPLETED:
                     show_action_bar = true;
                     btn_retry_preprocess.tooltip_text = item.from_cache
-                        ? _("已读取本地缓存\n点击强制重新调用多模态模型转换")
-                        : _("AI 转换完成\n点击强制重新调用多模态模型转换");
+                        ? _("已读取本地缓存\n点击强制重新调用视觉语言大模型 (VLM) 转换")
+                        : _("AI 转换完成\n点击强制重新调用视觉语言大模型 (VLM) 转换");
                     break;
                 case PreprocessStatus.FAILED:
                     show_action_bar = true;
@@ -2588,7 +2588,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         var dialog = new Adw.AlertDialog (
             _("确认清除缓存？"),
-            _("这将删除当前工作目录下的 .filecollector_cache 隐藏文件夹。\n下次处理相同文件时，将重新调用多模态模型并消耗 API Token。")
+            _("这将删除当前工作目录下的 .filecollector_cache 隐藏文件夹。\n下次处理相同文件时，将重新调用视觉语言大模型 (VLM) 并消耗 API Token。")
         );
         dialog.add_response ("cancel", _("取消"));
         dialog.add_response ("clear", _("清除"));
