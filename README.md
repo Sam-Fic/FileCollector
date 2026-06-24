@@ -23,6 +23,7 @@ FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排
 
 - **命令行模式 (CLI)**：支持通过终端命令完成所有核心操作，便于脚本化和自动化
 - **MCP 服务**：封装为 MCP (Model Context Protocol) 服务，可直接被 Cursor、VS Code + Copilot 等编程工具调用
+- **二进制文件预转换**：自动将图片、PDF、Office 文档等二进制文件转换为 Markdown 格式，支持缓存和可配置扩展名
 - **AI 助手面板**：内置侧边栏聊天界面，AI 可直接驱动文件树探索、勾选、编排、生成合并文本等操作
 - **渐进式体验**：CLI 处理与 GUI 微调无缝衔接，AI 后台自动探索编排后，可随时用图形界面人工接管调整
 - **项目管理**：打开和保存项目
@@ -128,8 +129,11 @@ flatpak run com.github.samfic.filecollector
 │   ├── services/
 │   │   ├── ai_client.vala                 # AI 助手后端（OpenAI 兼容接口 + Function Calling）
 │   │   ├── ai_types.vala                  # AI 共享类型定义
+│   │   ├── binary_converter.vala          # 二进制文件转 Base64（图片缩放 + 文档转 PDF 渲染）
 │   │   ├── config_manager.vala            # 配置/设置/常用语持久化
 │   │   ├── file_generator.vala            # 文件合并生成与剪贴板复制
+│   │   ├── multimodal_ai_client.vala      # 多模态 AI 客户端（发送 Base64 图片给视觉模型）
+│   │   ├── preprocess_cache.vala          # 预转换缓存（SHA256 哈希 + manifest 管理）
 │   │   ├── project_manager.vala           # 项目保存与加载
 │   │   └── undo_manager.vala              # 撤销/重做管理
 │   ├── utils/
@@ -295,6 +299,25 @@ AI 通过以下工具与 GUI 引擎交互（与 CLI / MCP 共享同一套语义�
 | `set_show_header`  | 切换是否在文件头标注工作目录           |
 | `list_files`       | 浏览工作目录（递归列出符合条件的文件） |
 | `read_file`        | 读取文件内容（带行号）                 |
+
+### 二进制文件预转换（多模态 AI）
+
+FileCollector 支持在发送给 AI 之前自动将二进制文件转换为多模态 AI 可理解的格式，无需用户手动处理。
+
+- **图片文件**（PNG、JPEG、WebP、BMP、TIFF 等）：自动缩放至最大 2048px 并编码为 Base64，直接发送给多模态 AI 进行文字提取或内容理解。
+- **文档文件**（PDF、DOCX、PPTX、XLSX、ODT、ODP、ODS、RTF 等）：先通过 LibreOffice 转换为 PDF，再通过 `pdftoppm` 渲染为图片序列，逐页发送给多模态 AI。
+- **转换缓存**：转换结果缓存在工作目录下的 `.filecollector_cache/` 目录中，基于文件 SHA256 哈希判断是否需要重新转换，避免重复处理。
+- **可配置扩展名**：在 AI 设置对话框中可自定义允许被多模态 AI 处理的二进制文件扩展名列表，修改后自动重新评估预处理队列。
+
+### 多模态 AI 配置
+
+打开 **AI 设置**（菜单栏 → AI 设置），切换到 **多模态 AI** 选项卡：
+
+1. 勾选 **启用多模态 AI**。
+2. 填入 **API 基础地址**（兼容 OpenAI Chat Completions 协议，例如 `https://api.openai.com/v1`）。
+3. 填入 **API 密钥** 和 **模型名称**（如 `gpt-4o`、`claude-3-opus` 等支持视觉的模型）。
+4. （可选）自定义 **预处理提示词**，留空则使用内置提示。
+5. 点击 **测试连接** 验证配置后保存。
 
 ### 配置方法
 

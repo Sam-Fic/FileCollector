@@ -23,6 +23,7 @@ For the usage process and tips of the graphical interface, please refer to the [
 
 - **CLI Mode**: Complete all core operations via terminal commands, ideal for scripting and automation
 - **MCP Service**: Wrapped as an MCP (Model Context Protocol) service, callable directly by programming tools such as Cursor, VS Code + Copilot
+- **Binary File Pre-conversion**: Automatically converts images, PDFs, Office documents, and other binary files into Markdown format, with caching and configurable extensions
 - **AI Assistant Panel**: Built-in sidebar chat interface that lets AI directly drive file tree exploration, file selection, orchestration, and merged text generation
 - **Progressive Experience**: Seamless handoff between CLI processing and GUI fine-tuning — AI can explore and organize files, then users can take over with the graphical interface at any time
 - **Project Management**: Open and save projects
@@ -128,8 +129,11 @@ You can also hand [BUILD_FLATPAK.md](BUILD_FLATPAK.md) directly to programming t
 │   ├── services/
 │   │   ├── ai_client.vala                 # AI assistant backend (OpenAI-compatible API + Function Calling)
 │   │   ├── ai_types.vala                  # AI shared type definitions
+│   │   ├── binary_converter.vala          # Binary file to Base64 conversion (image scaling + document-to-PDF rendering)
 │   │   ├── config_manager.vala            # Config/settings/phrases persistence
 │   │   ├── file_generator.vala            # File merging and clipboard copy
+│   │   ├── multimodal_ai_client.vala      # Multimodal AI client (sends Base64 images to vision models)
+│   │   ├── preprocess_cache.vala          # Preprocessing cache (SHA256 hash + manifest management)
 │   │   ├── project_manager.vala           # Project save and load
 │   │   └── undo_manager.vala              # Undo/redo management
 │   ├── utils/
@@ -295,6 +299,25 @@ The AI interacts with the GUI engine through the following tools (sharing the sa
 | `set_show_header`  | Toggle whether to annotate the working directory |
 | `list_files`       | Browse the working directory (recursive file listing) |
 | `read_file`        | Read file contents (with line numbers)           |
+
+### Binary File Pre-conversion (Multimodal AI)
+
+FileCollector can automatically convert binary files into formats that multimodal AI can understand before sending them, eliminating manual preprocessing.
+
+- **Image files** (PNG, JPEG, WebP, BMP, TIFF, etc.): Automatically scaled to a maximum of 2048px and encoded as Base64, then sent directly to multimodal AI for text extraction or content understanding.
+- **Document files** (PDF, DOCX, PPTX, XLSX, ODT, ODP, ODS, RTF, etc.): First converted to PDF via LibreOffice, then rendered as image sequences via `pdftoppm`, and sent page-by-page to multimodal AI.
+- **Conversion cache**: Converted results are cached in the `.filecollector_cache/` directory under the working directory. The system uses SHA256 file hashes to determine whether re-conversion is needed, avoiding redundant processing.
+- **Configurable extensions**: In the AI Settings dialog, you can customize the list of binary file extensions allowed for multimodal AI processing. Changes automatically trigger re-evaluation of the preprocessing queue.
+
+### Multimodal AI Configuration
+
+Open **AI Settings** (Menu → AI Settings) and switch to the **Multimodal AI** tab:
+
+1. Check **Enable Multimodal AI**.
+2. Enter the **API Base URL** (compatible with OpenAI Chat Completions protocol, e.g., `https://api.openai.com/v1`).
+3. Enter the **API Key** and **Model Name** (e.g., `gpt-4o`, `claude-3-opus`, or other vision-capable models).
+4. (Optional) Customize the **Preprocessing Prompt** — leave empty to use the built-in prompt.
+5. Click **Test Connection** to verify the configuration, then save.
 
 ### Configuration
 
