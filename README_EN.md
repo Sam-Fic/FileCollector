@@ -132,7 +132,7 @@ You can also hand [BUILD_FLATPAK.md](BUILD_FLATPAK.md) directly to programming t
 │   │   ├── binary_converter.vala          # Binary file to Base64 conversion (image scaling + document-to-PDF rendering)
 │   │   ├── config_manager.vala            # Config/settings/phrases persistence
 │   │   ├── file_generator.vala            # File merging and clipboard copy
-│   │   ├── multimodal_ai_client.vala      # Multimodal AI client (sends Base64 images to vision models)
+│   │   ├── multimodal_ai_client.vala      # VLM client (sends Base64 images to vision models)
 │   │   ├── preprocess_cache.vala          # Preprocessing cache (SHA256 hash + manifest management)
 │   │   ├── project_manager.vala           # Project save and load
 │   │   └── undo_manager.vala              # Undo/redo management
@@ -287,33 +287,33 @@ FileCollector includes a built-in **sidebar AI assistant** that lets you drive t
 
 The AI interacts with the GUI engine through the following tools (sharing the same semantics as CLI / MCP):
 
-| Tool               | Purpose                                          |
-| ------------------ | ------------------------------------------------ |
-| `set_work_dir`     | Switch the working directory                     |
-| `add_files`        | Batch-add files to the orchestration list        |
-| `add_text`         | Insert custom text into the list                 |
-| `remove_item`      | Remove a list item by id                         |
-| `move_item`        | Reorder items                                    |
-| `clear_items`      | Clear the orchestration list                     |
-| `set_use_absolute` | Toggle absolute/relative path mode               |
-| `set_show_header`  | Toggle whether to annotate the working directory |
+| Tool               | Purpose                                               |
+| ------------------ | ----------------------------------------------------- |
+| `set_work_dir`     | Switch the working directory                          |
+| `add_files`        | Batch-add files to the orchestration list             |
+| `add_text`         | Insert custom text into the list                      |
+| `remove_item`      | Remove a list item by id                              |
+| `move_item`        | Reorder items                                         |
+| `clear_items`      | Clear the orchestration list                          |
+| `set_use_absolute` | Toggle absolute/relative path mode                    |
+| `set_show_header`  | Toggle whether to annotate the working directory      |
 | `list_files`       | Browse the working directory (recursive file listing) |
-| `read_file`        | Read file contents (with line numbers)           |
+| `read_file`        | Read file contents (with line numbers)                |
 
-### Binary File Pre-conversion (Multimodal AI)
+### Binary File Pre-conversion (VLM)
 
-FileCollector can automatically convert binary files into formats that multimodal AI can understand before sending them, eliminating manual preprocessing.
+FileCollector can automatically convert binary files into Markdown format, eliminating manual preprocessing.
 
-- **Image files** (PNG, JPEG, WebP, BMP, TIFF, etc.): Automatically scaled to a maximum of 2048px and encoded as Base64, then sent directly to multimodal AI for text extraction or content understanding.
-- **Document files** (PDF, DOCX, PPTX, XLSX, ODT, ODP, ODS, RTF, etc.): First converted to PDF via LibreOffice, then rendered as image sequences via `pdftoppm`, and sent page-by-page to multimodal AI.
+- **Image files** (PNG, JPEG, WebP, BMP, TIFF, etc.): Automatically scaled to a maximum of 2048px and encoded as Base64, then sent directly to VLM for text extraction or content understanding.
+- **Document files** (PDF, DOCX, PPTX, XLSX, ODT, ODP, ODS, RTF, etc.): First converted to PDF via LibreOffice, then rendered as image sequences via `pdftoppm`, and sent page-by-page to VLM.
 - **Conversion cache**: Converted results are cached in the `.filecollector_cache/` directory under the working directory. The system uses SHA256 file hashes to determine whether re-conversion is needed, avoiding redundant processing.
-- **Configurable extensions**: In the AI Settings dialog, you can customize the list of binary file extensions allowed for multimodal AI processing. Changes automatically trigger re-evaluation of the preprocessing queue.
+- **Configurable extensions**: In the AI Settings dialog, you can customize the list of binary file extensions allowed for VLM processing. Changes automatically trigger re-evaluation of the preprocessing queue.
 
-### Multimodal AI Configuration
+### VLM Configuration
 
-Open **AI Settings** (Menu → AI Settings) and switch to the **Multimodal AI** tab:
+Open **AI Settings** (Menu → AI Settings) and switch to the **VLM** tab:
 
-1. Check **Enable Multimodal AI**.
+1. Check **Enable VLM**.
 2. Enter the **API Base URL** (compatible with OpenAI Chat Completions protocol, e.g., `https://api.openai.com/v1`).
 3. Enter the **API Key** and **Model Name** (e.g., `gpt-4o`, `claude-3-opus`, or other vision-capable models).
 4. (Optional) Customize the **Preprocessing Prompt** — leave empty to use the built-in prompt.
