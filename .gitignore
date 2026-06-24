@@ -52,3 +52,10 @@ __pycache__/
 
 # Package management
 *.egg-info/
+
+# Build logs
+*.log
+
+# Translation editor backups
+*.po~
+*.pot~
