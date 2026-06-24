@@ -160,7 +160,7 @@ public class AISettingsDialog : GLib.Object {
         prefs_page.add (mm_group);
 
         var mm_enabled_row = new Adw.ActionRow ();
-        mm_enabled_row.set_title (_("启用视觉语言大模型 (VLM)"));
+        mm_enabled_row.set_title (_("启用 VLM"));
         mm_enabled_row.set_subtitle (_("关闭后二进制文件将不会自动转换"));
         chk_mm_enabled = new Gtk.Switch ();
         chk_mm_enabled.valign = Gtk.Align.CENTER;

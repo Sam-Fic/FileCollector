@@ -2600,7 +2600,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         var dialog = new Adw.AlertDialog (
             _("确认清除缓存？"),
-            _("这将删除当前工作目录下的 .filecollector_cache 隐藏文件夹。\n下次处理相同文件时，将重新调用视觉语言大模型 (VLM) 并消耗 API Token。")
+            _("这将删除当前工作目录下的 .filecollector_cache 隐藏文件夹。\n下次处理图片及 PDF 等文件时，将重新调用 VLM 并消耗 API Token。")
         );
         dialog.add_response ("cancel", _("取消"));
         dialog.add_response ("clear", _("清除"));
