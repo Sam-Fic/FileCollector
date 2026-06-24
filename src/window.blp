@@ -326,13 +326,16 @@ title: _("FileCollector - 文件收集与编排工具");
                child: ScrolledWindow {
                  hexpand: true;
                  vexpand: true;
-                 TextView preview_view {
-                   editable: false;
-                   wrap-mode: word_char;
-                   left-margin: 12;
-                   right-margin: 12;
-                   top-margin: 9;
-                   bottom-margin: 12;
+                 Box preview_container {
+                   orientation: vertical;
+                   TextView preview_view {
+                     editable: false;
+                     wrap-mode: word_char;
+                     left-margin: 12;
+                     right-margin: 12;
+                     top-margin: 9;
+                     bottom-margin: 12;
+                   }
                  }
                };
 

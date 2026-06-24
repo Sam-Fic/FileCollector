@@ -329,6 +329,7 @@ private class DirChildInfo {
 public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.ScrolledWindow dir_scrolled;
     [GtkChild] private unowned Gtk.ListView queue_list;
+    [GtkChild] private unowned Gtk.Box preview_container;
     [GtkChild] private unowned Gtk.TextView preview_view;
     [GtkChild] private unowned Gtk.Button open_folder_btn;
     [GtkChild] private unowned Gtk.Button btn_undo;
@@ -2146,6 +2147,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (sel >= 0 && sel < items.size) {
             update_preview (items.get (sel));
         } else {
+            // 清空预览: 移除 container 内所有 widget, 再放回 TextView
+            Gtk.Widget? child = preview_container.get_first_child ();
+            while (child != null) {
+                Gtk.Widget? next = child.get_next_sibling ();
+                preview_container.remove (child);
+                child = next;
+            }
+            preview_container.append (preview_view);
             preview_view.get_buffer ().set_text ("", -1);
         }
     }
@@ -2411,22 +2420,23 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void update_preview (ItemData item) {
-        var buffer = preview_view.get_buffer ();
         bool show_action_bar = false;
 
         if (item.item_type == "file" && item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
-            show_action_bar = true;
             btn_retry_preprocess.sensitive = true;
             switch (item.preprocess_status) {
                 case PreprocessStatus.COMPLETED:
+                    show_action_bar = true;
                     btn_retry_preprocess.tooltip_text = item.from_cache
                         ? _("已读取本地缓存\n点击强制重新调用多模态模型转换")
                         : _("AI 转换完成\n点击强制重新调用多模态模型转换");
                     break;
                 case PreprocessStatus.FAILED:
+                    show_action_bar = true;
                     btn_retry_preprocess.tooltip_text = _("AI 转换失败\n点击重试转换");
                     break;
                 case PreprocessStatus.PROCESSING:
+                    // 正在转换中, 隐藏按钮而不是置灰, 避免给用户"可点"错觉
                     btn_retry_preprocess.tooltip_text = _("正在处理中...");
                     btn_retry_preprocess.sensitive = false;
                     break;
@@ -2440,20 +2450,20 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         btn_retry_preprocess.visible = show_action_bar;
 
         if (item.item_type == "text") {
-            buffer.set_text (item.content.make_valid (), -1);
+            apply_preview_content (item, item.content.make_valid ());
         } else if (item.item_type == "file" && item.preprocess_status == PreprocessStatus.COMPLETED && item.preprocessed_content != null) {
-            buffer.set_text (item.preprocessed_content.strip (), -1);
+            apply_preview_content (item, item.preprocessed_content.strip ());
         } else {
             try {
                 var file = File.new_for_path (item.file_path);
                 int64 file_size = 0;
                 try {
                     var info = file.query_info (FileAttribute.STANDARD_SIZE, FileQueryInfoFlags.NONE);
-                    file_size = info.get_size ();
-                } catch (Error e) {
-                    buffer.set_text ("[读取错误: " + e.message + "]", -1);
-                    return;
-                }
+                        file_size = info.get_size ();
+                    } catch (Error e) {
+                        apply_preview_content (item, "[读取错误: " + e.message + "]");
+                        return;
+                    }
                 const int64 PREVIEW_MAX_BYTES = 8192;
                 int64 read_size = int64.min (file_size, PREVIEW_MAX_BYTES);
                 FileInputStream? fis = null;
@@ -2489,15 +2499,47 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                                 format_preview_size (file_size), format_preview_size (read_size));
                         }
                     }
-                    buffer.set_text (preview, -1);
+                    apply_preview_content (item, preview);
                 } finally {
                     if (fis != null) {
                         try { fis.close (); } catch (Error e) { debug ("Close failed: %s", e.message); }
                     }
                 }
             } catch (Error e) {
-                buffer.set_text ("[读取错误: " + e.message + "]", -1);
+                apply_preview_content (item, "[读取错误: " + e.message + "]");
             }
+        }
+    }
+
+    // 根据文件扩展名判断是否按 Markdown 渲染 (.md / .markdown),
+    // 复用 AI 侧边栏的 MarkdownView (基于 cmark-gfm) 支持标题/列表/代码块/表格等.
+    private static bool is_markdown_path (string? path) {
+        if (path == null) return false;
+        string lower = path.down ();
+        return lower.has_suffix (".md") || lower.has_suffix (".markdown");
+    }
+
+    // 切换 preview_container 内容: Markdown 文件或已被多模态 AI 预解析的
+    // 二进制文件用 MarkdownView 渲染 (基于 cmark-gfm, 支持标题/列表/代码块/表格等),
+    // 其余文件继续用 TextView 显示纯文本.
+    private void apply_preview_content (ItemData item, string text) {
+        bool use_markdown = item.item_type == "file"
+            && (is_markdown_path (item.file_path)
+                || (item.preprocess_status == PreprocessStatus.COMPLETED && item.preprocessed_content != null));
+
+        // 清理 container 内的旧 widget
+        Gtk.Widget? child = preview_container.get_first_child ();
+        while (child != null) {
+            Gtk.Widget? next = child.get_next_sibling ();
+            preview_container.remove (child);
+            child = next;
+        }
+
+        if (use_markdown) {
+            preview_container.append (new MarkdownView (text));
+        } else {
+            preview_container.append (preview_view);
+            preview_view.get_buffer ().set_text (text, -1);
         }
     }
 
@@ -2608,9 +2650,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (item.item_type == "file" && item.file_path != null) {
             var section_file = new GLib.Menu ();
 
-            if (item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
+            if (item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())
+                && item.preprocess_status != PreprocessStatus.PROCESSING) {
                 var act_retry = new GLib.SimpleAction ("ctx_retry_ai", null);
-                act_retry.set_enabled (item.preprocess_status != PreprocessStatus.PROCESSING);
                 act_retry.activate.connect (() => { on_retry_preprocess (item); });
                 action_group.add_action (act_retry);
                 section_file.append (_("重新进行 AI 转换"), "ctx.ctx_retry_ai");
@@ -2651,6 +2693,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         popover.set_has_arrow (false);
         popover.set_parent (parent);
         popover.insert_action_group ("ctx", action_group);
+        // 让菜单的左上角对齐到鼠标点击位置 (默认会水平居中, 导致鼠标箭头落在菜单顶部中点)
+        popover.set_halign (Gtk.Align.START);
+        popover.set_valign (Gtk.Align.START);
 
         Gdk.Rectangle rect = Gdk.Rectangle () { x = gx, y = gy, width = 1, height = 1 };
         popover.set_pointing_to (rect);
@@ -2720,6 +2765,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         popover.set_has_arrow (false);
         popover.set_parent (parent);
         popover.insert_action_group ("tree", action_group);
+        // 让菜单的左上角对齐到鼠标点击位置 (默认会水平居中, 导致鼠标箭头落在菜单顶部中点)
+        popover.set_halign (Gtk.Align.START);
+        popover.set_valign (Gtk.Align.START);
 
         Gdk.Rectangle rect = Gdk.Rectangle () { x = gx, y = gy, width = 1, height = 1 };
         popover.set_pointing_to (rect);
