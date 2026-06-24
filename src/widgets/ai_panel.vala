@@ -867,10 +867,16 @@ public class AIPanel : GLib.Object {
         }
         try {
             var result = local.chat (msgs, build_full_tool_schema (), request_cancellable);
-            if (stop_requested) return;
+            if (stop_requested) {
+                GLib.Idle.add (() => { set_busy (false); return GLib.Source.REMOVE; });
+                return;
+            }
             yield on_api_finished (result);
         } catch (Error e) {
-            if (stop_requested) return;
+            if (stop_requested) {
+                GLib.Idle.add (() => { set_busy (false); return GLib.Source.REMOVE; });
+                return;
+            }
             on_api_failed (e.message);
         }
     }
@@ -885,7 +891,10 @@ public class AIPanel : GLib.Object {
             });
             yield;
         }
-        if (stop_requested) return;
+        if (stop_requested) {
+            set_busy (false);
+            return;
+        }
 
         // 数据: 构建 assistant 消息并写入历史
         var assistant_msg = new Json.Object ();
@@ -930,6 +939,8 @@ public class AIPanel : GLib.Object {
             }
             if (!stop_requested) {
                 next_turn ();
+            } else {
+                set_busy (false);
             }
         } else {
             set_busy (false);
