@@ -20,13 +20,13 @@ public class CheckStateModel : GLib.Object {
 
     public signal void changed ();
 
-    // 缓存所有包含已选文件的祖先目录, 用于 O(1) 查询 has_checked_descendant
-    private Gee.HashSet<string> implicit_checked_dirs;
+    // 缓存所有包含已选文件的祖先目录及其引用计数, 用于 O(1) 查询 has_checked_descendant
+    private Gee.HashMap<string, int> implicit_checked_dirs;
 
     public CheckStateModel () {
         checked_files = new Gee.HashSet<string> ();
         checked_dirs = new Gee.HashSet<string> ();
-        implicit_checked_dirs = new Gee.HashSet<string> ();
+        implicit_checked_dirs = new Gee.HashMap<string, int> ();
     }
 
     public void clear () {
@@ -38,12 +38,11 @@ public class CheckStateModel : GLib.Object {
 
     public void replace_from (Gee.HashSet<string> other_files, Gee.HashSet<string>? other_dirs = null) {
         checked_files.clear ();
-        implicit_checked_dirs.clear ();
+        checked_dirs.clear ();
         foreach (var k in other_files) {
             checked_files.add (k);
-            add_to_implicit_dirs (k);
         }
-        checked_dirs.clear ();
+        rebuild_implicit_dirs ();
         if (other_dirs != null) {
             foreach (var k in other_dirs) {
                 checked_dirs.add (k);
@@ -136,7 +135,7 @@ public class CheckStateModel : GLib.Object {
 
     // O(1) 查询: 利用 implicit_checked_dirs 缓存
     public bool has_checked_descendant (string dir_path) {
-        return dir_path in implicit_checked_dirs;
+        return implicit_checked_dirs.has_key (dir_path);
     }
 
     private void collect_file_stats (DirectoryItem item, FileStats stats) {
@@ -162,8 +161,24 @@ public class CheckStateModel : GLib.Object {
         var parent = file.get_parent ();
         while (parent != null) {
             string p = parent.get_path ();
-            if (p in implicit_checked_dirs) break;
-            implicit_checked_dirs.add (p);
+            int count = implicit_checked_dirs.has_key (p) ? implicit_checked_dirs.get (p) : 0;
+            implicit_checked_dirs.set (p, count + 1);
+            parent = parent.get_parent ();
+        }
+    }
+
+    private void remove_from_implicit_dirs (string path) {
+        var file = File.new_for_path (path);
+        var parent = file.get_parent ();
+        while (parent != null) {
+            string p = parent.get_path ();
+            if (!implicit_checked_dirs.has_key (p)) break;
+            int count = implicit_checked_dirs.get (p);
+            if (count <= 1) {
+                implicit_checked_dirs.unset (p);
+            } else {
+                implicit_checked_dirs.set (p, count - 1);
+            }
             parent = parent.get_parent ();
         }
     }
@@ -182,7 +197,7 @@ public class CheckStateModel : GLib.Object {
         bool is_checked = path in checked_files;
         if (is_checked) {
             checked_files.remove (path);
-            rebuild_implicit_dirs ();
+            remove_from_implicit_dirs (path);
         } else {
             checked_files.add (path);
             add_to_implicit_dirs (path);
@@ -201,14 +216,15 @@ public class CheckStateModel : GLib.Object {
                     add_to_implicit_dirs (item.path);
                 }
             } else {
-                checked_files.remove (item.path);
-                rebuild_implicit_dirs ();
+                if (item.path in checked_files) {
+                    checked_files.remove (item.path);
+                    remove_from_implicit_dirs (item.path);
+                }
             }
             return;
         }
         set_dir_checked (item.path, value);
         set_subtree_files (item, value);
-        rebuild_implicit_dirs ();
         changed ();
     }
 
@@ -219,9 +235,13 @@ public class CheckStateModel : GLib.Object {
                 if (value) {
                     if (!(child.path in checked_files)) {
                         checked_files.add (child.path);
+                        add_to_implicit_dirs (child.path);
                     }
                 } else {
-                    checked_files.remove (child.path);
+                    if (child.path in checked_files) {
+                        checked_files.remove (child.path);
+                        remove_from_implicit_dirs (child.path);
+                    }
                 }
             } else {
                 set_subtree_files (child, value);
@@ -248,12 +268,12 @@ public class CheckStateModel : GLib.Object {
         foreach (var p in paths) {
             if (p in checked_files) {
                 checked_files.remove (p);
+                remove_from_implicit_dirs (p);
                 remove_ancestors_from_checked_dirs (p);
                 any = true;
             }
         }
         if (any) {
-            rebuild_implicit_dirs ();
             changed ();
         }
     }
