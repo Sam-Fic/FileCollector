@@ -107,8 +107,20 @@ paned > separator {
 .file-tree label {
     padding: 0;
     margin: 0;
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1.0;
+}
+
+/* 编排列表 (中栏 .card 下的 GtkListView) 文字字号: 与文件树保持一致 */
+.card listview,
+.card listview label {
+    font-size: 14px;
+}
+
+/* 右键菜单: 与文件树和编排列表字号保持一致, 全部统一 14px */
+popover.ctx-menu,
+popover.ctx-menu modelbutton {
+    font-size: 14px;
 }
 
 

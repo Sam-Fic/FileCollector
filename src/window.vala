@@ -531,6 +531,25 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             });
             box.add_controller (right_click);
 
+            // 左键单击: 不管选中行是否变化都强制刷新预览, 修复以下边缘情况:
+            // 1) 重复点击同一行, GtkSingleSelection 不会触发 selection_changed;
+            // 2) 此前点击过文件树导致 queue_selection 被置为 INVALID,
+            //    再回到队列点击同一行时, INVALID -> N 的赋值与既有选择不冲突时
+            //    偶尔也不会触发 selection_changed, 导致预览残留为文件树的内容.
+            // 配合 on_queue_selection_changed 已有逻辑, 不同行点击会出现一次
+            // 重复的 update_preview 调用, 代价可忽略.
+            var left_click = new Gtk.GestureClick ();
+            left_click.set_button (Gdk.BUTTON_PRIMARY);
+            left_click.pressed.connect ((n_press, gx, gy) => {
+                var li = obj as Gtk.ListItem;
+                if (li == null) return;
+                var data = li.get_item () as ItemData;
+                if (data == null) return;
+                update_preview (data);
+                clear_tree_selection ();
+            });
+            box.add_controller (left_click);
+
             list_item.set_child (box);
         });
 
@@ -2693,6 +2712,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         popover.set_has_arrow (false);
         popover.set_parent (parent);
         popover.insert_action_group ("ctx", action_group);
+        // 统一两个右键菜单的字号, 避免从父容器 (.file-tree 14px) 继承导致不一致
+        popover.add_css_class ("ctx-menu");
         // 让菜单的左上角对齐到鼠标点击位置 (默认会水平居中, 导致鼠标箭头落在菜单顶部中点)
         popover.set_halign (Gtk.Align.START);
         popover.set_valign (Gtk.Align.START);
@@ -2765,6 +2786,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         popover.set_has_arrow (false);
         popover.set_parent (parent);
         popover.insert_action_group ("tree", action_group);
+        // 统一两个右键菜单的字号, 避免从父容器 (.file-tree 14px) 继承导致不一致
+        popover.add_css_class ("ctx-menu");
         // 让菜单的左上角对齐到鼠标点击位置 (默认会水平居中, 导致鼠标箭头落在菜单顶部中点)
         popover.set_halign (Gtk.Align.START);
         popover.set_valign (Gtk.Align.START);
