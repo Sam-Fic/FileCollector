@@ -652,7 +652,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     icon_name = "text-x-generic-symbolic";
                 }
 
-                if (data.is_binary_target ()) {
+                if (data.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
                     switch (data.preprocess_status) {
                         case PreprocessStatus.PENDING:
                             display_name += " [等待处理]";
@@ -1000,7 +1000,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     if (!path_in_items (item.path)) {
                     var new_item = new ItemData ("file", item.path, null, false);
                     items.add (new_item);
-                    if (new_item.is_binary_target ()) {
+                    if (new_item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
                         check_and_apply_cache (new_item);
                     }
                 }
@@ -1051,7 +1051,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     if (!path_in_items (p)) {
                         var new_item = new ItemData ("file", p, null, false);
                         items.add (new_item);
-                        if (new_item.is_binary_target ()) {
+                        if (new_item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
                             check_and_apply_cache (new_item);
                         }
                     }
@@ -2007,7 +2007,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (!path_in_items (abs_path)) {
                 var new_item = new ItemData ("file", abs_path, null, false);
                 items.add (new_item);
-                if (new_item.is_binary_target ()) {
+                if (new_item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
                     check_and_apply_cache (new_item);
                 }
             }
@@ -2191,7 +2191,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     push_undo_state ();
                     foreach (var item in to_add) {
                         items.add (item);
-                        if (item.is_binary_target ()) {
+                        if (item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
                             check_and_apply_cache (item);
                         }
                         added++;
@@ -2414,7 +2414,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var buffer = preview_view.get_buffer ();
         bool show_action_bar = false;
 
-        if (item.item_type == "file" && item.is_binary_target ()) {
+        if (item.item_type == "file" && item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
             show_action_bar = true;
             btn_retry_preprocess.sensitive = true;
             switch (item.preprocess_status) {
@@ -2502,7 +2502,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_retry_preprocess (ItemData item) {
-        if (item == null || item.item_type != "file" || !item.is_binary_target ()) return;
+        if (item == null || item.item_type != "file" || !item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) return;
         if (item.preprocess_status == PreprocessStatus.PROCESSING) return;
 
         if (work_dir != null) {
@@ -2541,7 +2541,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
                 for (int i = 0; i < items.size; i++) {
                     var item = items.get (i);
-                    if (item.item_type == "file" && item.is_binary_target ()) {
+                    if (item.item_type == "file" && item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
                         item.preprocess_status = PreprocessStatus.NONE;
                         item.preprocessed_content = null;
                         item.from_cache = false;
@@ -2608,7 +2608,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (item.item_type == "file" && item.file_path != null) {
             var section_file = new GLib.Menu ();
 
-            if (item.is_binary_target ()) {
+            if (item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
                 var act_retry = new GLib.SimpleAction ("ctx_retry_ai", null);
                 act_retry.set_enabled (item.preprocess_status != PreprocessStatus.PROCESSING);
                 act_retry.activate.connect (() => { on_retry_preprocess (item); });
@@ -3585,8 +3585,34 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
         ai_settings_dialog_instance.settings_changed.connect (() => {
             apply_ai_settings_to_panel ();
+            // 允许的扩展名列表变更后, 重新评估编排列表: 新允许的后缀需要触发转换,
+            // 移除的后缀需要清掉已有的预处理状态以避免误导.
+            reevaluate_queue_against_allowed_exts ();
         });
         ai_settings_dialog_instance.present ();
+    }
+
+    // 允许扩展名列表变化后, 重新评估编排列表中各项
+    private void reevaluate_queue_against_allowed_exts () {
+        string[] allowed = ConfigManager.get_allowed_binary_extensions ();
+        foreach (var item in items) {
+            if (item.item_type != "file") continue;
+            if (item.is_allowed_binary_target (allowed)) {
+                // 重新进入允许列表: 此前因为不在列表中而未触发缓存检查, 现在补上
+                if (item.preprocess_status == PreprocessStatus.NONE
+                    || item.preprocess_status == PreprocessStatus.FAILED) {
+                    check_and_apply_cache (item);
+                }
+            } else {
+                // 移出允许列表: 清空预处理状态, 不再显示 AI 相关 UI
+                if (item.preprocess_status != PreprocessStatus.NONE) {
+                    item.preprocess_status = PreprocessStatus.NONE;
+                    item.preprocessed_content = null;
+                    item.from_cache = false;
+                }
+            }
+        }
+        refresh_list ();
     }
 
     // AIController.work_dir_change_requested 信号处理: 切换工作目录并刷新 UI

@@ -35,6 +35,8 @@ public class AISettingsDialog : GLib.Object {
     private Adw.SpinRow spin_mm_timeout;
     private Adw.EntryRow edit_mm_prompt;
     private Gtk.Button btn_mm_test;
+    private Adw.EntryRow edit_mm_allowed_exts;
+    private Gtk.Button btn_mm_reset_exts;
 
     // ── 共享 ──
     private Adw.EntryRow edit_ignored_dirs;
@@ -192,6 +194,19 @@ public class AISettingsDialog : GLib.Object {
         mm_advanced.set_title (_("高级"));
         prefs_page.add (mm_advanced);
 
+        // 允许被 AI 转换的二进制文件扩展名 (以英文逗号分隔, 不含点或含点皆可, 如 ".pdf, png")
+        var mm_exts_input_row = new Adw.EntryRow ();
+        mm_exts_input_row.set_title (_("允许转换的二进制扩展名 (逗号分隔, 如 .pdf, .docx)"));
+        mm_exts_input_row.set_show_apply_button (false);
+        edit_mm_allowed_exts = mm_exts_input_row;
+        mm_exts_input_row.set_hexpand (true);
+
+        btn_mm_reset_exts = new Gtk.Button.with_label (_("默认"));
+        btn_mm_reset_exts.valign = Gtk.Align.CENTER;
+        btn_mm_reset_exts.set_tooltip_text (_("恢复为默认扩展名列表"));
+        mm_exts_input_row.add_suffix (btn_mm_reset_exts);
+        mm_advanced.add (mm_exts_input_row);
+
         var mm_prompt_row = new Adw.EntryRow ();
         mm_prompt_row.set_title (_("自定义系统提示词 (可选)"));
         mm_prompt_row.set_show_apply_button (false);
@@ -250,6 +265,9 @@ public class AISettingsDialog : GLib.Object {
         ok_btn.clicked.connect (on_save);
         btn_sidebar_test.clicked.connect (() => { testing_sidebar = true; on_test (); });
         btn_mm_test.clicked.connect (() => { testing_sidebar = false; on_test (); });
+        btn_mm_reset_exts.clicked.connect (() => {
+            edit_mm_allowed_exts.set_text (string.joinv (", ", ConfigManager.DEFAULT_ALLOWED_BINARY_EXTS));
+        });
 
         window.close_request.connect (() => {
             if (test_cancellable != null) {
@@ -281,6 +299,10 @@ public class AISettingsDialog : GLib.Object {
         edit_mm_model.set_text (mm_current.model ?? "");
         spin_mm_timeout.set_value (mm_current.timeout > 0 ? mm_current.timeout : 120.0);
         edit_mm_prompt.set_text (mm_current.system_prompt_override ?? "");
+
+        // 允许被多模态 AI 转换的扩展名列表
+        string[] current_exts = ConfigManager.get_allowed_binary_extensions ();
+        edit_mm_allowed_exts.set_text (string.joinv (", ", current_exts));
     }
 
     private void on_save () {
@@ -331,6 +353,24 @@ public class AISettingsDialog : GLib.Object {
             if (trimmed.length > 0) clean_list.add (trimmed);
         }
         ConfigManager.save_ignored_dirs ((string[]) clean_list.to_array ());
+
+        // 解析并保存允许的扩展名 (自动为缺少前导点的扩展名补上)
+        string raw_exts = edit_mm_allowed_exts.get_text ();
+        string[] ext_parts = raw_exts.split (",");
+        var clean_exts = new Gee.ArrayList<string> ();
+        foreach (unowned string p in ext_parts) {
+            string trimmed = p.strip ();
+            if (trimmed.length == 0) continue;
+            string t = trimmed.down ();
+            if (!t.has_prefix (".")) t = "." + t;
+            clean_exts.add (t);
+        }
+        if (clean_exts.size == 0) {
+            // 留空等同于不允许转换, 保持空数组 (覆盖默认值)
+            ConfigManager.save_allowed_binary_extensions (new string[0]);
+        } else {
+            ConfigManager.save_allowed_binary_extensions ((string[]) clean_exts.to_array ());
+        }
 
         settings_changed ();
         window.close ();

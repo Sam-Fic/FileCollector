@@ -11,6 +11,13 @@ public class ConfigManager : GLib.Object {
         "dist", "target", ".idea", ".vscode", "coverage"
     };
 
+    // 默认允许被多模态 AI 转换的二进制扩展名
+    public const string[] DEFAULT_ALLOWED_BINARY_EXTS = {
+        ".pdf", ".docx", ".pptx", ".doc", ".ppt",
+        ".xlsx", ".xls", ".ods", ".odt", ".odp", ".rtf", ".wps",
+        ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"
+    };
+
     public struct AISettings {
         public bool enabled;
         public string base_url;
@@ -205,6 +212,47 @@ public class ConfigManager : GLib.Object {
             write_settings_root_unlocked (root);
         } catch (Error e) {
             warning ("Failed to save ignored_dirs: %s", e.message);
+        } finally {
+            config_mutex.unlock ();
+        }
+    }
+
+    // ─── 允许被多模态 AI 转换的二进制扩展名列表读写 ──────────────────────
+
+    public static string[] get_allowed_binary_extensions () {
+        config_mutex.lock ();
+        try {
+            var root = load_settings_root_unlocked ();
+            if (root != null && root.has_member ("allowed_binary_extensions")) {
+                var arr = root.get_array_member ("allowed_binary_extensions");
+                if (arr != null && arr.get_length () > 0) {
+                    string[] result = new string[arr.get_length ()];
+                    for (int i = 0; i < arr.get_length (); i++) {
+                        result[i] = arr.get_string_element (i);
+                    }
+                    return result;
+                }
+            }
+        } catch (Error e) {
+            warning ("Failed to load allowed_binary_extensions: %s", e.message);
+        } finally {
+            config_mutex.unlock ();
+        }
+        return DEFAULT_ALLOWED_BINARY_EXTS;
+    }
+
+    public static void save_allowed_binary_extensions (string[] exts) {
+        config_mutex.lock ();
+        try {
+            Json.Object root = load_settings_root_unlocked () ?? new Json.Object ();
+            var arr = new Json.Array ();
+            foreach (var ext in exts) {
+                arr.add_string_element (ext);
+            }
+            root.set_member ("allowed_binary_extensions", AI.SchemaHelper.arr_to_node (arr));
+            write_settings_root_unlocked (root);
+        } catch (Error e) {
+            warning ("Failed to save allowed_binary_extensions: %s", e.message);
         } finally {
             config_mutex.unlock ();
         }

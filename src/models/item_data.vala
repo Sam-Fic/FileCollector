@@ -60,6 +60,22 @@ public class ItemData : GLib.Object {
         return is_document_target () || is_image_target ();
     }
 
+    // 用户可配置的"允许被多模态 AI 转换的扩展名"判断;
+    // 传入空数组相当于不允许任何文件被转换.
+    public bool is_allowed_binary_target (string[] allowed_extensions) {
+        if (item_type != "file" || file_path == null) return false;
+        if (allowed_extensions.length == 0) return false;
+        string lower = file_path.down ();
+        foreach (var ext in allowed_extensions) {
+            if (ext.length == 0) continue;
+            string e = ext.down ();
+            // 兼容用户输入 ".pdf" 或 "pdf", 没有前导点的自动补上
+            if (!e.has_prefix (".")) e = "." + e;
+            if (lower.has_suffix (e)) return true;
+        }
+        return false;
+    }
+
     public string get_image_mime_type () {
         if (file_path == null) return "image/png";
         string lower = file_path.down ();
