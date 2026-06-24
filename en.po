@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: filecollector\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-31 04:23+0800\n"
+"POT-Creation-Date: 2026-06-25 02:21+0800\n"
 "PO-Revision-Date: 2026-05-30 01:40+0800\n"
 "Last-Translator: Sam-Fic\n"
 "Language-Team: English\n"
@@ -17,439 +17,615 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: src/cli.vala:99
+#: src/cli.vala:151
 msgid "已启用绝对路径"
 msgstr "Absolute paths enabled"
 
-#: src/cli.vala:102
+#: src/cli.vala:154
 msgid "已启用头部信息"
 msgstr "Header info enabled"
 
-#: src/cli.vala:118
+#: src/cli.vala:170
 #, c-format
 msgid "错误: 未知参数: %s\n"
 msgstr "Error: Unknown argument: %s\n"
 
-#: src/cli.vala:119
+#: src/cli.vala:171
 msgid "使用 --help 查看帮助信息\n"
 msgstr "Use --help to see usage information\n"
 
-#: src/cli.vala:143
+#: src/cli.vala:195
 #, c-format
 msgid "项目已保存到: %s\n"
 msgstr "Project saved to: %s\n"
 
-#: src/cli.vala:144
+#: src/cli.vala:196
 #, c-format
 msgid "项目已保存到: %s"
 msgstr "Project saved to: %s"
 
-#: src/cli.vala:146
+#: src/cli.vala:198
 #, c-format
 msgid "保存项目失败: %s\n"
 msgstr "Failed to save project: %s\n"
 
-#: src/cli.vala:147
+#: src/cli.vala:199
 #, c-format
 msgid "保存项目失败: %s"
 msgstr "Failed to save project: %s"
 
-#: src/cli.vala:154
+#: src/cli.vala:206
 msgid "错误: 编排列表为空，无法导出\n"
 msgstr "Error: Queue is empty, cannot export\n"
 
-#: src/cli.vala:155
+#: src/cli.vala:207
 msgid "导出失败: 编排列表为空"
 msgstr "Export failed: Queue is empty"
 
-#: src/cli.vala:160
+#: src/cli.vala:212
 #, c-format
 msgid "合并文本已导出到: %s\n"
 msgstr "Merged text exported to: %s\n"
 
-#: src/cli.vala:161
+#: src/cli.vala:213
 #, c-format
 msgid "合并文本已导出到: %s"
 msgstr "Merged text exported to: %s"
 
-#: src/cli.vala:163
+#: src/cli.vala:215
 #, c-format
 msgid "导出失败: %s\n"
 msgstr "Export failed: %s\n"
 
-#: src/cli.vala:164
+#: src/cli.vala:216
 #, c-format
 msgid "导出失败: %s"
 msgstr "Export failed: %s"
 
-#: src/cli.vala:174
+#: src/cli.vala:226
 #, c-format
 msgid "错误: 参数 '%s' 缺少必要的值\n"
 msgstr "Error: Argument '%s' requires a value\n"
 
-#: src/cli.vala:178
+#: src/cli.vala:230
 #, c-format
 msgid "FileCollector %s — CLI 命令行模式\n"
 msgstr "FileCollector %s — CLI Mode\n"
 
-#: src/cli.vala:180
+#: src/cli.vala:232
 msgid "用法: filecollector [选项...] [--gui]"
 msgstr "Usage: filecollector [options...] [--gui]"
 
-#: src/cli.vala:183
+#: src/cli.vala:235
 msgid "工作目录:"
 msgstr "Working Directory:"
 
-#: src/cli.vala:184
+#: src/cli.vala:236
 msgid "设置工作目录"
 msgstr "Set working directory"
 
-#: src/cli.vala:186
+#: src/cli.vala:238
 msgid "文件选择:"
 msgstr "File Selection:"
 
-#: src/cli.vala:187
+#: src/cli.vala:239
 msgid "添加文件到编排列表 (可多次使用)"
 msgstr "Add file to queue (can be used multiple times)"
 
-#: src/cli.vala:188
+#: src/cli.vala:240
 msgid "添加自定义文字 (可多次使用)"
 msgstr "Add custom text (can be used multiple times)"
 
-#: src/cli.vala:190
+#: src/cli.vala:242
 msgid "编排调整:"
 msgstr "Queue Management:"
 
-#: src/cli.vala:191
+#: src/cli.vala:243
 msgid "将索引 FROM 处的项目移动到索引 TO"
 msgstr "Move item at index FROM to index TO"
 
-#: src/cli.vala:192
+#: src/cli.vala:244
 msgid "删除索引 INDEX 处的项目"
 msgstr "Remove item at INDEX"
 
-#: src/cli.vala:193
+#: src/cli.vala:245
 msgid "清空编排列表"
 msgstr "Clear the queue"
 
-#: src/cli.vala:194
+#: src/cli.vala:246
 msgid "列出当前编排列表"
 msgstr "List current queue items"
 
-#: src/cli.vala:196
+#: src/cli.vala:248
 msgid "导出设置:"
 msgstr "Export Settings:"
 
-#: src/cli.vala:197
+#: src/cli.vala:249
 msgid "导出合并文本到 PATH"
 msgstr "Export merged text to PATH"
 
-#: src/cli.vala:198 src/window.blp:258
+#: src/cli.vala:250 src/window.blp:255
 msgid "使用绝对路径"
 msgstr "Use Absolute Paths"
 
-#: src/window.blp:253
-msgid "使用相对路径"
-msgstr "Use Relative Paths"
-
-#: src/cli.vala:199
+#: src/cli.vala:251
 msgid "添加头部信息 (工作目录路径)"
 msgstr "Add header (working directory path)"
 
-#: src/cli.vala:201
+#: src/cli.vala:253
 msgid "项目文件:"
 msgstr "Project Files:"
 
-#: src/cli.vala:202
+#: src/cli.vala:254
 msgid "从项目文件加载状态"
 msgstr "Load state from project file"
 
-#: src/cli.vala:203
+#: src/cli.vala:255
 msgid "将当前状态保存到项目文件"
 msgstr "Save current state to project file"
 
-#: src/cli.vala:205
+#: src/cli.vala:257
 msgid "GUI 模式:"
 msgstr "GUI Mode:"
 
-#: src/cli.vala:206
+#: src/cli.vala:258
 msgid "使用其他 CLI 参数初始化后打开图形界面"
 msgstr "Initialize with CLI args then open the GUI"
 
-#: src/cli.vala:208
+#: src/cli.vala:260
 msgid "其他:"
 msgstr "Other:"
 
-#: src/cli.vala:209
+#: src/cli.vala:261
 msgid "显示此帮助信息"
 msgstr "Show this help message"
 
-#: src/cli.vala:211
+#: src/cli.vala:263
 msgid "示例:"
 msgstr "Examples:"
 
-#: src/cli.vala:213
+#: src/cli.vala:265
 msgid "构建并导出:"
 msgstr "Build and export:"
 
-#: src/cli.vala:217
+#: src/cli.vala:269
 msgid "配置文件"
 msgstr "Configuration Files"
 
-#: src/cli.vala:222
+#: src/cli.vala:274
 msgid "从项目文件导出:"
 msgstr "Export from project file:"
 
-#: src/cli.vala:225
+#: src/cli.vala:277
 msgid "构建并保存项目:"
 msgstr "Build and save project:"
 
-#: src/cli.vala:230
+#: src/cli.vala:282
 msgid "查看编排列表:"
 msgstr "View the queue:"
 
-#: src/cli.vala:233
+#: src/cli.vala:285
 msgid "加载项目后打开 GUI 手动调整:"
 msgstr "Load project then open GUI for adjustments:"
 
-#: src/cli.vala:236
+#: src/cli.vala:288
 msgid "用 CLI 参数初始化状态后打开 GUI:"
 msgstr "Initialize state via CLI then open GUI:"
 
-#: src/cli.vala:244
+#: src/cli.vala:296
 #, c-format
 msgid "错误: 目录不存在: %s\n"
 msgstr "Error: Directory does not exist: %s\n"
 
-#: src/cli.vala:248
+#: src/cli.vala:300
 #, c-format
 msgid "✓ 工作目录已设置: %s\n"
 msgstr "✓ Working directory set: %s\n"
 
-#: src/cli.vala:249
+#: src/cli.vala:301
 #, c-format
 msgid "工作目录已设置: %s"
 msgstr "Working directory set: %s"
 
-#: src/cli.vala:256
+#: src/cli.vala:308
 #, c-format
 msgid "错误: 文件不存在: %s\n"
 msgstr "Error: File does not exist: %s\n"
 
-#: src/cli.vala:262
+#: src/cli.vala:314
 #, c-format
 msgid "✓ 已添加文件 [%d]: %s\n"
 msgstr "✓ File added [%d]: %s\n"
 
-#: src/cli.vala:263
+#: src/cli.vala:315
 #, c-format
 msgid "已添加文件: %s"
 msgstr "File added: %s"
 
-#: src/cli.vala:269
+#: src/cli.vala:321
 #, c-format
 msgid "✓ 已添加文字 [%d]: %s\n"
 msgstr "✓ Text added [%d]: %s\n"
 
-#: src/cli.vala:272
+#: src/cli.vala:324
 #, c-format
 msgid "已添加文字: %s"
 msgstr "Text added: %s"
 
-#: src/cli.vala:277
+#: src/cli.vala:329
+msgid "错误: 编排列表为空\n"
+msgstr "Error: Queue is empty\n"
+
+#: src/cli.vala:333
 #, c-format
 msgid "错误: 源索引 %d 超出范围 (0-%d)\n"
 msgstr "Error: Source index %d out of range (0-%d)\n"
 
-#: src/cli.vala:281
+#: src/cli.vala:337
 #, c-format
 msgid "错误: 目标索引 %d 超出范围 (0-%d)\n"
 msgstr "Error: Target index %d out of range (0-%d)\n"
 
-#: src/cli.vala:288
+#: src/cli.vala:354
 #, c-format
 msgid "✓ 已将项目从索引 %d 移动到 %d\n"
 msgstr "✓ Item moved from index %d to %d\n"
 
-#: src/cli.vala:289
+#: src/cli.vala:355
 #, c-format
 msgid "已移动项目 %d → %d"
 msgstr "Item moved %d → %d"
 
-#: src/cli.vala:295
+#: src/cli.vala:361
 #, c-format
 msgid "错误: 索引 %d 超出范围 (0-%d)\n"
 msgstr "Error: Index %d out of range (0-%d)\n"
 
-#: src/cli.vala:303
+#: src/cli.vala:369
 #, c-format
 msgid "✓ 已删除索引 %d 处的项目\n"
 msgstr "✓ Item at index %d deleted\n"
 
-#: src/cli.vala:304
+#: src/cli.vala:370
 #, c-format
 msgid "已删除项目 %d"
 msgstr "Item %d deleted"
 
-#: src/cli.vala:311
+#: src/cli.vala:378
 msgid "✓ 已清空编排列表\n"
 msgstr "✓ Queue cleared\n"
 
-#: src/cli.vala:312
+#: src/cli.vala:379
 msgid "已清空编排列表"
 msgstr "Queue cleared"
 
-#: src/cli.vala:317
+#: src/cli.vala:384
 msgid "编排列表为空\n"
 msgstr "Queue is empty\n"
 
-#: src/cli.vala:323
+#: src/cli.vala:390
 #, c-format
 msgid "当前编排列表 (%d 项):\n"
 msgstr "Current queue (%d items):\n"
 
-#: src/cli.vala:328
+#: src/cli.vala:395
 msgid "文件"
 msgstr "File"
 
-#: src/cli.vala:332
+#: src/cli.vala:399
 msgid "文字"
 msgstr "Text"
 
-#: src/cli.vala:336
+#: src/cli.vala:403
 #, c-format
 msgid "配置: 绝对路径=%s  头部=%s\n"
 msgstr "Settings: Absolute paths=%s  Header=%s\n"
 
-#: src/cli.vala:339
+#: src/cli.vala:406
 #, c-format
 msgid "工作目录: %s\n"
 msgstr "Working directory: %s\n"
 
-#: src/cli.vala:346
+#: src/cli.vala:413
 #, c-format
 msgid "错误: 项目文件不存在: %s\n"
 msgstr "Error: Project file does not exist: %s\n"
 
-#: src/cli.vala:405
+#: src/cli.vala:482
 #, c-format
 msgid "✓ 已从项目文件加载: %s (共 %d 项)\n"
 msgstr "✓ Loaded from project file: %s (%d items)\n"
 
-#: src/cli.vala:406
+#: src/cli.vala:483
 #, c-format
 msgid "已加载项目: %s (%d 项)"
 msgstr "Project loaded: %s (%d items)"
 
-#: src/cli.vala:409
+#: src/cli.vala:486
 #, c-format
 msgid "加载项目失败: %s\n"
 msgstr "Failed to load project: %s\n"
 
-#: src/window.vala:854
+#: src/window.vala:688
+#, c-format
+msgid "⚠ %s (缺失)"
+msgstr "⚠ %s (missing)"
+
+#: src/window.vala:723
+msgid "来自外部文件"
+msgstr "External file"
+
+#: src/window.vala:1889
 msgid "选择工作文件夹"
 msgstr "Select Working Folder"
 
-#: src/window.vala:1027
+#: src/window.vala:2220
 msgid "选择外部文件"
 msgstr "Select External Files"
 
-#: src/window.vala:1049
+#: src/window.vala:2257
+#, c-format
+msgid "已添加 %d 个文件，跳过 %d 个重复文件"
+msgstr "Added %d file(s), skipped %d duplicate(s)"
+
+#: src/window.vala:2259
+#, c-format
+msgid "已添加 %d 个文件"
+msgstr "Added %d file(s)"
+
+#: src/window.vala:2261
+#, c-format
+msgid "所选文件已全部存在，跳过 %d 个重复文件"
+msgstr "All selected files already exist, skipped %d duplicate(s)"
+
+#: src/window.vala:2275
 msgid "编辑文字"
 msgstr "Edit Text"
 
-#: src/window.vala:1049
+#: src/window.vala:2275
 msgid "插入自定义文字"
 msgstr "Insert Custom Text"
 
-#: src/window.vala:1059 src/window.vala:1660
-#: src/widgets/settings_dialog.vala:47 src/widgets/phrases_picker.vala:41
-#: src/widgets/phrases_picker.vala:94 src/widgets/phrases_picker.vala:193
+#: src/window.vala:2285 src/window.vala:2620 src/window.vala:3306
+#: src/widgets/settings_dialog.vala:49 src/widgets/phrases_picker.vala:42
+#: src/widgets/phrases_picker.vala:99 src/widgets/phrases_picker.vala:203
+#: src/widgets/ai_settings_dialog.vala:83
+#: src/widgets/ai_settings_dialog.vala:328
 msgid "取消"
 msgstr "Cancel"
 
-#: src/window.vala:1063 src/window.vala:1628 src/window.vala:1634
-#: src/window.vala:1664
+#: src/window.vala:2289 src/window.vala:3274 src/window.vala:3280
+#: src/window.vala:3310
 msgid "确定"
 msgstr "OK"
 
-#: src/window.vala:1068
+#: src/window.vala:2298
 msgid "常用语"
 msgstr "Common Phrases"
 
-#: src/cli.vala:162 src/cli.vala:163 src/cli.vala:336
-msgid "编排列表为空"
-msgstr "Queue is Empty"
+#: src/window.vala:2477
+msgid ""
+"已读取本地缓存\n"
+"点击强制重新调用视觉语言大模型 (VLM) 转换"
+msgstr ""
+"Loaded from local cache\n"
+"Click to force re-run VLM conversion"
 
-#: src/window.vala:2213 src/window.vala:2247
+#: src/window.vala:2478
+msgid ""
+"AI 转换完成\n"
+"点击强制重新调用视觉语言大模型 (VLM) 转换"
+msgstr ""
+"AI conversion complete\n"
+"Click to force re-run VLM conversion"
+
+#: src/window.vala:2482
+msgid ""
+"AI 转换失败\n"
+"点击重试转换"
+msgstr ""
+"AI conversion failed\n"
+"Click to retry conversion"
+
+#: src/window.vala:2486
+msgid "正在处理中..."
+msgstr "Processing..."
+
+#: src/window.vala:2490
+msgid "等待处理"
+msgstr "Pending"
+
+#: src/window.vala:2612
+msgid "尚未设置工作目录"
+msgstr "No working directory set yet"
+
+#: src/window.vala:2617
+msgid "确认清除缓存？"
+msgstr "Confirm Cache Deletion?"
+
+#: src/window.vala:2618
+msgid ""
+"这将删除当前工作目录下的 .filecollector_cache 隐藏文件夹。\n"
+"下次处理图片及 PDF 等文件时，将重新调用 VLM 并消耗 API Token。"
+msgstr ""
+"This will delete the .filecollector_cache hidden folder in the current "
+"working directory.\n"
+"The next time you process images and PDFs, the VLM will be called again, "
+"consuming API tokens."
+
+#: src/window.vala:2621
+msgid "清除"
+msgstr "Clear"
+
+#: src/window.vala:2645
+msgid "工作区缓存已清除"
+msgstr "Workspace cache cleared"
+
+#: src/window.vala:2664
+msgid "编辑文本"
+msgstr "Edit Text"
+
+#: src/window.vala:2669
+msgid "在上方插入文本"
+msgstr "Insert Text Above"
+
+#: src/window.vala:2674
+msgid "在下方插入文本"
+msgstr "Insert Text Below"
+
+#: src/window.vala:2685 src/window.blp:208
+msgid "上移"
+msgstr "Move Up"
+
+#: src/window.vala:2691 src/window.blp:215
+msgid "下移"
+msgstr "Move Down"
+
+#: src/window.vala:2704 src/window.blp:350
+msgid "重新进行 AI 转换"
+msgstr "Re-run AI conversion"
+
+#: src/window.vala:2717 src/window.vala:2769
+msgid "路径已复制到剪贴板"
+msgstr "Path copied to clipboard"
+
+#: src/window.vala:2720 src/window.vala:2772
+msgid "复制路径"
+msgstr "Copy Path"
+
+#: src/window.vala:2725 src/window.vala:2780
+msgid "在文件管理器中显示"
+msgstr "Show in File Manager"
+
+#: src/window.vala:2735 src/window.blp:223
+msgid "删除"
+msgstr "Delete"
+
+#: src/window.vala:2798
+msgid "文件过大，无法复制内容"
+msgstr "File too large to copy content"
+
+#: src/window.vala:2803
+msgid "文件内容已复制"
+msgstr "File content copied"
+
+#: src/window.vala:2805
+msgid "读取文件失败"
+msgstr "Failed to read file"
+
+#: src/window.vala:2809
+msgid "复制文件内容"
+msgstr "Copy File Content"
+
+#: src/window.vala:2843
+msgid "无法打开文件管理器"
+msgstr "Cannot open file manager"
+
+#: src/window.vala:2884 src/window.vala:2918
 msgid "编排列表为空，请先勾选文件或添加文字内容"
 msgstr "The queue is empty. Please check some files or add text content first"
 
-#: src/window.vala:1262
+#: src/window.vala:2889
 msgid "保存合并文本"
 msgstr "Save Merged Text"
 
-#: src/window.vala:1264
+#: src/window.vala:2891
 msgid "文本文件 (*.txt)"
 msgstr "Text File (*.txt)"
 
-#: src/window.vala:1278
+#: src/window.vala:2905
 msgid "合并文本已保存"
 msgstr "Merged Text Saved"
 
-#: src/window.vala:1281 src/window.vala:1383 src/window.vala:1411
+#: src/window.vala:2908
+msgid "保存已取消"
+msgstr "Save cancelled"
+
+#: src/window.vala:2911 src/window.vala:2999 src/window.vala:3024
 msgid "保存失败"
 msgstr "Save Failed"
 
-#: src/window.vala:1294
+#: src/window.vala:2924
 msgid "合并文本已复制到剪贴板"
 msgstr "Merged Text Copied to Clipboard"
 
-#: src/window.vala:1296
+#: src/window.vala:2926
 msgid "复制失败"
 msgstr "Copy Failed"
 
-#: src/window.vala:1304 src/window.vala:1656
+#: src/window.vala:2934 src/window.vala:3106
 msgid "打开项目"
 msgstr "Open Project"
 
-#: src/window.vala:1306
+#: src/window.vala:2936
 msgid "项目文件 (*.fcol, *.fcol.json, *.project.json)"
 msgstr "Project File (*.fcol, *.fcol.json, *.project.json)"
 
-#: src/window.vala:1367
+#: src/window.vala:2952
 msgid "打开失败"
 msgstr "Open Failed"
 
-#: src/window.vala:1389 src/window.blp:289
-msgid "保存项目"
-msgstr "Save Project"
-
-#: src/window.vala:1548
+#: src/window.vala:2994
 msgid "项目文件已更新"
 msgstr "Project file updated"
 
-#: src/window.vala:1577
-msgid "项目文件已保存"
-msgstr "Project file saved"
+#: src/window.vala:3005 src/window.blp:365
+msgid "保存项目"
+msgstr "Save Project"
 
-#: src/window.vala:1391
+#: src/window.vala:3007
 msgid "项目文件 (*.fcol)"
 msgstr "Project File (*.fcol)"
 
-#: src/window.vala:1419 src/window.blp:19
+#: src/window.vala:3021
+msgid "项目文件已保存"
+msgstr "Project file saved"
+
+#: src/window.vala:3043 src/window.blp:36
 msgid "未设置工作目录"
 msgstr "No Working Directory Set"
 
-#: src/window.vala:1421 src/window.vala:1456 src/window.blp:18
+#: src/window.vala:3045 src/window.vala:3075 src/window.blp:35
 msgid "FileCollector"
 msgstr "FileCollector"
 
-#: src/window.vala:1459
+#: src/window.vala:3078
 msgid "文件收集与编排工具"
 msgstr "File Collection & Organization Tool"
 
-#: src/window.vala:1650
+#: src/window.vala:3101
+msgid "常用操作"
+msgstr "Common Operations"
+
+#: src/window.vala:3102
+msgid "列表操作"
+msgstr "List Operations"
+
+#: src/window.vala:3103
+msgid "应用程序"
+msgstr "Application"
+
+#: src/window.vala:3104
+msgid "清空列表"
+msgstr "Clear All"
+
+#: src/window.vala:3105
+msgid "生成到剪贴板"
+msgstr "Generate to Clipboard"
+
+#: src/window.vala:3107
+msgid "切换 AI 面板"
+msgstr "Toggle AI Panel"
+
+#: src/window.vala:3108
+msgid "关于"
+msgstr "About"
+
+#: src/window.vala:3109
+msgid "退出"
+msgstr "Quit"
+
+#: src/window.vala:3293 src/window.vala:3301
 msgid "编辑常用语"
 msgstr "Edit Common Phrase"
 
@@ -458,228 +634,174 @@ msgid "FileCollector - 文件收集与编排工具"
 msgstr "FileCollector - File Collection & Organization Tool"
 
 #: src/window.blp:14
+msgid "显示 / 隐藏 AI 助手 (Ctrl+J)"
+msgstr "Show / Hide AI Assistant (Ctrl+J)"
+
+#: src/window.blp:19
 msgid "打开工作目录"
 msgstr "Open Working Directory"
 
-#: src/window.blp:20
+#: src/window.blp:24
 msgid "撤销"
 msgstr "Undo"
 
-#: src/window.blp:26
+#: src/window.blp:30
 msgid "重做"
 msgstr "Redo"
 
-#: src/window.blp:58
+#: src/window.blp:99
 msgid "资源管理器"
 msgstr "File Browser"
 
-#: src/window.blp:64
+#: src/window.blp:105
 msgid "搜索…"
 msgstr "Search…"
 
-#: src/window.blp:112
+#: src/window.blp:149
 msgid "输出编排列表"
 msgstr "Output Queue List"
 
-#: src/window.blp:140
+#: src/window.blp:177
 msgid "添加外部文件"
 msgstr "Add External Files"
 
-#: src/window.blp:147
+#: src/window.blp:184
 msgid "上方插入文本"
 msgstr "Insert Text Above"
 
-#: src/window.blp:154
+#: src/window.blp:191
 msgid "下方插入文本"
 msgstr "Insert Text Below"
 
-#: src/window.blp:171
-msgid "上移"
-msgstr "Move Up"
-
-#: src/window.blp:178
-msgid "下移"
-msgstr "Move Down"
-
-#: src/window.blp:186
-msgid "删除"
-msgstr "Delete"
-
-#: src/window.blp:194
+#: src/window.blp:231
 msgid "清空"
 msgstr "Clear"
 
-#: src/window.blp:207
+#: src/window.blp:251
+msgid "使用相对路径"
+msgstr "Use Relative Paths"
+
+#: src/window.blp:261
 msgid "在文件头部标注工作目录信息"
 msgstr "Annotate Working Directory Info in File Header"
 
-#: src/window.blp:225
+#: src/window.blp:281
 msgid "生成合并文本"
 msgstr "Generate Merged Text"
 
-#: src/window.blp:234
+#: src/window.blp:290
 msgid "生成合并文本到剪贴板"
 msgstr "Generate Merged Text to Clipboard"
 
-#: src/window.blp:259
+#: src/window.blp:315
 msgid "预览"
 msgstr "Preview"
 
-#: src/window.blp:288
+#: src/window.blp:364
 msgid "打开项目..."
 msgstr "Open Project..."
 
-#: src/window.blp:302
+#: src/window.blp:366
 msgid "项目另存为..."
 msgstr "Save Project As..."
 
-#: src/window.blp:292 src/widgets/phrases_picker.vala:83
-#: src/widgets/phrases_picker.vala:89
+#: src/window.blp:369 src/widgets/phrases_picker.vala:86
+#: src/widgets/phrases_picker.vala:94
 msgid "常用语管理"
 msgstr "Manage Common Phrases"
 
-#: src/window.blp:293
+#: src/window.blp:370
+msgid "AI 设置..."
+msgstr "AI Settings..."
+
+#: src/window.blp:371
+msgid "清除工作区缓存"
+msgstr "Clear Workspace Cache"
+
+#: src/window.blp:372
 msgid "语言设置"
 msgstr "Language Settings"
 
-#: src/window.blp:296
+#: src/window.blp:375
 msgid "键盘快捷键"
 msgstr "Keyboard Shortcuts"
 
-#: src/window.blp:297
+#: src/window.blp:376
 msgid "关于 FileCollector"
 msgstr "About FileCollector"
 
-#: src/window.vala:1650
-msgid "常用操作"
-msgstr "Common Operations"
-
-#: src/window.vala:1651
-msgid "列表操作"
-msgstr "List Operations"
-
-#: src/window.vala:1652
-msgid "应用程序"
-msgstr "Application"
-
-#: src/window.vala:1654
-msgid "清空列表"
-msgstr "Clear All"
-
-#: src/window.vala:1655
-msgid "生成到剪贴板"
-msgstr "Generate to Clipboard"
-
-#: src/window.vala:1657
-msgid "关于"
-msgstr "About"
-
-#: src/window.vala:1658
-msgid "退出"
-msgstr "Quit"
-
-#: src/widgets/settings_dialog.vala:15
+#: src/widgets/settings_dialog.vala:17
 msgid "设置界面语言"
 msgstr "Set Interface Language"
 
-#: src/widgets/settings_dialog.vala:21
+#: src/widgets/settings_dialog.vala:23
 msgid "跟随系统"
 msgstr "Follow System"
 
-#: src/widgets/settings_dialog.vala:48
+#: src/widgets/settings_dialog.vala:50
 msgid "应用"
 msgstr "Apply"
 
-#: src/widgets/settings_dialog.vala:66
+#: src/widgets/settings_dialog.vala:68
 msgid "提示"
 msgstr "Notice"
 
-#: src/widgets/settings_dialog.vala:67
+#: src/widgets/settings_dialog.vala:69
 msgid "语言设置已保存，重启应用后生效。是否现在重启？"
 msgstr ""
 "Language setting saved. It will take effect after restart. Restart now?"
 
-#: src/widgets/settings_dialog.vala:69
+#: src/widgets/settings_dialog.vala:71
 msgid "稍后"
 msgstr "Later"
 
-#: src/widgets/settings_dialog.vala:70
+#: src/widgets/settings_dialog.vala:72
 msgid "立即重启"
 msgstr "Restart Now"
 
-#: src/widgets/phrases_picker.vala:30 src/widgets/phrases_picker.vala:36
+#: src/widgets/phrases_picker.vala:29 src/widgets/phrases_picker.vala:37
 msgid "选择常用语"
 msgstr "Select Common Phrase"
 
-#: src/widgets/phrases_picker.vala:45 src/widgets/phrases_picker.vala:117
-#: src/widgets/phrases_picker.vala:197
+#: src/widgets/phrases_picker.vala:46 src/widgets/phrases_picker.vala:123
+#: src/widgets/phrases_picker.vala:207
 msgid "添加"
 msgstr "Add"
 
-#: src/widgets/phrases_picker.vala:138
+#: src/widgets/phrases_picker.vala:148
 msgid "暂无常用语"
 msgstr "No Common Phrases Yet"
 
-#: src/widgets/phrases_picker.vala:183
+#: src/widgets/phrases_picker.vala:190 src/widgets/phrases_picker.vala:198
 msgid "添加常用语"
 msgstr "Add Common Phrase"
 
-#: src/services/project_manager.vala:60
-#, c-format
-msgid "[缺失文件: %s]"
-msgstr "[Missing file: %s]"
-
-#: src/services/file_generator.vala:10
-#, c-format
-msgid ""
-"# 工作目录绝对路径: %s\n"
-"\n"
-msgstr ""
-"# Working directory absolute path: %s\n"
-"\n"
-
-#: src/services/file_generator.vala:20
-#, c-format
-msgid "[文件不存在: %s]\n"
-msgstr "[File does not exist: %s]\n"
-
-#: src/window.blp:336
-msgid "AI 设置..."
-msgstr "AI Settings..."
-
-#: src/window.blp:14
-msgid "显示 / 隐藏 AI 助手 (Ctrl+J)"
-msgstr "Show / Hide AI Assistant (Ctrl+J)"
-
-#~ msgid "项目文件 (*.project.json)"
-#~ msgstr "Project File (*.project.json)"
-
 # AI panel strings
-#: src/widgets/ai_panel.vala:75
+#: src/widgets/ai_panel.vala:88
 msgid "AI 助手"
 msgstr "AI Assistant"
 
-#: src/widgets/ai_panel.vala:129
-msgid "输入指令, Ctrl+Enter 发送"
-msgstr "Enter a prompt, Ctrl+Enter to send"
+#: src/widgets/ai_panel.vala:123
+msgid "滚动到底部"
+msgstr "Scroll to Bottom"
 
-#: src/widgets/ai_panel.vala:171
+#: src/widgets/ai_panel.vala:178
 msgid "输入指令, Enter 发送, Ctrl+Enter 换行"
 msgstr "Enter a command, Enter to send, Ctrl+Enter for new line"
 
-#: src/widgets/ai_panel.vala:162
+#: src/widgets/ai_panel.vala:223
 msgid "清空对话"
 msgstr "Clear Chat"
 
-#: src/widgets/ai_panel.vala:171 src/widgets/ai_panel.vala:862
+#: src/widgets/ai_panel.vala:236 src/widgets/ai_panel.vala:1104
 msgid "发送"
 msgstr "Send"
 
-#: src/widgets/ai_panel.vala:228
+#: src/widgets/ai_panel.vala:297
 msgid "未配置模型"
 msgstr "No model configured"
 
-#: src/widgets/ai_panel.vala:239 src/widgets/ai_panel.vala:307
+#: src/widgets/ai_panel.vala:315
 msgid ""
 "你好, 我是 AI 编排助手。告诉我你想收集哪些文件, 我来帮你编排。\n"
 "例如: \"把 src 目录下所有 Python 文件加进去, 然后在开头插入一段任务说明。\""
@@ -689,156 +811,274 @@ msgstr ""
 "For example: \"Add all Python files in the src directory, then insert a task "
 "description at the top.\""
 
-#: src/widgets/ai_panel.vala:379
+#: src/widgets/ai_panel.vala:570 src/widgets/ai_panel.vala:610
 msgid "收起"
 msgstr "Collapse"
 
-#: src/widgets/ai_panel.vala:379
+#: src/widgets/ai_panel.vala:570 src/widgets/ai_panel.vala:610
 msgid "查看结果"
 msgstr "View Result"
 
-#: src/widgets/ai_panel.vala:461
+#: src/widgets/ai_panel.vala:664
 msgid "已停止"
 msgstr "Stopped"
 
-#: src/widgets/ai_panel.vala:475
-msgid "请先在 设置 → AI 设置 中启用并配置 API。"
-msgstr "Please enable and configure the API in Settings → AI Settings first."
+#: src/widgets/ai_panel.vala:679
+msgid "请先在 设置 → AI 设置 中启用 AI 助手。"
+msgstr "Please enable the AI assistant in Settings → AI Settings first."
 
-#: src/widgets/ai_panel.vala:652
+#: src/widgets/ai_panel.vala:681
+msgid "请先在 设置 → AI 设置 中配置 API。"
+msgstr "Please configure the API in Settings → AI Settings first."
+
+#: src/widgets/ai_panel.vala:865
 msgid "客户端未配置"
 msgstr "Client not configured"
 
-#: src/widgets/ai_panel.vala:714
+#: src/widgets/ai_panel.vala:956 src/widgets/ai_panel.vala:969
 msgid "未配置工具执行器"
 msgstr "Tool executor not configured"
 
-#: src/widgets/ai_panel.vala:719
+#: src/widgets/ai_panel.vala:959 src/widgets/ai_panel.vala:974
 #, c-format
 msgid "执行出错: %s"
 msgstr "Execution error: %s"
 
-#: src/widgets/ai_panel.vala:770
+#: src/widgets/ai_panel.vala:1008
 #, c-format
 msgid "调用失败: %s"
 msgstr "Call failed: %s"
 
-#: src/widgets/ai_panel.vala:857
+#: src/widgets/ai_panel.vala:1098
 msgid "停止"
 msgstr "Stop"
 
-#: src/widgets/ai_panel.vala:860
+#: src/widgets/ai_panel.vala:1102
 msgid "正在思考..."
 msgstr "Thinking..."
 
-#: src/widgets/ai_panel.vala:874
+#: src/widgets/ai_panel.vala:1117
+msgid "未启用"
+msgstr "Disabled"
+
+#: src/widgets/ai_panel.vala:1121
 msgid "未配置"
 msgstr "Not configured"
 
-#: src/widgets/ai_panel.vala:878
+#: src/widgets/ai_panel.vala:1125
 msgid "就绪"
 msgstr "Ready"
 
-# AI settings dialog strings
-#: src/widgets/ai_settings_dialog.vala:56
-msgid "AI 助手设置"
-msgstr "AI Assistant Settings"
+#: src/widgets/ai_settings_dialog.vala:73
+msgid "AI 设置"
+msgstr "AI Settings"
 
-#: src/widgets/ai_settings_dialog.vala:70
+#: src/widgets/ai_settings_dialog.vala:87
 msgid "保存"
 msgstr "Save"
 
-#: src/widgets/ai_settings_dialog.vala:80
-msgid "通用"
-msgstr "General"
+#: src/widgets/ai_settings_dialog.vala:97
+msgid "AI 助手 (侧边栏)"
+msgstr "AI Assistant (Sidebar)"
 
-#: src/widgets/ai_settings_dialog.vala:82 src/widgets/ai_settings_dialog.vala:87
+#: src/widgets/ai_settings_dialog.vala:99
 msgid ""
-"配置 OpenAI 兼容 API, 即可在 AI 边栏使用自然语言编排文件。\n"
-"支持 OpenAI、Azure OpenAI、Microsoft Foundry 上的 Fast Context 等特化模型, "
-"以及任何兼容端点 (例如本地 Ollama)。"
+"配置 OpenAI 兼容 API，即可在 AI 边栏使用自然语言编排文件。\n"
+"支持 OpenAI、Azure OpenAI 及任何兼容端点（例如本地 Ollama）。"
 msgstr ""
-"Configure an OpenAI-compatible API to orchestrate files with natural "
-"language in the AI sidebar.\n"
-"Supports OpenAI, Azure OpenAI, Microsoft Foundry Fast Context and other "
-"specialized models, as well as any compatible endpoint (e.g. local Ollama)."
+"Configure an OpenAI-compatible API to orchestrate files with natural language in the AI sidebar.\n"
+"Supports OpenAI, Azure OpenAI, and any compatible endpoint (e.g. local Ollama)."
 
-#: src/widgets/ai_settings_dialog.vala:89
+#: src/widgets/ai_settings_dialog.vala:104
 msgid "启用 AI 助手"
 msgstr "Enable AI Assistant"
 
-#: src/widgets/ai_settings_dialog.vala:90
+#: src/widgets/ai_settings_dialog.vala:105
 msgid "关闭后 AI 边栏会保留, 但不会发送任何请求"
-msgstr "When disabled, the AI sidebar remains visible but won't send any requests"
+msgstr ""
+"When disabled, the AI sidebar remains visible but won't send any requests"
 
-#: src/widgets/ai_settings_dialog.vala:99
+#: src/widgets/ai_settings_dialog.vala:113
+#: src/widgets/ai_settings_dialog.vala:172
 msgid "API 基础地址"
 msgstr "API Base URL"
 
-#: src/widgets/ai_settings_dialog.vala:106
+#: src/widgets/ai_settings_dialog.vala:119
+#: src/widgets/ai_settings_dialog.vala:178
 msgid "API 密钥"
 msgstr "API Key"
 
-#: src/widgets/ai_settings_dialog.vala:112
+#: src/widgets/ai_settings_dialog.vala:124
+#: src/widgets/ai_settings_dialog.vala:183
 msgid "模型名称"
 msgstr "Model Name"
 
-#: src/widgets/ai_settings_dialog.vala:118
+#: src/widgets/ai_settings_dialog.vala:130
+#: src/widgets/ai_settings_dialog.vala:189
 msgid "请求超时 (秒)"
 msgstr "Request Timeout (seconds)"
 
-#: src/widgets/ai_settings_dialog.vala:125
+#: src/widgets/ai_settings_dialog.vala:135
+#: src/widgets/ai_settings_dialog.vala:194
 msgid "高级"
 msgstr "Advanced"
 
-#: src/widgets/ai_settings_dialog.vala:129
-msgid "自定义系统提示词"
-msgstr "Custom System Prompt"
+#: src/widgets/ai_settings_dialog.vala:139
+#: src/widgets/ai_settings_dialog.vala:211
+msgid "自定义系统提示词 (可选)"
+msgstr "Custom System Prompt (Optional)"
 
-#: src/widgets/ai_settings_dialog.vala:136
+#: src/widgets/ai_settings_dialog.vala:145
+#: src/widgets/ai_settings_dialog.vala:217
 msgid "测试连接"
 msgstr "Test Connection"
 
-#: src/widgets/ai_settings_dialog.vala:137
-msgid "用当前配置向 API 发送一次最小请求, 验证是否可用"
-msgstr "Send a minimal request to the API with current settings to verify it works"
+#: src/widgets/ai_settings_dialog.vala:146
+msgid "验证侧边栏 AI 配置是否可用"
+msgstr "Verify sidebar AI configuration"
 
-#: src/widgets/ai_settings_dialog.vala:139
+#: src/widgets/ai_settings_dialog.vala:147
+#: src/widgets/ai_settings_dialog.vala:219
 msgid "测试"
 msgstr "Test"
 
-#: src/widgets/ai_settings_dialog.vala:152
+#: src/widgets/ai_settings_dialog.vala:157
+msgid "视觉语言大模型 (VLM) (二进制文件预处理)"
+msgstr "Vision-Language Model (VLM) (Binary File Preprocessing)"
+
+#: src/widgets/ai_settings_dialog.vala:159
+msgid ""
+"配置视觉语言大模型 (VLM) API，用于将 PDF、Word、PPT、图片等文件转换为 "
+"Markdown。"
+msgstr ""
+"Configure a VLM (Vision-Language Model) API to convert PDF, Word, PPT, "
+"images, etc. into Markdown."
+
+#: src/widgets/ai_settings_dialog.vala:163
+msgid "启用 VLM"
+msgstr "Enable VLM"
+
+#: src/widgets/ai_settings_dialog.vala:164
+msgid "关闭后二进制文件将不会自动转换"
+msgstr "Binary files will not be auto-converted when disabled"
+
+#: src/widgets/ai_settings_dialog.vala:199
+msgid "允许转换的二进制扩展名 (逗号分隔, 如 .pdf, .docx)"
+msgstr "Allowed binary extensions (comma-separated, e.g. .pdf, .docx)"
+
+#: src/widgets/ai_settings_dialog.vala:204
+msgid "默认"
+msgstr "Default"
+
+#: src/widgets/ai_settings_dialog.vala:206
+msgid "恢复为默认扩展名列表"
+msgstr "Reset to default extension list"
+
+#: src/widgets/ai_settings_dialog.vala:218
+msgid "验证视觉语言大模型 (VLM) 配置是否可用"
+msgstr "Verify VLM (Vision-Language Model) configuration"
+
+#: src/widgets/ai_settings_dialog.vala:229
 msgid "扫描忽略目录"
 msgstr "Scan Ignored Directories"
 
-#: src/widgets/ai_settings_dialog.vala:153
+#: src/widgets/ai_settings_dialog.vala:231
 msgid "AI 扫描工作目录时将跳过这些目录名，用英文逗号分隔。"
-msgstr "These directory names will be skipped when AI scans the working directory. Separate with commas."
+msgstr ""
+"These directory names will be skipped when AI scans the working directory. "
+"Separate with commas."
 
-#: src/widgets/ai_settings_dialog.vala:159
+#: src/widgets/ai_settings_dialog.vala:235
 msgid "忽略的目录名"
 msgstr "Ignored Directory Names"
 
-#: src/widgets/ai_settings_dialog.vala:192
+#: src/widgets/ai_settings_dialog.vala:246
+#: src/widgets/ai_settings_dialog.vala:323
+msgid "安全警告"
+msgstr "Security Warning"
+
+#: src/widgets/ai_settings_dialog.vala:250
+msgid "HTTP 端点安全风险"
+msgstr "HTTP Endpoint Security Risk"
+
+#: src/widgets/ai_settings_dialog.vala:251
+msgid "使用 HTTP (非 HTTPS) 端点时，API 密钥将在网络中明文传输，存在安全风险。"
+msgstr ""
+"When using an HTTP (non-HTTPS) endpoint, the API key will be transmitted in "
+"plaintext over the network, which poses a security risk."
+
+#: src/widgets/ai_settings_dialog.vala:324
+msgid ""
+"您正在配置 HTTP (非 HTTPS) 端点。\n"
+"\n"
+"这将导致 API 密钥在传输过程中以明文形式发送，存在被第三方截获的风险。\n"
+"\n"
+"是否仍要继续保存？"
+msgstr ""
+"You are configuring an HTTP (non-HTTPS) endpoint.\n"
+"\n"
+"This will cause the API key to be sent in plaintext during transmission, with the risk of being intercepted by third parties.\n"
+"\n"
+"Do you still want to continue saving?"
+
+#: src/widgets/ai_settings_dialog.vala:329
+msgid "继续保存"
+msgstr "Continue Saving"
+
+#: src/widgets/ai_settings_dialog.vala:420
 msgid "请先填写 API 基础地址、密钥和模型名称。"
 msgstr "Please fill in the API Base URL, Key, and Model Name first."
 
-#: src/widgets/ai_settings_dialog.vala:201
+#: src/widgets/ai_settings_dialog.vala:426
 msgid "正在测试..."
 msgstr "Testing..."
 
-#: src/widgets/ai_settings_dialog.vala:249
+#: src/widgets/ai_settings_dialog.vala:490
 msgid "✓ 连接成功"
 msgstr "✓ Connected successfully"
 
-#: src/widgets/ai_settings_dialog.vala:258
+#: src/widgets/ai_settings_dialog.vala:502
+#, c-format
 msgid "✗ 失败: HTTP %u %s"
 msgstr "✗ Failed: HTTP %u %s"
 
-#: src/widgets/ai_settings_dialog.vala:265
+#: src/widgets/ai_settings_dialog.vala:507
 #, c-format
 msgid "✗ 失败: %s"
 msgstr "✗ Failed: %s"
+
+#: src/services/file_generator.vala:16
+#, c-format
+msgid ""
+"# 工作目录绝对路径: %s\n"
+"\n"
+msgstr ""
+"# Working directory absolute path: %s\n"
+"\n"
+
+#: src/services/file_generator.vala:26
+#, c-format
+msgid "[缺失文件: %s]\n"
+msgstr "[Missing file: %s]\n"
+
+#: src/services/file_generator.vala:48
+#, c-format
+msgid "[无法获取文件信息: %s]\n"
+msgstr "[Unable to get file info: %s]\n"
+
+#: src/services/file_generator.vala:52
+#, c-format
+msgid "[文件过大 (%s), 已跳过内容读取]\n"
+msgstr "[File too large (%s), content reading skipped]\n"
+
+#: src/services/file_generator.vala:77
+msgid "[检测到二进制文件: 已跳过文本内容读取]\n"
+msgstr "[Binary file detected: text content reading skipped]\n"
+
+#: src/services/file_generator.vala:93
+#, c-format
+msgid "[读取文件失败: %s]\n"
+msgstr "[Failed to read file: %s]\n"
 
 # AI client error messages
 #: src/services/ai_client.vala:328
@@ -853,26 +1093,18 @@ msgstr "API Key not configured. Please fill it in Settings → AI Settings."
 msgid "模型名称未配置, 请在 设置 → AI 设置 中填写。"
 msgstr "Model Name not configured. Please fill it in Settings → AI Settings."
 
-#: src/services/ai_client.vala:377
+#: src/services/ai_client.vala:369
 msgid "网络错误: "
 msgstr "Network error: "
 
-#: src/services/ai_client.vala:395
+#: src/services/ai_client.vala:385
 #, c-format
 msgid "HTTP %u %s: %s"
 msgstr "HTTP %u %s: %s"
 
-#: src/services/ai_client.vala:399
+#: src/services/ai_client.vala:389
 msgid "响应为空"
 msgstr "Empty response"
-
-#: src/services/ai_client.vala:411
-msgid "响应不是合法 JSON: "
-msgstr "Response is not valid JSON: "
-
-#: src/services/ai_client.vala:415
-msgid "响应顶层不是对象"
-msgstr "Response top-level is not an object"
 
 #: src/services/ai_client.vala:410
 msgid "AI 请求已被用户主动取消"
@@ -883,260 +1115,92 @@ msgstr "AI request was cancelled by user"
 msgid "API 返回错误状态码: %u"
 msgstr "API returned error status code: %u"
 
-#: src/services/file_generator.vala:46
+#: src/services/ai_client.vala:425
+msgid "响应不是合法 JSON: "
+msgstr "Response is not valid JSON: "
+
+#: src/services/ai_client.vala:429 src/services/ai_client.vala:432
+msgid "响应顶层不是对象"
+msgstr "Response top-level is not an object"
+
+#~ msgid "编排列表为空"
+#~ msgstr "Queue is Empty"
+
 #, c-format
-msgid "[无法获取文件信息: %s]\n"
-msgstr "[Unable to get file info: %s]\n"
+#~ msgid "[缺失文件: %s]"
+#~ msgstr "[Missing file: %s]"
 
-#: src/services/file_generator.vala:50
 #, c-format
-msgid "[文件过大 (%s), 已跳过内容读取]\n"
-msgstr "[File too large (%s), content reading skipped]\n"
+#~ msgid "[文件不存在: %s]\n"
+#~ msgstr "[File does not exist: %s]\n"
 
-#: src/services/file_generator.vala:75
-msgid "[检测到二进制文件: 已跳过文本内容读取]\n"
-msgstr "[Binary file detected: text content reading skipped]\n"
+#~ msgid "项目文件 (*.project.json)"
+#~ msgstr "Project File (*.project.json)"
 
-#: src/services/file_generator.vala:98
-#, c-format
-msgid "[读取文件失败: %s]\n"
-msgstr "[Failed to read file: %s]\n"
+#~ msgid "输入指令, Ctrl+Enter 发送"
+#~ msgstr "Enter a prompt, Ctrl+Enter to send"
 
-#: src/widgets/ai_panel.vala:119 src/widgets/ai_panel.vala:123
-#: src/widgets/ai_panel.vala:418 src/widgets/ai_panel.vala:432
-msgid "滚动到底部"
-msgstr "Scroll to Bottom"
+#~ msgid "请先在 设置 → AI 设置 中启用并配置 API。"
+#~ msgstr ""
+#~ "Please enable and configure the API in Settings → AI Settings first."
 
-#: src/widgets/ai_panel.vala:675
-msgid "请先在 设置 → AI 设置 中启用 AI 助手。"
-msgstr "Please enable the AI assistant in Settings → AI Settings first."
+# AI settings dialog strings
+#~ msgid "AI 助手设置"
+#~ msgstr "AI Assistant Settings"
 
-#: src/widgets/ai_panel.vala:677
-msgid "请先在 设置 → AI 设置 中配置 API。"
-msgstr "Please configure the API in Settings → AI Settings first."
+#~ msgid "通用"
+#~ msgstr "General"
 
-#: src/widgets/ai_panel.vala:1117
-msgid "未启用"
-msgstr "Disabled"
+#~ msgid ""
+#~ "配置 OpenAI 兼容 API, 即可在 AI 边栏使用自然语言编排文件。\n"
+#~ "支持 OpenAI、Azure OpenAI、Microsoft Foundry 上的 Fast Context 等特化模"
+#~ "型, 以及任何兼容端点 (例如本地 Ollama)。"
+#~ msgstr ""
+#~ "Configure an OpenAI-compatible API to orchestrate files with natural "
+#~ "language in the AI sidebar.\n"
+#~ "Supports OpenAI, Azure OpenAI, Microsoft Foundry Fast Context and other "
+#~ "specialized models, as well as any compatible endpoint (e.g. local "
+#~ "Ollama)."
 
-#: src/window.vala:2469 src/window.vala:2520
-msgid "切换 AI 面板"
-msgstr "Toggle AI Panel"
+#~ msgid "自定义系统提示词"
+#~ msgstr "Custom System Prompt"
 
-#: src/widgets/ai_settings_dialog.vala:173
-msgid "HTTP 端点安全风险"
-msgstr "HTTP Endpoint Security Risk"
+#~ msgid "用当前配置向 API 发送一次最小请求, 验证是否可用"
+#~ msgstr ""
+#~ "Send a minimal request to the API with current settings to verify it works"
 
-#: src/widgets/ai_settings_dialog.vala:174
-msgid "使用 HTTP (非 HTTPS) 端点时，API 密钥将在网络中明文传输，存在安全风险。"
-msgstr "When using an HTTP (non-HTTPS) endpoint, the API key will be transmitted in plaintext over the network, which poses a security risk."
+#~ msgid ""
+#~ "您正在配置 HTTP (非 HTTPS) 端点。\n"
+#~ "\n"
+#~ "这将导致 API 密钥在传输过程中以明文形式发送，存在被第三方截获的风险。\n"
+#~ "\n"
+#~ "建议使用 HTTPS 端点以确保安全。\n"
+#~ "\n"
+#~ "是否仍要继续保存？"
+#~ msgstr ""
+#~ "You are configuring an HTTP (non-HTTPS) endpoint.\n"
+#~ "\n"
+#~ "This will cause the API key to be sent in plaintext during transmission, "
+#~ "with the risk of being intercepted by third parties.\n"
+#~ "\n"
+#~ "It is recommended to use an HTTPS endpoint for security.\n"
+#~ "\n"
+#~ "Do you still want to continue saving?"
 
-#: src/widgets/ai_settings_dialog.vala:239 src/widgets/ai_settings_dialog.vala:243
-msgid "安全警告"
-msgstr "Security Warning"
+#~ msgid "AI 转换失败"
+#~ msgstr "AI conversion failed"
 
-#: src/widgets/ai_settings_dialog.vala:240
-msgid ""
-"您正在配置 HTTP (非 HTTPS) 端点。\n"
-"\n"
-"这将导致 API 密钥在传输过程中以明文形式发送，存在被第三方截获的风险。\n"
-"\n"
-"建议使用 HTTPS 端点以确保安全。\n"
-"\n"
-"是否仍要继续保存？"
-msgstr ""
-"You are configuring an HTTP (non-HTTPS) endpoint.\n"
-"\n"
-"This will cause the API key to be sent in plaintext during transmission, with the risk of being intercepted by third parties.\n"
-"\n"
-"It is recommended to use an HTTPS endpoint for security.\n"
-"\n"
-"Do you still want to continue saving?"
+#~ msgid "AI 转换完成"
+#~ msgstr "AI conversion complete"
 
-#: src/widgets/ai_settings_dialog.vala:247
-msgid "继续保存"
-msgstr "Continue Saving"
+#~ msgid "已读取本地缓存"
+#~ msgstr "Loaded from local cache"
 
-#: src/window.vala:2237
-msgid "保存已取消"
-msgstr "Save cancelled"
+#~ msgid "强制重新调用视觉语言大模型 (VLM) 转换"
+#~ msgstr "Force re-run VLM (Vision-Language Model) conversion"
 
-#: src/widgets/ai_settings_dialog.vala
-msgid "AI 助手 (侧边栏)"
-msgstr "AI Assistant (Sidebar)"
-
-#: src/widgets/ai_settings_dialog.vala
-msgid "AI 设置"
-msgstr "AI Settings"
-
-#: src/widgets/ai_settings_dialog.vala
-msgid "关闭后二进制文件将不会自动转换"
-msgstr "Binary files will not be auto-converted when disabled"
-
-#: src/widgets/ai_settings_dialog.vala
-msgid "启用 VLM"
-msgstr "Enable VLM"
-
-#: src/widgets/ai_settings_dialog.vala
-msgid "视觉语言大模型 (VLM) (二进制文件预处理)"
-msgstr "Vision-Language Model (VLM) (Binary File Preprocessing)"
-
-#: src/widgets/ai_settings_dialog.vala
-msgid "自定义系统提示词 (可选)"
-msgstr "Custom System Prompt (Optional)"
-
-#: src/widgets/ai_settings_dialog.vala
-msgid "配置视觉语言大模型 (VLM) API，用于将 PDF、Word、PPT、图片等文件转换为 Markdown。"
-msgstr "Configure a VLM (Vision-Language Model) API to convert PDF, Word, PPT, images, etc. into Markdown."
-
-#: src/widgets/ai_settings_dialog.vala
-msgid "验证侧边栏 AI 配置是否可用"
-msgstr "Verify sidebar AI configuration"
-
-#: src/widgets/ai_settings_dialog.vala
-msgid "验证视觉语言大模型 (VLM) 配置是否可用"
-msgstr "Verify VLM (Vision-Language Model) configuration"
-
-#: src/window.vala
-#, c-format
-msgid "⚠ %s (缺失)"
-msgstr "⚠ %s (missing)"
-
-#: src/window.vala
-#, c-format
-msgid "已添加 %d 个文件"
-msgstr "Added %d file(s)"
-
-#: src/window.vala
-#, c-format
-msgid "已添加 %d 个文件，跳过 %d 个重复文件"
-msgstr "Added %d file(s), skipped %d duplicate(s)"
-
-#: src/window.vala
-#, c-format
-msgid "所选文件已全部存在，跳过 %d 个重复文件"
-msgstr "All selected files already exist, skipped %d duplicate(s)"
-
-#: src/window.vala
-#, c-format
-msgid "来自外部文件"
-msgstr "External file"
-
-#: src/window.vala
-msgid "AI 转换失败"
-msgstr "AI conversion failed"
-
-#: src/window.vala
-msgid "AI 转换完成"
-msgstr "AI conversion complete"
-
-#: src/window.vala
-msgid "已读取本地缓存"
-msgstr "Loaded from local cache"
-
-#: src/window.vala
-msgid "强制重新调用视觉语言大模型 (VLM) 转换"
-msgstr "Force re-run VLM (Vision-Language Model) conversion"
-
-#: src/window.vala
-msgid "正在处理中..."
-msgstr "Processing..."
-
-#: src/window.vala
-msgid "等待处理"
-msgstr "Pending"
-
-#: src/window.vala
-msgid "重试转换"
-msgstr "Retry conversion"
-
-#: src/window.vala
-msgid "重新进行 AI 转换"
-msgstr "Re-run AI conversion"
-
-#: src/window.blp
-msgid "清除工作区缓存"
-msgstr "Clear Workspace Cache"
-
-#: src/window.vala
-msgid "确认清除缓存？"
-msgstr "Confirm Cache Deletion?"
-
-#: src/window.vala
-msgid ""
-"这将删除当前工作目录下的 .filecollector_cache 隐藏文件夹。\n"
-"下次处理图片及 PDF 等文件时，将重新调用 VLM 并消耗 API Token。"
-msgstr ""
-"This will delete the .filecollector_cache hidden folder in the current working directory.\n"
-"The next time you process images and PDFs, the VLM will be called again, consuming API tokens."
-
-#: src/window.vala
-msgid "清除"
-msgstr "Clear"
-
-#: src/window.vala
-msgid "工作区缓存已清除"
-msgstr "Workspace cache cleared"
-
-#: src/window.vala
-msgid "尚未设置工作目录"
-msgstr "No working directory set yet"
-
-#: src/window.vala
-msgid "编辑文本"
-msgstr "Edit Text"
-
-#: src/window.vala
-msgid "在上方插入文本"
-msgstr "Insert Text Above"
-
-#: src/window.vala
-msgid "在下方插入文本"
-msgstr "Insert Text Below"
-
-#: src/window.vala
-msgid "路径已复制到剪贴板"
-msgstr "Path copied to clipboard"
-
-#: src/window.vala
-msgid "在文件管理器中显示"
-msgstr "Show in File Manager"
-
-#: src/window.vala
-msgid "复制路径"
-msgstr "Copy Path"
-
-#: src/window.vala
-msgid "复制文件内容"
-msgstr "Copy File Content"
-
-#: src/window.vala
-msgid "文件过大，无法复制内容"
-msgstr "File too large to copy content"
-
-#: src/window.vala
-msgid "读取文件失败"
-msgstr "Failed to read file"
-
-#: src/window.vala
-msgid "无法打开文件管理器"
-msgstr "Cannot open file manager"
-
-#: src/window.vala
-msgid "文件内容已复制"
-msgstr "File content copied"
-
-#: src/widgets/ai_settings_dialog.vala
-msgid "允许转换的二进制扩展名 (逗号分隔, 如 .pdf, .docx)"
-msgstr "Allowed binary extensions (comma-separated, e.g. .pdf, .docx)"
-
-#: src/widgets/ai_settings_dialog.vala
-msgid "恢复为默认扩展名列表"
-msgstr "Reset to default extension list"
-
-#: src/widgets/ai_settings_dialog.vala
-msgid "默认"
-msgstr "Default"
+#~ msgid "重试转换"
+#~ msgstr "Retry conversion"
 
 #~ msgid "Ctrl+,    语言设置"
 #~ msgstr "Ctrl+,    Language Settings"
@@ -1220,11 +1284,9 @@ msgstr "Default"
 #~ msgid "展开"
 #~ msgstr "Expand"
 
-#: src/utils/tree_helper.vala:57
-msgid "正在加载..."
-msgstr "Loading..."
+#~ msgid "正在加载..."
+#~ msgstr "Loading..."
 
-#: src/utils/tree_helper.vala:70
 #, c-format
-msgid "无法读取目录: %s"
-msgstr "Unable to read directory: %s"
+#~ msgid "无法读取目录: %s"
+#~ msgstr "Unable to read directory: %s"

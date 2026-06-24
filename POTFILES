@@ -8,4 +8,4 @@ src/widgets/ai_settings_dialog.vala
 src/services/project_manager.vala
 src/services/file_generator.vala
 src/services/ai_client.vala
-src/utils/tree_helper.vala
+src/widgets/markdown_view.vala
