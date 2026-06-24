@@ -4,10 +4,6 @@ using Adw;
 using Json;
 using Gee;
 
-// 绕过 Vala 生成 GObject** 导致的 C 编译器 incompatible-pointer-types 警告
-[CCode (cname = "g_list_store_splice")]
-private extern void list_store_splice_void (GLib.ListStore store, uint position, uint n_removals, [CCode (array_length = false)] void*[] additions, uint n_additions);
-
 // ─── Directory Item Model ───────────────────────────────────────────────
 
 // 三态勾选状态模型 - 单一真相源
@@ -2152,12 +2148,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 // 完全一致，无需任何操作
             } else if (n < m) {
                 // 仅尾部追加
-                void*[] adds = new void*[m - n];
+                GLib.Object[] adds = new GLib.Object[m - n];
                 for (int i = (int)n; i < m; i++) adds[i - (int)n] = items.get (i);
-                list_store_splice_void (queue_store, n, 0, adds, adds.length);
+                queue_store.splice (n, 0, adds);
             } else {
                 // 仅尾部删除
-                list_store_splice_void (queue_store, m, n - m, new void*[0], 0);
+                queue_store.splice (m, n - m, new GLib.Object[0]);
             }
         } else {
             // 3. 存在中间差异，寻找最后一个不一致的索引
@@ -2175,12 +2171,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             int replace_len_old = last_diff_old - first_diff + 1;
             int replace_len_new = last_diff_new - first_diff + 1;
 
-            void*[] adds = new void*[replace_len_new];
+            GLib.Object[] adds = new GLib.Object[replace_len_new];
             for (int i = 0; i < replace_len_new; i++) {
                 adds[i] = items.get (first_diff + i);
             }
             // 仅替换发生变化的中间段
-            list_store_splice_void (queue_store, first_diff, replace_len_old, adds, adds.length);
+            queue_store.splice (first_diff, replace_len_old, adds);
         }
 
         // 4. 恢复选择状态
