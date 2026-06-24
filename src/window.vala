@@ -462,6 +462,18 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         ai_controller.work_dir_change_requested.connect ((path) => ai_apply_set_work_dir (path));
         ai_controller.clear_items_requested.connect (() => on_clear_items ());
         ai_controller.refresh_list_requested.connect (() => refresh_list ());
+        // AI 侧边栏添文件后, 主动触发对应 item 的二进制预处理
+        ai_controller.preprocess_item_requested.connect ((path) => {
+            for (int i = 0; i < items.size; i++) {
+                var it = items.get (i);
+                if (it.item_type == "file" && it.file_path == path) {
+                    if (it.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
+                        check_and_apply_cache (it);
+                    }
+                    break;
+                }
+            }
+        });
     }
 
     private bool on_close_request () {

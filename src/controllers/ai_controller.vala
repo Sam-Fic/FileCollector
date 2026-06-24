@@ -14,6 +14,10 @@ public class AIController : GLib.Object {
     public signal void work_dir_change_requested (string path);
     public signal void clear_items_requested ();
     public signal void refresh_list_requested ();
+    // 通知 View 层对刚加入的 item 触发二进制预处理 (AI 走 app_state.add_file 后
+    // path_in_items 变 true, 后续 tree_check_changed 不会再调 check_and_apply_cache,
+    // 所以需要这个独立信号兜底)
+    public signal void preprocess_item_requested (string path);
 
     public AIController (AppState state) {
         GLib.Object (app_state: state);
@@ -326,6 +330,9 @@ public class AIController : GLib.Object {
             if (!(abs in app_state.check_model.checked_files)) {
                 app_state.check_model.add_files ({ abs });
             }
+            // 触发二进制预处理 (修复: tree_check_changed 走 set_tree_item_check
+            // 时 path 已在 items 中, 会跳过 check_and_apply_cache)
+            preprocess_item_requested (abs);
             tree_check_changed (abs, true);
             added++;
         }
