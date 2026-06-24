@@ -504,10 +504,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (ai_panel_instance != null) {
             ai_panel_instance.shutdown ();
         }
-        // Join 所有后台线程, 确保线程退出后再销毁窗口, 防止 Idle 回调访问已释放的 widget
-        foreach (var t in bg_threads) {
-            t.join ();
-        }
+        // 不 join 后台线程: cancel + window_closing 标志已通知线程退出,
+        // 进程终止时操作系统会自动回收线程资源, 避免 join 阻塞 GTK 主循环导致卡死
         bg_threads.clear ();
         return false;
     }
