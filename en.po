@@ -961,6 +961,167 @@ msgstr "Continue Saving"
 msgid "保存已取消"
 msgstr "Save cancelled"
 
+#: src/widgets/ai_settings_dialog.vala
+msgid "AI 助手 (侧边栏)"
+msgstr "AI Assistant (Sidebar)"
+
+#: src/widgets/ai_settings_dialog.vala
+msgid "AI 设置"
+msgstr "AI Settings"
+
+#: src/widgets/ai_settings_dialog.vala
+msgid "关闭后二进制文件将不会自动转换"
+msgstr "Binary files will not be auto-converted when disabled"
+
+#: src/widgets/ai_settings_dialog.vala
+msgid "启用多模态 AI"
+msgstr "Enable Multimodal AI"
+
+#: src/widgets/ai_settings_dialog.vala
+msgid "多模态 AI (二进制文件预处理)"
+msgstr "Multimodal AI (Binary File Preprocessing)"
+
+#: src/widgets/ai_settings_dialog.vala
+msgid "自定义系统提示词 (可选)"
+msgstr "Custom System Prompt (Optional)"
+
+#: src/widgets/ai_settings_dialog.vala
+msgid "配置多模态视觉大模型 API，用于将 PDF、Word、PPT、图片等文件转换为 Markdown。"
+msgstr "Configure a multimodal vision API to convert PDF, Word, PPT, images, etc. into Markdown."
+
+#: src/widgets/ai_settings_dialog.vala
+msgid "验证侧边栏 AI 配置是否可用"
+msgstr "Verify sidebar AI configuration"
+
+#: src/widgets/ai_settings_dialog.vala
+msgid "验证多模态 AI 配置是否可用"
+msgstr "Verify multimodal AI configuration"
+
+#: src/window.vala
+#, c-format
+msgid "⚠ %s (缺失)"
+msgstr "⚠ %s (missing)"
+
+#: src/window.vala
+#, c-format
+msgid "已添加 %d 个文件"
+msgstr "Added %d file(s)"
+
+#: src/window.vala
+#, c-format
+msgid "已添加 %d 个文件，跳过 %d 个重复文件"
+msgstr "Added %d file(s), skipped %d duplicate(s)"
+
+#: src/window.vala
+#, c-format
+msgid "所选文件已全部存在，跳过 %d 个重复文件"
+msgstr "All selected files already exist, skipped %d duplicate(s)"
+
+#: src/window.vala
+#, c-format
+msgid "来自外部文件"
+msgstr "External file"
+
+#: src/window.vala
+msgid "AI 转换失败"
+msgstr "AI conversion failed"
+
+#: src/window.vala
+msgid "AI 转换完成"
+msgstr "AI conversion complete"
+
+#: src/window.vala
+msgid "已读取本地缓存"
+msgstr "Loaded from local cache"
+
+#: src/window.vala
+msgid "强制重新调用多模态模型转换"
+msgstr "Force re-run multimodal model conversion"
+
+#: src/window.vala
+msgid "正在处理中..."
+msgstr "Processing..."
+
+#: src/window.vala
+msgid "等待处理"
+msgstr "Pending"
+
+#: src/window.vala
+msgid "重试转换"
+msgstr "Retry conversion"
+
+#: src/window.vala
+msgid "重新进行 AI 转换"
+msgstr "Re-run AI conversion"
+
+#: src/window.blp
+msgid "清除工作区缓存"
+msgstr "Clear Workspace Cache"
+
+#: src/window.vala
+msgid "确认清除缓存？"
+msgstr "Confirm Cache Deletion?"
+
+#: src/window.vala
+msgid ""
+"这将删除当前工作目录下的 .filecollector_cache 隐藏文件夹。\n"
+"下次处理相同文件时，将重新调用多模态模型并消耗 API Token。"
+msgstr ""
+"This will delete the .filecollector_cache hidden folder in the current working directory.\n"
+"The next time the same files are processed, the multimodal model will be called again, consuming API tokens."
+
+#: src/window.vala
+msgid "清除"
+msgstr "Clear"
+
+#: src/window.vala
+msgid "工作区缓存已清除"
+msgstr "Workspace cache cleared"
+
+#: src/window.vala
+msgid "尚未设置工作目录"
+msgstr "No working directory set yet"
+
+#: src/window.vala
+msgid "编辑文本"
+msgstr "Edit Text"
+
+#: src/window.vala
+msgid "在上方插入文本"
+msgstr "Insert Text Above"
+
+#: src/window.vala
+msgid "在下方插入文本"
+msgstr "Insert Text Below"
+
+#: src/window.vala
+msgid "路径已复制到剪贴板"
+msgstr "Path copied to clipboard"
+
+#: src/window.vala
+msgid "在文件管理器中显示"
+msgstr "Show in File Manager"
+
+#: src/window.vala
+msgid "复制路径"
+msgstr "Copy Path"
+
+#: src/window.vala
+msgid "复制文件内容"
+msgstr "Copy File Content"
+
+#: src/window.vala
+msgid "文件过大，无法复制内容"
+msgstr "File too large to copy content"
+
+#: src/window.vala
+msgid "读取文件失败"
+msgstr "Failed to read file"
+
+#: src/window.vala
+msgid "无法打开文件管理器"
+msgstr "Cannot open file manager"
+
 
 
 #~ msgid "Ctrl+,    语言设置"

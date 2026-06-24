@@ -1,12 +1,8 @@
 /* AI 助手设置对话框.
  *
- * 与多平台版本 ai_settings_dialog.py 行为 1:1:
- *  - 启用开关 / API 基础地址 / 密钥 / 模型名 / 超时 / 自定义提示词
- *  - 写入 settings.json 的 ``ai`` 字段
- *  - 测试连接按钮在线调用一次, 反馈成功 / 失败原因
- *
- * UI 用 Adw.PreferencesPage 风格, 跟现有 设置 弹窗 / 常用语 弹窗保持一致
- * (都是 transient Adw.Window + 工具栏布局).
+ * 整合侧边栏 AI 与多模态 AI 设置于同一入口:
+ *  Section 1 — 侧边栏 AI 助手 (文本编排)
+ *  Section 2 — 多模态 AI (二进制文件→Markdown 预处理)
  */
 
 using GLib;
@@ -22,27 +18,39 @@ public class AISettingsDialog : GLib.Object {
     private Adw.Window? window;
     private Gtk.Window? parent_window;
 
-    // 控件引用
-    private Gtk.Switch chk_enabled;
-    private Adw.EntryRow edit_base_url;
-    private Adw.PasswordEntryRow edit_api_key;
-    private Adw.EntryRow edit_model;
-    private Adw.SpinRow spin_timeout;
-    private Adw.EntryRow edit_prompt;
+    // ── 侧边栏 AI 控件 ──
+    private Gtk.Switch chk_sidebar_enabled;
+    private Adw.EntryRow edit_sidebar_base_url;
+    private Adw.PasswordEntryRow edit_sidebar_api_key;
+    private Adw.EntryRow edit_sidebar_model;
+    private Adw.SpinRow spin_sidebar_timeout;
+    private Adw.EntryRow edit_sidebar_prompt;
+    private Gtk.Button btn_sidebar_test;
+
+    // ── 多模态 AI 控件 ──
+    private Gtk.Switch chk_mm_enabled;
+    private Adw.EntryRow edit_mm_base_url;
+    private Adw.PasswordEntryRow edit_mm_api_key;
+    private Adw.EntryRow edit_mm_model;
+    private Adw.SpinRow spin_mm_timeout;
+    private Adw.EntryRow edit_mm_prompt;
+    private Gtk.Button btn_mm_test;
+
+    // ── 共享 ──
     private Adw.EntryRow edit_ignored_dirs;
-    private Gtk.Button btn_test;
     private Adw.ToastOverlay toast_overlay;
 
-    private ConfigManager.AISettings current;
+    private ConfigManager.AISettings sidebar_current;
+    private ConfigManager.MultimodalAISettings mm_current;
 
-    // 测试连接用的 Session: 提升为成员变量, 避免异步请求完成前局部变量超出作用域被回收
     private Soup.Session? test_session = null;
-    // 测试连接用的 Cancellable: 关闭对话框时取消请求, 防止回调访问已销毁的 widget
     private GLib.Cancellable? test_cancellable = null;
+    private bool testing_sidebar = false;
 
     public AISettingsDialog (Gtk.Window? parent) {
         this.parent_window = parent;
-        this.current = ConfigManager.load_ai_settings ();
+        this.sidebar_current = ConfigManager.load_ai_settings ();
+        this.mm_current = ConfigManager.load_multimodal_ai_settings ();
     }
 
     public void present () {
@@ -59,8 +67,8 @@ public class AISettingsDialog : GLib.Object {
         window = new Adw.Window ();
         window.set_transient_for (parent_window);
         window.set_modal (true);
-        window.set_default_size (520, 540);
-        window.set_title (_("AI 助手设置"));
+        window.set_default_size (520, 700);
+        window.set_title (_("AI 设置"));
 
         var toolbar_view = new Adw.ToolbarView ();
         window.set_content (toolbar_view);
@@ -78,79 +86,130 @@ public class AISettingsDialog : GLib.Object {
         ok_btn.add_css_class ("suggested-action");
         header.pack_end (ok_btn);
 
-        // 主区域: PreferencesPage
         var prefs_page = new Adw.PreferencesPage ();
 
-        // ── 通用组 ──
-        var general_group = new Adw.PreferencesGroup ();
-        general_group.set_title (_("通用"));
-        general_group.set_description (
-            _("配置 OpenAI 兼容 API, 即可在 AI 边栏使用自然语言编排文件。\n"
-              + "支持 OpenAI、Azure OpenAI、Microsoft Foundry 上的 Fast Context 等特化模型, "
-              + "以及任何兼容端点 (例如本地 Ollama)。"));
-        prefs_page.add (general_group);
+        // ═══════════════════════════════════════════════════════
+        // Section 1: 侧边栏 AI 助手
+        // ═══════════════════════════════════════════════════════
+        var sidebar_group = new Adw.PreferencesGroup ();
+        sidebar_group.set_title (_("AI 助手 (侧边栏)"));
+        sidebar_group.set_description (
+            _("配置 OpenAI 兼容 API，即可在 AI 边栏使用自然语言编排文件。\n"
+              + "支持 OpenAI、Azure OpenAI 及任何兼容端点（例如本地 Ollama）。"));
+        prefs_page.add (sidebar_group);
 
-        // 启用
-        var enabled_row = new Adw.ActionRow ();
-        enabled_row.set_title (_("启用 AI 助手"));
-        enabled_row.set_subtitle (_("关闭后 AI 边栏会保留, 但不会发送任何请求"));
-        chk_enabled = new Gtk.Switch ();
-        chk_enabled.valign = Gtk.Align.CENTER;
-        enabled_row.add_suffix (chk_enabled);
-        enabled_row.set_activatable_widget (chk_enabled);
-        general_group.add (enabled_row);
+        var sb_enabled_row = new Adw.ActionRow ();
+        sb_enabled_row.set_title (_("启用 AI 助手"));
+        sb_enabled_row.set_subtitle (_("关闭后 AI 边栏会保留, 但不会发送任何请求"));
+        chk_sidebar_enabled = new Gtk.Switch ();
+        chk_sidebar_enabled.valign = Gtk.Align.CENTER;
+        sb_enabled_row.add_suffix (chk_sidebar_enabled);
+        sb_enabled_row.set_activatable_widget (chk_sidebar_enabled);
+        sidebar_group.add (sb_enabled_row);
 
-        // 基础地址
-        var base_url_row = new Adw.EntryRow ();
-        base_url_row.set_title (_("API 基础地址"));
-        base_url_row.set_show_apply_button (false);
-        base_url_row.set_text (current.base_url);
-        edit_base_url = base_url_row;
-        general_group.add (base_url_row);
+        var sb_url_row = new Adw.EntryRow ();
+        sb_url_row.set_title (_("API 基础地址"));
+        sb_url_row.set_show_apply_button (false);
+        edit_sidebar_base_url = sb_url_row;
+        sidebar_group.add (sb_url_row);
 
-        // 密钥
-        var api_key_row = new Adw.PasswordEntryRow ();
-        api_key_row.set_title (_("API 密钥"));
-        edit_api_key = api_key_row;
-        general_group.add (api_key_row);
+        var sb_key_row = new Adw.PasswordEntryRow ();
+        sb_key_row.set_title (_("API 密钥"));
+        edit_sidebar_api_key = sb_key_row;
+        sidebar_group.add (sb_key_row);
 
-        // 模型
-        var model_row = new Adw.EntryRow ();
-        model_row.set_title (_("模型名称"));
-        model_row.set_show_apply_button (false);
-        edit_model = model_row;
-        general_group.add (model_row);
+        var sb_model_row = new Adw.EntryRow ();
+        sb_model_row.set_title (_("模型名称"));
+        sb_model_row.set_show_apply_button (false);
+        edit_sidebar_model = sb_model_row;
+        sidebar_group.add (sb_model_row);
 
-        // 超时
-        var timeout_row = new Adw.SpinRow.with_range (5.0, 600.0, 5.0);
-        timeout_row.set_title (_("请求超时 (秒)"));
-        timeout_row.set_value (current.timeout > 0 ? current.timeout : 60.0);
-        spin_timeout = timeout_row;
-        general_group.add (timeout_row);
+        var sb_timeout_row = new Adw.SpinRow.with_range (5.0, 600.0, 5.0);
+        sb_timeout_row.set_title (_("请求超时 (秒)"));
+        spin_sidebar_timeout = sb_timeout_row;
+        sidebar_group.add (sb_timeout_row);
 
-        // 高级组
-        var advanced_group = new Adw.PreferencesGroup ();
-        advanced_group.set_title (_("高级"));
-        prefs_page.add (advanced_group);
+        var sb_advanced = new Adw.PreferencesGroup ();
+        sb_advanced.set_title (_("高级"));
+        prefs_page.add (sb_advanced);
 
-        var prompt_row = new Adw.EntryRow ();
-        prompt_row.set_title (_("自定义系统提示词"));
-        prompt_row.set_show_apply_button (false);
-        edit_prompt = prompt_row;
-        advanced_group.add (prompt_row);
+        var sb_prompt_row = new Adw.EntryRow ();
+        sb_prompt_row.set_title (_("自定义系统提示词 (可选)"));
+        sb_prompt_row.set_show_apply_button (false);
+        edit_sidebar_prompt = sb_prompt_row;
+        sb_advanced.add (sb_prompt_row);
 
-        // 测试连接
-        var test_row = new Adw.ActionRow ();
-        test_row.set_title (_("测试连接"));
-        test_row.set_subtitle (_("用当前配置向 API 发送一次最小请求, 验证是否可用"));
+        var sb_test_row = new Adw.ActionRow ();
+        sb_test_row.set_title (_("测试连接"));
+        sb_test_row.set_subtitle (_("验证侧边栏 AI 配置是否可用"));
+        btn_sidebar_test = new Gtk.Button.with_label (_("测试"));
+        btn_sidebar_test.valign = Gtk.Align.CENTER;
+        btn_sidebar_test.add_css_class ("suggested-action");
+        sb_test_row.add_suffix (btn_sidebar_test);
+        sb_advanced.add (sb_test_row);
 
-        btn_test = new Gtk.Button.with_label (_("测试"));
-        btn_test.valign = Gtk.Align.CENTER;
-        btn_test.add_css_class ("suggested-action");
-        test_row.add_suffix (btn_test);
-        advanced_group.add (test_row);
+        // ═══════════════════════════════════════════════════════
+        // Section 2: 多模态 AI
+        // ═══════════════════════════════════════════════════════
+        var mm_group = new Adw.PreferencesGroup ();
+        mm_group.set_title (_("多模态 AI (二进制文件预处理)"));
+        mm_group.set_description (
+            _("配置多模态视觉大模型 API，用于将 PDF、Word、PPT、图片等文件转换为 Markdown。"));
+        prefs_page.add (mm_group);
 
-        // 扫描忽略目录组
+        var mm_enabled_row = new Adw.ActionRow ();
+        mm_enabled_row.set_title (_("启用多模态 AI"));
+        mm_enabled_row.set_subtitle (_("关闭后二进制文件将不会自动转换"));
+        chk_mm_enabled = new Gtk.Switch ();
+        chk_mm_enabled.valign = Gtk.Align.CENTER;
+        mm_enabled_row.add_suffix (chk_mm_enabled);
+        mm_enabled_row.set_activatable_widget (chk_mm_enabled);
+        mm_group.add (mm_enabled_row);
+
+        var mm_url_row = new Adw.EntryRow ();
+        mm_url_row.set_title (_("API 基础地址"));
+        mm_url_row.set_show_apply_button (false);
+        edit_mm_base_url = mm_url_row;
+        mm_group.add (mm_url_row);
+
+        var mm_key_row = new Adw.PasswordEntryRow ();
+        mm_key_row.set_title (_("API 密钥"));
+        edit_mm_api_key = mm_key_row;
+        mm_group.add (mm_key_row);
+
+        var mm_model_row = new Adw.EntryRow ();
+        mm_model_row.set_title (_("模型名称"));
+        mm_model_row.set_show_apply_button (false);
+        edit_mm_model = mm_model_row;
+        mm_group.add (mm_model_row);
+
+        var mm_timeout_row = new Adw.SpinRow.with_range (5.0, 600.0, 5.0);
+        mm_timeout_row.set_title (_("请求超时 (秒)"));
+        spin_mm_timeout = mm_timeout_row;
+        mm_group.add (mm_timeout_row);
+
+        var mm_advanced = new Adw.PreferencesGroup ();
+        mm_advanced.set_title (_("高级"));
+        prefs_page.add (mm_advanced);
+
+        var mm_prompt_row = new Adw.EntryRow ();
+        mm_prompt_row.set_title (_("自定义系统提示词 (可选)"));
+        mm_prompt_row.set_show_apply_button (false);
+        edit_mm_prompt = mm_prompt_row;
+        mm_advanced.add (mm_prompt_row);
+
+        var mm_test_row = new Adw.ActionRow ();
+        mm_test_row.set_title (_("测试连接"));
+        mm_test_row.set_subtitle (_("验证多模态 AI 配置是否可用"));
+        btn_mm_test = new Gtk.Button.with_label (_("测试"));
+        btn_mm_test.valign = Gtk.Align.CENTER;
+        btn_mm_test.add_css_class ("suggested-action");
+        mm_test_row.add_suffix (btn_mm_test);
+        mm_advanced.add (mm_test_row);
+
+        // ═══════════════════════════════════════════════════════
+        // 扫描忽略目录
+        // ═══════════════════════════════════════════════════════
         var ignored_group = new Adw.PreferencesGroup ();
         ignored_group.set_title (_("扫描忽略目录"));
         ignored_group.set_description (
@@ -165,7 +224,9 @@ public class AISettingsDialog : GLib.Object {
         edit_ignored_dirs = ignored_row;
         ignored_group.add (ignored_row);
 
-        // 安全警告组
+        // ═══════════════════════════════════════════════════════
+        // 安全警告
+        // ═══════════════════════════════════════════════════════
         var security_group = new Adw.PreferencesGroup ();
         security_group.set_title (_("安全警告"));
         prefs_page.add (security_group);
@@ -178,7 +239,6 @@ public class AISettingsDialog : GLib.Object {
         warning_icon.add_css_class ("warning");
         warning_icon.valign = Gtk.Align.CENTER;
         security_row.add_prefix (warning_icon);
-
         security_group.add (security_row);
 
         // Toast overlay
@@ -188,10 +248,10 @@ public class AISettingsDialog : GLib.Object {
 
         cancel_btn.clicked.connect (() => window.close ());
         ok_btn.clicked.connect (on_save);
-        btn_test.clicked.connect (on_test);
+        btn_sidebar_test.clicked.connect (() => { testing_sidebar = true; on_test (); });
+        btn_mm_test.clicked.connect (() => { testing_sidebar = false; on_test (); });
 
         window.close_request.connect (() => {
-            // 取消正在进行的测试请求, 防止回调访问已销毁的 widget
             if (test_cancellable != null) {
                 test_cancellable.cancel ();
                 test_cancellable = null;
@@ -206,78 +266,96 @@ public class AISettingsDialog : GLib.Object {
     }
 
     private void load_into_ui () {
-        chk_enabled.set_active (current.enabled);
-        edit_base_url.set_text (current.base_url ?? "");
-        edit_api_key.set_text (current.api_key ?? "");
-        edit_model.set_text (current.model ?? "");
-        spin_timeout.set_value (current.timeout > 0 ? current.timeout : 60.0);
-        edit_prompt.set_text (current.system_prompt_override ?? "");
-    }
+        // 侧边栏 AI
+        chk_sidebar_enabled.set_active (sidebar_current.enabled);
+        edit_sidebar_base_url.set_text (sidebar_current.base_url ?? "");
+        edit_sidebar_api_key.set_text (sidebar_current.api_key ?? "");
+        edit_sidebar_model.set_text (sidebar_current.model ?? "");
+        spin_sidebar_timeout.set_value (sidebar_current.timeout > 0 ? sidebar_current.timeout : 60.0);
+        edit_sidebar_prompt.set_text (sidebar_current.system_prompt_override ?? "");
 
-    private ConfigManager.AISettings collect_from_ui () {
-        var s = ConfigManager.AISettings () {
-            enabled = chk_enabled.get_active (),
-            base_url = edit_base_url.get_text ().strip (),
-            api_key = edit_api_key.get_text ().strip (),
-            model = edit_model.get_text ().strip (),
-            system_prompt_override = edit_prompt.get_text (),
-            timeout = spin_timeout.get_value ()
-        };
-        return s;
+        // 多模态 AI
+        chk_mm_enabled.set_active (mm_current.enabled);
+        edit_mm_base_url.set_text (mm_current.base_url ?? "");
+        edit_mm_api_key.set_text (mm_current.api_key ?? "");
+        edit_mm_model.set_text (mm_current.model ?? "");
+        spin_mm_timeout.set_value (mm_current.timeout > 0 ? mm_current.timeout : 120.0);
+        edit_mm_prompt.set_text (mm_current.system_prompt_override ?? "");
     }
 
     private void on_save () {
-        var s = collect_from_ui ();
-        if (s.base_url.has_prefix ("http://") && !s.base_url.has_prefix ("https://")) {
-            show_http_warning_dialog (s);
+        var sb = collect_sidebar_from_ui ();
+        var mm = collect_mm_from_ui ();
+        bool any_http = false;
+        if (sb.base_url.has_prefix ("http://") && !sb.base_url.has_prefix ("https://")) any_http = true;
+        if (mm.base_url.has_prefix ("http://") && !mm.base_url.has_prefix ("https://")) any_http = true;
+        if (any_http) {
+            show_http_warning_dialog (sb, mm);
         } else {
-            save_settings (s);
+            save_all (sb, mm);
         }
     }
 
-    private void show_http_warning_dialog (ConfigManager.AISettings s) {
+    private void show_http_warning_dialog (ConfigManager.AISettings sb, ConfigManager.MultimodalAISettings mm) {
         var warning_dialog = new Adw.AlertDialog (
             _("安全警告"),
             _("您正在配置 HTTP (非 HTTPS) 端点。\n\n"
               + "这将导致 API 密钥在传输过程中以明文形式发送，存在被第三方截获的风险。\n\n"
-              + "建议使用 HTTPS 端点以确保安全。\n\n"
               + "是否仍要继续保存？")
         );
-
         warning_dialog.add_response ("cancel", _("取消"));
         warning_dialog.add_response ("continue", _("继续保存"));
         warning_dialog.set_response_appearance ("continue", Adw.ResponseAppearance.DESTRUCTIVE);
         warning_dialog.set_default_response ("cancel");
         warning_dialog.set_close_response ("cancel");
-
         warning_dialog.response.connect ((response) => {
             if (response == "continue") {
-                save_settings (s);
+                save_all (sb, mm);
             }
             warning_dialog.destroy ();
         });
-
         warning_dialog.present (window);
     }
 
-    private void save_settings (ConfigManager.AISettings s) {
-        current = s;
-        ConfigManager.save_ai_settings (current);
+    private void save_all (ConfigManager.AISettings sb, ConfigManager.MultimodalAISettings mm) {
+        sidebar_current = sb;
+        ConfigManager.save_ai_settings (sidebar_current);
+        mm_current = mm;
+        ConfigManager.save_multimodal_ai_settings (mm_current);
 
-        // 保存忽略目录列表
         string raw_text = edit_ignored_dirs.get_text ();
         string[] parts = raw_text.split (",");
         var clean_list = new Gee.ArrayList<string> ();
         foreach (unowned string p in parts) {
             string trimmed = p.strip ();
-            if (trimmed.length > 0) {
-                clean_list.add (trimmed);
-            }
+            if (trimmed.length > 0) clean_list.add (trimmed);
         }
         ConfigManager.save_ignored_dirs ((string[]) clean_list.to_array ());
 
         settings_changed ();
         window.close ();
+    }
+
+    private ConfigManager.AISettings collect_sidebar_from_ui () {
+        return ConfigManager.AISettings () {
+            enabled = chk_sidebar_enabled.get_active (),
+            base_url = edit_sidebar_base_url.get_text ().strip (),
+            api_key = edit_sidebar_api_key.get_text ().strip (),
+            model = edit_sidebar_model.get_text ().strip (),
+            system_prompt_override = edit_sidebar_prompt.get_text (),
+            timeout = spin_sidebar_timeout.get_value ()
+        };
+    }
+
+    private ConfigManager.MultimodalAISettings collect_mm_from_ui () {
+        return ConfigManager.MultimodalAISettings () {
+            enabled = chk_mm_enabled.get_active (),
+            base_url = edit_mm_base_url.get_text ().strip (),
+            api_key = edit_mm_api_key.get_text ().strip (),
+            model = edit_mm_model.get_text ().strip (),
+            system_prompt_override = edit_mm_prompt.get_text (),
+            timeout = spin_mm_timeout.get_value ()
+        };
     }
 
     private void show_toast (string title) {
@@ -287,29 +365,37 @@ public class AISettingsDialog : GLib.Object {
     }
 
     private void on_test () {
-        var s = collect_from_ui ();
-        if (s.base_url == "" || s.api_key == "" || s.model == "") {
+        string base_url, api_key, model;
+        double timeout;
+
+        if (testing_sidebar) {
+            var s = collect_sidebar_from_ui ();
+            base_url = s.base_url; api_key = s.api_key; model = s.model; timeout = s.timeout;
+        } else {
+            var s = collect_mm_from_ui ();
+            base_url = s.base_url; api_key = s.api_key; model = s.model; timeout = s.timeout;
+        }
+
+        if (base_url == "" || api_key == "" || model == "") {
             show_toast (_("请先填写 API 基础地址、密钥和模型名称。"));
             return;
         }
-        btn_test.set_sensitive (false);
+
+        var active_btn = testing_sidebar ? btn_sidebar_test : btn_mm_test;
+        active_btn.set_sensitive (false);
         show_toast (_("正在测试..."));
 
-        if (test_cancellable != null) {
-            test_cancellable.cancel ();
-        }
-        if (test_session != null) {
-            test_session.abort ();
-        }
+        if (test_cancellable != null) { test_cancellable.cancel (); }
+        if (test_session != null) { test_session.abort (); }
 
         var session = new Soup.Session ();
-        session.timeout = (uint) (s.timeout > 0 ? s.timeout : 60.0);
+        session.timeout = (uint) (timeout > 0 ? timeout : 60.0);
         var cancellable = new GLib.Cancellable ();
         test_session = session;
         test_cancellable = cancellable;
 
         var payload = new Json.Object ();
-        payload.set_string_member ("model", s.model);
+        payload.set_string_member ("model", model);
         var msgs = new Json.Array ();
         msgs.add_object_element (build_msg ("system", "ping"));
         msgs.add_object_element (build_msg ("user", "hi"));
@@ -324,20 +410,21 @@ public class AISettingsDialog : GLib.Object {
         GLib.Memory.copy (body_buf, body, body_len);
         var body_bytes = new Bytes (body_buf);
 
-        string url = s.base_url.has_suffix ("/") ? s.base_url + "chat/completions"
-                                                 : s.base_url + "/chat/completions";
+        string url = base_url.has_suffix ("/") ? base_url + "chat/completions"
+                                                : base_url + "/chat/completions";
         var msg = new Soup.Message ("POST", url);
         msg.set_request_body_from_bytes ("application/json", body_bytes);
         msg.request_headers.append ("Content-Type", "application/json");
-        msg.request_headers.append ("Authorization", "Bearer " + s.api_key);
+        msg.request_headers.append ("Authorization", "Bearer " + api_key);
 
+        bool is_sidebar = testing_sidebar;
         weak AISettingsDialog self = this;
         session.send_and_read_async (msg, GLib.Priority.DEFAULT, cancellable, (obj, res) => {
             if (self.window == null) return;
             if (self.test_session != session) return;
             self.test_session = null;
             self.test_cancellable = null;
-            self.on_test_done (session, msg, res);
+            self.on_test_done (session, msg, res, is_sidebar);
         });
     }
 
@@ -348,14 +435,14 @@ public class AISettingsDialog : GLib.Object {
         return o;
     }
 
-    private void on_test_done (Soup.Session session, Soup.Message msg, AsyncResult res) {
-        // 窗口已关闭时不再访问 widget, 防止 use-after-free
+    private void on_test_done (Soup.Session session, Soup.Message msg, AsyncResult res, bool is_sidebar) {
         if (window == null) {
             test_session = null;
             test_cancellable = null;
             return;
         }
-        btn_test.set_sensitive (true);
+        var active_btn = is_sidebar ? btn_sidebar_test : btn_mm_test;
+        active_btn.set_sensitive (true);
         try {
             var bytes = session.send_and_read_async.end (res);
             uint status = msg.status_code;
@@ -379,7 +466,6 @@ public class AISettingsDialog : GLib.Object {
         } catch (Error e) {
             show_toast (_("✗ 失败: %s").printf (e.message));
         }
-        // 请求完成, 释放 Session 引用
         test_session = null;
     }
 }

@@ -353,6 +353,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.Paned ai_paned;
     [GtkChild] private unowned Gtk.Frame ai_sidebar;
 
+    [GtkChild] private unowned Gtk.Button btn_retry_preprocess;
+
     private Gtk.ColumnView dir_column_view;
     private Gtk.TreeListModel tree_list_model;
     private Gtk.FilterListModel filter_model;
@@ -427,6 +429,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         setup_pane_sizes ();
         setup_shortcuts ();
         search_entry.visible = false;
+
+        btn_retry_preprocess.clicked.connect (() => {
+            int sel = (int) queue_selection.selected;
+            if (sel >= 0 && sel < items.size) {
+                on_retry_preprocess (items.get (sel));
+            }
+        });
 
         this.close_request.connect (on_close_request);
 
@@ -508,6 +517,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             box.append (icon);
             box.append (label);
 
+            var right_click = new Gtk.GestureClick ();
+            right_click.set_button (Gdk.BUTTON_SECONDARY);
+            right_click.pressed.connect ((n_press, gx, gy) => {
+                var li = obj as Gtk.ListItem;
+                if (li == null) return;
+                queue_selection.selected = li.get_position ();
+                var data = li.get_item () as ItemData;
+                if (data != null) {
+                    show_queue_context_menu (box, data, (int)li.get_position (), (int)gx, (int)gy);
+                }
+            });
+            box.add_controller (right_click);
+
             list_item.set_child (box);
         });
 
@@ -547,9 +569,27 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 }
             });
 
+            // 监听 preprocess_status 变化: 多模态 AI 预处理完成后刷新状态标签
+            // 属性变更已在主线程执行 (通过 Idle.add 调度), 此处可直接渲染
+            // 注意: GObject 属性名用连字符, 不是下划线
+            ulong status_handler_id = data.notify["preprocess-status"].connect (() => {
+                if (list_item != null && list_item.get_item () != null) {
+                    render_queue_row (list_item, data, label, icon);
+                }
+            });
+
+            // 监听 from_cache 变化: COMPLETED 状态下显示"已缓存"/"已转换"依赖此属性
+            ulong cache_handler_id = data.notify["from-cache"].connect (() => {
+                if (list_item != null && list_item.get_item () != null) {
+                    render_queue_row (list_item, data, label, icon);
+                }
+            });
+
             // 将句柄 ID 与所监视的数据模型指针弱挂载到 ListItem 容器上,
             // 供 unbind 时双重校验安全剥离信号
             list_item.set_data<ulong> ("content_notify_id", handler_id);
+            list_item.set_data<ulong> ("status_notify_id", status_handler_id);
+            list_item.set_data<ulong> ("cache_notify_id", cache_handler_id);
             list_item.set_data<ulong> ("position_notify_id", pos_handler);
             list_item.set_data<ItemData> ("monitored_data_ptr", data);
         });
@@ -559,6 +599,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (list_item == null) return;
 
             ulong handler_id = list_item.get_data<ulong> ("content_notify_id");
+            ulong status_handler_id = list_item.get_data<ulong> ("status_notify_id");
+            ulong cache_handler_id = list_item.get_data<ulong> ("cache_notify_id");
             ulong pos_handler = list_item.get_data<ulong> ("position_notify_id");
             var data = list_item.get_data<ItemData> ("monitored_data_ptr");
 
@@ -566,12 +608,20 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (handler_id != 0 && data != null && GLib.SignalHandler.is_connected (data, handler_id)) {
                 GLib.SignalHandler.disconnect (data, handler_id);
             }
+            if (status_handler_id != 0 && data != null && GLib.SignalHandler.is_connected (data, status_handler_id)) {
+                GLib.SignalHandler.disconnect (data, status_handler_id);
+            }
+            if (cache_handler_id != 0 && data != null && GLib.SignalHandler.is_connected (data, cache_handler_id)) {
+                GLib.SignalHandler.disconnect (data, cache_handler_id);
+            }
             if (pos_handler != 0 && GLib.SignalHandler.is_connected (list_item, pos_handler)) {
                 GLib.SignalHandler.disconnect (list_item, pos_handler);
             }
 
             // 显式清空存储节点引用, 防止生命周期残留导致内存泄露
             list_item.set_data ("content_notify_id", null);
+            list_item.set_data ("status_notify_id", null);
+            list_item.set_data ("cache_notify_id", null);
             list_item.set_data ("position_notify_id", null);
             list_item.set_data ("monitored_data_ptr", null);
         });
@@ -591,7 +641,41 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 icon_name = "dialog-warning-symbolic";
                 display_name = _("⚠ %s (缺失)").printf (display_name);
             } else {
-                icon_name = data.force_absolute ? "document-open-symbolic" : "text-x-generic-symbolic";
+                // 根据文件类型选择 GTK 原生图标
+                if (data.is_image_target ()) {
+                    icon_name = "image-x-generic-symbolic";
+                } else if (data.is_document_target ()) {
+                    icon_name = "x-office-document-symbolic";
+                } else if (data.force_absolute) {
+                    icon_name = "document-open-symbolic";
+                } else {
+                    icon_name = "text-x-generic-symbolic";
+                }
+
+                if (data.is_binary_target ()) {
+                    switch (data.preprocess_status) {
+                        case PreprocessStatus.PENDING:
+                            display_name += " [等待处理]";
+                            break;
+                        case PreprocessStatus.CHECKING:
+                            // 正在查缓存, 还没真去调 VLM; 复用缓存时只闪这一行
+                            display_name += " [检查缓存]";
+                            break;
+                        case PreprocessStatus.PROCESSING:
+                            display_name += " [处理中...]";
+                            break;
+                        case PreprocessStatus.COMPLETED:
+                            string cache_tag = data.from_cache ? "已缓存" : "已转换";
+                            display_name += " [%s]".printf (cache_tag);
+                            break;
+                        case PreprocessStatus.FAILED:
+                            display_name += " [转换失败]";
+                            break;
+                    }
+                }
+                if (data.force_absolute) {
+                    display_name += " [%s]".printf (_("来自外部文件"));
+                }
             }
         } else {
             var preview = data.content ?? "";
@@ -667,6 +751,22 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             box.margin_end = 2;
             box.append (check);
             box.append (label);
+
+            var right_click_tree = new Gtk.GestureClick ();
+            right_click_tree.set_button (Gdk.BUTTON_SECONDARY);
+            right_click_tree.pressed.connect ((n_press, gx, gy) => {
+                var li = obj as Gtk.ListItem;
+                if (li == null) return;
+                var row = li.get_item () as Gtk.TreeListRow;
+                if (row == null) return;
+                var dir_item = row.get_item () as DirectoryItem;
+                if (dir_item == null) return;
+                tree_selection.selected = li.get_position ();
+                // 传 box 而非 li.get_child() (expander), 保证 popover parent 与
+                // 手势坐标的参考系一致, 否则菜单会偏移到 expander 左上角附近
+                show_tree_context_menu (box, dir_item, (int)gx, (int)gy);
+            });
+            box.add_controller (right_click_tree);
 
             expander.set_child (box);
             list_item.set_child (expander);
@@ -897,8 +997,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             // 文件: 直接切换 (无 I/O, 同步即可)
             check_model.toggle_file (item.path);
             if (new_checked) {
-                if (!path_in_items (item.path)) {
-                    items.add (new ItemData ("file", item.path, null, false));
+                    if (!path_in_items (item.path)) {
+                    var new_item = new ItemData ("file", item.path, null, false);
+                    items.add (new_item);
+                    if (new_item.is_binary_target ()) {
+                        check_and_apply_cache (new_item);
+                    }
                 }
             } else {
                 remove_items_by_path (item.path);
@@ -945,7 +1049,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 var p = file_paths.get (idx);
                 if (new_checked) {
                     if (!path_in_items (p)) {
-                        items.add (new ItemData ("file", p, null, false));
+                        var new_item = new ItemData ("file", p, null, false);
+                        items.add (new_item);
+                        if (new_item.is_binary_target ()) {
+                            check_and_apply_cache (new_item);
+                        }
                     }
                 } else {
                     remove_items_by_path (p);
@@ -976,7 +1084,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             FileInfo info;
             while ((info = enumerator.next_file ()) != null) {
                 if (app_cancellable != null && app_cancellable.is_cancelled ()) return;
-                var child = dir.get_child (info.get_name ());
+                string child_name = info.get_name ();
+                if (child_name == ".filecollector_cache") continue;
+                var child = dir.get_child (child_name);
                 if (info.get_is_symlink () && info.get_file_type () == FileType.DIRECTORY) {
                     continue;
                 }
@@ -1778,10 +1888,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             FileInfo info;
             while ((info = enumerator.next_file ()) != null) {
                 if (cancellable != null && cancellable.is_cancelled ()) break;
+                string entry_name = info.get_name ();
+                if (entry_name == ".filecollector_cache") continue;
                 if (info.get_is_symlink () && info.get_file_type () == FileType.DIRECTORY) {
                     continue;
                 }
-                var child_path = dir.get_child (info.get_name ()).get_path ();
+                var child_path = dir.get_child (entry_name).get_path ();
                 bool is_dir = info.get_file_type () == FileType.DIRECTORY;
                 var entry = new DirChildInfo (info.get_name (), child_path, is_dir);
                 if (is_dir) {
@@ -1893,7 +2005,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (checked) {
             check_model.add_files ({ abs_path });
             if (!path_in_items (abs_path)) {
-                items.add (new ItemData ("file", abs_path, null, false));
+                var new_item = new ItemData ("file", abs_path, null, false);
+                items.add (new_item);
+                if (new_item.is_binary_target ()) {
+                    check_and_apply_cache (new_item);
+                }
             }
         } else {
             check_model.remove_files ({ abs_path });
@@ -2075,6 +2191,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     push_undo_state ();
                     foreach (var item in to_add) {
                         items.add (item);
+                        if (item.is_binary_target ()) {
+                            check_and_apply_cache (item);
+                        }
                         added++;
                     }
                     refresh_list ();
@@ -2293,8 +2412,37 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void update_preview (ItemData item) {
         var buffer = preview_view.get_buffer ();
+        bool show_action_bar = false;
+
+        if (item.item_type == "file" && item.is_binary_target ()) {
+            show_action_bar = true;
+            btn_retry_preprocess.sensitive = true;
+            switch (item.preprocess_status) {
+                case PreprocessStatus.COMPLETED:
+                    btn_retry_preprocess.tooltip_text = item.from_cache
+                        ? _("已读取本地缓存\n点击强制重新调用多模态模型转换")
+                        : _("AI 转换完成\n点击强制重新调用多模态模型转换");
+                    break;
+                case PreprocessStatus.FAILED:
+                    btn_retry_preprocess.tooltip_text = _("AI 转换失败\n点击重试转换");
+                    break;
+                case PreprocessStatus.PROCESSING:
+                    btn_retry_preprocess.tooltip_text = _("正在处理中...");
+                    btn_retry_preprocess.sensitive = false;
+                    break;
+                default:
+                    btn_retry_preprocess.tooltip_text = _("等待处理");
+                    btn_retry_preprocess.sensitive = false;
+                    break;
+            }
+        }
+
+        btn_retry_preprocess.visible = show_action_bar;
+
         if (item.item_type == "text") {
             buffer.set_text (item.content.make_valid (), -1);
+        } else if (item.item_type == "file" && item.preprocess_status == PreprocessStatus.COMPLETED && item.preprocessed_content != null) {
+            buffer.set_text (item.preprocessed_content.strip (), -1);
         } else {
             try {
                 var file = File.new_for_path (item.file_path);
@@ -2350,6 +2498,251 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             } catch (Error e) {
                 buffer.set_text ("[读取错误: " + e.message + "]", -1);
             }
+        }
+    }
+
+    private void on_retry_preprocess (ItemData item) {
+        if (item == null || item.item_type != "file" || !item.is_binary_target ()) return;
+        if (item.preprocess_status == PreprocessStatus.PROCESSING) return;
+
+        if (work_dir != null) {
+            var cache = new PreprocessCache (work_dir.get_path ());
+            cache.invalidate_cache (item.file_path);
+        }
+
+        item.preprocessed_content = null;
+        item.from_cache = false;
+        item.preprocess_status = PreprocessStatus.PENDING;
+
+        refresh_list ();
+        update_preview (item);
+        check_and_apply_cache (item);
+    }
+
+    public void on_clear_cache () {
+        if (work_dir == null) {
+            show_toast (_("尚未设置工作目录"));
+            return;
+        }
+
+        var dialog = new Adw.AlertDialog (
+            _("确认清除缓存？"),
+            _("这将删除当前工作目录下的 .filecollector_cache 隐藏文件夹。\n下次处理相同文件时，将重新调用多模态模型并消耗 API Token。")
+        );
+        dialog.add_response ("cancel", _("取消"));
+        dialog.add_response ("clear", _("清除"));
+        dialog.set_response_appearance ("clear", Adw.ResponseAppearance.DESTRUCTIVE);
+        dialog.set_default_response ("cancel");
+
+        dialog.response.connect ((resp) => {
+            if (resp == "clear") {
+                var cache = new PreprocessCache (work_dir.get_path ());
+                cache.clear_all ();
+
+                for (int i = 0; i < items.size; i++) {
+                    var item = items.get (i);
+                    if (item.item_type == "file" && item.is_binary_target ()) {
+                        item.preprocess_status = PreprocessStatus.NONE;
+                        item.preprocessed_content = null;
+                        item.from_cache = false;
+                    }
+                }
+
+                refresh_list ();
+                int sel = (int) queue_selection.selected;
+                if (sel >= 0 && sel < items.size) {
+                    update_preview (items.get (sel));
+                }
+
+                show_toast (_("工作区缓存已清除"));
+            }
+        });
+        dialog.present (this);
+    }
+
+    // ─── 编排列表右键菜单 ───────────────────────────────────────────────────
+
+    private void show_queue_context_menu (Gtk.Widget parent, ItemData item, int index, int gx, int gy) {
+        var menu_model = new GLib.Menu ();
+        var action_group = new GLib.SimpleActionGroup ();
+
+        // 编辑与插入
+        var section_edit = new GLib.Menu ();
+
+        var act_edit = new GLib.SimpleAction ("ctx_edit", null);
+        act_edit.set_enabled (item.item_type == "text");
+        act_edit.activate.connect (() => { insert_text (false, item.content, item); });
+        action_group.add_action (act_edit);
+        section_edit.append (_("编辑文本"), "ctx.ctx_edit");
+
+        var act_insert_above = new GLib.SimpleAction ("ctx_insert_above", null);
+        act_insert_above.activate.connect (() => { insert_text (true); });
+        action_group.add_action (act_insert_above);
+        section_edit.append (_("在上方插入文本"), "ctx.ctx_insert_above");
+
+        var act_insert_below = new GLib.SimpleAction ("ctx_insert_below", null);
+        act_insert_below.activate.connect (() => { insert_text (false); });
+        action_group.add_action (act_insert_below);
+        section_edit.append (_("在下方插入文本"), "ctx.ctx_insert_below");
+
+        menu_model.append_section (null, section_edit);
+
+        // 排序
+        var section_order = new GLib.Menu ();
+
+        var act_move_up = new GLib.SimpleAction ("ctx_move_up", null);
+        act_move_up.set_enabled (index > 0);
+        act_move_up.activate.connect (() => { on_move_up (); });
+        action_group.add_action (act_move_up);
+        section_order.append (_("上移"), "ctx.ctx_move_up");
+
+        var act_move_down = new GLib.SimpleAction ("ctx_move_down", null);
+        act_move_down.set_enabled (index < items.size - 1);
+        act_move_down.activate.connect (() => { on_move_down (); });
+        action_group.add_action (act_move_down);
+        section_order.append (_("下移"), "ctx.ctx_move_down");
+
+        menu_model.append_section (null, section_order);
+
+        // 文件专属操作
+        if (item.item_type == "file" && item.file_path != null) {
+            var section_file = new GLib.Menu ();
+
+            if (item.is_binary_target ()) {
+                var act_retry = new GLib.SimpleAction ("ctx_retry_ai", null);
+                act_retry.set_enabled (item.preprocess_status != PreprocessStatus.PROCESSING);
+                act_retry.activate.connect (() => { on_retry_preprocess (item); });
+                action_group.add_action (act_retry);
+                section_file.append (_("重新进行 AI 转换"), "ctx.ctx_retry_ai");
+            }
+
+            var act_copy_path = new GLib.SimpleAction ("ctx_copy_path", null);
+            act_copy_path.activate.connect (() => {
+                string path_to_copy = item.file_path;
+                if (!item.force_absolute && work_dir != null && !use_absolute) {
+                    string wd = work_dir.get_path () + "/";
+                    if (path_to_copy.has_prefix (wd)) {
+                        path_to_copy = path_to_copy.substring (wd.length);
+                    }
+                }
+                get_clipboard ().set_text (path_to_copy);
+                show_toast (_("路径已复制到剪贴板"));
+            });
+            action_group.add_action (act_copy_path);
+            section_file.append (_("复制路径"), "ctx.ctx_copy_path");
+
+            var act_show_folder = new GLib.SimpleAction ("ctx_show_folder", null);
+            act_show_folder.activate.connect (() => { show_file_in_folder (item.file_path); });
+            action_group.add_action (act_show_folder);
+            section_file.append (_("在文件管理器中显示"), "ctx.ctx_show_folder");
+
+            menu_model.append_section (null, section_file);
+        }
+
+        // 删除
+        var section_delete = new GLib.Menu ();
+        var act_delete = new GLib.SimpleAction ("ctx_delete", null);
+        act_delete.activate.connect (() => { on_delete_item (); });
+        action_group.add_action (act_delete);
+        section_delete.append (_("删除"), "ctx.ctx_delete");
+        menu_model.append_section (null, section_delete);
+
+        var popover = new Gtk.PopoverMenu.from_model (menu_model);
+        popover.set_has_arrow (false);
+        popover.set_parent (parent);
+        popover.insert_action_group ("ctx", action_group);
+
+        Gdk.Rectangle rect = Gdk.Rectangle () { x = gx, y = gy, width = 1, height = 1 };
+        popover.set_pointing_to (rect);
+        popover.popup ();
+    }
+
+    // ─── 目录树右键菜单 ─────────────────────────────────────────────────────
+
+    private void show_tree_context_menu (Gtk.Widget parent, DirectoryItem item, int gx, int gy) {
+        var menu_model = new GLib.Menu ();
+        var action_group = new GLib.SimpleActionGroup ();
+
+        var act_copy_path = new GLib.SimpleAction ("tree_copy_path", null);
+        act_copy_path.activate.connect (() => {
+            string path_to_copy = item.path;
+            if (work_dir != null) {
+                string wd = work_dir.get_path () + "/";
+                if (path_to_copy.has_prefix (wd)) {
+                    path_to_copy = path_to_copy.substring (wd.length);
+                }
+            }
+            get_clipboard ().set_text (path_to_copy);
+            show_toast (_("路径已复制到剪贴板"));
+        });
+        action_group.add_action (act_copy_path);
+        menu_model.append (_("复制路径"), "tree.tree_copy_path");
+
+        var act_show_folder = new GLib.SimpleAction ("tree_show_folder", null);
+        act_show_folder.activate.connect (() => {
+            string target_path = item.is_dir ? item.path : GLib.Path.get_dirname (item.path);
+            show_file_in_folder (target_path);
+        });
+        action_group.add_action (act_show_folder);
+        menu_model.append (_("在文件管理器中显示"), "tree.tree_show_folder");
+
+        if (!item.is_dir) {
+            var act_copy_content = new GLib.SimpleAction ("tree_copy_content", null);
+            bool is_likely_text = true;
+            string lower = item.path.down ();
+            string[] bin_exts = { ".pdf", ".docx", ".pptx", ".xlsx", ".zip", ".tar", ".gz",
+                                  ".png", ".jpg", ".jpeg", ".exe", ".so", ".dylib" };
+            foreach (var ext in bin_exts) {
+                if (lower.has_suffix (ext)) { is_likely_text = false; break; }
+            }
+            act_copy_content.set_enabled (is_likely_text);
+
+            act_copy_content.activate.connect (() => {
+                try {
+                    uint8[] data;
+                    FileUtils.get_data (item.path, out data);
+                    if (data.length > 1048576) {
+                        show_toast (_("文件过大，无法复制内容"));
+                        return;
+                    }
+                    string content = EncodingHelper.decode_to_utf8 (data);
+                    get_clipboard ().set_text (content);
+                    show_toast (_("文件内容已复制"));
+                } catch (Error e) {
+                    show_toast (_("读取文件失败"));
+                }
+            });
+            action_group.add_action (act_copy_content);
+            menu_model.append (_("复制文件内容"), "tree.tree_copy_content");
+        }
+
+        var popover = new Gtk.PopoverMenu.from_model (menu_model);
+        popover.set_has_arrow (false);
+        popover.set_parent (parent);
+        popover.insert_action_group ("tree", action_group);
+
+        Gdk.Rectangle rect = Gdk.Rectangle () { x = gx, y = gy, width = 1, height = 1 };
+        popover.set_pointing_to (rect);
+        popover.popup ();
+    }
+
+    // ─── 系统级辅助方法 ─────────────────────────────────────────────────────
+
+    private void show_file_in_folder (string path) {
+        var file = File.new_for_path (path);
+        if (!file.query_exists ()) return;
+
+        File target = file;
+        if (file.query_file_type (FileQueryInfoFlags.NONE) != FileType.DIRECTORY) {
+            target = file.get_parent ();
+            if (target == null) return;
+        }
+
+        try {
+            Gtk.show_uri (this, target.get_uri (), Gdk.CURRENT_TIME);
+        } catch (Error e) {
+            warning ("Failed to open folder: %s", e.message);
+            show_toast (_("无法打开文件管理器"));
         }
     }
 
@@ -2881,6 +3274,170 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             });
         }
         return phrases_picker_instance;
+    }
+
+    // ─── 多模态 AI 预处理 ────────────────────────────────────────────────
+
+    private string get_prompt_for_item (ItemData item) {
+        if (item.is_image_target ()) {
+            string lower = item.file_path.down ();
+            if (lower.contains ("screenshot") || lower.contains ("error") || lower.contains ("bug")) {
+                return "这是一张系统截图。请提取图中所有可见文本内容（包括错误信息、堆栈跟踪、UI 元素）。" +
+                       "保留原始格式，使用代码块包裹命令行输出或报错信息。";
+            }
+            if (lower.contains ("diagram") || lower.contains ("flow") || lower.contains ("arch")) {
+                return "这是一张技术图表。请描述图表的结构和逻辑关系。" +
+                       "如果可能，使用 Mermaid 语法重构此图表。";
+            }
+            return "请提取图片中的所有文本内容，并将其转换为结构清晰的 Markdown。" +
+                   "保留标题层级、列表结构和表格。";
+        }
+        if (item.is_document_target ()) {
+            string lower = item.file_path.down ();
+            if (lower.has_suffix (".xlsx") || lower.has_suffix (".xls") || lower.has_suffix (".ods")) {
+                return "请将图片中的电子表格数据转换为标准 Markdown 表格。" +
+                       "保留表头结构、合并单元格的语义以及数值精度。";
+            }
+            if (lower.has_suffix (".pptx") || lower.has_suffix (".ppt") || lower.has_suffix (".odp")) {
+                return "这是演示文稿的页面截图。请将每页内容提取为 Markdown，" +
+                       "使用二级标题 (##) 分隔每页幻灯片，保留要点列表。";
+            }
+        }
+        return "请将图片中的内容转换为结构清晰的 Markdown 格式。保留标题、列表和表格。";
+    }
+
+    private void check_and_apply_cache (ItemData item) {
+        // 入口先用 CHECKING 状态, 避免缓存复用时仍显示"处理中..."误导用户;
+        // 命中缓存后会直接跳到 COMPLETED, 只有真正需要调 VLM 时才进入 PROCESSING
+        item.preprocess_status = PreprocessStatus.CHECKING;
+        Idle.add (() => {
+            refresh_list ();
+            return Source.REMOVE;
+        });
+
+        try {
+            GLib.Thread<void*> thread = new GLib.Thread<void*> ("cache-check", () => {
+                try {
+                    string hash = PreprocessCache.compute_file_hash (item.file_path);
+                    if (work_dir == null) {
+                        start_preprocess_task (item);
+                        return null;
+                    }
+                    var cache = new PreprocessCache (work_dir.get_path ());
+                    string? cached_md = cache.get_cached_markdown (item.file_path, hash);
+
+                    if (cached_md != null) {
+                        string md = cached_md;
+                        Idle.add (() => {
+                            item.preprocessed_content = md;
+                            item.preprocess_status = PreprocessStatus.COMPLETED;
+                            item.from_cache = true;
+                            refresh_list ();
+                            return Source.REMOVE;
+                        });
+                    } else {
+                        Idle.add (() => {
+                            item.preprocess_status = PreprocessStatus.PENDING;
+                            refresh_list ();
+                            start_preprocess_task (item);
+                            return Source.REMOVE;
+                        });
+                        return null;
+                    }
+                } catch (Error e) {
+                    warning ("Cache check failed: %s", e.message);
+                    Idle.add (() => {
+                        item.preprocess_status = PreprocessStatus.PENDING;
+                        refresh_list ();
+                        start_preprocess_task (item);
+                        return Source.REMOVE;
+                    });
+                    return null;
+                }
+                return null;
+            });
+            bg_threads.add (thread);
+        } catch (ThreadError e) {
+            warning ("Failed to create cache-check thread: %s", e.message);
+            item.preprocess_status = PreprocessStatus.FAILED;
+        }
+    }
+
+    private void start_preprocess_task (ItemData item) {
+        try {
+            GLib.Thread<void*> thread = new GLib.Thread<void*> ("vlm-task", () => {
+                // 所有属性变更都放到主线程执行, 确保 notify 信号在主线程触发,
+                // 否则 notify["preprocess_status"] 处理器不会刷新行内标签
+                Idle.add (() => {
+                    item.preprocess_status = PreprocessStatus.PROCESSING;
+                    refresh_list ();
+                    return Source.REMOVE;
+                });
+
+                var settings = ConfigManager.load_multimodal_ai_settings ();
+                if (!settings.enabled || settings.api_key == "") {
+                    Idle.add (() => {
+                        item.preprocess_status = PreprocessStatus.FAILED;
+                        refresh_list ();
+                        return Source.REMOVE;
+                    });
+                    return null;
+                }
+
+                try {
+                    string[] base64_images;
+                    string[] mime_types;
+
+                    if (item.is_image_target ()) {
+                        string? b64 = BinaryConverter.convert_image_to_base64 (item.file_path);
+                        if (b64 == null) throw new IOError.FAILED ("Image load failed");
+                        base64_images = { b64 };
+                        mime_types = { BinaryConverter.get_output_mime_for_image (item.file_path) };
+                    } else {
+                        string[]? images = BinaryConverter.convert_to_base64_images (item.file_path);
+                        if (images == null) throw new IOError.FAILED ("Document render failed");
+                        base64_images = images;
+                        mime_types = new string[images.length];
+                        for (int i = 0; i < images.length; i++) mime_types[i] = "image/png";
+                    }
+
+                    string prompt = (settings.system_prompt_override != null && settings.system_prompt_override.length > 0)
+                        ? settings.system_prompt_override
+                        : get_prompt_for_item (item);
+
+                    var client = new MultimodalAIClient (
+                        settings.base_url, settings.api_key, settings.model,
+                        prompt, settings.timeout
+                    );
+                    string md = client.process_images (base64_images, mime_types);
+
+                    if (work_dir != null) {
+                        string hash = PreprocessCache.compute_file_hash (item.file_path);
+                        var cache = new PreprocessCache (work_dir.get_path ());
+                        cache.save_markdown (item.file_path, hash, md);
+                    }
+
+                    Idle.add (() => {
+                        item.preprocessed_content = md;
+                        item.preprocess_status = PreprocessStatus.COMPLETED;
+                        refresh_list ();
+                        return Source.REMOVE;
+                    });
+                } catch (Error e) {
+                    warning ("VLM Task failed: %s", e.message);
+                    Idle.add (() => {
+                        item.preprocess_status = PreprocessStatus.FAILED;
+                        refresh_list ();
+                        return Source.REMOVE;
+                    });
+                }
+                return null;
+            });
+            bg_threads.add (thread);
+        } catch (ThreadError e) {
+            warning ("Failed to create VLM thread: %s", e.message);
+            item.preprocess_status = PreprocessStatus.FAILED;
+        }
     }
 
     // ─── AI 助手集成 ───────────────────────────────────────────────────

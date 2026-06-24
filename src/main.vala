@@ -51,6 +51,11 @@ public class FileCollectorApp : Adw.Application {
                 ((GLib.SimpleAction) ai_settings_action).activate.connect (() => window.on_ai_settings ());
             }
 
+            var clear_cache_action = lookup_action ("clear_cache");
+            if (clear_cache_action != null) {
+                ((GLib.SimpleAction) clear_cache_action).activate.connect (() => window.on_clear_cache ());
+            }
+
             var shortcuts_action = lookup_action ("shortcuts");
             if (shortcuts_action != null) {
                 ((GLib.SimpleAction) shortcuts_action).activate.connect (() => window.on_show_shortcuts ());
@@ -154,6 +159,7 @@ public class FileCollectorApp : Adw.Application {
         add_action (new GLib.SimpleAction ("manage_phrases", null));
         add_action (new GLib.SimpleAction ("settings", null));
         add_action (new GLib.SimpleAction ("ai_settings", null));
+        add_action (new GLib.SimpleAction ("clear_cache", null));
         add_action (new GLib.SimpleAction ("shortcuts", null));
         add_action (new GLib.SimpleAction ("quit", null));
 

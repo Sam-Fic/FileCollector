@@ -210,6 +210,126 @@ public class ConfigManager : GLib.Object {
         }
     }
 
+    // ─── 多模态 AI 设置 ──────────────────────────────────────────────────
+
+    public struct MultimodalAISettings {
+        public bool enabled;
+        public string base_url;
+        public string api_key;
+        public string model;
+        public string system_prompt_override;
+        public double timeout;
+    }
+
+    private static Secret.Schema? mm_api_key_schema = null;
+
+    private static Secret.Schema get_mm_api_key_schema () {
+        if (mm_api_key_schema == null) {
+            mm_api_key_schema = new Secret.Schema ("com.github.samfic.filecollector.mm_api_key",
+                Secret.SchemaFlags.NONE,
+                "type", Secret.SchemaAttributeType.STRING);
+        }
+        return mm_api_key_schema;
+    }
+
+    private static bool store_mm_api_key_to_keyring (string api_key) {
+        if (api_key.length > 0) {
+            try {
+                return Secret.password_store_sync (
+                    get_mm_api_key_schema (),
+                    Secret.COLLECTION_DEFAULT,
+                    "FileCollector Multimodal AI API Key",
+                    api_key,
+                    null,
+                    "type", "mm_api_key", null);
+            } catch (Error e) {
+                warning ("Failed to store mm API key in keyring: %s", e.message);
+                return false;
+            }
+        } else {
+            try {
+                Secret.password_clear_sync (get_mm_api_key_schema (), null,
+                    "type", "mm_api_key", null);
+            } catch (Error e) {
+                warning ("Failed to clear mm API key from keyring: %s", e.message);
+            }
+            return true;
+        }
+    }
+
+    private static string? load_mm_api_key_from_keyring () {
+        try {
+            return Secret.password_lookup_sync (get_mm_api_key_schema (), null,
+                "type", "mm_api_key", null);
+        } catch (Error e) {
+            warning ("Failed to lookup mm API key from keyring: %s", e.message);
+            return null;
+        }
+    }
+
+    public static MultimodalAISettings load_multimodal_ai_settings () {
+        var defaults = MultimodalAISettings () {
+            enabled = false,
+            base_url = "https://api.openai.com/v1",
+            api_key = "",
+            model = "gpt-4o",
+            system_prompt_override = "",
+            timeout = 120.0
+        };
+        config_mutex.lock ();
+        try {
+            var root = load_settings_root_unlocked ();
+            if (root == null) return defaults;
+            var ai = root.get_object_member ("multimodal_ai");
+            if (ai == null) return defaults;
+            defaults.enabled = ai.get_boolean_member_with_default ("enabled", false);
+            defaults.base_url = ai.get_string_member_with_default ("base_url", defaults.base_url);
+            defaults.model = ai.get_string_member_with_default ("model", defaults.model);
+            defaults.system_prompt_override = ai.get_string_member_with_default ("system_prompt_override", "");
+            defaults.timeout = ai.get_double_member_with_default ("timeout", defaults.timeout);
+
+            string? keyring_key = load_mm_api_key_from_keyring ();
+            if (keyring_key != null && keyring_key.length > 0) {
+                defaults.api_key = keyring_key;
+            } else {
+                string json_key = ai.get_string_member_with_default ("api_key", "");
+                if (json_key.length > 0) {
+                    defaults.api_key = json_key;
+                    if (store_mm_api_key_to_keyring (json_key)) {
+                        ai.set_string_member ("api_key", "");
+                        write_settings_root_unlocked (root);
+                    }
+                }
+            }
+        } catch (Error e) {
+            warning ("Failed to load multimodal AI settings: %s", e.message);
+        } finally {
+            config_mutex.unlock ();
+        }
+        return defaults;
+    }
+
+    public static void save_multimodal_ai_settings (MultimodalAISettings s) {
+        config_mutex.lock ();
+        try {
+            Json.Object root = load_settings_root_unlocked () ?? new Json.Object ();
+            var ai = new Json.Object ();
+            ai.set_boolean_member ("enabled", s.enabled);
+            ai.set_string_member ("base_url", s.base_url ?? "");
+            ai.set_string_member ("api_key", "");
+            ai.set_string_member ("model", s.model ?? "");
+            ai.set_string_member ("system_prompt_override", s.system_prompt_override ?? "");
+            ai.set_double_member ("timeout", s.timeout > 0 ? s.timeout : 120.0);
+            root.set_member ("multimodal_ai", AI.SchemaHelper.obj_to_node (ai));
+            write_settings_root_unlocked (root);
+            store_mm_api_key_to_keyring (s.api_key ?? "");
+        } catch (Error e) {
+            warning ("Failed to save multimodal AI settings: %s", e.message);
+        } finally {
+            config_mutex.unlock ();
+        }
+    }
+
     // ─── AI 设置读写 ─────────────────────────────────────────────────────
 
     // 不加锁的内部读取
