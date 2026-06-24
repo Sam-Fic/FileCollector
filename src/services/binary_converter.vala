@@ -45,18 +45,35 @@ public class BinaryConverter : GLib.Object {
     public static string[]? convert_to_base64_images (string path) {
         string pdf_path = path;
         string lower = path.down ();
+        string? tmp_pdf = null;
 
         if (!lower.has_suffix (".pdf")) {
-            pdf_path = convert_office_to_pdf (path);
-            if (pdf_path == null) return null;
+            tmp_pdf = convert_office_to_pdf (path);
+            if (tmp_pdf == null) return null;
+            pdf_path = tmp_pdf;
         }
 
-        return render_pdf_to_base64_images (pdf_path);
+        var result = render_pdf_to_base64_images (pdf_path);
+
+        // 清理临时目录及其中的 PDF, 避免污染用户工作目录
+        if (tmp_pdf != null) {
+            string tmp_dir = Path.get_dirname (tmp_pdf);
+            cleanup_dir (tmp_dir);
+        }
+
+        return result;
     }
 
     private static string? convert_office_to_pdf (string src) {
-        string out_dir = Path.get_dirname (src);
-        string[] argv = {"soffice", "--headless", "--convert-to", "pdf", "--outdir", out_dir, src};
+        // 输出到临时目录, 避免 PDF 落在用户工作目录中被文件收集器扫描
+        string tmp_dir;
+        try {
+            tmp_dir = DirUtils.make_tmp ("fc_pdf_XXXXXX");
+        } catch (Error e) {
+            warning ("Failed to create tmp dir for PDF: %s", e.message);
+            return null;
+        }
+        string[] argv = {"soffice", "--headless", "--convert-to", "pdf", "--outdir", tmp_dir, src};
         try {
             int status;
             Process.spawn_sync (null, argv, null, SpawnFlags.SEARCH_PATH, null, null, null, out status);
@@ -64,7 +81,7 @@ public class BinaryConverter : GLib.Object {
                 string basename = Path.get_basename (src);
                 int dot = basename.last_index_of (".");
                 string pdf_name = (dot > 0 ? basename.substring (0, dot) : basename) + ".pdf";
-                return Path.build_filename (out_dir, pdf_name);
+                return Path.build_filename (tmp_dir, pdf_name);
             }
         } catch (Error e) {
             warning ("LibreOffice conversion failed: %s", e.message);
