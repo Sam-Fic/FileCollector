@@ -123,6 +123,14 @@ popover.ctx-menu modelbutton {
     font-size: 14px;
 }
 
+/* 右键菜单 section 之间的分割线: 默认主题下 @borders 半透明几乎看不见,
+   显式用不透明边框色画一条 1px 线, 并加上垂直 margin 让分组感更清晰 */
+popover.ctx-menu separator {
+    background-color: @borders;
+    min-height: 1px;
+    margin: 4px 8px;
+}
+
 
 .panel-title {
     font-weight: bold;
