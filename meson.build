@@ -69,6 +69,7 @@ sources = files(
   'src/services/ai_client.vala',
   'src/services/ai_types.vala',
   'src/services/binary_converter.vala',
+  'src/services/binary_preprocessor.vala',
   'src/services/config_manager.vala',
   'src/services/file_generator.vala',
   'src/services/multimodal_ai_client.vala',

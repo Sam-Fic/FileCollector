@@ -309,10 +309,34 @@ public class CliController : GLib.Object {
             return false;
         }
         var abs_path = file.get_path ();
-        items.add (new ItemData ("file", abs_path, null, false));
+        var item = new ItemData ("file", abs_path, null, false);
+        items.add (item);
         checked_paths.add (abs_path);
         stdout.printf (_("✓ 已添加文件 [%d]: %s\n"), (int)items.size, abs_path);
         operation_messages.add (_("已添加文件: %s").printf (file.get_basename ()));
+
+        // 二进制文件: 同步触发预处理 (CLI 没有异步线程, 直接 block 调 VLM)
+        // 命中缓存则直接复用, miss 则调 VLM 写入缓存, 并把 Markdown 挂到 item 上,
+        // 后续 FileGenerator 导出时直接使用 preprocessed_content.
+        if (work_dir != null &&
+            item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
+            try {
+                bool from_cache;
+                string md = BinaryPreprocessor.preprocess_sync (
+                    item, work_dir.get_path (), out from_cache
+                );
+                item.preprocessed_content = md;
+                item.preprocess_status = PreprocessStatus.COMPLETED;
+                item.from_cache = from_cache;
+                stdout.printf (_("  ↳ %s: %s\n"),
+                    from_cache ? _("已从缓存复用") : _("已调用 VLM 转换"),
+                    file.get_basename ());
+            } catch (Error e) {
+                stderr.printf (_("  ⚠ 预处理 %s 失败: %s\n"),
+                    file.get_basename (), e.message);
+                item.preprocess_status = PreprocessStatus.FAILED;
+            }
+        }
         return true;
     }
 
@@ -463,7 +487,27 @@ public class CliController : GLib.Object {
                         var p = obj.get_string_member ("path");
                         var fa = obj.get_boolean_member_with_default ("force_absolute", false);
                         var miss = obj.get_boolean_member_with_default ("missing", false);
-                        items.add (new ItemData ("file", p, null, fa, miss));
+                        var item = new ItemData ("file", p, null, fa, miss);
+                        items.add (item);
+
+                        // 二进制文件: 尝试从 .filecollector_cache 复用已转换的 Markdown
+                        // (不主动调 VLM, 避免 load 时产生 API 费用/等待)
+                        if (work_dir != null &&
+                            !miss &&
+                            item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
+                            try {
+                                string? md = BinaryPreprocessor.try_cache_only (
+                                    item, work_dir.get_path ()
+                                );
+                                if (md != null) {
+                                    item.preprocessed_content = md;
+                                    item.preprocess_status = PreprocessStatus.COMPLETED;
+                                    item.from_cache = true;
+                                }
+                            } catch (Error e) {
+                                // 缓存读取失败, 保持 NONE, 导出时按二进制处理
+                            }
+                        }
                     } else {
                         var c = obj.get_string_member_with_default ("content", "");
                         items.add (new ItemData ("text", null, c, false));

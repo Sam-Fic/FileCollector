@@ -39,6 +39,13 @@ public class FileGenerator : GLib.Object {
                 }
                 dis.put_string ("%s:\n".printf (display));
 
+                // 优先使用已预处理好的 Markdown 内容 (二进制文件经 VLM 转换后)
+                if (data.preprocessed_content != null && data.preprocessed_content.length > 0) {
+                    dis.put_string (data.preprocessed_content);
+                    dis.put_string ("\n");
+                    continue;
+                }
+
                 // 检查文件大小, 超过上限则跳过内容读取, 避免 OOM
                 int64 file_size = 0;
                 try {
