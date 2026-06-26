@@ -16,11 +16,14 @@ public class TemplatesManager : GLib.Object {
     public void present () {
         dialog = new Adw.Dialog ();
         dialog.set_title (_("场景模板管理"));
-        dialog.set_content_width (500);
-        dialog.set_content_height (550);
+        dialog.set_content_width (400);
+        dialog.set_content_height (400);
 
         var toolbar_view = new Adw.ToolbarView ();
+        dialog.set_child (toolbar_view);
+
         var header_bar = new Adw.HeaderBar ();
+        header_bar.set_title_widget (new Adw.WindowTitle (_("场景模板管理"), ""));
         header_bar.set_show_end_title_buttons (false);
         toolbar_view.add_top_bar (header_bar);
 
@@ -28,28 +31,28 @@ public class TemplatesManager : GLib.Object {
         header_bar.pack_start (cancel_btn);
         cancel_btn.clicked.connect (() => dialog.close ());
 
-        var add_btn = new Gtk.Button.with_label (_("添加模板"));
+        var add_btn = new Gtk.Button.with_label (_("添加"));
         add_btn.add_css_class ("suggested-action");
         header_bar.pack_end (add_btn);
         add_btn.clicked.connect (show_add_dialog);
 
-        var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 12);
-        box.margin_top = 12;
-        box.margin_bottom = 12;
+        var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+        box.margin_top = 0;
         box.margin_start = 12;
         box.margin_end = 12;
+        box.margin_bottom = 12;
 
         list_box = new Gtk.ListBox ();
         list_box.set_selection_mode (Gtk.SelectionMode.NONE);
         list_box.add_css_class ("boxed-list");
+        list_box.add_css_class ("phrases-list");
         list_box.set_vexpand (true);
+        box.append (list_box);
 
         var scrolled = new Gtk.ScrolledWindow ();
-        scrolled.set_child (list_box);
+        scrolled.set_child (box);
         scrolled.set_vexpand (true);
-        box.append (scrolled);
-
-        toolbar_view.set_content (box);
+        toolbar_view.set_content (scrolled);
         dialog.set_child (toolbar_view);
 
         refresh_list ();
@@ -102,7 +105,7 @@ public class TemplatesManager : GLib.Object {
         var edit_dialog = new Adw.Dialog ();
         edit_dialog.set_title (is_new ? _("添加模板") : _("编辑模板"));
         edit_dialog.set_content_width (450);
-        edit_dialog.set_content_height (600);
+        edit_dialog.set_content_height (450);
 
         var toolbar_view = new Adw.ToolbarView ();
         var header = new Adw.HeaderBar ();
@@ -118,6 +121,7 @@ public class TemplatesManager : GLib.Object {
         header.pack_end (save_btn);
 
         var page = new Adw.PreferencesPage ();
+        page.margin_top = 0;
         var group = new Adw.PreferencesGroup ();
         page.add (group);
 
@@ -135,25 +139,27 @@ public class TemplatesManager : GLib.Object {
         group.add (entry_name);
         group.add (entry_desc);
 
-        var text_group = new Adw.PreferencesGroup ();
-        text_group.set_title (_("内容配置"));
-        page.add (text_group);
+        var entry_header = new Adw.EntryRow ();
+        entry_header.set_title (_("头部插入文本"));
+        entry_header.set_text (tpl.header_text);
+        var entry_footer = new Adw.EntryRow ();
+        entry_footer.set_title (_("尾部插入文本"));
+        entry_footer.set_text (tpl.footer_text);
+        var entry_prompt = new Adw.EntryRow ();
+        entry_prompt.set_title (_("AI 驱动提示词"));
+        entry_prompt.set_text (tpl.ai_prompt);
 
-        var text_header = make_text_area (_("头部插入文本"), tpl.header_text);
-        var text_footer = make_text_area (_("尾部插入文本"), tpl.footer_text);
-        var text_prompt = make_text_area (_("AI 驱动提示词"), tpl.ai_prompt);
-
-        text_group.add (text_header);
-        text_group.add (text_footer);
-        text_group.add (text_prompt);
+        group.add (entry_header);
+        group.add (entry_footer);
+        group.add (entry_prompt);
 
         save_btn.clicked.connect (() => {
             tpl.id = entry_id.get_text ().strip ();
             tpl.name = entry_name.get_text ().strip ();
             tpl.description = entry_desc.get_text ().strip ();
-            tpl.header_text = get_text_area_content (text_header);
-            tpl.footer_text = get_text_area_content (text_footer);
-            tpl.ai_prompt = get_text_area_content (text_prompt);
+            tpl.header_text = entry_header.get_text ().strip ();
+            tpl.footer_text = entry_footer.get_text ().strip ();
+            tpl.ai_prompt = entry_prompt.get_text ().strip ();
 
             if (tpl.id == "" || tpl.name == "") return;
 
@@ -175,34 +181,5 @@ public class TemplatesManager : GLib.Object {
         toolbar_view.set_content (page);
         edit_dialog.set_child (toolbar_view);
         edit_dialog.present (dialog);
-    }
-
-    private Adw.ExpanderRow make_text_area (string title, string content) {
-        var row = new Adw.ExpanderRow ();
-        row.set_title (title);
-        var scrolled = new Gtk.ScrolledWindow ();
-        scrolled.set_min_content_height (100);
-        var tv = new Gtk.TextView ();
-        tv.set_wrap_mode (Gtk.WrapMode.WORD_CHAR);
-        tv.set_top_margin (6);
-        tv.set_bottom_margin (6);
-        tv.set_left_margin (6);
-        tv.set_right_margin (6);
-        tv.get_buffer ().set_text (content, -1);
-        scrolled.set_child (tv);
-        row.add_row (scrolled);
-        return row;
-    }
-
-    private string get_text_area_content (Adw.ExpanderRow row) {
-        var child = row.get_last_child ();
-        if (child == null) return "";
-        var scrolled = child as Gtk.ScrolledWindow;
-        if (scrolled == null) return "";
-        var tv = scrolled.get_child () as Gtk.TextView;
-        if (tv == null) return "";
-        Gtk.TextIter s, e;
-        tv.get_buffer ().get_bounds (out s, out e);
-        return tv.get_buffer ().get_text (s, e, false);
     }
 }

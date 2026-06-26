@@ -50,6 +50,9 @@ public class AIPanel : GLib.Object {
     private Gtk.Button btn_clear;
     private Gtk.Button btn_scroll_bottom;
     private Gtk.Label lbl_status;
+
+    private Gtk.Frame completion_frame;
+    private Gtk.ListBox completion_list;
     private Gtk.Label lbl_model;
 
     // 状态
@@ -155,6 +158,26 @@ public class AIPanel : GLib.Object {
             update_scroll_bottom_btn ();
         });
 
+        // ── 补全列表 (默认隐藏, 出现在输入框上方) ──
+        completion_frame = new Gtk.Frame (null);
+        completion_frame.add_css_class ("ai-input-frame");
+        completion_frame.margin_start = 12;
+        completion_frame.margin_end = 12;
+        completion_frame.margin_bottom = 4;
+        completion_frame.visible = false;
+
+        completion_list = new Gtk.ListBox ();
+        completion_list.add_css_class ("boxed-list");
+        completion_list.set_selection_mode (Gtk.SelectionMode.SINGLE);
+
+        var completion_scroll = new Gtk.ScrolledWindow ();
+        completion_scroll.set_child (completion_list);
+        completion_scroll.set_min_content_height (150);
+        completion_scroll.set_max_content_height (200);
+        completion_scroll.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
+        completion_frame.set_child (completion_scroll);
+        root_box.append (completion_frame);
+
         // ── 输入区 ──
         var input_frame = new Gtk.Frame (null);
         input_frame.add_css_class ("card");
@@ -201,12 +224,30 @@ public class AIPanel : GLib.Object {
             placeholder_lbl.visible = input_view.get_buffer ().get_text (s, e, false).length == 0;
         });
         input_box.append (input_overlay);
-        // Enter 发送, Ctrl+Enter 换行
+        // Enter 发送, Ctrl+Enter 换行, 补全列表导航
         var key = new Gtk.EventControllerKey ();
         key.key_pressed.connect ((keyval, keycode, state) => {
+            if (completion_frame.visible) {
+                if (keyval == Gdk.Key.Down) {
+                    move_completion_selection (1);
+                    return true;
+                } else if (keyval == Gdk.Key.Up) {
+                    move_completion_selection (-1);
+                    return true;
+                } else if (keyval == Gdk.Key.Return || keyval == Gdk.Key.KP_Enter) {
+                    var selected = completion_list.get_selected_row ();
+                    if (selected != null) {
+                        apply_completion (selected);
+                        return true;
+                    }
+                } else if (keyval == Gdk.Key.Escape) {
+                    hide_completion ();
+                    return true;
+                }
+            }
+
             if (keyval == Gdk.Key.Return || keyval == Gdk.Key.KP_Enter) {
                 if ((state & Gdk.ModifierType.CONTROL_MASK) != 0) {
-                    // Ctrl+Enter: 插入换行
                     input_view.get_buffer ().insert_at_cursor ("\n", 1);
                     Gtk.TextIter cursor_iter;
                     input_view.get_buffer ().get_iter_at_mark (out cursor_iter,
@@ -214,13 +255,15 @@ public class AIPanel : GLib.Object {
                     input_view.scroll_to_iter (cursor_iter, 0, false, 0, 0);
                     return true;
                 }
-                // 普通 Enter: 发送
                 on_send_or_stop ();
                 return true;
             }
             return false;
         });
         input_view.add_controller (key);
+
+        // 监听输入变化以触发补全
+        input_view.get_buffer ().changed.connect (on_input_changed);
 
         // 按钮行
         var btn_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
@@ -692,6 +735,107 @@ public class AIPanel : GLib.Object {
         set_busy (false);
     }
 
+    private void on_input_changed () {
+        Gtk.TextIter cursor_iter;
+        input_view.get_buffer ().get_iter_at_mark (out cursor_iter, input_view.get_buffer ().get_insert ());
+        Gtk.TextIter line_start = cursor_iter;
+        line_start.set_line_offset (0);
+        string line_text = line_start.get_text (cursor_iter);
+
+        if (line_text.has_prefix ("/t") || line_text.has_prefix ("/template")) {
+            string query = "";
+            if (line_text.has_prefix ("/template ")) {
+                query = line_text.substring (10).strip ();
+            } else if (line_text.has_prefix ("/t ")) {
+                query = line_text.substring (3).strip ();
+            } else if (line_text == "/t" || line_text == "/template") {
+                query = "";
+            } else {
+                query = line_text.has_prefix ("/template") ? line_text.substring (9) : line_text.substring (2);
+            }
+            show_completion (query);
+        } else {
+            hide_completion ();
+        }
+    }
+
+    private void show_completion (string query) {
+        while (completion_list.get_first_child () != null) {
+            completion_list.remove (completion_list.get_first_child ());
+        }
+
+        var templates = ConfigManager.load_templates ();
+        int match_count = 0;
+
+        foreach (var tpl in templates) {
+            if (query == "" || tpl.id.down ().contains (query.down ()) || tpl.name.down ().contains (query.down ())) {
+                var row = new Adw.ActionRow ();
+                row.set_title (tpl.name);
+                row.set_subtitle ("/" + tpl.id + "  •  " + tpl.description);
+                row.set_activatable (true);
+                row.set_data<string> ("template_id", tpl.id);
+
+                var click = new Gtk.GestureClick ();
+                click.set_button (Gdk.BUTTON_PRIMARY);
+                click.pressed.connect ((n_press, x, y) => {
+                    apply_completion (row);
+                });
+                row.add_controller (click);
+
+                completion_list.append (row);
+                match_count++;
+            }
+        }
+
+        if (match_count > 0) {
+            completion_frame.visible = true;
+            completion_list.select_row (completion_list.get_first_child () as Gtk.ListBoxRow);
+        } else {
+            hide_completion ();
+        }
+    }
+
+    private void hide_completion () {
+        completion_frame.visible = false;
+    }
+
+    private void move_completion_selection (int direction) {
+        var selected = completion_list.get_selected_row ();
+        if (selected == null) {
+            if (direction > 0) {
+                completion_list.select_row (completion_list.get_first_child () as Gtk.ListBoxRow);
+            }
+            return;
+        }
+        Gtk.Widget? next = direction > 0 ? selected.get_next_sibling () : selected.get_prev_sibling ();
+        if (next != null && next is Gtk.ListBoxRow) {
+            completion_list.select_row ((Gtk.ListBoxRow) next);
+        }
+    }
+
+    private void apply_completion (Gtk.ListBoxRow row) {
+        string id = row.get_data<string> ("template_id");
+        hide_completion ();
+        input_view.get_buffer ().set_text ("", 0);
+        execute_template_by_id (id);
+    }
+
+    private void execute_template_by_id (string id) {
+        var templates = ConfigManager.load_templates ();
+        PromptTemplate? tpl = null;
+        foreach (var t in templates) {
+            if (t.id == id) { tpl = t; break; }
+        }
+
+        if (tpl == null) {
+            render_system (_("未找到模板: %s").printf (id));
+            return;
+        }
+
+        template_triggered (tpl.header_text, tpl.footer_text);
+        send_user_message ("[应用模板: %s]\n%s".printf (tpl.name, tpl.ai_prompt));
+    }
+
     private void on_send () {
         if (busy) return;
 
@@ -703,7 +847,10 @@ public class AIPanel : GLib.Object {
 
         if (text.has_prefix ("/template ") || text.has_prefix ("/t ") || text == "/template" || text == "/t") {
             buf.set_text ("", 0);
-            handle_template_command (text);
+            hide_completion ();
+            string[] parts = text.split (" ", 2);
+            string id = parts.length > 1 ? parts[1].strip () : "";
+            execute_template_by_id (id);
             return;
         }
 
@@ -733,39 +880,6 @@ public class AIPanel : GLib.Object {
         rendered.clear ();
         tool_counter = 0;
         pending_welcome = true;
-    }
-
-    private void handle_template_command (string text) {
-        string[] parts = text.split (" ", 2);
-        string id = parts.length > 1 ? parts[1].strip () : "";
-
-        var templates = ConfigManager.load_templates ();
-        PromptTemplate? tpl = null;
-        foreach (var t in templates) {
-            if (t.id == id) { tpl = t; break; }
-        }
-
-        if (tpl == null) {
-            var sb = new StringBuilder ();
-            if (id.length > 0) {
-                sb.append (_("未找到模板: %s")).printf (id);
-            } else {
-                sb.append (_("请输入模板 ID，例如: /t bug"));
-            }
-            sb.append ("\n\n").append (_("可用模板:"));
-            foreach (var t in templates) {
-                sb.append ("\n  /t ").append (t.id).append (" — ").append (t.name);
-                if (t.description.length > 0) sb.append (" (").append (t.description).append (")");
-            }
-            render_system (sb.str);
-            return;
-        }
-
-        template_triggered (tpl.header_text, tpl.footer_text);
-
-        string display_msg = "[应用模板: %s]\n%s".printf (tpl.name, tpl.ai_prompt);
-        render_user (display_msg);
-        send_user_message (tpl.ai_prompt);
     }
 
     private void on_revert_requested (int token, string text) {

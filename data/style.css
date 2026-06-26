@@ -290,6 +290,29 @@ popover.ctx-menu separator {
     box-shadow: none;
 }
 
+/* 补全列表: 去除内部行的阴影和边缘, 与外框圆角一致 */
+.ai-input-frame .boxed-list {
+    background: transparent;
+    box-shadow: none;
+}
+
+.ai-input-frame .boxed-list > row {
+    box-shadow: none;
+    border-bottom: none;
+}
+
+.ai-input-frame .boxed-list > row:first-child {
+    border-radius: 9px 9px 0 0;
+}
+
+.ai-input-frame .boxed-list > row:last-child {
+    border-radius: 0 0 9px 9px;
+}
+
+.ai-input-frame .boxed-list > row:first-child:last-child {
+    border-radius: 9px;
+}
+
 /* 通用文本输入框: 保留卡片背景与圆角, 但去掉阴影 */
 .text-input-frame {
     background: @card_bg_color;
