@@ -445,6 +445,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private Gee.ArrayList<GitCommit> git_commits;
     private string git_search_text = "";
 
+    // VLM 预处理队列
+    private VLMQueueManager vlm_queue;
+    private Gtk.Revealer vlm_progress_revealer;
+    private Gtk.Label lbl_vlm_status;
+    private Gtk.Button btn_vlm_pause;
+    private Gtk.Button btn_vlm_cancel;
+    private Gtk.ProgressBar progress_vlm;
+
 
     public FileCollectorWindow (Adw.Application app) {
         GLib.Object (application: app);
@@ -464,6 +472,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         setup_queue_list ();
         setup_tree_view ();
         setup_git_view ();
+        setup_vlm_queue ();
         sync_path_mode_radios ();
         setup_signals ();
         setup_ai_panel ();
@@ -508,7 +517,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 var it = items.get (i);
                 if (it.item_type == "file" && it.file_path == path) {
                     if (it.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
-                        check_and_apply_cache (it);
+                        vlm_queue.enqueue (it);
                     }
                     break;
                 }
@@ -521,6 +530,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             app_cancellable.cancel ();
         }
         window_closing = true;
+        if (vlm_queue != null) {
+            vlm_queue.cancel ();
+        }
         if (ai_panel_instance != null) {
             ai_panel_instance.shutdown ();
         }
@@ -1093,7 +1105,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     var new_item = new ItemData ("file", item.path, null, false);
                     items.add (new_item);
                     if (new_item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
-                        check_and_apply_cache (new_item);
+                        vlm_queue.enqueue (new_item);
                     }
                 }
             } else {
@@ -1144,7 +1156,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                         var new_item = new ItemData ("file", p, null, false);
                         items.add (new_item);
                         if (new_item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
-                            check_and_apply_cache (new_item);
+                            vlm_queue.enqueue (new_item);
                         }
                     }
                 } else {
@@ -1917,7 +1929,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     var new_item = new ItemData ("file", path, null, false);
                     items.add (new_item);
                     if (new_item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
-                        check_and_apply_cache (new_item);
+                        vlm_queue.enqueue (new_item);
                     }
                     if (!(path in check_model.checked_files)) {
                         check_model.add_files ({ path });
@@ -1972,6 +1984,202 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         } catch (Error e) {
             show_error (_("Git 错误"), e.message);
         }
+    }
+
+    // ─── VLM 预处理队列 ────────────────────────────────────────────────
+
+    private void setup_vlm_queue () {
+        vlm_queue = new VLMQueueManager ();
+        vlm_queue.executor = vlm_task_executor;
+
+        // 构建悬浮进度卡片 (programmatic, 避免 Blueprint 嵌套问题)
+        lbl_vlm_status = new Gtk.Label (_("正在预处理 0/0 个文件..."));
+        lbl_vlm_status.hexpand = true;
+        lbl_vlm_status.xalign = 0;
+        lbl_vlm_status.ellipsize = Pango.EllipsizeMode.END;
+        lbl_vlm_status.add_css_class ("heading");
+
+        btn_vlm_pause = new Gtk.Button.from_icon_name ("media-playback-pause-symbolic");
+        btn_vlm_pause.tooltip_text = _("暂停");
+        btn_vlm_pause.add_css_class ("flat");
+        btn_vlm_pause.add_css_class ("circular");
+
+        btn_vlm_cancel = new Gtk.Button.from_icon_name ("process-stop-symbolic");
+        btn_vlm_cancel.tooltip_text = _("取消全部");
+        btn_vlm_cancel.add_css_class ("flat");
+        btn_vlm_cancel.add_css_class ("circular");
+
+        var header_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
+        header_box.append (lbl_vlm_status);
+        header_box.append (btn_vlm_pause);
+        header_box.append (btn_vlm_cancel);
+
+        progress_vlm = new Gtk.ProgressBar ();
+        progress_vlm.add_css_class ("osd");
+
+        var card_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+        card_box.margin_top = 12;
+        card_box.margin_bottom = 12;
+        card_box.margin_start = 12;
+        card_box.margin_end = 12;
+        card_box.set_size_request (280, -1);
+        card_box.append (header_box);
+        card_box.append (progress_vlm);
+
+        var card_frame = new Gtk.Frame (null);
+        card_frame.add_css_class ("card");
+        card_frame.add_css_class ("vlm-progress-card");
+        card_frame.set_child (card_box);
+
+        vlm_progress_revealer = new Gtk.Revealer ();
+        vlm_progress_revealer.transition_type = Gtk.RevealerTransitionType.SLIDE_UP;
+        vlm_progress_revealer.reveal_child = false;
+        vlm_progress_revealer.halign = Gtk.Align.END;
+        vlm_progress_revealer.valign = Gtk.Align.END;
+        vlm_progress_revealer.margin_end = 12;
+        vlm_progress_revealer.margin_bottom = 12;
+        vlm_progress_revealer.set_child (card_frame);
+
+        // 用 Gtk.Overlay 包裹 ToolbarView, 使进度卡片能悬浮在窗口右下角
+        var main_overlay = new Gtk.Overlay ();
+        var toolbar_view = toast_overlay.child;
+        toast_overlay.child = null;
+        main_overlay.child = toolbar_view;
+        main_overlay.add_overlay (vlm_progress_revealer);
+        toast_overlay.child = main_overlay;
+
+        // 信号连接
+        vlm_queue.progress_changed.connect (on_vlm_progress_changed);
+        vlm_queue.state_changed.connect (on_vlm_state_changed);
+
+        btn_vlm_pause.clicked.connect (() => {
+            if (vlm_queue.is_paused) {
+                vlm_queue.resume ();
+                btn_vlm_pause.icon_name = "media-playback-pause-symbolic";
+                btn_vlm_pause.tooltip_text = _("暂停");
+            } else {
+                vlm_queue.pause ();
+                btn_vlm_pause.icon_name = "media-playback-start-symbolic";
+                btn_vlm_pause.tooltip_text = _("继续");
+            }
+        });
+
+        btn_vlm_cancel.clicked.connect (() => {
+            vlm_queue.cancel ();
+            show_toast (_("已取消所有预处理任务"));
+        });
+    }
+
+    private void on_vlm_progress_changed (int completed, int total, int active) {
+        lbl_vlm_status.set_text (_("正在预处理 %d/%d 个文件...").printf (completed, total));
+        progress_vlm.set_fraction (total > 0 ? (double) completed / total : 0);
+    }
+
+    private void on_vlm_state_changed (bool has_tasks) {
+        vlm_progress_revealer.set_reveal_child (has_tasks);
+    }
+
+    private void vlm_task_executor (ItemData item, VLMQueueManager manager) {
+        // 1. 检查缓存
+        string? cached_md = null;
+        string hash = "";
+        try {
+            hash = PreprocessCache.compute_file_hash (item.file_path);
+            if (work_dir != null) {
+                var cache = new PreprocessCache (work_dir.get_path ());
+                cached_md = cache.get_cached_markdown (item.file_path, hash);
+            }
+        } catch (Error e) {
+            warning ("Cache check failed: %s", e.message);
+        }
+
+        if (manager.check_cancelled ()) {
+            manager.notify_finished (item);
+            return;
+        }
+
+        if (cached_md != null) {
+            Idle.add (() => {
+                item.preprocessed_content = cached_md;
+                item.preprocess_status = PreprocessStatus.COMPLETED;
+                item.from_cache = true;
+                refresh_list ();
+                return Source.REMOVE;
+            });
+            manager.notify_finished (item);
+            return;
+        }
+
+        // 2. 调用 VLM
+        Idle.add (() => {
+            item.preprocess_status = PreprocessStatus.PROCESSING;
+            refresh_list ();
+            return Source.REMOVE;
+        });
+
+        var settings = ConfigManager.load_multimodal_ai_settings ();
+        if (!settings.enabled || settings.api_key == "") {
+            Idle.add (() => {
+                item.preprocess_status = PreprocessStatus.FAILED;
+                refresh_list ();
+                return Source.REMOVE;
+            });
+            manager.notify_finished (item);
+            return;
+        }
+
+        try {
+            string[] base64_images;
+            string[] mime_types;
+
+            if (item.is_image_target ()) {
+                string? b64 = BinaryConverter.convert_image_to_base64 (item.file_path);
+                if (b64 == null) throw new IOError.FAILED ("Image load failed");
+                base64_images = { b64 };
+                mime_types = { BinaryConverter.get_output_mime_for_image (item.file_path) };
+            } else {
+                string[]? images = BinaryConverter.convert_to_base64_images (item.file_path);
+                if (images == null) throw new IOError.FAILED ("Document render failed");
+                base64_images = images;
+                mime_types = new string[images.length];
+                for (int i = 0; i < images.length; i++) mime_types[i] = "image/png";
+            }
+
+            if (manager.check_cancelled ()) { manager.notify_finished (item); return; }
+
+            string prompt = (settings.system_prompt_override != null && settings.system_prompt_override.length > 0)
+                ? settings.system_prompt_override
+                : get_prompt_for_item (item);
+
+            var client = new MultimodalAIClient (
+                settings.base_url, settings.api_key, settings.model,
+                prompt, settings.timeout
+            );
+            string md = client.process_images (base64_images, mime_types);
+
+            if (manager.check_cancelled ()) { manager.notify_finished (item); return; }
+
+            if (work_dir != null) {
+                var cache = new PreprocessCache (work_dir.get_path ());
+                cache.save_markdown (item.file_path, hash, md);
+            }
+
+            Idle.add (() => {
+                item.preprocessed_content = md;
+                item.preprocess_status = PreprocessStatus.COMPLETED;
+                refresh_list ();
+                return Source.REMOVE;
+            });
+        } catch (Error e) {
+            warning ("VLM Task failed: %s", e.message);
+            Idle.add (() => {
+                item.preprocess_status = PreprocessStatus.FAILED;
+                refresh_list ();
+                return Source.REMOVE;
+            });
+        }
+
+        manager.notify_finished (item);
     }
 
     private void setup_pane_sizes () {
@@ -2473,7 +2681,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 var new_item = new ItemData ("file", abs_path, null, false);
                 items.add (new_item);
                 if (new_item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
-                    check_and_apply_cache (new_item);
+                    vlm_queue.enqueue (new_item);
                 }
             }
         } else {
@@ -2669,7 +2877,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     foreach (var item in to_add) {
                         items.add (item);
                         if (item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
-                            check_and_apply_cache (item);
+                            vlm_queue.enqueue (item);
                         }
                         added++;
                     }
@@ -3045,7 +3253,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         refresh_list ();
         update_preview (item);
-        check_and_apply_cache (item);
+        vlm_queue.enqueue (item);
     }
 
     public void on_clear_cache () {
@@ -3845,140 +4053,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         return "请将图片中的内容转换为结构清晰的 Markdown 格式。保留标题、列表和表格。";
     }
 
-    private void check_and_apply_cache (ItemData item) {
-        // 入口先用 CHECKING 状态, 避免缓存复用时仍显示"处理中..."误导用户;
-        // 命中缓存后会直接跳到 COMPLETED, 只有真正需要调 VLM 时才进入 PROCESSING
-        item.preprocess_status = PreprocessStatus.CHECKING;
-        Idle.add (() => {
-            refresh_list ();
-            return Source.REMOVE;
-        });
-
-        try {
-            GLib.Thread<void*> thread = new GLib.Thread<void*> ("cache-check", () => {
-                try {
-                    string hash = PreprocessCache.compute_file_hash (item.file_path);
-                    if (work_dir == null) {
-                        start_preprocess_task (item);
-                        return null;
-                    }
-                    var cache = new PreprocessCache (work_dir.get_path ());
-                    string? cached_md = cache.get_cached_markdown (item.file_path, hash);
-
-                    if (cached_md != null) {
-                        string md = cached_md;
-                        Idle.add (() => {
-                            item.preprocessed_content = md;
-                            item.preprocess_status = PreprocessStatus.COMPLETED;
-                            item.from_cache = true;
-                            refresh_list ();
-                            return Source.REMOVE;
-                        });
-                    } else {
-                        Idle.add (() => {
-                            item.preprocess_status = PreprocessStatus.PENDING;
-                            refresh_list ();
-                            start_preprocess_task (item);
-                            return Source.REMOVE;
-                        });
-                        return null;
-                    }
-                } catch (Error e) {
-                    warning ("Cache check failed: %s", e.message);
-                    Idle.add (() => {
-                        item.preprocess_status = PreprocessStatus.PENDING;
-                        refresh_list ();
-                        start_preprocess_task (item);
-                        return Source.REMOVE;
-                    });
-                    return null;
-                }
-                return null;
-            });
-            bg_threads.add (thread);
-        } catch (ThreadError e) {
-            warning ("Failed to create cache-check thread: %s", e.message);
-            item.preprocess_status = PreprocessStatus.FAILED;
-        }
-    }
-
-    private void start_preprocess_task (ItemData item) {
-        try {
-            GLib.Thread<void*> thread = new GLib.Thread<void*> ("vlm-task", () => {
-                // 所有属性变更都放到主线程执行, 确保 notify 信号在主线程触发,
-                // 否则 notify["preprocess_status"] 处理器不会刷新行内标签
-                Idle.add (() => {
-                    item.preprocess_status = PreprocessStatus.PROCESSING;
-                    refresh_list ();
-                    return Source.REMOVE;
-                });
-
-                var settings = ConfigManager.load_multimodal_ai_settings ();
-                if (!settings.enabled || settings.api_key == "") {
-                    Idle.add (() => {
-                        item.preprocess_status = PreprocessStatus.FAILED;
-                        refresh_list ();
-                        return Source.REMOVE;
-                    });
-                    return null;
-                }
-
-                try {
-                    string[] base64_images;
-                    string[] mime_types;
-
-                    if (item.is_image_target ()) {
-                        string? b64 = BinaryConverter.convert_image_to_base64 (item.file_path);
-                        if (b64 == null) throw new IOError.FAILED ("Image load failed");
-                        base64_images = { b64 };
-                        mime_types = { BinaryConverter.get_output_mime_for_image (item.file_path) };
-                    } else {
-                        string[]? images = BinaryConverter.convert_to_base64_images (item.file_path);
-                        if (images == null) throw new IOError.FAILED ("Document render failed");
-                        base64_images = images;
-                        mime_types = new string[images.length];
-                        for (int i = 0; i < images.length; i++) mime_types[i] = "image/png";
-                    }
-
-                    string prompt = (settings.system_prompt_override != null && settings.system_prompt_override.length > 0)
-                        ? settings.system_prompt_override
-                        : get_prompt_for_item (item);
-
-                    var client = new MultimodalAIClient (
-                        settings.base_url, settings.api_key, settings.model,
-                        prompt, settings.timeout
-                    );
-                    string md = client.process_images (base64_images, mime_types);
-
-                    if (work_dir != null) {
-                        string hash = PreprocessCache.compute_file_hash (item.file_path);
-                        var cache = new PreprocessCache (work_dir.get_path ());
-                        cache.save_markdown (item.file_path, hash, md);
-                    }
-
-                    Idle.add (() => {
-                        item.preprocessed_content = md;
-                        item.preprocess_status = PreprocessStatus.COMPLETED;
-                        refresh_list ();
-                        return Source.REMOVE;
-                    });
-                } catch (Error e) {
-                    warning ("VLM Task failed: %s", e.message);
-                    Idle.add (() => {
-                        item.preprocess_status = PreprocessStatus.FAILED;
-                        refresh_list ();
-                        return Source.REMOVE;
-                    });
-                }
-                return null;
-            });
-            bg_threads.add (thread);
-        } catch (ThreadError e) {
-            warning ("Failed to create VLM thread: %s", e.message);
-            item.preprocess_status = PreprocessStatus.FAILED;
-        }
-    }
-
     // ─── AI 助手集成 ───────────────────────────────────────────────────
 
     private void setup_ai_panel () {
@@ -4140,7 +4214,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 // 重新进入允许列表: 此前因为不在列表中而未触发缓存检查, 现在补上
                 if (item.preprocess_status == PreprocessStatus.NONE
                     || item.preprocess_status == PreprocessStatus.FAILED) {
-                    check_and_apply_cache (item);
+                    vlm_queue.enqueue (item);
                 }
             } else {
                 // 移出允许列表: 清空预处理状态, 不再显示 AI 相关 UI

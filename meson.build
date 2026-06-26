@@ -78,6 +78,7 @@ sources = files(
   'src/services/preprocess_cache.vala',
   'src/services/project_manager.vala',
   'src/services/undo_manager.vala',
+  'src/services/vlm_queue.vala',
   'src/utils/encoding_helper.vala',
   'src/utils/glob_helper.vala',
   'src/widgets/ai_panel.vala',
