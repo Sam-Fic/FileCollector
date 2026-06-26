@@ -397,7 +397,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private string search_text = "";
 
     private GLib.ListStore queue_store;
-    private Gtk.SingleSelection queue_selection;
+    private Gtk.MultiSelection queue_selection;
 
     private AppState app_state;
     // 向后兼容访问器, 逐步迁移到直接通过 app_state 访问
@@ -481,9 +481,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         search_entry.visible = false;
 
         btn_retry_preprocess.clicked.connect (() => {
-            int sel = (int) queue_selection.selected;
-            if (sel >= 0 && sel < items.size) {
-                on_retry_preprocess (items.get (sel));
+            var indices = get_selected_indices ();
+            if (indices.size == 1) {
+                int sel = indices.get (0);
+                if (sel >= 0 && sel < items.size) {
+                    on_retry_preprocess (items.get (sel));
+                }
             }
         });
 
@@ -576,7 +579,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void setup_queue_list () {
         queue_store = new GLib.ListStore (typeof (ItemData));
-        queue_selection = new Gtk.SingleSelection (queue_store);
+        queue_selection = new Gtk.MultiSelection (queue_store);
 
         var factory = new Gtk.SignalListItemFactory ();
         factory.setup.connect ((obj) => {
@@ -603,29 +606,23 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             right_click.pressed.connect ((n_press, gx, gy) => {
                 var li = obj as Gtk.ListItem;
                 if (li == null) return;
-                queue_selection.selected = li.get_position ();
+                uint pos = li.get_position ();
+                var bitset = queue_selection.get_selection ();
+                if (!bitset.contains (pos)) {
+                    queue_selection.unselect_all ();
+                    queue_selection.select_item (pos, false);
+                }
                 var data = li.get_item () as ItemData;
                 if (data != null) {
-                    show_queue_context_menu (box, data, (int)li.get_position (), (int)gx, (int)gy);
+                    show_queue_context_menu (box, data, (int)pos, (int)gx, (int)gy);
                 }
             });
             box.add_controller (right_click);
 
-            // 左键单击: 不管选中行是否变化都强制刷新预览, 修复以下边缘情况:
-            // 1) 重复点击同一行, GtkSingleSelection 不会触发 selection_changed;
-            // 2) 此前点击过文件树导致 queue_selection 被置为 INVALID,
-            //    再回到队列点击同一行时, INVALID -> N 的赋值与既有选择不冲突时
-            //    偶尔也不会触发 selection_changed, 导致预览残留为文件树的内容.
-            // 配合 on_queue_selection_changed 已有逻辑, 不同行点击会出现一次
-            // 重复的 update_preview 调用, 代价可忽略.
+            // 左键单击: 配合 MultiSelection, selection_changed 信号会自动处理预览更新
             var left_click = new Gtk.GestureClick ();
             left_click.set_button (Gdk.BUTTON_PRIMARY);
             left_click.pressed.connect ((n_press, gx, gy) => {
-                var li = obj as Gtk.ListItem;
-                if (li == null) return;
-                var data = li.get_item () as ItemData;
-                if (data == null) return;
-                update_preview (data);
                 clear_tree_selection ();
             });
             box.add_controller (left_click);
@@ -677,8 +674,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     render_queue_row (list_item, data, label, icon);
                 }
                 // 同步刷新右侧预览区, 避免状态变化后预览内容未更新
-                uint sel = queue_selection.selected;
-                if (sel < queue_store.get_n_items () && queue_store.get_item (sel) == data) {
+                uint sel = list_item.get_position ();
+                var sel_bitset = queue_selection.get_selection ();
+                if (sel < queue_store.get_n_items () && sel_bitset.contains (sel) && queue_store.get_item (sel) == data) {
                     update_preview (data);
                 }
             });
@@ -845,7 +843,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 // preview_tree_item_at 已包含缓存检查, 不要再用
                 // 无缓存的 temp_item 调用 update_preview, 否则会覆盖正确预览
                 preview_tree_item_at (pos);
-                queue_selection.selected = Gtk.INVALID_LIST_POSITION;
+                queue_selection.unselect_all ();
             });
             label.add_controller (click);
 
@@ -992,13 +990,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void on_column_view_activated (uint position) {
         preview_tree_item_at (position);
-        queue_selection.selected = Gtk.INVALID_LIST_POSITION;
+        queue_selection.unselect_all ();
     }
 
     private void on_tree_selection_changed (uint position, uint n_items) {
         if (position == Gtk.INVALID_LIST_POSITION) return;
         preview_tree_item_at (position);
-        queue_selection.selected = Gtk.INVALID_LIST_POSITION;
+        queue_selection.unselect_all ();
     }
 
     private void preview_tree_item_at (uint position) {
@@ -2771,13 +2769,20 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // ─── Queue List ──────────────────────────────────────────────────────
 
     private void refresh_list () {
-        bool had_selection = (int)queue_selection.selected >= 0;
-        uint old_selected = queue_selection.selected;
+        // 1. 记录当前选中的 ItemData 对象引用
+        var selected_items = new Gee.ArrayList<ItemData> ();
+        var bitset = queue_selection.get_selection ();
+        for (uint i = 0; i < queue_store.get_n_items (); i++) {
+            if (bitset.contains (i)) {
+                selected_items.add ((ItemData) queue_store.get_item (i));
+            }
+        }
+
         uint n = queue_store.get_n_items ();
         int m = items.size;
 
         // 差分同步: 只替换发生变化的段, 避免全量重建
-        // 1. 寻找第一个不一致的索引
+        // 2. 寻找第一个不一致的索引
         int first_diff = -1;
         int min_len = (int) uint.min (n, (uint) m);
         for (int i = 0; i < min_len; i++) {
@@ -2787,7 +2792,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             }
         }
 
-        // 2. 根据差异类型执行最小化 splice
+        // 3. 根据差异类型执行最小化 splice
         if (first_diff == -1) {
             if (n == m) {
                 // 完全一致，无需任何操作
@@ -2801,7 +2806,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 queue_store.splice (m, n - m, new GLib.Object[0]);
             }
         } else {
-            // 3. 存在中间差异，寻找最后一个不一致的索引
+            // 4. 存在中间差异，寻找最后一个不一致的索引
             int last_diff_old = (int)n - 1;
             int last_diff_new = m - 1;
             while (last_diff_old >= first_diff && last_diff_new >= first_diff) {
@@ -2824,39 +2829,87 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             queue_store.splice (first_diff, replace_len_old, adds);
         }
 
-        // 4. 恢复选择状态
-        if (had_selection && old_selected < items.size) {
-            queue_selection.selected = old_selected;
-        } else if (items.size > 0) {
-            queue_selection.selected = 0;
+        // 5. 恢复选择状态 (基于对象引用)
+        queue_selection.unselect_all ();
+        bool any_selected = false;
+        foreach (var sel_item in selected_items) {
+            int idx = find_item_index (sel_item);
+            if (idx >= 0) {
+                queue_selection.select_item (idx, false);
+                any_selected = true;
+            }
+        }
+        if (!any_selected && items.size > 0) {
+            queue_selection.select_item (0, false);
         }
 
         update_queue_buttons ();
 
-        int sel = (int)queue_selection.selected;
-        if (sel >= 0 && sel < items.size) {
-            update_preview (items.get (sel));
-        } else {
-            // 清空预览: 移除 container 内所有 widget, 再放回 TextView
-            Gtk.Widget? child = preview_container.get_first_child ();
-            while (child != null) {
-                Gtk.Widget? next = child.get_next_sibling ();
-                preview_container.remove (child);
-                child = next;
+        // 6. 更新预览面板
+        var new_indices = get_selected_indices ();
+        if (new_indices.size == 1) {
+            int sel = new_indices.get (0);
+            if (sel >= 0 && sel < items.size) {
+                update_preview (items.get (sel));
             }
-            preview_container.append (preview_view);
-            preview_view.get_buffer ().set_text ("", -1);
+        } else if (new_indices.size > 1) {
+            show_multi_selection_preview (new_indices.size);
+        } else {
+            clear_preview ();
         }
     }
 
+    private Gee.ArrayList<int> get_selected_indices () {
+        var indices = new Gee.ArrayList<int> ();
+        var bitset = queue_selection.get_selection ();
+        var iter = Gtk.BitsetIter ();
+        uint value;
+        if (iter.init_first (bitset, out value)) {
+            indices.add ((int) value);
+            while (iter.next (out value)) {
+                indices.add ((int) value);
+            }
+        }
+        return indices;
+    }
+
+    private void show_multi_selection_preview (int count) {
+        Gtk.Widget? child = preview_container.get_first_child ();
+        while (child != null) {
+            Gtk.Widget? next = child.get_next_sibling ();
+            preview_container.remove (child);
+            child = next;
+        }
+        var label = new Gtk.Label (_("已选择 %d 个项目").printf (count));
+        label.add_css_class ("dim-label");
+        label.valign = Gtk.Align.CENTER;
+        label.halign = Gtk.Align.CENTER;
+        label.vexpand = true;
+        label.hexpand = true;
+        preview_container.append (label);
+    }
+
+    private void clear_preview () {
+        Gtk.Widget? child = preview_container.get_first_child ();
+        while (child != null) {
+            Gtk.Widget? next = child.get_next_sibling ();
+            preview_container.remove (child);
+            child = next;
+        }
+        preview_container.append (preview_view);
+        preview_view.get_buffer ().set_text ("", -1);
+    }
+
     private void update_queue_buttons () {
-        int sel = (int)queue_selection.selected;
-        bool has_selection = sel >= 0 && sel < items.size;
+        var indices = get_selected_indices ();
+        int count = indices.size;
+        bool has_selection = count > 0;
+        bool single = count == 1;
         bool has_items = items.size > 0;
-        btn_add_text_above.sensitive = has_selection;
-        btn_add_text_below.sensitive = has_selection;
-        btn_move_up.sensitive = has_selection && items.size > 1 && sel > 0;
-        btn_move_down.sensitive = has_selection && items.size > 1 && sel < items.size - 1;
+        btn_add_text_above.sensitive = single;
+        btn_add_text_below.sensitive = single;
+        btn_move_up.sensitive = single && items.size > 1 && indices.get (0) > 0;
+        btn_move_down.sensitive = single && items.size > 1 && indices.get (0) < items.size - 1;
         btn_delete.sensitive = has_selection;
         btn_clear.sensitive = has_items;
         btn_git_delete.sensitive = has_selection;
@@ -3017,7 +3070,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void do_insert_text (string text, bool above) {
-        int current = (int)queue_selection.selected;
+        var indices = get_selected_indices ();
+        int current = indices.size == 1 ? indices.get (0) : -1;
         int index;
         if (current < 0) {
             index = above ? 0 : (int) items.size;
@@ -3033,8 +3087,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_move_up () {
-        int index = (int)queue_selection.selected;
-        if (index < 0) return;
+        var indices = get_selected_indices ();
+        if (indices.size != 1) return;
+        int index = indices.get (0);
         if (index <= 0) return;
         var tmp = items.get (index);
         items.set (index, items.get (index - 1));
@@ -3045,8 +3100,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_move_down () {
-        int index = (int)queue_selection.selected;
-        if (index < 0) return;
+        var indices = get_selected_indices ();
+        if (indices.size != 1) return;
+        int index = indices.get (0);
         if (index >= items.size - 1) return;
         var tmp = items.get (index);
         items.set (index, items.get (index + 1));
@@ -3057,26 +3113,36 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_delete_item () {
-        int index = (int)queue_selection.selected;
-        if (index < 0) return;
-        var data = items.get (index);
-        var removed = new Gee.ArrayList<ItemData> ();
-        removed.add (data);
-        var rm_checked = new Gee.ArrayList<string> ();
-        bool was_checked = false;
-        if (data.item_type == "file" && !data.force_absolute && data.file_path != null) {
-            if (data.file_path in check_model.checked_files) {
-                rm_checked.add (data.file_path);
-                was_checked = true;
+        var indices = get_selected_indices ();
+        if (indices.size == 0) return;
+
+        push_undo_state ();
+
+        indices.sort ((a, b) => b - a);
+
+        var paths_to_uncheck = new Gee.ArrayList<string> ();
+        foreach (int idx in indices) {
+            if (idx < 0 || idx >= items.size) continue;
+            var data = items.get (idx);
+            if (data.item_type == "file" && !data.force_absolute && data.file_path != null) {
+                if (data.file_path in check_model.checked_files) {
+                    paths_to_uncheck.add (data.file_path);
+                }
             }
         }
-        push_undo_delta (new UndoDelta.for_remove (index, removed, rm_checked));
-        if (was_checked) {
-            set_tree_item_check (data.file_path, false);
-        } else {
-            items.remove_at (index);
-            refresh_list ();
+
+        if (paths_to_uncheck.size > 0) {
+            check_model.remove_files ((string[]) paths_to_uncheck.to_array ());
         }
+
+        foreach (int idx in indices) {
+            if (idx >= 0 && idx < items.size) {
+                items.remove_at (idx);
+            }
+        }
+
+        refresh_all_tree_states ();
+        refresh_list ();
     }
 
     private void on_clear_items () {
@@ -3089,19 +3155,26 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void select_queue_row (int index) {
         if (index >= 0 && index < items.size) {
-            queue_selection.selected = index;
+            queue_selection.unselect_all ();
+            queue_selection.select_item (index, false);
         }
     }
 
     private void on_queue_selection_changed (uint position, uint n_items) {
         update_queue_buttons ();
-
-        int sel = (int)queue_selection.selected;
-        if (sel < 0 || sel >= items.size) {
-            return;
+        var indices = get_selected_indices ();
+        if (indices.size == 1) {
+            int sel = indices.get (0);
+            if (sel >= 0 && sel < items.size) {
+                update_preview (items.get (sel));
+            }
+            clear_tree_selection ();
+        } else if (indices.size > 1) {
+            show_multi_selection_preview (indices.size);
+            clear_tree_selection ();
+        } else {
+            clear_preview ();
         }
-        update_preview (items.get (sel));
-        clear_tree_selection ();
     }
 
     private void on_queue_row_activated (uint position) {
@@ -3304,9 +3377,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 }
 
                 refresh_list ();
-                int sel = (int) queue_selection.selected;
-                if (sel >= 0 && sel < items.size) {
-                    update_preview (items.get (sel));
+                var indices = get_selected_indices ();
+                if (indices.size == 1) {
+                    int sel = indices.get (0);
+                    if (sel >= 0 && sel < items.size) {
+                        update_preview (items.get (sel));
+                    }
                 }
 
                 show_toast (_("工作区缓存已清除"));
@@ -3320,57 +3396,99 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void show_queue_context_menu (Gtk.Widget parent, ItemData item, int index, int gx, int gy) {
         var menu_model = new GLib.Menu ();
         var action_group = new GLib.SimpleActionGroup ();
+        var indices = get_selected_indices ();
+        int count = indices.size;
+        bool single = (count == 1);
 
-        // 编辑与插入
-        var section_edit = new GLib.Menu ();
+        // 编辑与插入 (仅单选)
+        if (single) {
+            var section_edit = new GLib.Menu ();
 
-        var act_edit = new GLib.SimpleAction ("ctx_edit", null);
-        act_edit.set_enabled (item.item_type == "text");
-        act_edit.activate.connect (() => { insert_text (false, item.content, item); });
-        action_group.add_action (act_edit);
-        section_edit.append (_("编辑文本"), "ctx.ctx_edit");
+            var act_edit = new GLib.SimpleAction ("ctx_edit", null);
+            act_edit.set_enabled (item.item_type == "text");
+            act_edit.activate.connect (() => { insert_text (false, item.content, item); });
+            action_group.add_action (act_edit);
+            section_edit.append (_("编辑文本"), "ctx.ctx_edit");
 
-        var act_insert_above = new GLib.SimpleAction ("ctx_insert_above", null);
-        act_insert_above.activate.connect (() => { insert_text (true); });
-        action_group.add_action (act_insert_above);
-        section_edit.append (_("在上方插入文本"), "ctx.ctx_insert_above");
+            var act_insert_above = new GLib.SimpleAction ("ctx_insert_above", null);
+            act_insert_above.activate.connect (() => { insert_text (true); });
+            action_group.add_action (act_insert_above);
+            section_edit.append (_("在上方插入文本"), "ctx.ctx_insert_above");
 
-        var act_insert_below = new GLib.SimpleAction ("ctx_insert_below", null);
-        act_insert_below.activate.connect (() => { insert_text (false); });
-        action_group.add_action (act_insert_below);
-        section_edit.append (_("在下方插入文本"), "ctx.ctx_insert_below");
+            var act_insert_below = new GLib.SimpleAction ("ctx_insert_below", null);
+            act_insert_below.activate.connect (() => { insert_text (false); });
+            action_group.add_action (act_insert_below);
+            section_edit.append (_("在下方插入文本"), "ctx.ctx_insert_below");
 
-        menu_model.append_section (null, section_edit);
+            menu_model.append_section (null, section_edit);
+        }
 
-        // 排序
-        var section_order = new GLib.Menu ();
+        // 排序 (仅单选)
+        if (single) {
+            var section_order = new GLib.Menu ();
 
-        var act_move_up = new GLib.SimpleAction ("ctx_move_up", null);
-        act_move_up.set_enabled (index > 0);
-        act_move_up.activate.connect (() => { on_move_up (); });
-        action_group.add_action (act_move_up);
-        section_order.append (_("上移"), "ctx.ctx_move_up");
+            var act_move_up = new GLib.SimpleAction ("ctx_move_up", null);
+            act_move_up.set_enabled (index > 0);
+            act_move_up.activate.connect (() => { on_move_up (); });
+            action_group.add_action (act_move_up);
+            section_order.append (_("上移"), "ctx.ctx_move_up");
 
-        var act_move_down = new GLib.SimpleAction ("ctx_move_down", null);
-        act_move_down.set_enabled (index < items.size - 1);
-        act_move_down.activate.connect (() => { on_move_down (); });
-        action_group.add_action (act_move_down);
-        section_order.append (_("下移"), "ctx.ctx_move_down");
+            var act_move_down = new GLib.SimpleAction ("ctx_move_down", null);
+            act_move_down.set_enabled (index < items.size - 1);
+            act_move_down.activate.connect (() => { on_move_down (); });
+            action_group.add_action (act_move_down);
+            section_order.append (_("下移"), "ctx.ctx_move_down");
 
-        menu_model.append_section (null, section_order);
+            menu_model.append_section (null, section_order);
+        }
 
-        // 文件专属操作
-        if (item.item_type == "file" && item.file_path != null) {
-            var section_file = new GLib.Menu ();
+        // 文件专属操作 (支持多选)
+        var section_file = new GLib.Menu ();
+        bool can_retry_vlm = count > 0;
+        bool has_external = false;
 
-            if (item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())
-                && item.preprocess_status != PreprocessStatus.PROCESSING) {
-                var act_retry = new GLib.SimpleAction ("ctx_retry_ai", null);
-                act_retry.activate.connect (() => { on_retry_preprocess (item); });
-                action_group.add_action (act_retry);
-                section_file.append (_("重新进行 AI 转换"), "ctx.ctx_retry_ai");
+        foreach (int idx in indices) {
+            if (idx < 0 || idx >= items.size) continue;
+            var it = items.get (idx);
+            if (it.item_type != "file" || !it.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())
+                || it.preprocess_status == PreprocessStatus.PROCESSING) {
+                can_retry_vlm = false;
             }
+            if (it.item_type == "file" && work_dir != null && it.file_path != null) {
+                if (!it.file_path.has_prefix (work_dir.get_path () + "/")) {
+                    has_external = true;
+                }
+            }
+        }
 
+        if (can_retry_vlm) {
+            var act_retry = new GLib.SimpleAction ("ctx_retry_ai", null);
+            act_retry.activate.connect (() => {
+                foreach (int idx in indices) {
+                    if (idx >= 0 && idx < items.size) on_retry_preprocess (items.get (idx));
+                }
+            });
+            action_group.add_action (act_retry);
+            section_file.append (count > 1 ? _("重新进行 AI 转换 (%d 项)").printf (count) : _("重新进行 AI 转换"), "ctx.ctx_retry_ai");
+        }
+
+        if (has_external) {
+            var act_toggle_abs = new GLib.SimpleAction ("ctx_toggle_absolute", null);
+            act_toggle_abs.activate.connect (() => {
+                push_undo_state ();
+                foreach (int idx in indices) {
+                    if (idx >= 0 && idx < items.size) {
+                        var it = items.get (idx);
+                        if (it.item_type == "file") it.force_absolute = !it.force_absolute;
+                    }
+                }
+                refresh_list ();
+            });
+            action_group.add_action (act_toggle_abs);
+            section_file.append (count > 1 ? _("切换绝对/相对路径 (%d 项)").printf (count) : _("切换绝对/相对路径"), "ctx.ctx_toggle_absolute");
+        }
+
+        if (single && item.item_type == "file" && item.file_path != null) {
             var act_copy_path = new GLib.SimpleAction ("ctx_copy_path", null);
             act_copy_path.activate.connect (() => {
                 string path_to_copy = item.file_path;
@@ -3390,7 +3508,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             act_show_folder.activate.connect (() => { show_file_in_folder (item.file_path); });
             action_group.add_action (act_show_folder);
             section_file.append (_("在文件管理器中显示"), "ctx.ctx_show_folder");
+        }
 
+        if (section_file.get_n_items () > 0) {
             menu_model.append_section (null, section_file);
         }
 
@@ -3399,16 +3519,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var act_delete = new GLib.SimpleAction ("ctx_delete", null);
         act_delete.activate.connect (() => { on_delete_item (); });
         action_group.add_action (act_delete);
-        section_delete.append (_("删除"), "ctx.ctx_delete");
+        section_delete.append (count > 1 ? _("删除 (%d 项)").printf (count) : _("删除"), "ctx.ctx_delete");
         menu_model.append_section (null, section_delete);
 
         var popover = new Gtk.PopoverMenu.from_model (menu_model);
         popover.set_has_arrow (false);
         popover.set_parent (parent);
         popover.insert_action_group ("ctx", action_group);
-        // 统一两个右键菜单的字号, 避免从父容器 (.file-tree 14px) 继承导致不一致
         popover.add_css_class ("ctx-menu");
-        // 让菜单的左上角对齐到鼠标点击位置 (默认会水平居中, 导致鼠标箭头落在菜单顶部中点)
         popover.set_halign (Gtk.Align.START);
         popover.set_valign (Gtk.Align.START);
 
