@@ -60,6 +60,7 @@ public class AIPanel : GLib.Object {
 
     public signal int get_undo_token ();
     public signal void revert_to_undo_token (int token);
+    public signal void template_triggered (string header, string footer);
 
     private GLib.Thread<void>? worker_thread = null;
     private bool busy = false;
@@ -700,6 +701,12 @@ public class AIPanel : GLib.Object {
         string text = buf.get_text (start, end, false).strip ();
         if (text.length == 0) return;
 
+        if (text.has_prefix ("/template ") || text.has_prefix ("/t ") || text == "/template" || text == "/t") {
+            buf.set_text ("", 0);
+            handle_template_command (text);
+            return;
+        }
+
         if (client == null) {
             if (!ai_enabled) {
                 render_system (_("请先在 设置 → AI 设置 中启用 AI 助手。"));
@@ -726,6 +733,39 @@ public class AIPanel : GLib.Object {
         rendered.clear ();
         tool_counter = 0;
         pending_welcome = true;
+    }
+
+    private void handle_template_command (string text) {
+        string[] parts = text.split (" ", 2);
+        string id = parts.length > 1 ? parts[1].strip () : "";
+
+        var templates = ConfigManager.load_templates ();
+        PromptTemplate? tpl = null;
+        foreach (var t in templates) {
+            if (t.id == id) { tpl = t; break; }
+        }
+
+        if (tpl == null) {
+            var sb = new StringBuilder ();
+            if (id.length > 0) {
+                sb.append (_("未找到模板: %s")).printf (id);
+            } else {
+                sb.append (_("请输入模板 ID，例如: /t bug"));
+            }
+            sb.append ("\n\n").append (_("可用模板:"));
+            foreach (var t in templates) {
+                sb.append ("\n  /t ").append (t.id).append (" — ").append (t.name);
+                if (t.description.length > 0) sb.append (" (").append (t.description).append (")");
+            }
+            render_system (sb.str);
+            return;
+        }
+
+        template_triggered (tpl.header_text, tpl.footer_text);
+
+        string display_msg = "[应用模板: %s]\n%s".printf (tpl.name, tpl.ai_prompt);
+        render_user (display_msg);
+        send_user_message (tpl.ai_prompt);
     }
 
     private void on_revert_requested (int token, string text) {

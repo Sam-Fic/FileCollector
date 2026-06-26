@@ -474,4 +474,94 @@ public class ConfigManager : GLib.Object {
             config_mutex.unlock ();
         }
     }
+
+    // ─── 场景化编排模板 ─────────────────────────────────────────────────
+
+    private static string get_templates_file () {
+        return GLib.Path.build_filename (get_config_dir (), "templates.json");
+    }
+
+    public static Gee.ArrayList<PromptTemplate> get_default_templates () {
+        var list = new Gee.ArrayList<PromptTemplate> ();
+        list.add (new PromptTemplate (
+            "bug", "Bug 分析", "排查逻辑错误与异常",
+            "# 问题描述\n[请在此补充具体的 Bug 现象、复现步骤及报错日志]",
+            "# 期望输出\n[请提供修复方案或代码补丁]",
+            "请分析当前编排列表中的代码，重点排查与 Bug 相关的逻辑错误、异常处理及日志输出。如果需要，请使用 list_files 和 add_files 工具补充相关的日志文件或配置文件。"
+        ));
+        list.add (new PromptTemplate (
+            "api", "API 文档生成", "梳理 RESTful 接口",
+            "# API 接口文档\n",
+            "\n# 附录与数据字典",
+            "请根据当前列表中的 Controller/Router 文件，梳理并生成结构化的 RESTful API 文档。如果缺少相关路由文件，请自行探索并添加。"
+        ));
+        list.add (new PromptTemplate (
+            "refactor", "代码重构", "优化代码结构",
+            "# 重构目标\n[请说明重构的目的，如降低耦合、提升性能]",
+            "# 验收标准",
+            "请审查以下代码，寻找重复逻辑、过长函数及不符合 SOLID 原则的设计，并提供重构建议。"
+        ));
+        return list;
+    }
+
+    public static Gee.ArrayList<PromptTemplate> load_templates () {
+        config_mutex.lock ();
+        try {
+            var file = get_templates_file ();
+            if (!FileUtils.test (file, FileTest.EXISTS)) {
+                return get_default_templates ();
+            }
+            string content;
+            size_t len;
+            FileUtils.get_contents (file, out content, out len);
+            var parser = new Json.Parser ();
+            parser.load_from_data (content);
+            var root = parser.get_root ().get_array ();
+            var list = new Gee.ArrayList<PromptTemplate> ();
+            for (int i = 0; i < root.get_length (); i++) {
+                var obj = root.get_object_element (i);
+                list.add (new PromptTemplate (
+                    obj.get_string_member_with_default ("id", ""),
+                    obj.get_string_member_with_default ("name", ""),
+                    obj.get_string_member_with_default ("description", ""),
+                    obj.get_string_member_with_default ("header_text", ""),
+                    obj.get_string_member_with_default ("footer_text", ""),
+                    obj.get_string_member_with_default ("ai_prompt", "")
+                ));
+            }
+            return list;
+        } catch (Error e) {
+            warning ("Failed to load templates: %s", e.message);
+            return get_default_templates ();
+        } finally {
+            config_mutex.unlock ();
+        }
+    }
+
+    public static void save_templates (Gee.ArrayList<PromptTemplate> templates) {
+        config_mutex.lock ();
+        try {
+            var builder = new Json.Builder ();
+            builder.begin_array ();
+            foreach (var tpl in templates) {
+                builder.begin_object ();
+                builder.set_member_name ("id"); builder.add_string_value (tpl.id);
+                builder.set_member_name ("name"); builder.add_string_value (tpl.name);
+                builder.set_member_name ("description"); builder.add_string_value (tpl.description);
+                builder.set_member_name ("header_text"); builder.add_string_value (tpl.header_text);
+                builder.set_member_name ("footer_text"); builder.add_string_value (tpl.footer_text);
+                builder.set_member_name ("ai_prompt"); builder.add_string_value (tpl.ai_prompt);
+                builder.end_object ();
+            }
+            builder.end_array ();
+            var generator = new Json.Generator ();
+            generator.set_root (builder.get_root ());
+            generator.pretty = true;
+            generator.to_file (get_templates_file ());
+        } catch (Error e) {
+            warning ("Failed to save templates: %s", e.message);
+        } finally {
+            config_mutex.unlock ();
+        }
+    }
 }

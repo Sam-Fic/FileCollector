@@ -374,6 +374,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // Git 模式切换
     [GtkChild] private unowned Gtk.Button btn_toggle_git;
+    [GtkChild] private unowned Gtk.Button btn_global_search;
     [GtkChild] private unowned Gtk.Stack left_stack;
     [GtkChild] private unowned Gtk.Stack action_stack;
     [GtkChild] private unowned Gtk.Box tree_page;
@@ -1662,6 +1663,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         action_stack.visible_child = normal_actions;
 
         btn_toggle_git.clicked.connect (on_toggle_git_mode);
+        btn_global_search.clicked.connect (on_global_search);
         git_search_entry.search_changed.connect (on_git_search_changed);
 
         btn_git_add_all_changed.clicked.connect (on_git_add_all_changed);
@@ -2421,6 +2423,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         act_toggle_ai.activate.connect (() => toggle_ai_panel ());
         this.add_action (act_toggle_ai);
 
+        var act_global_search = new GLib.SimpleAction ("global_search", null);
+        act_global_search.activate.connect (() => on_global_search ());
+        this.add_action (act_global_search);
+
         // 延迟注册快捷键, 等待 application 就绪
         GLib.Idle.add (() => {
             var app = this.application;
@@ -2437,6 +2443,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 app.set_accels_for_action ("win.insert_text", { "<Control>i" });
                 app.set_accels_for_action ("win.insert_text_no_header", { "<Control><Shift>i" });
                 app.set_accels_for_action ("win.toggle_ai_panel", { "<Control>j" });
+                app.set_accels_for_action ("win.global_search", { "<Control><Shift>f" });
             }
             return GLib.Source.REMOVE;
         });
@@ -4054,6 +4061,15 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         get_phrases_picker ().show_manage_window ();
     }
 
+    private TemplatesManager? templates_manager_instance = null;
+
+    public void on_manage_templates () {
+        if (templates_manager_instance == null) {
+            templates_manager_instance = new TemplatesManager (this);
+        }
+        templates_manager_instance.present ();
+    }
+
     private void show_warning (string title, string msg) {
         var d = new Adw.AlertDialog (title, msg);
         d.add_response ("ok", _("确定"));
@@ -4234,6 +4250,37 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
     }
 
+    // ─── 全局内容搜索 ────────────────────────────────────────────────────
+
+    private void on_global_search () {
+        if (work_dir == null) {
+            show_toast (_("请先设置工作目录"));
+            return;
+        }
+        var dialog = new GlobalSearchDialog (this, work_dir.get_path ());
+        dialog.add_files_requested.connect ((paths) => {
+            push_undo_state ();
+            int added = 0;
+            foreach (var p in paths) {
+                if (!path_in_items (p)) {
+                    var new_item = new ItemData ("file", p, null, false);
+                    items.add (new_item);
+                    if (new_item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
+                        vlm_queue.enqueue (new_item);
+                    }
+                    if (!(p in check_model.checked_files)) {
+                        check_model.add_files ({ p });
+                    }
+                    added++;
+                }
+            }
+            refresh_all_tree_states ();
+            refresh_list ();
+            show_toast (_("已从搜索结果添加 %d 个文件").printf (added));
+        });
+        dialog.present (this);
+    }
+
     private void toggle_ai_panel () {
         ai_panel_visible = !ai_panel_visible;
         if (ai_panel_visible) {
@@ -4278,6 +4325,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     dir_column_view.queue_draw ();
                 }
                 update_undo_redo_buttons ();
+            });
+            ai_panel_instance.template_triggered.connect ((header, footer) => {
+                push_undo_state ();
+                if (header != null && header.strip ().length > 0) {
+                    app_state.add_item (new ItemData ("text", null, header, false), 0);
+                }
+                if (footer != null && footer.strip ().length > 0) {
+                    app_state.add_item (new ItemData ("text", null, footer, false), -1);
+                }
+                refresh_list ();
             });
         }
         // 重新应用当前设置

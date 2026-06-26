@@ -418,3 +418,13 @@ popover.ctx-menu separator {
     min-width: 32px;
     min-height: 32px;
 }
+
+/* 全局搜索: 结果列表 (参考常用语列表样式) */
+.search-result-list.boxed-list {
+    box-shadow: none;
+}
+
+.search-result-list.boxed-list > row {
+    border-bottom: none;
+    box-shadow: none;
+}

@@ -19,6 +19,11 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
           tooltip-text: _("切换到 Git 提交历史");
         }
 
+        Button btn_global_search {
+          icon-name: "edit-find-symbolic";
+          tooltip-text: _("全局内容搜索 (Ctrl+Shift+F)");
+        }
+
         Button open_folder_btn {
           icon-name: "folder-open-symbolic";
           tooltip-text: _("打开工作目录");
@@ -478,6 +483,7 @@ menu primary_menu {
   }
   section {
     item (_("常用语管理"), "app.manage_phrases")
+    item (_("场景模板管理..."), "app.manage_templates")
     item (_("AI 设置..."), "app.ai_settings")
     item (_("清除工作区缓存"), "app.clear_cache")
     item (_("语言设置"), "app.settings")

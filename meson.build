@@ -65,6 +65,8 @@ sources = files(
   'src/models/item_data.vala',
   'src/models/app_state.vala',
   'src/models/git_commit.vala',
+  'src/models/prompt_template.vala',
+  'src/models/search_result.vala',
   'src/controllers/project_controller.vala',
   'src/controllers/ai_controller.vala',
   'src/services/ai_client.vala',
@@ -77,15 +79,18 @@ sources = files(
   'src/services/multimodal_ai_client.vala',
   'src/services/preprocess_cache.vala',
   'src/services/project_manager.vala',
+  'src/services/search_service.vala',
   'src/services/undo_manager.vala',
   'src/services/vlm_queue.vala',
   'src/utils/encoding_helper.vala',
   'src/utils/glob_helper.vala',
   'src/widgets/ai_panel.vala',
   'src/widgets/ai_settings_dialog.vala',
+  'src/widgets/global_search_dialog.vala',
   'src/widgets/markdown_view.vala',
   'src/widgets/settings_dialog.vala',
-  'src/widgets/phrases_picker.vala'
+  'src/widgets/phrases_picker.vala',
+  'src/widgets/templates_manager.vala'
 )
 
 # 国际化

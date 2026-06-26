@@ -40,6 +40,10 @@ public class FileCollectorApp : Adw.Application {
             if (phrases_action != null) {
                 ((GLib.SimpleAction) phrases_action).activate.connect (() => window.on_manage_phrases ());
             }
+            var templates_action = lookup_action ("manage_templates");
+            if (templates_action != null) {
+                ((GLib.SimpleAction) templates_action).activate.connect (() => window.on_manage_templates ());
+            }
 
             var settings_action = lookup_action ("settings");
             if (settings_action != null) {
@@ -157,6 +161,7 @@ public class FileCollectorApp : Adw.Application {
         add_action (new GLib.SimpleAction ("save_as_project", null));
         add_action (new GLib.SimpleAction ("about", null));
         add_action (new GLib.SimpleAction ("manage_phrases", null));
+        add_action (new GLib.SimpleAction ("manage_templates", null));
         add_action (new GLib.SimpleAction ("settings", null));
         add_action (new GLib.SimpleAction ("ai_settings", null));
         add_action (new GLib.SimpleAction ("clear_cache", null));
