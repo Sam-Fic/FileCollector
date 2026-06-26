@@ -10,12 +10,14 @@ public class ProjectManager : GLib.Object {
         out File? work_dir,
         out string? project_file,
         out bool use_absolute,
-        out bool show_header
+        out bool show_header,
+        out bool generate_ai_toc
     ) throws Error {
         work_dir = null;
         project_file = null;
         use_absolute = false;
         show_header = false;
+        generate_ai_toc = false;
 
         string content;
         size_t len;
@@ -39,6 +41,7 @@ public class ProjectManager : GLib.Object {
 
         use_absolute = root.get_boolean_member_with_default ("use_absolute", false);
         show_header = root.get_boolean_member_with_default ("show_header", false);
+        generate_ai_toc = root.get_boolean_member_with_default ("generate_ai_toc", false);
 
         var checked_arr = root.get_array_member ("checked_files");
         if (checked_arr != null) {
@@ -96,7 +99,8 @@ public class ProjectManager : GLib.Object {
         Gee.ArrayList<ItemData> items,
         Gee.HashSet<string> checked_paths,
         Gee.HashSet<string> checked_dirs,
-        Gee.ArrayList<string> common_phrases
+        Gee.ArrayList<string> common_phrases,
+        bool generate_ai_toc = false
     ) throws Error {
         var builder = new Json.Builder ();
         builder.begin_object ();
@@ -113,6 +117,9 @@ public class ProjectManager : GLib.Object {
 
         builder.set_member_name ("show_header");
         builder.add_boolean_value (show_header);
+
+        builder.set_member_name ("generate_ai_toc");
+        builder.add_boolean_value (generate_ai_toc);
 
         builder.set_member_name ("checked_files");
         builder.begin_array ();

@@ -10,6 +10,7 @@ public class AppState : GLib.Object {
     public File? work_dir { get; set; }
     public bool use_absolute { get; set; }
     public bool show_header { get; set; }
+    public bool generate_ai_toc { get; set; }
     public string? project_file { get; set; }
 
     // AI 配置状态 (未来可进一步拆分，但目前与 AppState 生命周期一致)
@@ -105,6 +106,7 @@ public class AppState : GLib.Object {
         work_dir = null;
         use_absolute = false;
         show_header = false;
+        generate_ai_toc = false;
         project_file = null;
         items_changed ();
         state_changed ();
@@ -117,11 +119,13 @@ public class AppState : GLib.Object {
         Gee.ArrayList<ItemData> new_items,
         Gee.HashSet<string> new_checked_paths,
         Gee.HashSet<string>? new_checked_dirs,
-        Gee.ArrayList<string> new_common_phrases
+        Gee.ArrayList<string> new_common_phrases,
+        bool new_generate_ai_toc = false
     ) {
         work_dir = new_work_dir;
         use_absolute = new_use_absolute;
         show_header = new_show_header;
+        generate_ai_toc = new_generate_ai_toc;
 
         items.clear ();
         for (int i = 0; i < new_items.size; i++) {

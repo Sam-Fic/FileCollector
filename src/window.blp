@@ -162,10 +162,10 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                  margin-bottom: 6;
                  ListView git_list_view {}
                }
-             }
-           }
-         }
-       }
+              }
+            }
+          }
+        }
 
       Paned inner_paned {
         orientation: horizontal;
@@ -346,6 +346,18 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                     }
                   }
                 }
+              }
+            }
+
+            Button btn_ai_toc {
+              halign: center;
+              margin-top: 6;
+              margin-start: 12;
+              margin-end: 12;
+              Box {
+                spacing: 4;
+                Image { icon-name: "xsi-view-list-ordered-symbolic"; }
+                Label { label: _("AI 生成阅读指南"); }
               }
             }
 

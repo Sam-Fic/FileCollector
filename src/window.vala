@@ -362,6 +362,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.CheckButton radio_relative_path;
     [GtkChild] private unowned Gtk.CheckButton radio_absolute_path;
     [GtkChild] private unowned Gtk.CheckButton check_write_header;
+    [GtkChild] private unowned Gtk.Button btn_ai_toc;
     [GtkChild] private unowned Gtk.SearchEntry search_entry;
     [GtkChild] private unowned Adw.ToastOverlay toast_overlay;
     [GtkChild] private unowned Gtk.Paned outer_paned;
@@ -1631,6 +1632,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         radio_absolute_path.notify["active"].connect (on_path_mode_changed);
         radio_relative_path.notify["active"].connect (on_path_mode_changed);
         check_write_header.notify["active"].connect (on_header_check_changed);
+        btn_ai_toc.clicked.connect (on_ai_toc_clicked);
 
         queue_selection.selection_changed.connect (on_queue_selection_changed);
         queue_list.activate.connect (on_queue_row_activated);
@@ -3717,6 +3719,129 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         } catch (Error e) {
             show_error (_("复制失败"), e.message);
         }
+    }
+
+    // ─── AI 阅读指南生成 ─────────────────────────────────────────────────
+
+    private void on_ai_toc_clicked () {
+        if (items.size == 0) {
+            show_toast (_("编排列表为空，请先添加文件"));
+            return;
+        }
+
+        var s = ConfigManager.load_ai_settings ();
+        if (!s.enabled || s.base_url == "" || s.api_key == "" || s.model == "") {
+            show_toast (_("请先在 AI 设置中配置 API"));
+            return;
+        }
+
+        btn_ai_toc.sensitive = false;
+        btn_generate.sensitive = false;
+        btn_generate_clipboard.sensitive = false;
+        show_toast (_("正在让 AI 生成阅读指南..."));
+
+        var client = new AIClient (s.base_url, s.api_key, s.model, s.timeout);
+        string context = build_toc_prompt_context ();
+        string prompt = build_toc_prompt (context);
+
+        var msgs = new Gee.ArrayList<Json.Node> ();
+        var o = new Json.Object ();
+        o.set_string_member ("role", "user");
+        o.set_string_member ("content", prompt);
+        var node = new Json.Node (Json.NodeType.OBJECT);
+        node.set_object (o);
+        msgs.add (node);
+
+        try {
+            new GLib.Thread<void*> ("toc-gen", () => {
+                string toc_result = "";
+                try {
+                    var result = client.chat (msgs, null, null);
+                    toc_result = clean_ai_markdown (result.content);
+                } catch (Error e) {
+                    warning ("TOC Gen failed: %s", e.message);
+                }
+
+                Idle.add (() => {
+                    btn_ai_toc.sensitive = true;
+                    btn_generate.sensitive = true;
+                    btn_generate_clipboard.sensitive = true;
+
+                    if (toc_result.length == 0) {
+                        show_toast (_("AI 生成阅读指南失败"));
+                    } else {
+                        push_undo_state ();
+                        items.insert (0, new ItemData ("text", null, toc_result, false));
+                        refresh_list ();
+                        show_toast (_("AI 阅读指南已插入编排列表顶部"));
+                    }
+                    return Source.REMOVE;
+                });
+                return null;
+            });
+        } catch (ThreadError e) {
+            btn_ai_toc.sensitive = true;
+            btn_generate.sensitive = true;
+            btn_generate_clipboard.sensitive = true;
+            show_toast (_("无法启动 AI 生成线程"));
+        }
+    }
+
+    private string build_toc_prompt_context () {
+        var sb = new StringBuilder ();
+        foreach (var item in items) {
+            if (item.item_type == "file" && item.file_path != null) {
+                string rel_path = item.file_path;
+                if (work_dir != null && rel_path.has_prefix (work_dir.get_path () + "/")) {
+                    rel_path = rel_path.substring (work_dir.get_path ().length + 1);
+                }
+                sb.append ("### ").append (rel_path).append ("\n");
+                try {
+                    var file = File.new_for_path (item.file_path);
+                    var dis = new DataInputStream (file.read ());
+                    string? line;
+                    int count = 0;
+                    while ((line = dis.read_line (null)) != null && count < 15) {
+                        sb.append (line).append ("\n");
+                        count++;
+                    }
+                } catch (Error e) {
+                    sb.append ("[无法读取文件内容]\n");
+                }
+                sb.append ("\n");
+            } else if (item.item_type == "text") {
+                sb.append ("### [自定义文本片段]\n");
+                string preview = item.content ?? "";
+                if (preview.length > 200) preview = preview.substring (0, 200) + "...";
+                sb.append (preview).append ("\n\n");
+            }
+        }
+        return sb.str;
+    }
+
+    private string build_toc_prompt (string context) {
+        return "你是一个高级软件架构师和文档专家。我将提供一个项目中的一系列文件路径及其开头部分的代码/内容摘要。\n" +
+               "请你根据这些信息，为这些文件生成一份结构化的 Markdown 格式的「阅读指南与目录」，并包含「文件关联性分析」。\n" +
+               "要求：\n" +
+               "1. 使用 Markdown 语法。\n" +
+               "2. 将文件按逻辑模块或功能进行分类（如：核心逻辑、配置文件、UI 组件、工具类等）。\n" +
+               "3. 为每个文件提供一句话的简要说明（基于文件名和代码内容推断）。\n" +
+               "4. 在「文件关联性分析」部分，简述这些文件是如何协同工作的，数据流或调用关系是怎样的。\n" +
+               "5. 直接输出 Markdown 内容，不要包含任何额外的解释或前言后语。\n\n" +
+               "以下是文件列表及摘要：\n\n" + context;
+    }
+
+    private string clean_ai_markdown (string raw) {
+        string s = raw.strip ();
+        if (s.has_prefix ("```markdown")) {
+            s = s.substring (11).strip ();
+        } else if (s.has_prefix ("```")) {
+            s = s.substring (3).strip ();
+        }
+        if (s.has_suffix ("```")) {
+            s = s.substring (0, s.length - 3).strip ();
+        }
+        return s;
     }
 
     // ─── Project ─────────────────────────────────────────────────────────
