@@ -622,6 +622,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 if (list_item != null && list_item.get_item () != null) {
                     render_queue_row (list_item, data, label, icon);
                 }
+                // 同步刷新右侧预览区, 避免状态变化后预览内容未更新
+                uint sel = queue_selection.selected;
+                if (sel < queue_store.get_n_items () && queue_store.get_item (sel) == data) {
+                    update_preview (data);
+                }
             });
 
             // 监听 from_cache 变化: COMPLETED 状态下显示"已缓存"/"已转换"依赖此属性
@@ -783,9 +788,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
                 var pos = list_item.get_position ();
                 tree_selection.selected = pos;
-
-                var temp_item = new ItemData ("file", item.path, null, false);
-                update_preview (temp_item);
+                // preview_tree_item_at 已包含缓存检查, 不要再用
+                // 无缓存的 temp_item 调用 update_preview, 否则会覆盖正确预览
+                preview_tree_item_at (pos);
                 queue_selection.selected = Gtk.INVALID_LIST_POSITION;
             });
             label.add_controller (click);
@@ -950,6 +955,23 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (item == null || item.is_dir) return;
 
         var temp_item = new ItemData ("file", item.path, null, false);
+
+        // 二进制文件仅检查缓存, 命中则直接展示; 未命中不触发 VLM 转换
+        if (temp_item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
+            if (work_dir != null) {
+                try {
+                    string? cached = BinaryPreprocessor.try_cache_only (temp_item, work_dir.get_path ());
+                    if (cached != null) {
+                        temp_item.preprocess_status = PreprocessStatus.COMPLETED;
+                        temp_item.preprocessed_content = cached;
+                        temp_item.from_cache = true;
+                    }
+                } catch (Error e) {
+                    // 缓存检查失败, 保持 NONE 状态, 展示"预览不可用"
+                }
+            }
+        }
+
         update_preview (temp_item);
     }
 
@@ -2499,6 +2521,25 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             apply_preview_content (item, item.content.make_valid ());
         } else if (item.item_type == "file" && item.preprocess_status == PreprocessStatus.COMPLETED && item.preprocessed_content != null) {
             apply_preview_content (item, item.preprocessed_content.strip ());
+        } else if (item.item_type == "file" && item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
+            // 二进制文件未完成转换时, 根据预处理状态显示对应提示
+            switch (item.preprocess_status) {
+                case PreprocessStatus.PROCESSING:
+                    apply_preview_content (item, _("[正在处理中，请稍候...]"));
+                    break;
+                case PreprocessStatus.FAILED:
+                    apply_preview_content (item, _("[AI 转换失败，点击工具栏的重试按钮可重新转换]"));
+                    break;
+                case PreprocessStatus.CHECKING:
+                    apply_preview_content (item, _("[正在检查缓存...]"));
+                    break;
+                case PreprocessStatus.PENDING:
+                    apply_preview_content (item, _("[正在准备 AI 转换...]"));
+                    break;
+                default: // NONE
+                    apply_preview_content (item, _("[二进制文件，预览不可用]"));
+                    break;
+            }
         } else {
             try {
                 var file = File.new_for_path (item.file_path);
