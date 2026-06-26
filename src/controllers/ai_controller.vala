@@ -18,6 +18,7 @@ public class AIController : GLib.Object {
     // path_in_items 变 true, 后续 tree_check_changed 不会再调 check_and_apply_cache,
     // 所以需要这个独立信号兜底)
     public signal void preprocess_item_requested (string path);
+    public signal void ai_batch_operation_completed (string summary);
 
     public AIController (AppState state) {
         GLib.Object (app_state: state);
@@ -341,6 +342,11 @@ public class AIController : GLib.Object {
             added++;
         }
         refresh_list_requested ();
+        string summary = _("AI 添加了 %d 个文件").printf (added);
+        if (skipped.size > 0) {
+            summary += _("，跳过 %d 个").printf (skipped.size);
+        }
+        ai_batch_operation_completed (summary);
         var sb = new StringBuilder ();
         sb.append ("已添加 %d 个文件 (请求 %d)".printf (added, total));
         if (skipped.size > 0) {
@@ -378,6 +384,7 @@ public class AIController : GLib.Object {
             }
         }
         refresh_list_requested ();
+        ai_batch_operation_completed (_("AI 移除了 %d 个文件").printf (result));
         return "已移除 %d 个文件 (请求 %d)".printf (result, total);
     }
 
@@ -419,6 +426,7 @@ public class AIController : GLib.Object {
         inserted.add (new_item);
         undo_delta_requested (new UndoDelta.for_insert (insert_at, inserted));
         refresh_list_requested ();
+        ai_batch_operation_completed (_("AI 插入了自定义文本"));
         return "已插入文本 (位置 %d)".printf (insert_at);
     }
 
@@ -520,6 +528,7 @@ public class AIController : GLib.Object {
 
     private string tool_clear_all (Json.Node args) throws GLib.Error {
         clear_items_requested ();
+        ai_batch_operation_completed (_("AI 清空了编排列表"));
         return "已清空编排列表";
     }
 

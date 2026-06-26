@@ -27,6 +27,7 @@ public class AIMessage : GLib.Object {
     public string tool_args_repr;  // tool 专用
     public string tool_result;     // tool 专用
     public bool expanded;
+    public int undo_token = -1;
 
     public AIMessage (string r, string c) {
         role = r;
@@ -56,6 +57,9 @@ public class AIPanel : GLib.Object {
     private string system_prompt_override = "";
     private AIToolExecutor? tool_executor;
     private AIStateProvider? state_provider;
+
+    public signal int get_undo_token ();
+    public signal void revert_to_undo_token (int token);
 
     private GLib.Thread<void>? worker_thread = null;
     private bool busy = false;
@@ -336,10 +340,11 @@ public class AIPanel : GLib.Object {
 
     // ─── 渲染 ────────────────────────────────────────────────────────────
 
-    private void render_user (string text) {
+    private void render_user (string text, int token = -1) {
         var stripped = text.strip ();
         if (stripped.length == 0) return;
         var msg = new AIMessage ("user", stripped);
+        msg.undo_token = token;
         rendered.add (msg);
         rerender ();
     }
@@ -506,6 +511,9 @@ public class AIPanel : GLib.Object {
 
         switch (msg.role) {
             case "user": {
+                var hbox = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
+                hbox.hexpand = true;
+
                 var label = new Gtk.Label (sanitize_utf8 (msg.content));
                 label.xalign = 0;
                 label.wrap = true;
@@ -514,7 +522,25 @@ public class AIPanel : GLib.Object {
                 label.hexpand = true;
                 label.halign = Gtk.Align.FILL;
                 label.add_css_class ("ai-bubble-content");
-                bubble.append (label);
+                hbox.append (label);
+
+                var revert_btn = new Gtk.Button.from_icon_name ("edit-undo-symbolic");
+                revert_btn.add_css_class ("flat");
+                revert_btn.add_css_class ("ai-revert-btn");
+                revert_btn.set_tooltip_text (_("撤回此消息及后续所有 AI 回复与操作"));
+                revert_btn.valign = Gtk.Align.CENTER;
+                revert_btn.halign = Gtk.Align.END;
+                revert_btn.margin_start = 8;
+                revert_btn.opacity = 0.6;
+
+                int captured_token = msg.undo_token;
+                string captured_text = msg.content;
+                revert_btn.clicked.connect (() => {
+                    on_revert_requested (captured_token, captured_text);
+                });
+
+                hbox.append (revert_btn);
+                bubble.append (hbox);
                 break;
             }
             case "assistant": {
@@ -683,7 +709,6 @@ public class AIPanel : GLib.Object {
             return;
         }
 
-        render_user (text);
         buf.set_text ("", 0);
         send_user_message (text);
     }
@@ -701,6 +726,55 @@ public class AIPanel : GLib.Object {
         rendered.clear ();
         tool_counter = 0;
         pending_welcome = true;
+    }
+
+    private void on_revert_requested (int token, string text) {
+        if (token < 0) return;
+
+        var dialog = new Adw.AlertDialog (
+            _("确认撤回"),
+            _("这将撤销此消息之后 AI 的所有回复以及对文件列表的修改。是否继续？")
+        );
+        dialog.add_response ("cancel", _("取消"));
+        dialog.add_response ("revert", _("撤回"));
+        dialog.set_response_appearance ("revert", Adw.ResponseAppearance.DESTRUCTIVE);
+        dialog.set_default_response ("cancel");
+
+        dialog.response.connect ((response) => {
+            if (response == "revert") {
+                if (busy) {
+                    request_stop ();
+                }
+
+                revert_to_undo_token (token);
+
+                int revert_index = -1;
+                for (int i = 0; i < rendered.size; i++) {
+                    if (rendered.get (i).undo_token == token && rendered.get (i).role == "user") {
+                        revert_index = i;
+                        break;
+                    }
+                }
+
+                if (revert_index >= 0) {
+                    while (rendered.size > revert_index) {
+                        rendered.remove_at (rendered.size - 1);
+                    }
+
+                    messages_lock.lock ();
+                    messages.clear ();
+                    messages_lock.unlock ();
+
+                    rerender ();
+
+                    input_view.get_buffer ().set_text (text, -1);
+                    input_view.grab_focus ();
+                }
+            }
+            dialog.destroy ();
+        });
+
+        dialog.present (parent_window);
     }
 
 
@@ -810,10 +884,12 @@ public class AIPanel : GLib.Object {
     }
 
     private void send_user_message (string text) {
+        int token = get_undo_token ();
         rebuild_system_message ();
         messages_lock.lock ();
         messages.add (build_chat_node ("user", text));
         messages_lock.unlock ();
+        render_user (text, token);
         next_turn ();
     }
 

@@ -523,6 +523,24 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 }
             }
         });
+        ai_controller.ai_batch_operation_completed.connect (on_ai_batch_operation_completed);
+    }
+
+    private void on_ai_batch_operation_completed (string summary) {
+        if (!undo_manager.can_undo) return;
+
+        var toast = new Adw.Toast (summary);
+        toast.set_button_label (_("撤销"));
+        toast.set_timeout (6);
+
+        toast.button_clicked.connect (() => {
+            on_undo ();
+            var confirm = new Adw.Toast (_("已撤销 AI 的操作"));
+            confirm.set_timeout (2);
+            toast_overlay.add_toast (confirm);
+        });
+
+        toast_overlay.add_toast (toast);
     }
 
     private bool on_close_request () {
@@ -4120,6 +4138,29 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             box.add_css_class ("card");
             box.append (content);
             ai_sidebar.set_child (box);
+
+            ai_panel_instance.get_undo_token.connect (() => {
+                return undo_manager.get_stack_size ();
+            });
+            ai_panel_instance.revert_to_undo_token.connect ((token) => {
+                bool needs_refresh = false;
+                while (undo_manager.can_undo && undo_manager.get_stack_size () > token) {
+                    var delta = undo_manager.pop_undo ();
+                    if (delta == null) break;
+                    var redo_delta = build_redo_delta (delta);
+                    apply_undo_delta (delta);
+                    undo_manager.push_redo (redo_delta);
+                    if (delta.op != UndoOp.SNAPSHOT) {
+                        needs_refresh = true;
+                    }
+                }
+                if (needs_refresh) {
+                    refresh_list ();
+                    refresh_all_tree_states ();
+                    dir_column_view.queue_draw ();
+                }
+                update_undo_redo_buttons ();
+            });
         }
         // 重新应用当前设置
         apply_ai_settings_to_panel ();

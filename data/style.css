@@ -410,3 +410,11 @@ popover.ctx-menu separator {
     border-radius: 12px;
     box-shadow: 0 2px 8px alpha(black, 0.15);
 }
+
+/* AI 撤回按钮 */
+.ai-revert-btn {
+    border-radius: 6px;
+    padding: 0;
+    min-width: 32px;
+    min-height: 32px;
+}

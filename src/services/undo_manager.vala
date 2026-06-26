@@ -168,6 +168,10 @@ public class UndoManager : GLib.Object {
     public bool can_undo { get { return undo_stack.size > 0; } }
     public bool can_redo { get { return redo_stack.size > 0; } }
 
+    public int get_stack_size () {
+        return undo_stack.size;
+    }
+
     private Gee.ArrayList<UndoDelta> undo_stack;
     private Gee.ArrayList<UndoDelta> redo_stack;
     private bool in_progress = false;
