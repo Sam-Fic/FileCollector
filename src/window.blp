@@ -14,6 +14,11 @@ title: _("FileCollector - 文件收集与编排工具");
           tooltip-text: _("显示 / 隐藏 AI 助手 (Ctrl+J)");
         }
 
+        Button btn_toggle_git {
+          icon-name: "xsi-git-symbolic";
+          tooltip-text: _("切换到 Git 提交历史");
+        }
+
         Button open_folder_btn {
           icon-name: "folder-open-symbolic";
           tooltip-text: _("打开工作目录");
@@ -78,16 +83,16 @@ title: _("FileCollector - 文件收集与编排工具");
        shrink-end-child: false;
        css-classes: ["paned-no-handle"];
 
-       // 左栏 - 目录树
-       Frame {
-          hexpand: true;
-          vexpand: true;
-          width-request: 200;
-          margin-top: 0;
-          margin-bottom: 6;
-          margin-start: 6;
-          margin-end: 6;
-          css-classes: ["left-panel", "panel-frame"];
+        // 左栏 - 目录树 / Git 历史
+        Frame {
+           hexpand: true;
+           vexpand: true;
+           width-request: 200;
+           margin-top: 0;
+           margin-bottom: 6;
+           margin-start: 6;
+           margin-end: 6;
+           css-classes: ["left-panel", "panel-frame"];
          Box {
            styles ["card"]
            orientation: vertical;
@@ -95,27 +100,65 @@ title: _("FileCollector - 文件收集与编排工具");
            hexpand: true;
            vexpand: true;
 
+           // 标题
            Label {
-              label: _("资源管理器");
-              halign: center;
-              css-classes: ["panel-title"];
-            }
+             label: _("资源管理器");
+             halign: center;
+             css-classes: ["panel-title"];
+             margin-top: 0;
+             margin-bottom: 0;
+             margin-start: 12;
+             margin-end: 12;
+           }
 
-             Gtk.SearchEntry search_entry {
-               placeholder-text: _("搜索…");
-               margin-bottom: 6;
-               margin-start: 12;
-               margin-end: 12;
+           // 内容 Stack: 文件树 / Git 历史
+           Stack left_stack {
+             transition-type: crossfade;
+             vexpand: true;
+
+             // 页面 1: 文件树
+              Box tree_page {
+                orientation: vertical;
+
+               Gtk.SearchEntry search_entry {
+                 placeholder-text: _("搜索…");
+                 margin-bottom: 6;
+                 margin-start: 12;
+                 margin-end: 12;
+               }
+
+               ScrolledWindow dir_scrolled {
+                 hexpand: true;
+                 vexpand: true;
+                 margin-start: 12;
+                 margin-end: 12;
+                 margin-top: 0;
+                 margin-bottom: 6;
+               }
              }
 
-            ScrolledWindow dir_scrolled {
-              hexpand: true;
-              vexpand: true;
-              margin-start: 12;
-              margin-end: 12;
-              margin-top: 0;
-              margin-bottom: 6;
-            }
+             // 页面 2: Git 提交历史
+              Box git_page {
+                orientation: vertical;
+
+               Gtk.SearchEntry git_search_entry {
+                 placeholder-text: _("搜索提交信息…");
+                 margin-bottom: 6;
+                 margin-start: 12;
+                 margin-end: 12;
+               }
+
+               ScrolledWindow git_scrolled {
+                 hexpand: true;
+                 vexpand: true;
+                 margin-start: 12;
+                 margin-end: 12;
+                 margin-top: 0;
+                 margin-bottom: 6;
+                 ListView git_list_view {}
+               }
+             }
+           }
          }
        }
 
@@ -162,73 +205,141 @@ title: _("FileCollector - 文件收集与编排工具");
               }
             }
 
-            // 按钮区 - 添加文件/文字
-            Box {
-              orientation: horizontal;
-              halign: center;
-              spacing: 6;
+            // 操作按钮 Stack: 常规 / Git 专属
+            Stack action_stack {
+              transition-type: crossfade;
               margin-top: 6;
               margin-start: 12;
               margin-end: 12;
-              Button btn_add_ext {
-                Box {
-                  spacing: 4;
-                  Image { icon-name: "document-open-symbolic"; }
-                  Label { label: _("添加外部文件"); }
-                }
-              }
-              Button btn_add_text_above {
-                Box {
-                  spacing: 4;
-                  Image { icon-name: "go-up-symbolic"; }
-                  Label { label: _("上方插入文本"); }
-                }
-              }
-              Button btn_add_text_below {
-                Box {
-                  spacing: 4;
-                  Image { icon-name: "go-down-symbolic"; }
-                  Label { label: _("下方插入文本"); }
-                }
-              }
-            }
 
-            // 按钮区 - 移动/删除
-            Box {
-              orientation: horizontal;
-              halign: center;
-              spacing: 6;
-              margin-top: 6;
-              margin-start: 12;
-              margin-end: 12;
-              Button btn_move_up {
+              // 页面 1: 常规编排按钮
+              Box normal_actions {
+                orientation: vertical;
+                spacing: 4;
+
                 Box {
-                  spacing: 4;
-                  Image { icon-name: "go-up-symbolic"; }
-                  Label { label: _("上移"); }
+                  orientation: horizontal;
+                  halign: center;
+                  spacing: 6;
+                  Button btn_add_ext {
+                    Box {
+                      spacing: 4;
+                      Image { icon-name: "document-open-symbolic"; }
+                      Label { label: _("添加外部文件"); }
+                    }
+                  }
+                  Button btn_add_text_above {
+                    Box {
+                      spacing: 4;
+                      Image { icon-name: "go-up-symbolic"; }
+                      Label { label: _("上方插入文本"); }
+                    }
+                  }
+                  Button btn_add_text_below {
+                    Box {
+                      spacing: 4;
+                      Image { icon-name: "go-down-symbolic"; }
+                      Label { label: _("下方插入文本"); }
+                    }
+                  }
+                }
+
+                Box {
+                  orientation: horizontal;
+                  halign: center;
+                  spacing: 6;
+                  Button btn_move_up {
+                    Box {
+                      spacing: 4;
+                      Image { icon-name: "go-up-symbolic"; }
+                      Label { label: _("上移"); }
+                    }
+                  }
+                  Button btn_move_down {
+                    Box {
+                      spacing: 4;
+                      Image { icon-name: "go-down-symbolic"; }
+                      Label { label: _("下移"); }
+                    }
+                  }
+                  Button btn_delete {
+                    css-classes: ["destructive-action"];
+                    Box {
+                      spacing: 4;
+                      Image { icon-name: "edit-clear-symbolic"; }
+                      Label { label: _("删除"); }
+                    }
+                  }
+                  Button btn_clear {
+                    css-classes: ["destructive-action"];
+                    Box {
+                      spacing: 4;
+                      Image { icon-name: "user-trash-symbolic"; }
+                      Label { label: _("清空"); }
+                    }
+                  }
                 }
               }
-              Button btn_move_down {
+
+              // 页面 2: Git 专属按钮
+              Box git_actions {
+                orientation: vertical;
+                spacing: 4;
+                halign: center;
+
                 Box {
-                  spacing: 4;
-                  Image { icon-name: "go-down-symbolic"; }
-                  Label { label: _("下移"); }
+                  orientation: horizontal;
+                  spacing: 6;
+                  halign: center;
+
+                  Button btn_git_add_all_changed {
+                    Box {
+                      spacing: 4;
+                      Image { icon-name: "document-open-symbolic"; }
+                      Label { label: _("一键添加所有改动文件"); }
+                    }
+                  }
+
+                  Button btn_git_export_working_diff {
+                    Box {
+                      spacing: 4;
+                      Image { icon-name: "edit-copy-symbolic"; }
+                      Label { label: _("导出工作区 Diff"); }
+                    }
+                  }
                 }
-              }
-              Button btn_delete {
-                css-classes: ["destructive-action"];
+
                 Box {
-                  spacing: 4;
-                  Image { icon-name: "edit-clear-symbolic"; }
-                  Label { label: _("删除"); }
-                }
-              }
-              Button btn_clear {
-                css-classes: ["destructive-action"];
-                Box {
-                  spacing: 4;
-                  Image { icon-name: "user-trash-symbolic"; }
-                  Label { label: _("清空"); }
+                  orientation: horizontal;
+                  spacing: 6;
+                  halign: center;
+
+                  Button btn_git_export_commit_diff {
+                    sensitive: false;
+                    Box {
+                      spacing: 4;
+                      Image { icon-name: "document-save-symbolic"; }
+                      Label { label: _("导出选中 Commit Diff"); }
+                    }
+                  }
+
+                  Button btn_git_delete {
+                    css-classes: ["destructive-action"];
+                    Box {
+                      spacing: 4;
+                      Image { icon-name: "edit-clear-symbolic"; }
+                      Label { label: _("删除"); }
+                    }
+                  }
+
+                  Button btn_git_clear {
+                    css-classes: ["destructive-action"];
+                    Box {
+                      spacing: 4;
+                      Image { icon-name: "user-trash-symbolic"; }
+                      Label { label: _("清空"); }
+                    }
+                  }
                 }
               }
             }

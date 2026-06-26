@@ -201,6 +201,31 @@ private static Json.Node list_items_params () {
     return SchemaHelper.obj_to_node (make_param ("object", SchemaHelper.obj_to_node (props)));
 }
 
+private static Json.Node get_git_status_params () {
+    return SchemaHelper.obj_to_node (make_param ("object", null));
+}
+
+private static Json.Node get_git_diff_params () {
+    var props = new Json.Object ();
+    props.set_member ("staged", SchemaHelper.obj_to_node (bool_prop (
+        "Whether to get the staged diff (true) or unstaged working tree diff (false). Default is false.")));
+    return SchemaHelper.obj_to_node (make_param ("object", SchemaHelper.obj_to_node (props)));
+}
+
+private static Json.Node get_git_log_params () {
+    var props = new Json.Object ();
+    props.set_member ("max_count", SchemaHelper.obj_to_node (int_prop (
+        "Maximum number of commits to return. Default 10, max 50.")));
+    return SchemaHelper.obj_to_node (make_param ("object", SchemaHelper.obj_to_node (props)));
+}
+
+private static Json.Node get_git_commit_diff_params () {
+    var props = new Json.Object ();
+    props.set_member ("commit_hash", SchemaHelper.obj_to_node (str_prop (
+        "The hash of the commit to inspect.")));
+    return SchemaHelper.obj_to_node (make_param ("object", SchemaHelper.obj_to_node (props), { "commit_hash" }));
+}
+
 private static Json.Object make_tool (string name, string desc, Json.Node params) {
     var fn = new Json.Object ();
     fn.set_string_member ("name", name);
@@ -295,6 +320,24 @@ public static Json.Node build_full_tool_schema () {
         + "before reporting back to the user. If `kind` is provided, only that "
         + "type is shown: 'file' or 'text'. Truncated to `max_items` (default 100).",
         AI.SchemaHelper.list_items_params ()));
+    arr.add_object_element (AI.SchemaHelper.make_tool (
+        "get_git_status",
+        "Get the current Git working tree status (modified, added, untracked files). "
+        + "Use this to understand what the user is currently working on before selecting files.",
+        AI.SchemaHelper.get_git_status_params ()));
+    arr.add_object_element (AI.SchemaHelper.make_tool (
+        "get_git_diff",
+        "Get the Git diff of the working tree or staged area. "
+        + "Use this to read the exact code changes and decide which files are relevant to the context.",
+        AI.SchemaHelper.get_git_diff_params ()));
+    arr.add_object_element (AI.SchemaHelper.make_tool (
+        "get_git_log",
+        "List recent Git commits. Use this to find a specific historical change.",
+        AI.SchemaHelper.get_git_log_params ()));
+    arr.add_object_element (AI.SchemaHelper.make_tool (
+        "get_git_commit_diff",
+        "Get the diff of a specific Git commit by its hash.",
+        AI.SchemaHelper.get_git_commit_diff_params ()));
     return AI.SchemaHelper.arr_to_node (arr);
 }
 

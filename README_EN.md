@@ -30,6 +30,7 @@ For the usage process and tips of the graphical interface, please refer to the [
 - **Phrase Management**: Manage and organize common phrases
 - **Internationalization**: Supports Chinese and English UI, automatically follows system language
 - **Modern UI**: Designed following GNOME Human Interface Guidelines
+- **Git History Integration**: One-click collection of changed files, export Diff code blocks, quickly build Git context for AI
 
 > **Tip**: If you are on a non-GNOME platform (such as Windows or macOS), please check out the [Flet version repository](https://github.com/Sam-Fic/filecollector). This version supports Windows, macOS, and Linux, and is built with Flet.
 
@@ -125,13 +126,15 @@ You can also hand [BUILD_FLATPAK.md](BUILD_FLATPAK.md) directly to programming t
 │   │   └── project_controller.vala        # Project controller
 │   ├── models/
 │   │   ├── app_state.vala                 # Application state model
-│   │   └── item_data.vala                 # Queue item data model
+│   │   ├── item_data.vala                 # Queue item data model
+│   │   └── git_commit.vala                # Git commit data model
 │   ├── services/
 │   │   ├── ai_client.vala                 # AI assistant backend (OpenAI-compatible API + Function Calling)
 │   │   ├── ai_types.vala                  # AI shared type definitions
 │   │   ├── binary_converter.vala          # Binary file to Base64 conversion (image scaling + document-to-PDF rendering)
 │   │   ├── config_manager.vala            # Config/settings/phrases persistence
 │   │   ├── file_generator.vala            # File merging and clipboard copy
+│   │   ├── git_service.vala               # Git read-only operations (status/diff/log/show)
 │   │   ├── multimodal_ai_client.vala      # VLM client (sends Base64 images to vision models)
 │   │   ├── preprocess_cache.vala          # Preprocessing cache (SHA256 hash + manifest management)
 │   │   ├── project_manager.vala           # Project save and load
@@ -299,6 +302,10 @@ The AI interacts with the GUI engine through the following tools (sharing the sa
 | `set_show_header`  | Toggle whether to annotate the working directory      |
 | `list_files`       | Browse the working directory (recursive file listing) |
 | `read_file`        | Read file contents (with line numbers)                |
+| `get_git_status`   | Get Git working tree status (modified/added files)   |
+| `get_git_diff`     | Get Git diff (working tree or staged area)           |
+| `get_git_log`      | List recent Git commits                              |
+| `get_git_commit_diff` | Get the code diff of a specific commit            |
 
 ### Binary File Pre-conversion (VLM)
 
@@ -349,6 +356,32 @@ GUI and CLI are combined to enable seamless human-AI collaboration:
 2. When the generated file list requires manual adjustment, run `filecollector --load ~/.config/filecollector/mcp_state.fcol --gui` in the terminal. The `--gui` flag ensures the GUI opens (without it, the command runs in CLI mode only).
 3. The GUI opens, displaying the model's selected file list. You can check, reorder, and save.
 4. Return to Cursor for the LLM to continue subsequent work.
+
+## Git History Integration
+
+FileCollector includes built-in Git read-only inspection capabilities, making it easy for developers to quickly collect files and Diff context related to their current changes. Click the **Git icon** in the top toolbar to switch from file tree mode to Git commit history mode.
+
+### Action Buttons
+
+After switching to Git mode, the action buttons below the center orchestration list will switch to the following three Git-specific functions:
+
+| Button | Purpose |
+| --- | --- |
+| **Add All Changed Files** | Runs `git status` to retrieve all modified and newly added files in the working directory, then batch-adds them to the orchestration list. Useful for the scenario: "I want to collect all files involved in my current changes." |
+| **Export Working Tree Diff** | Runs `git diff` to get all unstaged code changes in the working directory, then inserts them as a `diff` code block into the orchestration list. Useful for the scenario: "Let AI analyze my current code changes." |
+| **Export Selected Commit Diff** | After selecting a commit from the left Git commit list, runs `git show` to get the full diff of that commit, then inserts it as a `diff` code block into the orchestration list. Useful for the scenario: "Let AI analyze the code changes in a specific historical commit." When a commit is selected, the right preview panel renders a real-time red/green highlighted diff view. |
+
+### Typical Workflow
+
+1. Click the Git icon in the top toolbar to switch to Git commit history mode.
+2. The left panel automatically loads the most recent 100 commits, with search support by commit message or hash.
+3. Click a commit to instantly preview its code diff with red/green highlighting in the right panel.
+4. Click **Export Selected Commit Diff** to insert the diff code block into the orchestration list.
+5. Click **Add All Changed Files** to add all currently changed files to the orchestration list.
+6. Switch back to file tree mode to supplement with other related files via checkboxes.
+7. Generate the merged text and hand it to AI for in-depth analysis.
+
+> **Tip**: All Git operations are **read-only inspections** (`git status`, `git diff`, `git log`, `git show`). They will never execute write operations like `commit` or `push`, ensuring your Git workflow remains unaffected.
 
 ## License
 

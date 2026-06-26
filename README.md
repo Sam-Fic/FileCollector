@@ -30,6 +30,7 @@ FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排
 - **短语管理**：管理和组织常用短语
 - **国际化**：支持中文和英文界面，跟随系统语言自动切换
 - **现代化界面**：采用 GNOME Human Interface Guidelines 设计
+- **Git 提交历史集成**：一键收集工作区改动文件、导出 Diff 代码块，快速为 AI 构建 Git 上下文
 
 > **提示**：如果您使用的是非 GNOME 平台（如 Windows 或 macOS），请移步 [Flet 版本仓库](https://github.com/Sam-Fic/filecollector)。该版本跨平台支持 Windows、macOS 和 Linux，基于 Flet 构建。
 
@@ -125,13 +126,15 @@ flatpak run com.github.samfic.filecollector
 │   │   └── project_controller.vala        # 项目控制器
 │   ├── models/
 │   │   ├── app_state.vala                 # 应用状态模型
-│   │   └── item_data.vala                 # 队列项数据模型
+│   │   ├── item_data.vala                 # 队列项数据模型
+│   │   └── git_commit.vala                # Git 提交数据模型
 │   ├── services/
 │   │   ├── ai_client.vala                 # AI 助手后端（OpenAI 兼容接口 + Function Calling）
 │   │   ├── ai_types.vala                  # AI 共享类型定义
 │   │   ├── binary_converter.vala          # 二进制文件转 Base64（图片缩放 + 文档转 PDF 渲染）
 │   │   ├── config_manager.vala            # 配置/设置/常用语持久化
 │   │   ├── file_generator.vala            # 文件合并生成与剪贴板复制
+│   │   ├── git_service.vala               # Git 只读操作服务（status/diff/log/show）
 │   │   ├── multimodal_ai_client.vala      # VLM 客户端（发送 Base64 图片给视觉模型）
 │   │   ├── preprocess_cache.vala          # 预转换缓存（SHA256 哈希 + manifest 管理）
 │   │   ├── project_manager.vala           # 项目保存与加载
@@ -299,6 +302,10 @@ AI 通过以下工具与 GUI 引擎交互（与 CLI / MCP 共享同一套语义�
 | `set_show_header`  | 切换是否在文件头标注工作目录           |
 | `list_files`       | 浏览工作目录（递归列出符合条件的文件） |
 | `read_file`        | 读取文件内容（带行号）                 |
+| `get_git_status`   | 获取 Git 工作区状态（已修改/新增的文件）|
+| `get_git_diff`     | 获取 Git Diff（工作区或暂存区）        |
+| `get_git_log`      | 列出最近的 Git 提交记录               |
+| `get_git_commit_diff` | 获取指定 Commit 的代码差异          |
 
 ### 二进制文件预转换（VLM）
 
@@ -349,6 +356,32 @@ GUI 与 CLI 结合，实现了无缝的人机协同工作流：
 2. 当生成的文件列表需要人工微调时，在终端运行 `filecollector --load ~/.config/filecollector/mcp_state.fcol --gui`。`--gui` 参数确保打开图形界面（不带 `--gui` 则仅执行 CLI 命令）。
 3. 弹出图形界面，展示模型选定的文件列表。可继续勾选、排序、保存。
 4. 回到 Cursor 中，模型继续后续工作。
+
+## Git 提交历史集成
+
+FileCollector 内置了 Git 只读探查功能，方便开发者快速收集与当前改动相关的文件和 Diff 上下文。点击顶部工具栏的 **Git 图标** 即可从文件树模式切换到 Git 提交历史模式。
+
+### 功能按钮
+
+切换到 Git 模式后，中间编排列表下方的操作按钮会联动切换为以下三个 Git 专属功能：
+
+| 按钮 | 作用 |
+| --- | --- |
+| **一键添加所有改动文件** | 执行 `git status` 获取当前工作区所有已修改、新增的文件，将它们批量添加到编排列表中。适用于"我要把这次改动涉及的所有文件都收集起来"的场景。 |
+| **导出工作区 Diff** | 执行 `git diff` 获取当前工作区未暂存的所有代码变更，以 `diff` 代码块的形式插入到编排列表中。适用于"把当前的改动差异交给 AI 分析"的场景。 |
+| **导出选中 Commit Diff** | 在左侧 Git 提交列表中选中某条 Commit 后，执行 `git show` 获取该 Commit 的完整 Diff，以 `diff` 代码块的形式插入到编排列表中。适用于"让 AI 分析某个历史提交的代码变更"的场景。选中 Commit 时，右侧预览区会实时渲染红绿高亮的 Diff 视图。 |
+
+### 典型工作流
+
+1. 点击顶部工具栏的 Git 图标，切换到 Git 提交历史模式。
+2. 左栏自动加载最近 100 条 Commit 列表，支持按提交信息或哈希搜索。
+3. 点击某条 Commit，右侧预览区立即以红绿高亮展示该提交的代码差异。
+4. 点击 **导出选中 Commit Diff**，将 Diff 代码块插入编排列表。
+5. 点击 **一键添加所有改动文件**，将当前工作区所有改动文件加入编排列表。
+6. 切换回文件树模式，继续用勾选方式补充其他相关文件。
+7. 生成合并文本，交给 AI 进行深度分析。
+
+> **提示**：所有 Git 操作均为**只读探查**（`git status`、`git diff`、`git log`、`git show`），不会执行 `commit`、`push` 等写入操作，确保不影响您的 Git 工作流。
 
 ## 许可证
 

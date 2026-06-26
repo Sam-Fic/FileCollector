@@ -775,7 +775,11 @@ public class AIPanel : GLib.Object {
             + "- move_item(from_index, to_index): move an item\n"
             + "- clear_items(): empty the orchestration list\n"
             + "- set_use_absolute(value): toggle absolute/relative path mode\n"
-            + "- set_show_header(value): toggle writing the work-directory header in exports\n\n"
+            + "- set_show_header(value): toggle writing the work-directory header in exports\n"
+            + "- get_git_status(): check what files are modified/untracked in the working tree.\n"
+            + "- get_git_diff(staged?): read the exact code changes to understand the user's current task.\n"
+            + "- get_git_log(max_count?): list recent commits to find historical context.\n"
+            + "- get_git_commit_diff(commit_hash): inspect the code changes of a specific past commit.\n\n"
             + "Workflow rules:\n"
             + "1. Prefer tool calls over asking the user for paths you can discover yourself. "
             + "If the user says 'add all files about X' or 'find files matching Y', call "
@@ -796,7 +800,12 @@ public class AIPanel : GLib.Object {
             + "call list_items to confirm what actually landed in the list before reporting to the user. "
             + "If something is missing or wrong, fix it in the same turn — don't assume success.\n"
             + "6. Be concise and professional. Reply in the same language the user uses. "
-            + "When no tool call is needed, just explain in natural language."
+            + "When no tool call is needed, just explain in natural language.\n"
+            + "7. When the user asks to 'collect files for my current PR' or 'gather context for "
+            + "the bug I just fixed', ALWAYS call `get_git_status` and `get_git_diff` first. "
+            + "Analyze the diff to identify ALL related files (including headers, configs, or "
+            + "test files that might not show up in the diff but are relevant), then use "
+            + "`add_files` to collect them."
         );
     }
 

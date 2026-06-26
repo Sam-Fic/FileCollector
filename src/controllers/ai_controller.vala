@@ -86,6 +86,10 @@ public class AIController : GLib.Object {
             case "set_file_label":
             case "set_max_files":
                 return tool_set_meta (name, args);
+            case "get_git_status": return tool_get_git_status (args);
+            case "get_git_diff": return tool_get_git_diff (args);
+            case "get_git_log": return tool_get_git_log (args);
+            case "get_git_commit_diff": return tool_get_git_commit_diff (args);
             default:
                 return "未知工具: " + name;
         }
@@ -582,6 +586,67 @@ public class AIController : GLib.Object {
             }
         }
         return "未知 meta 工具: " + name;
+    }
+
+    // ─── Git 工具实现 ────────────────────────────────────────────────
+
+    private string tool_get_git_status (Json.Node args) throws GLib.Error {
+        if (app_state.work_dir == null) return "Error: Work directory not set.";
+        string output = GitService.get_status (app_state.work_dir.get_path ());
+        if (output.strip ().length == 0) return "Working tree is clean. No uncommitted changes.";
+        return output;
+    }
+
+    private string tool_get_git_diff (Json.Node args) throws GLib.Error {
+        if (app_state.work_dir == null) return "Error: Work directory not set.";
+        bool staged = false;
+        if (args.get_node_type () == Json.NodeType.OBJECT) {
+            var o = args.get_object ();
+            if (o.has_member ("staged")) staged = o.get_boolean_member ("staged");
+        }
+        string output = staged
+            ? GitService.get_staged_diff (app_state.work_dir.get_path ())
+            : GitService.get_working_tree_diff (app_state.work_dir.get_path ());
+        if (output.strip ().length == 0) return staged ? "No staged changes." : "No unstaged changes.";
+        const int MAX_DIFF_BYTES = 81920;
+        if (output.length > MAX_DIFF_BYTES) {
+            return output.substring (0, MAX_DIFF_BYTES) + "\n\n... [Diff truncated due to size]";
+        }
+        return output;
+    }
+
+    private string tool_get_git_log (Json.Node args) throws GLib.Error {
+        if (app_state.work_dir == null) return "Error: Work directory not set.";
+        int max_count = 10;
+        if (args.get_node_type () == Json.NodeType.OBJECT) {
+            var o = args.get_object ();
+            if (o.has_member ("max_count")) max_count = (int) o.get_int_member ("max_count");
+        }
+        if (max_count <= 0) max_count = 10;
+        if (max_count > 50) max_count = 50;
+        var commits = GitService.get_log (app_state.work_dir.get_path (), max_count);
+        var sb = new StringBuilder ();
+        foreach (var c in commits) {
+            sb.append (c.short_hash).append (" | ").append (c.author)
+              .append (" | ").append (c.date).append (" | ").append (c.message).append ("\n");
+        }
+        if (sb.len == 0) return "No commits found.";
+        return sb.str;
+    }
+
+    private string tool_get_git_commit_diff (Json.Node args) throws GLib.Error {
+        if (app_state.work_dir == null) return "Error: Work directory not set.";
+        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        var o = args.get_object ();
+        if (!o.has_member ("commit_hash")) return "Missing commit_hash";
+        string hash = o.get_string_member ("commit_hash");
+        if (hash.length < 4 || hash.length > 64) return "Error: Invalid commit hash format.";
+        string output = GitService.get_commit_diff (app_state.work_dir.get_path (), hash);
+        const int MAX_DIFF_BYTES = 81920;
+        if (output.length > MAX_DIFF_BYTES) {
+            return output.substring (0, MAX_DIFF_BYTES) + "\n\n... [Commit Diff truncated]";
+        }
+        return output;
     }
 
     // ─── 静态辅助方法 ────────────────────────────────────────────────
