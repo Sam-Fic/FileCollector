@@ -740,38 +740,54 @@ public class AIController : GLib.Object {
         if (from_hash.length < 4 || from_hash.length > 64) return "Invalid from_hash.";
         if (to_hash.length < 1 || to_hash.length > 64) return "Invalid to_hash.";
 
-        // git diff from..to gives the combined diff
-        string diff = GitService.run_git (app_state.work_dir.get_path (), { "diff", from_hash + ".." + to_hash });
-        if (diff.strip ().length == 0) {
-            return _("从 %s 到 %s 没有代码差异。").printf (from_hash, to_hash);
-        }
+        string wd = app_state.work_dir.get_path ();
 
-        // Get commit count in range for the title
-        string log_output = GitService.run_git (app_state.work_dir.get_path (), {
-            "log", "--oneline", from_hash + ".." + to_hash
+        // Get commits in range (newest first): from_hash..to_hash
+        string log_output = GitService.run_git (wd, {
+            "log", "--pretty=format:%H|%s", from_hash + ".." + to_hash
         });
-        int commit_count = 0;
+
+        var commit_hashes = new Gee.ArrayList<string> ();
+        var commit_msgs = new Gee.ArrayList<string> ();
         foreach (var line in log_output.split ("\n")) {
-            if (line.strip ().length > 0) commit_count++;
+            string trimmed = line.strip ();
+            if (trimmed.length == 0) continue;
+            int sep = trimmed.index_of ("|");
+            if (sep < 0) continue;
+            commit_hashes.add (trimmed.substring (0, sep));
+            commit_msgs.add (trimmed.substring (sep + 1));
         }
 
-        string md_text = "# Git Diff: %s..%s (%d commits)\n\n```diff\n%s\n```".printf (
-            from_hash.substring (0, int.min (7, from_hash.length)),
-            to_hash == "HEAD" ? "HEAD" : to_hash.substring (0, int.min (7, to_hash.length)),
-            commit_count, diff);
-        var item = new ItemData ("text", null, md_text, false);
-        int insert_idx = app_state.items.size;
-        var inserted = new Gee.ArrayList<ItemData> ();
-        inserted.add (item);
-        undo_delta_requested (new UndoDelta.for_insert (insert_idx, inserted));
-        app_state.add_item (item, insert_idx);
-        refresh_list_requested ();
+        if (commit_hashes.size == 0) {
+            return _("从 %s 到 %s 没有新的提交。").printf (from_hash, to_hash);
+        }
 
-        int lines = diff.split ("\n").length;
-        return _("已成功将 %s..%s 的 Diff 注入编排列表 (%d commits, %d 行)。").printf (
-            from_hash.substring (0, int.min (7, from_hash.length)),
-            to_hash == "HEAD" ? "HEAD" : to_hash.substring (0, int.min (7, to_hash.length)),
-            commit_count, lines);
+        // Reverse to chronological order (oldest first), then add each as separate item
+        var inserted = new Gee.ArrayList<ItemData> ();
+        int base_idx = app_state.items.size;
+        int total_lines = 0;
+
+        for (int i = commit_hashes.size - 1; i >= 0; i--) {
+            string hash = commit_hashes[i];
+            string message = commit_msgs[i];
+            string diff = GitService.run_git (wd, { "show", "--format=", "--patch-with-stat", hash });
+
+            if (diff.strip ().length == 0) continue;
+
+            string short_hash = hash.substring (0, int.min (7, hash.length));
+            string md_text = "# Git Commit: %s (%s)\n\n```diff\n%s\n```".printf (short_hash, message, diff);
+            var item = new ItemData ("text", null, md_text, false);
+            app_state.add_item (item, base_idx + inserted.size);
+            inserted.add (item);
+            total_lines += diff.split ("\n").length;
+        }
+
+        if (inserted.size > 0) {
+            undo_delta_requested (new UndoDelta.for_insert (base_idx, inserted));
+            refresh_list_requested ();
+        }
+
+        return _("已成功将 %d 个 Commit 的 Diff 注入编排列表 (%d 行)。").printf (inserted.size, total_lines);
     }
 
     // ─── 静态辅助方法 ────────────────────────────────────────────────
