@@ -65,3 +65,4 @@ __pycache__/
 
 # Compiled translation files
 *.mo
+locale/
