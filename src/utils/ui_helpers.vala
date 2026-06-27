@@ -98,6 +98,17 @@ namespace UIHelpers {
         }
     }
 
+    // ─── UI 容器辅助 ─────────────────────────────────────────────────
+
+    public static void clear_container (Gtk.Widget container) {
+        Gtk.Widget? child = container.get_first_child ();
+        while (child != null) {
+            Gtk.Widget? next = child.get_next_sibling ();
+            child.unparent ();
+            child = next;
+        }
+    }
+
     // ─── 文件系统辅助 ──────────────────────────────────────────────────
 
     public static Gee.ArrayList<DirChildInfo> enumerate_dir_children (string dir_path, GLib.Cancellable? cancellable = null) {

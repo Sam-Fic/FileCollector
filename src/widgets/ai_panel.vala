@@ -483,12 +483,7 @@ public class AIPanel : GLib.Object {
         is_rerendering = true;
 
         // 清空旧气泡
-        Gtk.Widget? child = chat_container.get_first_child ();
-        while (child != null) {
-            var next = child.get_next_sibling ();
-            chat_container.remove (child);
-            child = next;
-        }
+        UIHelpers.clear_container (chat_container);
         foreach (var msg in rendered) {
             chat_container.append (build_bubble (msg));
         }
@@ -899,12 +894,7 @@ public class AIPanel : GLib.Object {
     }
 
     private void on_clear_chat () {
-        Gtk.Widget? child = chat_container.get_first_child ();
-        while (child != null) {
-            var next = child.get_next_sibling ();
-            chat_container.remove (child);
-            child = next;
-        }
+        UIHelpers.clear_container (chat_container);
         messages_lock.lock ();
         messages.clear ();
         messages_lock.unlock ();

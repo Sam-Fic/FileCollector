@@ -1772,12 +1772,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void render_diff_to_preview (string diff_text) {
-        Gtk.Widget? child = preview_container.get_first_child ();
-        while (child != null) {
-            Gtk.Widget? next = child.get_next_sibling ();
-            preview_container.remove (child);
-            child = next;
-        }
+        UIHelpers.clear_container (preview_container);
         preview_container.append (preview_view);
 
         var buffer = preview_view.get_buffer () as GtkSource.Buffer;
@@ -2635,12 +2630,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void show_multi_selection_preview (int count) {
-        Gtk.Widget? child = preview_container.get_first_child ();
-        while (child != null) {
-            Gtk.Widget? next = child.get_next_sibling ();
-            preview_container.remove (child);
-            child = next;
-        }
+        UIHelpers.clear_container (preview_container);
         var label = new Gtk.Label (_("已选择 %d 个项目").printf (count));
         label.add_css_class ("dim-label");
         label.valign = Gtk.Align.CENTER;
@@ -2651,12 +2641,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void clear_preview () {
-        Gtk.Widget? child = preview_container.get_first_child ();
-        while (child != null) {
-            Gtk.Widget? next = child.get_next_sibling ();
-            preview_container.remove (child);
-            child = next;
-        }
+        UIHelpers.clear_container (preview_container);
     }
 
     private void update_queue_buttons () {
@@ -3095,12 +3080,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             && (is_markdown_path (item.file_path)
                 || (item.preprocess_status == PreprocessStatus.COMPLETED && item.preprocessed_content != null));
 
-        Gtk.Widget? child = preview_container.get_first_child ();
-        while (child != null) {
-            Gtk.Widget? next = child.get_next_sibling ();
-            preview_container.remove (child);
-            child = next;
-        }
+        UIHelpers.clear_container (preview_container);
 
         if (use_markdown) {
             preview_container.append (new MarkdownView (text));

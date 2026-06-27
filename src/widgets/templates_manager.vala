@@ -60,12 +60,7 @@ public class TemplatesManager : GLib.Object {
     }
 
     private void refresh_list () {
-        var child = list_box.get_first_child ();
-        while (child != null) {
-            var next = child.get_next_sibling ();
-            list_box.remove (child);
-            child = next;
-        }
+        UIHelpers.clear_container (list_box);
 
         foreach (var tpl in templates) {
             var row = new Adw.ActionRow ();

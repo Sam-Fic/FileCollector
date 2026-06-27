@@ -83,11 +83,6 @@ public class PreviewSyntaxManager : GLib.Object {
     }
 
     private static void clear_container (Gtk.Box container) {
-        Gtk.Widget? child = container.get_first_child ();
-        while (child != null) {
-            Gtk.Widget? next = child.get_next_sibling ();
-            container.remove (child);
-            child = next;
-        }
+        UIHelpers.clear_container (container);
     }
 }
