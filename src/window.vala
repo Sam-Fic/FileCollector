@@ -1776,61 +1776,26 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         preview_container.append (preview_view);
 
         var buffer = preview_view.get_buffer () as GtkSource.Buffer;
-        buffer.set_highlight_syntax (false);
-        buffer.set_text ("", -1);
+        var lang_manager = GtkSource.LanguageManager.get_default ();
+        var diff_lang = lang_manager.guess_language (null, "text/x-diff");
+        buffer.set_language (diff_lang);
+        buffer.set_highlight_syntax (diff_lang != null);
+        preview_view.set_show_line_numbers (true);
 
-        if (buffer.get_tag_table ().lookup ("diff-add") == null) {
-            buffer.create_tag ("diff-add",
-                "foreground", "rgba(39,166,69,1.0)", null);
-            buffer.create_tag ("diff-del",
-                "foreground", "rgba(214,59,74,1.0)", null);
-            buffer.create_tag ("diff-hunk",
-                "foreground", "rgba(3,102,214,1.0)",
-                "weight", Pango.Weight.BOLD, null);
-            buffer.create_tag ("diff-header",
-                "foreground", "rgba(3,102,214,1.0)",
-                "weight", Pango.Weight.BOLD, null);
-            buffer.create_tag ("diff-file",
-                "foreground", "rgba(145,65,172,1.0)",
-                "weight", Pango.Weight.BOLD, null);
-            buffer.create_tag ("diff-sep",
-                "foreground", "rgba(128,128,128,0.5)", null);
-        }
-
-        Gtk.TextIter iter;
-        buffer.get_start_iter (out iter);
+        // 插入文件名分隔标题 + 原始 diff 文本
+        var sb = new StringBuilder ();
         string? last_file = null;
         foreach (var line in diff_text.split ("\n")) {
-            // 提取文件名并插入分隔标题
             if (line.has_prefix ("diff ")) {
-                // diff --git a/path b/path → 提取 path
                 string fname = extract_diff_filename (line);
                 if (fname != null && fname != last_file) {
                     last_file = fname;
-                    buffer.insert_with_tags_by_name (ref iter, "\n", -1, "diff-sep");
-                    buffer.insert_with_tags_by_name (ref iter,
-                        "━━━ %s ━━━\n".printf (fname), -1, "diff-file");
+                    sb.append ("\n━━━ ").append (fname).append (" ━━━\n");
                 }
             }
-
-            string? tag = null;
-            if (line.has_prefix ("+++") || line.has_prefix ("---") ||
-                line.has_prefix ("diff ") || line.has_prefix ("index ")) {
-                tag = "diff-header";
-            } else if (line.has_prefix ("@@")) {
-                tag = "diff-hunk";
-            } else if (line.has_prefix ("+")) {
-                tag = "diff-add";
-            } else if (line.has_prefix ("-")) {
-                tag = "diff-del";
-            }
-
-            if (tag != null) {
-                buffer.insert_with_tags_by_name (ref iter, line + "\n", -1, tag);
-            } else {
-                buffer.insert (ref iter, line + "\n", -1);
-            }
+            sb.append (line).append ("\n");
         }
+        buffer.set_text (sb.str, -1);
     }
 
     private static string? extract_diff_filename (string diff_line) {
