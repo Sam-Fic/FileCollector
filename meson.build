@@ -84,6 +84,7 @@ sources = files(
   'src/services/search_service.vala',
   'src/services/undo_manager.vala',
   'src/services/vlm_queue.vala',
+  'src/services/vlm_task_runner.vala',
   'src/utils/encoding_helper.vala',
   'src/utils/glob_helper.vala',
   'src/utils/ui_helpers.vala',

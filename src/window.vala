@@ -1986,7 +1986,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void setup_vlm_queue () {
         vlm_queue = new VLMQueueManager ();
-        vlm_queue.executor = vlm_task_executor;
+        var runner = new VLMTaskRunner (
+            work_dir,
+            (item) => { return get_prompt_for_item (item); },
+            () => { refresh_list (); }
+        );
+        vlm_queue.executor = runner.execute;
 
         // 构建悬浮进度卡片 (programmatic, 避免 Blueprint 嵌套问题)
         lbl_vlm_status = new Gtk.Label (_("正在预处理 0/0 个文件..."));
@@ -2073,112 +2078,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void on_vlm_state_changed (bool has_tasks) {
         vlm_progress_revealer.set_reveal_child (has_tasks);
-    }
-
-    private void vlm_task_executor (ItemData item, VLMQueueManager manager) {
-        // 捕获 work_dir 到本地变量, 防止主线程并发修改
-        File? local_work_dir = work_dir;
-
-        // 1. 检查缓存
-        string? cached_md = null;
-        string hash = "";
-        try {
-            hash = PreprocessCache.compute_file_hash (item.file_path);
-            if (local_work_dir != null) {
-                var cache = new PreprocessCache (local_work_dir.get_path ());
-                cached_md = cache.get_cached_markdown (item.file_path, hash);
-            }
-        } catch (Error e) {
-            warning ("Cache check failed: %s", e.message);
-        }
-
-        if (manager.check_cancelled ()) {
-            manager.notify_finished (item);
-            return;
-        }
-
-        if (cached_md != null) {
-            Idle.add (() => {
-                item.preprocessed_content = cached_md;
-                item.preprocess_status = PreprocessStatus.COMPLETED;
-                item.from_cache = true;
-                refresh_list ();
-                return Source.REMOVE;
-            });
-            manager.notify_finished (item);
-            return;
-        }
-
-        // 2. 调用 VLM
-        Idle.add (() => {
-            item.preprocess_status = PreprocessStatus.PROCESSING;
-            refresh_list ();
-            return Source.REMOVE;
-        });
-
-        var settings = ConfigManager.load_multimodal_ai_settings ();
-        if (!settings.enabled || settings.api_key == "") {
-            Idle.add (() => {
-                item.preprocess_status = PreprocessStatus.FAILED;
-                refresh_list ();
-                return Source.REMOVE;
-            });
-            manager.notify_finished (item);
-            return;
-        }
-
-        try {
-            string[] base64_images;
-            string[] mime_types;
-
-            if (item.is_image_target ()) {
-                string? b64 = BinaryConverter.convert_image_to_base64 (item.file_path);
-                if (b64 == null) throw new IOError.FAILED ("Image load failed");
-                base64_images = { b64 };
-                mime_types = { BinaryConverter.get_output_mime_for_image (item.file_path) };
-            } else {
-                string[]? images = BinaryConverter.convert_to_base64_images (item.file_path);
-                if (images == null) throw new IOError.FAILED ("Document render failed");
-                base64_images = images;
-                mime_types = new string[images.length];
-                for (int i = 0; i < images.length; i++) mime_types[i] = "image/png";
-            }
-
-            if (manager.check_cancelled ()) { manager.notify_finished (item); return; }
-
-            string prompt = (settings.system_prompt_override != null && settings.system_prompt_override.length > 0)
-                ? settings.system_prompt_override
-                : get_prompt_for_item (item);
-
-            var client = new MultimodalAIClient (
-                settings.base_url, settings.api_key, settings.model,
-                prompt, settings.timeout
-            );
-            string md = client.process_images (base64_images, mime_types);
-
-            if (manager.check_cancelled ()) { manager.notify_finished (item); return; }
-
-            if (local_work_dir != null) {
-                var cache = new PreprocessCache (local_work_dir.get_path ());
-                cache.save_markdown (item.file_path, hash, md);
-            }
-
-            Idle.add (() => {
-                item.preprocessed_content = md;
-                item.preprocess_status = PreprocessStatus.COMPLETED;
-                refresh_list ();
-                return Source.REMOVE;
-            });
-        } catch (Error e) {
-            warning ("VLM Task failed: %s", e.message);
-            Idle.add (() => {
-                item.preprocess_status = PreprocessStatus.FAILED;
-                refresh_list ();
-                return Source.REMOVE;
-            });
-        }
-
-        manager.notify_finished (item);
     }
 
     private void setup_pane_sizes () {
