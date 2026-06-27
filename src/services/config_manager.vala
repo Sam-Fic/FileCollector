@@ -103,6 +103,10 @@ public class ConfigManager : GLib.Object {
         return GLib.Path.build_filename (get_config_dir (), "settings.json");
     }
 
+    public static string get_recovery_file () {
+        return GLib.Path.build_filename (get_config_dir (), "recovery.json");
+    }
+
     // ─── 全局互斥锁，保护配置文件原子操作 ──────────────────────────────
 
     private static GLib.Mutex config_mutex;

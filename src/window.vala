@@ -460,6 +460,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private Gtk.Button btn_vlm_cancel;
     private Gtk.ProgressBar progress_vlm;
 
+    // 自动保存 / 崩溃恢复
+    private uint auto_save_timeout_id = 0;
+    private const uint AUTO_SAVE_DELAY_MS = 5000; // 状态变更后 5 秒触发自动保存
+
 
     public FileCollectorWindow (Adw.Application app) {
         GLib.Object (application: app);
@@ -502,17 +506,20 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         GLib.Idle.add (() => {
             cache_title_widget ();
+            check_recovery_on_startup ();
             return Source.REMOVE;
         });
     }
 
     private void bind_app_state_signals () {
         app_state.items_changed.connect (refresh_list);
+        app_state.items_changed.connect (schedule_auto_save);
         app_state.state_changed.connect (() => {
             sync_path_mode_radios ();
             sync_header_checkbox ();
             update_title ();
             update_undo_redo_buttons ();
+            schedule_auto_save ();
         });
 
         // AIController 信号 → View 层 UI 操作
@@ -565,10 +572,127 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (ai_panel_instance != null) {
             ai_panel_instance.shutdown ();
         }
+        // 正常退出时删除恢复文件
+        cancel_auto_save ();
+        delete_recovery_file ();
         // 不 join 后台线程: cancel + window_closing 标志已通知线程退出,
         // 进程终止时操作系统会自动回收线程资源, 避免 join 阻塞 GTK 主循环导致卡死
         bg_threads.clear ();
         return false;
+    }
+
+    // ─── 自动保存 / 崩溃恢复 ─────────────────────────────────────────────
+
+    private void schedule_auto_save () {
+        if (window_closing) return;
+        cancel_auto_save ();
+        auto_save_timeout_id = GLib.Timeout.add (AUTO_SAVE_DELAY_MS, () => {
+            auto_save_timeout_id = 0;
+            save_recovery_state ();
+            return Source.REMOVE;
+        });
+    }
+
+    private void cancel_auto_save () {
+        if (auto_save_timeout_id != 0) {
+            GLib.Source.remove (auto_save_timeout_id);
+            auto_save_timeout_id = 0;
+        }
+    }
+
+    private void save_recovery_state () {
+        if (window_closing) return;
+        if (items.size == 0 && work_dir == null) {
+            // 空状态不需要恢复
+            delete_recovery_file ();
+            return;
+        }
+        try {
+            ProjectManager.write_project_file (
+                ConfigManager.get_recovery_file (),
+                work_dir,
+                use_absolute,
+                show_header,
+                items,
+                check_model.checked_files,
+                check_model.checked_dirs,
+                common_phrases
+            );
+        } catch (Error e) {
+            warning ("Auto-save recovery failed: %s", e.message);
+        }
+    }
+
+    private void delete_recovery_file () {
+        try {
+            var f = File.new_for_path (ConfigManager.get_recovery_file ());
+            if (f.query_exists ()) {
+                f.delete ();
+            }
+        } catch (Error e) {
+            debug ("Failed to delete recovery file: %s", e.message);
+        }
+    }
+
+    private void check_recovery_on_startup () {
+        var recovery_path = ConfigManager.get_recovery_file ();
+        var recovery_file = File.new_for_path (recovery_path);
+        if (!recovery_file.query_exists ()) return;
+
+        // 如果有未保存的项目文件，比较时间戳决定是否提示
+        if (project_file != null) {
+            try {
+                var recovery_info = recovery_file.query_info (FileAttribute.TIME_MODIFIED, FileQueryInfoFlags.NONE);
+                var project_info = File.new_for_path (project_file).query_info (FileAttribute.TIME_MODIFIED, FileQueryInfoFlags.NONE);
+                if (project_info.get_modification_time ().tv_sec >= recovery_info.get_modification_time ().tv_sec) {
+                    // 项目文件比恢复文件新，不需要恢复
+                    delete_recovery_file ();
+                    return;
+                }
+            } catch (Error e) {
+                // 无法比较，继续提示恢复
+            }
+        }
+
+        var dialog = new Adw.AlertDialog (
+            _("发现未保存的会话"),
+            _("上次运行存在未保存的更改。是否恢复？")
+        );
+        dialog.add_response ("discard", _("丢弃"));
+        dialog.add_response ("restore", _("恢复"));
+        dialog.set_response_appearance ("restore", Adw.ResponseAppearance.SUGGESTED);
+        dialog.set_default_response ("restore");
+        dialog.response.connect ((response) => {
+            if (response == "restore") {
+                try {
+                    File? wd;
+                    string? pf;
+                    bool ua;
+                    bool sh;
+                    var new_items = new Gee.ArrayList<ItemData> ();
+                    var new_checked = new Gee.HashSet<string> ();
+                    var new_dirs = new Gee.HashSet<string> ();
+                    var new_phrases = new Gee.ArrayList<string> ();
+
+                    ProjectManager.load_project_file (
+                        recovery_path, new_items, new_checked, new_dirs, new_phrases,
+                        out wd, out pf, out ua, out sh
+                    );
+
+                    app_state.replace_from (wd, ua, sh, new_items, new_checked, new_dirs, new_phrases);
+                    undo_manager.clear ();
+                    refresh_list ();
+                    update_title ();
+                    toast_overlay.add_toast (new Adw.Toast (_("已恢复未保存的会话")));
+                } catch (Error e) {
+                    warning ("Recovery failed: %s", e.message);
+                    toast_overlay.add_toast (new Adw.Toast (_("恢复失败: ") + e.message));
+                }
+            }
+            delete_recovery_file ();
+            dialog.destroy ();
+        });
+        dialog.present (this);
     }
 
     private void load_css () {
