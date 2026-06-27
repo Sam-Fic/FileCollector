@@ -140,6 +140,7 @@ You can also hand [BUILD_FLATPAK.md](BUILD_FLATPAK.md) directly to programming t
 │   │   ├── ai_client.vala                 # AI assistant backend (OpenAI-compatible API + Function Calling)
 │   │   ├── ai_types.vala                  # AI shared type definitions
 │   │   ├── binary_converter.vala          # Binary file to Base64 conversion (image scaling + document-to-PDF rendering)
+│   │   ├── binary_preprocessor.vala       # Binary file preprocessing scheduler (VLM invocation and cache management)
 │   │   ├── config_manager.vala            # Config/settings/phrases/templates persistence
 │   │   ├── file_generator.vala            # File merging and clipboard copy
 │   │   ├── git_service.vala               # Git read-only operations (status/diff/log/show)
@@ -299,6 +300,8 @@ FileCollector includes a built-in **sidebar AI assistant** that lets you drive t
 - **File Exploration & Reading**: The AI can browse the working directory's file tree and read file contents on demand to aid decision-making.
 - **Real-time Feedback**: Every tool call (set working directory, add files, read files, reorder items, etc.) is displayed as an expandable tool card in real time, making results immediately clear.
 - **Live GUI Sync**: When the AI modifies the orchestration list, the center panel updates the preview immediately, and you can take over to fine-tune at any time.
+- **Slash Command Autocomplete**: Type `/t` or `/template` in the AI input to get an auto-complete template list with keyboard ↑↓ navigation, Enter to confirm, Esc to dismiss, or mouse click to apply.
+- **AI Local Bypass Injection**: `add_git_diff` and `add_git_commit_diff` tools execute Git commands locally and inject diffs directly into the list, completely bypassing the LLM context to save tokens and avoid API limits.
 
 ### Supported Tools (Function Calling)
 
@@ -320,6 +323,8 @@ The AI interacts with the GUI engine through the following tools (sharing the sa
 | `get_git_diff`     | Get Git diff (working tree or staged area)           |
 | `get_git_log`      | List recent Git commits                              |
 | `get_git_commit_diff` | Get the code diff of a specific commit            |
+| `add_git_diff`     | Inject working tree/staged diff directly into list (bypasses LLM, saves tokens) |
+| `add_git_commit_diff` | Inject a specific commit's diff directly into list (bypasses LLM) |
 
 ### Binary File Pre-conversion (VLM)
 
@@ -390,7 +395,8 @@ After switching to Git mode, the action buttons below the center orchestration l
 1. Click the Git icon in the top toolbar to switch to Git commit history mode.
 2. The left panel automatically loads the most recent 100 commits, with search support by commit message or hash.
 3. Click a commit to instantly preview its code diff with red/green highlighting in the right panel.
-4. Click **Export Selected Commit Diff** to insert the diff code block into the orchestration list.
+4. Right-click a commit to copy its full hash to the clipboard.
+5. Click **Export Selected Commit Diff** to insert the diff code block into the orchestration list.
 5. Click **Add All Changed Files** to add all currently changed files to the orchestration list.
 6. Switch back to file tree mode to supplement with other related files via checkboxes.
 7. Generate the merged text and hand it to AI for in-depth analysis.

@@ -140,6 +140,7 @@ flatpak run com.github.samfic.filecollector
 │   │   ├── ai_client.vala                 # AI 助手后端（OpenAI 兼容接口 + Function Calling）
 │   │   ├── ai_types.vala                  # AI 共享类型定义
 │   │   ├── binary_converter.vala          # 二进制文件转 Base64（图片缩放 + 文档转 PDF 渲染）
+│   │   ├── binary_preprocessor.vala       # 二进制文件预处理调度（VLM 调用与缓存管理）
 │   │   ├── config_manager.vala            # 配置/设置/常用语/模板持久化
 │   │   ├── file_generator.vala            # 文件合并生成与剪贴板复制
 │   │   ├── git_service.vala               # Git 只读操作服务（status/diff/log/show）
@@ -299,6 +300,8 @@ FileCollector 内置 **侧边栏 AI 助手**，无需编程工具或 MCP 服务�
 - **文件探索与读取**：AI 可以浏览工作目录的文件树，并按需读取文件内容辅助决策。
 - **即时反馈**：每一步工具调用（设置工作目录、添加文件、读取文件、调整顺序等）都以可展开的工具卡片实时展示，结果一目了然。
 - **与 GUI 实时同步**：AI 改动编排列表后，中间面板立刻更新预览，用户可随时接管微调。
+- **斜杠指令自动补全**：在 AI 输入框中输入 `/t` 或 `/template`，自动弹出模板列表，支持键盘 ↑↓ 导航、Enter 确认、Esc 取消，鼠标点击直接应用。
+- **AI 本地旁路注入**：`add_git_diff` 和 `add_git_commit_diff` 工具在本地执行 Git 命令并直接注入队列，Diff 内容完全不经过 LLM 上下文，节省大量 Token 并突破 API 限制。
 
 ### 支持的工具（Function Calling）
 
@@ -320,6 +323,8 @@ AI 通过以下工具与 GUI 引擎交互（与 CLI / MCP 共享同一套语义�
 | `get_git_diff`     | 获取 Git Diff（工作区或暂存区）        |
 | `get_git_log`      | 列出最近的 Git 提交记录               |
 | `get_git_commit_diff` | 获取指定 Commit 的代码差异          |
+| `add_git_diff`     | 将当前工作区/暂存区 Diff 直接注入编排列表（绕过 LLM，节省 Token）|
+| `add_git_commit_diff` | 将指定 Commit 的 Diff 直接注入编排列表（绕过 LLM）          |
 
 ### 二进制文件预转换（VLM）
 
@@ -390,7 +395,8 @@ FileCollector 内置了 Git 只读探查功能，方便开发者快速收集与�
 1. 点击顶部工具栏的 Git 图标，切换到 Git 提交历史模式。
 2. 左栏自动加载最近 100 条 Commit 列表，支持按提交信息或哈希搜索。
 3. 点击某条 Commit，右侧预览区立即以红绿高亮展示该提交的代码差异。
-4. 点击 **导出选中 Commit Diff**，将 Diff 代码块插入编排列表。
+4. 右键点击 Commit 可复制完整提交哈希到剪贴板。
+5. 点击 **导出选中 Commit Diff**，将 Diff 代码块插入编排列表。
 5. 点击 **一键添加所有改动文件**，将当前工作区所有改动文件加入编排列表。
 6. 切换回文件树模式，继续用勾选方式补充其他相关文件。
 7. 生成合并文本，交给 AI 进行深度分析。
