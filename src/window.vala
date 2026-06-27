@@ -3771,12 +3771,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         templates_manager_instance.present ();
     }
 
-    private void show_warning (string title, string msg) {
-        var d = new Adw.AlertDialog (title, msg);
-        d.add_response ("ok", _("确定"));
-        d.present (this);
-    }
-
     private void show_error (string title, string msg) {
         var d = new Adw.AlertDialog (title, msg);
         d.add_response ("ok", _("确定"));
