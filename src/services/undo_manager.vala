@@ -195,8 +195,6 @@ public class UndoManager : GLib.Object {
         if (undo_stack.size == 0) return null;
         var delta = undo_stack.get ((int) undo_stack.size - 1);
         undo_stack.remove_at ((int) undo_stack.size - 1);
-        in_progress = true;
-        in_progress = false;
         return delta;
     }
 
@@ -212,9 +210,12 @@ public class UndoManager : GLib.Object {
         if (redo_stack.size == 0) return null;
         var delta = redo_stack.get ((int) redo_stack.size - 1);
         redo_stack.remove_at ((int) redo_stack.size - 1);
-        in_progress = true;
-        in_progress = false;
         return delta;
+    }
+
+    // 调用方应在 undo/redo 操作序列前后手动设置
+    public void set_in_progress (bool val) {
+        in_progress = val;
     }
 
     public void clear () {

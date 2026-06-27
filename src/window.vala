@@ -1383,11 +1383,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_undo () {
+        undo_manager.set_in_progress (true);
         var delta = undo_manager.pop_undo ();
-        if (delta == null) return;
+        if (delta == null) { undo_manager.set_in_progress (false); return; }
         var redo_delta = build_redo_delta (delta);
         apply_undo_delta (delta);
         undo_manager.push_redo (redo_delta);
+        undo_manager.set_in_progress (false);
         if (delta.op != UndoOp.SNAPSHOT) {
             refresh_list ();
         }
@@ -1395,11 +1397,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_redo () {
+        undo_manager.set_in_progress (true);
         var delta = undo_manager.pop_redo ();
-        if (delta == null) return;
+        if (delta == null) { undo_manager.set_in_progress (false); return; }
         var undo_delta = build_undo_delta (delta);
         apply_redo_delta (delta);
         undo_manager.push_undo (undo_delta);
+        undo_manager.set_in_progress (false);
         if (delta.op != UndoOp.SNAPSHOT) {
             refresh_list ();
         }
@@ -4725,6 +4729,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             });
             ai_panel_instance.revert_to_undo_token.connect ((token) => {
                 bool needs_refresh = false;
+                undo_manager.set_in_progress (true);
                 while (undo_manager.can_undo && undo_manager.get_stack_size () > token) {
                     var delta = undo_manager.pop_undo ();
                     if (delta == null) break;
@@ -4735,6 +4740,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                         needs_refresh = true;
                     }
                 }
+                undo_manager.set_in_progress (false);
                 if (needs_refresh) {
                     refresh_list ();
                     refresh_all_tree_states ();
