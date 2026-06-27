@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: filecollector\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-27 09:13+0800\n"
+"POT-Creation-Date: 2026-06-27 09:53+0800\n"
 "PO-Revision-Date: 2026-05-30 01:40+0800\n"
 "Last-Translator: Sam-Fic\n"
 "Language-Team: English\n"
@@ -377,6 +377,35 @@ msgstr "AI operation undone"
 msgid "⚠ %s (缺失)"
 msgstr "⚠ %s (missing)"
 
+#: src/window.vala:763
+#, fuzzy
+msgid " [等待处理]"
+msgstr "Pending"
+
+#: src/window.vala:767
+#, fuzzy
+msgid " [检查缓存]"
+msgstr "[Checking cache...]"
+
+#: src/window.vala:770
+#, fuzzy
+msgid " [处理中...]"
+msgstr "Processing..."
+
+#: src/window.vala:773
+#, fuzzy
+msgid "已缓存"
+msgstr "Reused from cache"
+
+#: src/window.vala:773
+#, fuzzy
+msgid "已转换"
+msgstr "VLM conversion called"
+
+#: src/window.vala:777
+msgid " [转换失败]"
+msgstr ""
+
 #: src/window.vala:782
 msgid "来自外部文件"
 msgstr "External file"
@@ -389,6 +418,20 @@ msgstr "Switch to file tree"
 msgid "切换到 Git 提交历史"
 msgstr "Switch to Git commit history"
 
+#: src/window.vala:1804
+#, fuzzy, c-format
+msgid "Git 日志加载失败: %s"
+msgstr "Failed to load project: %s\n"
+
+#: src/window.vala:1835
+msgid "正在加载 Diff..."
+msgstr ""
+
+#: src/window.vala:1912 src/window.vala:1970 src/window.vala:4382
+#, fuzzy
+msgid "请先设置工作目录"
+msgstr "Set working directory"
+
 #: src/window.vala:1919 src/window.vala:1977
 msgid "当前工作区没有未提交的改动"
 msgstr "No uncommitted changes in working tree"
@@ -396,6 +439,11 @@ msgstr "No uncommitted changes in working tree"
 #: src/window.vala:1941
 msgid "没有可添加的文件"
 msgstr "No files to add"
+
+#: src/window.vala:1962
+#, fuzzy, c-format
+msgid "已添加 %d 个改动文件到编排列表"
+msgstr "Added %d file(s)"
 
 #: src/window.vala:1964 src/window.vala:1986 src/window.vala:2005
 msgid "Git 错误"
@@ -420,6 +468,11 @@ msgstr "Pause"
 #: src/window.vala:2028
 msgid "取消全部"
 msgstr "Cancel All"
+
+#: src/window.vala:2083
+#, fuzzy
+msgid "继续"
+msgstr "Continue Saving"
 
 #: src/window.vala:2089
 msgid "已取消所有预处理任务"
@@ -516,6 +569,18 @@ msgstr "Processing..."
 msgid "等待处理"
 msgstr "Pending"
 
+#: src/window.vala:3236
+#, fuzzy
+msgid "[正在处理中，请稍候...]"
+msgstr "Processing..."
+
+#: src/window.vala:3239
+#, fuzzy
+msgid "[AI 转换失败，点击工具栏的重试按钮可重新转换]"
+msgstr ""
+"AI conversion failed\n"
+"Click to retry conversion"
+
 #: src/window.vala:3242
 msgid "[正在检查缓存...]"
 msgstr "[Checking cache...]"
@@ -527,6 +592,11 @@ msgstr "[Preparing AI conversion...]"
 #: src/window.vala:3248
 msgid "[二进制文件，预览不可用]"
 msgstr "[Binary file, preview unavailable]"
+
+#: src/window.vala:3259
+#, fuzzy
+msgid "[读取错误: "
+msgstr "Network error: "
 
 #: src/window.vala:3288
 #, c-format
@@ -606,6 +676,11 @@ msgstr "Move Up"
 msgid "下移"
 msgstr "Move Down"
 
+#: src/window.vala:3481
+#, fuzzy, c-format
+msgid "重新进行 AI 转换 (%d 项)"
+msgstr "Re-run AI conversion"
+
 #: src/window.vala:3481 src/window.blp:478
 msgid "重新进行 AI 转换"
 msgstr "Re-run AI conversion"
@@ -613,6 +688,11 @@ msgstr "Re-run AI conversion"
 #: src/window.vala:3497
 #, c-format
 msgid "切换绝对/相对路径 (%d 项)"
+msgstr "Switch absolute/relative path (%d items)"
+
+#: src/window.vala:3497
+#, fuzzy
+msgid "切换绝对/相对路径"
 msgstr "Switch absolute/relative path (%d items)"
 
 #: src/window.vala:3511 src/window.vala:3563
@@ -689,6 +769,16 @@ msgstr "Merged Text Copied to Clipboard"
 msgid "复制失败"
 msgstr "Copy Failed"
 
+#: src/window.vala:3728
+#, fuzzy
+msgid "编排列表为空，请先添加文件"
+msgstr "The queue is empty. Please check some files or add text content first"
+
+#: src/window.vala:3734
+#, fuzzy
+msgid "请先在 AI 设置中配置 API"
+msgstr "Please configure the API in Settings → AI Settings first."
+
 #: src/window.vala:3741
 msgid "正在让 AI 生成阅读指南..."
 msgstr "Generating reading guide with AI..."
@@ -704,6 +794,11 @@ msgstr "AI reading guide inserted at top of list"
 #: src/window.vala:3786
 msgid "无法启动 AI 生成线程"
 msgstr "Failed to start AI generation thread"
+
+#: src/window.vala:3809
+#, fuzzy
+msgid "[无法读取文件内容]\n"
+msgstr "[Failed to read file: %s]\n"
 
 #: src/window.vala:3813
 msgid "### [自定义文本片段]\n"
@@ -784,6 +879,11 @@ msgstr "Quit"
 #: src/window.vala:4219 src/window.vala:4227
 msgid "编辑常用语"
 msgstr "Edit Common Phrase"
+
+#: src/window.vala:4404
+#, fuzzy, c-format
+msgid "已从搜索结果添加 %d 个文件"
+msgstr "Added %d file(s)"
 
 #: src/window.blp:7
 msgid "FileCollector - 文件收集与编排工具"
@@ -881,10 +981,10 @@ msgstr "Open Project..."
 msgid "项目另存为..."
 msgstr "Save Project As..."
 
-#: src/window.blp:497 src/widgets/phrases_picker.vala:86
-#: src/widgets/phrases_picker.vala:94
-msgid "常用语管理"
-msgstr "Manage Common Phrases"
+#: src/window.blp:497
+#, fuzzy
+msgid "常用语管理..."
+msgstr "Manage Phrases..."
 
 #: src/window.blp:498
 msgid "场景模板管理..."
@@ -899,12 +999,14 @@ msgid "清除工作区缓存"
 msgstr "Clear Workspace Cache"
 
 #: src/window.blp:501
-msgid "语言设置"
-msgstr "Language Settings"
+#, fuzzy
+msgid "语言设置..."
+msgstr "Language Settings..."
 
 #: src/window.blp:504
-msgid "键盘快捷键"
-msgstr "Keyboard Shortcuts"
+#, fuzzy
+msgid "键盘快捷键..."
+msgstr "Keyboard Shortcuts..."
 
 #: src/window.blp:505
 msgid "关于 FileCollector"
@@ -947,6 +1049,10 @@ msgstr "Select Common Phrase"
 #: src/widgets/phrases_picker.vala:207 src/widgets/templates_manager.vala:34
 msgid "添加"
 msgstr "Add"
+
+#: src/widgets/phrases_picker.vala:86 src/widgets/phrases_picker.vala:94
+msgid "常用语管理"
+msgstr "Manage Common Phrases"
 
 #: src/widgets/phrases_picker.vala:148
 msgid "暂无常用语"
@@ -1094,6 +1200,14 @@ msgstr "Save"
 msgid "AI 助手 (侧边栏)"
 msgstr "AI Assistant (Sidebar)"
 
+#: src/widgets/ai_settings_dialog.vala:100
+msgid "支持 OpenAI、Azure OpenAI 及任何兼容端点（例如本地 Ollama）。"
+msgstr ""
+
+#: src/widgets/ai_settings_dialog.vala:99
+msgid "配置 OpenAI 兼容 API，即可在 AI 边栏使用自然语言编排文件。\n"
+msgstr ""
+
 #: src/widgets/ai_settings_dialog.vala:104
 msgid "启用 AI 助手"
 msgstr "Enable AI Assistant"
@@ -1212,6 +1326,26 @@ msgstr ""
 "When using an HTTP (non-HTTPS) endpoint, the API key will be transmitted in "
 "plaintext over the network, which poses a security risk."
 
+#: src/widgets/ai_settings_dialog.vala:325
+#, fuzzy
+msgid ""
+"这将导致 API 密钥在传输过程中以明文形式发送，存在被第三方截获的风险。\n"
+"\n"
+msgstr ""
+"You are configuring an HTTP (non-HTTPS) endpoint.\n"
+"\n"
+"This will cause the API key to be sent in plaintext during transmission, "
+"with the risk of being intercepted by third parties.\n"
+"\n"
+"It is recommended to use an HTTPS endpoint for security.\n"
+"\n"
+"Do you still want to continue saving?"
+
+#: src/widgets/ai_settings_dialog.vala:326
+#, fuzzy
+msgid "是否仍要继续保存？"
+msgstr "Continue Saving"
+
 #: src/widgets/ai_settings_dialog.vala:324
 msgid ""
 "您正在配置 HTTP (非 HTTPS) 端点。\n"
@@ -1258,10 +1392,20 @@ msgstr "Search code content... (press Enter to search)"
 msgid "区分大小写"
 msgstr "Case Sensitive"
 
+#: src/widgets/global_search_dialog.vala:63
+#, fuzzy
+msgid "搜索"
+msgstr "Search…"
+
 #: src/widgets/global_search_dialog.vala:97
 #: src/widgets/global_search_dialog.vala:185
 msgid "全选"
 msgstr "Select All"
+
+#: src/widgets/global_search_dialog.vala:111
+#, fuzzy
+msgid "添加选中文件到编排列表"
+msgstr "Add file to queue (can be used multiple times)"
 
 #: src/widgets/global_search_dialog.vala:117
 msgid "添加全部"
@@ -1285,6 +1429,11 @@ msgstr "Search complete: scanned %d files, found %d matches (%d unique files)"
 msgid "全不选"
 msgstr "Deselect All"
 
+#: src/widgets/global_search_dialog.vala:186
+#, fuzzy, c-format
+msgid "添加选中文件到编排列表 (%d)"
+msgstr "Add file to queue (can be used multiple times)"
+
 #: src/widgets/global_search_dialog.vala:187
 #, c-format
 msgid "添加全部 (%d)"
@@ -1298,6 +1447,11 @@ msgstr "Prompt Templates"
 msgid "关闭"
 msgstr "Close"
 
+#: src/widgets/templates_manager.vala:78
+#, fuzzy
+msgid "编辑"
+msgstr "Edit Text"
+
 #: src/widgets/templates_manager.vala:106
 msgid "添加模板"
 msgstr "Add Template"
@@ -1306,19 +1460,29 @@ msgstr "Add Template"
 msgid "编辑模板"
 msgstr "Edit Template"
 
-#: src/widgets/templates_manager.vala:129
+#: src/widgets/templates_manager.vala:131
 msgid "指令 ID (如 bug)"
 msgstr "Command ID (e.g. bug)"
 
-#: src/widgets/templates_manager.vala:132
+#: src/widgets/templates_manager.vala:134
 msgid "显示名称"
 msgstr "Display Name"
 
-#: src/widgets/templates_manager.vala:135
+#: src/widgets/templates_manager.vala:137
 msgid "描述"
 msgstr "Description"
 
-#: src/widgets/templates_manager.vala:149
+#: src/widgets/templates_manager.vala:145
+#, fuzzy
+msgid "头部插入文本"
+msgstr "Insert Text Above"
+
+#: src/widgets/templates_manager.vala:148
+#, fuzzy
+msgid "尾部插入文本"
+msgstr "Insert Text Above"
+
+#: src/widgets/templates_manager.vala:151
 msgid "AI 驱动提示词"
 msgstr "AI Prompt"
 
@@ -1451,24 +1615,6 @@ msgstr ""
 #~ msgid "用当前配置向 API 发送一次最小请求, 验证是否可用"
 #~ msgstr ""
 #~ "Send a minimal request to the API with current settings to verify it works"
-
-#~ msgid ""
-#~ "您正在配置 HTTP (非 HTTPS) 端点。\n"
-#~ "\n"
-#~ "这将导致 API 密钥在传输过程中以明文形式发送，存在被第三方截获的风险。\n"
-#~ "\n"
-#~ "建议使用 HTTPS 端点以确保安全。\n"
-#~ "\n"
-#~ "是否仍要继续保存？"
-#~ msgstr ""
-#~ "You are configuring an HTTP (non-HTTPS) endpoint.\n"
-#~ "\n"
-#~ "This will cause the API key to be sent in plaintext during transmission, "
-#~ "with the risk of being intercepted by third parties.\n"
-#~ "\n"
-#~ "It is recommended to use an HTTPS endpoint for security.\n"
-#~ "\n"
-#~ "Do you still want to continue saving?"
 
 #~ msgid "AI 转换完成"
 #~ msgstr "AI conversion complete"
