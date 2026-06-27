@@ -1364,8 +1364,17 @@ public class AIPanel : GLib.Object {
                 return parts.size > 0 ? string.joinv (", ", (string[]) parts.to_array ()) : "(all items)";
             }
         }
-        // 默认: 直接展示原始 JSON
-        return raw ?? "";
+        // 默认: 美化 JSON 输出
+        try {
+            var parser = new Json.Parser ();
+            parser.load_from_data (raw, -1);
+            var gen = new Json.Generator ();
+            gen.set_root (parser.get_root ());
+            gen.pretty = true;
+            return gen.to_data (null);
+        } catch (Error e) {
+            return raw ?? "";
+        }
     }
 
 
