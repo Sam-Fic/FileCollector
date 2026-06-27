@@ -53,8 +53,9 @@ namespace UIHelpers {
         foreach (var item in items) {
             if (item.item_type == "file" && item.file_path != null) {
                 string rel_path = item.file_path;
-                if (work_dir != null && rel_path.has_prefix (work_dir.get_path () + "/")) {
-                    rel_path = rel_path.substring (work_dir.get_path ().length + 1);
+                if (work_dir != null) {
+                    var rel = work_dir.get_relative_path (File.new_for_path (item.file_path));
+                    if (rel != null) rel_path = rel;
                 }
                 sb.append ("### ").append (rel_path).append ("\n");
                 try {

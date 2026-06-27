@@ -97,8 +97,10 @@ public class SearchService : GLib.Object {
             string content = EncodingHelper.decode_to_utf8 (content_bytes);
             string[] lines = content.split ("\n");
 
-            string rel_path = file_path.substring (root.length);
-            if (rel_path.has_prefix ("/")) rel_path = rel_path.substring (1);
+            string rel_path = file_path;
+            var root_dir = File.new_for_path (root);
+            var rel = root_dir.get_relative_path (File.new_for_path (file_path));
+            if (rel != null) rel_path = rel;
 
             for (int i = 0; i < lines.length; i++) {
                 if (cancellable.is_cancelled ()) break;

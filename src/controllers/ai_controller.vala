@@ -43,12 +43,10 @@ public class AIController : GLib.Object {
             var it = app_state.items.get (i);
             if (it.item_type == "file") {
                 if (it.file_path != null) {
-                    string rel;
-                    if (app_state.work_dir != null && it.file_path.has_prefix (app_state.work_dir.get_path ())) {
-                        rel = it.file_path.substring (app_state.work_dir.get_path ().length);
-                        while (rel.has_prefix ("/")) rel = rel.substring (1);
-                    } else {
-                        rel = it.file_path;
+                    string rel = it.file_path;
+                    if (app_state.work_dir != null) {
+                        var r = app_state.work_dir.get_relative_path (File.new_for_path (it.file_path));
+                        if (r != null) rel = r;
                     }
                     paths.add (rel);
                 }
@@ -548,12 +546,10 @@ public class AIController : GLib.Object {
             if (kind == "file" && it.item_type != "file") continue;
             if (kind == "text" && it.item_type != "text") continue;
             if (it.item_type == "file") {
-                string rel;
-                if (app_state.work_dir != null && it.file_path.has_prefix (app_state.work_dir.get_path ())) {
-                    rel = it.file_path.substring (app_state.work_dir.get_path ().length);
-                    while (rel.has_prefix ("/")) rel = rel.substring (1);
-                } else {
-                    rel = it.file_path;
+                string rel = it.file_path;
+                if (app_state.work_dir != null) {
+                    var r = app_state.work_dir.get_relative_path (File.new_for_path (it.file_path));
+                    if (r != null) rel = r;
                 }
                 sb.append ("#" + (i + 1).to_string () + "  [file] ").append (rel).append ("\n");
             } else {
