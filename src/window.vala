@@ -47,6 +47,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.Box normal_actions;
     [GtkChild] private unowned Gtk.Box git_actions;
     [GtkChild] private unowned Gtk.ListView git_list_view;
+    [GtkChild] private unowned Gtk.ScrolledWindow git_scrolled;
     [GtkChild] private unowned Gtk.SearchEntry git_search_entry;
     [GtkChild] private unowned Gtk.Button btn_git_add_all_changed;
     [GtkChild] private unowned Gtk.Button btn_git_export_working_diff;
@@ -118,6 +119,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private Gtk.SingleSelection git_selection;
     private Gee.ArrayList<GitCommit> git_commits;
     private string git_search_text = "";
+    private bool git_loading = false;
+    private bool git_all_loaded = false;
+    private const int GIT_BATCH_SIZE = 100;
 
     // VLM 预处理队列
     private VLMQueueManager vlm_queue;
@@ -1499,6 +1503,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         left_stack.visible_child = tree_page;
         action_stack.visible_child = normal_actions;
 
+        // Git 列表滚动到底部时自动加载更多
+        git_scrolled.edge_reached.connect ((pos) => {
+            if (pos == Gtk.PositionType.BOTTOM && !git_loading && !git_all_loaded) {
+                load_more_git_history ();
+            }
+        });
+
         // 目录加载进度条 (添加到 left_stack 的父容器)
         dir_load_label = new Gtk.Label (null);
         dir_load_label.xalign = 0;
@@ -1699,25 +1710,36 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void load_git_history_async () {
         if (work_dir == null) return;
+        git_commits.clear ();
+        git_commit_store.remove_all ();
+        git_all_loaded = false;
+        load_more_git_history ();
+    }
+
+    private void load_more_git_history () {
+        if (work_dir == null || git_loading || git_all_loaded) return;
+        git_loading = true;
         string dir = work_dir.get_path ();
+        int skip = git_commits.size;
 
         try {
             GLib.Thread<void*>? thread = null;
             thread = new Thread<void*> ("git-log", () => {
-                load_git_history_in_thread (dir, thread);
+                load_git_batch_in_thread (dir, skip, thread);
                 return null;
             });
             bg_threads.add (thread);
         } catch (ThreadError e) {
+            git_loading = false;
             warning ("Failed to create git-log thread: %s", e.message);
         }
     }
 
-    private void load_git_history_in_thread (string dir, GLib.Thread<void*>? thread) {
+    private void load_git_batch_in_thread (string dir, int skip, GLib.Thread<void*>? thread) {
         string? error_msg = null;
         Gee.ArrayList<GitCommit>? result = null;
         try {
-            result = GitService.get_log (dir, 100);
+            result = GitService.get_log_with_skip (dir, GIT_BATCH_SIZE, skip);
         } catch (GLib.Error e) {
             error_msg = e.message;
         }
@@ -1727,10 +1749,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (error_msg != null) {
                 show_toast (_("Git 日志加载失败: %s").printf (error_msg));
             } else if (result != null) {
-                git_commits.clear ();
+                if (result.size < GIT_BATCH_SIZE) {
+                    git_all_loaded = true;
+                }
                 foreach (var c in result) git_commits.add (c);
                 refresh_git_list ();
             }
+            git_loading = false;
             if (thread != null) bg_threads.remove (thread);
             return Source.REMOVE;
         });

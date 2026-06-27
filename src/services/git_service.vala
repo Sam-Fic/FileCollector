@@ -42,10 +42,18 @@ public class GitService : GLib.Object {
     }
 
     public static ArrayList<GitCommit> get_log (string work_dir, int max_count = 50) throws GLib.Error {
-        string output = run_git (work_dir, {
-            "log", "-n", max_count.to_string (),
-            "--pretty=format:%H%x1f%an%x1f%ad%x1f%s", "--date=short"
-        });
+        return get_log_with_skip (work_dir, max_count, 0);
+    }
+
+    public static ArrayList<GitCommit> get_log_with_skip (string work_dir, int max_count, int skip) throws GLib.Error {
+        string[] cmd = { "log", "-n", max_count.to_string () };
+        if (skip > 0) {
+            cmd += "--skip=" + skip.to_string ();
+        }
+        cmd += "--pretty=format:%H%x1f%an%x1f%ad%x1f%s";
+        cmd += "--date=short";
+
+        string output = run_git (work_dir, cmd);
 
         var commits = new ArrayList<GitCommit> ();
         foreach (var line in output.split ("\n")) {
