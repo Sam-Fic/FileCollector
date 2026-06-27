@@ -104,7 +104,7 @@ public class ConfigManager : GLib.Object {
     }
 
     public static string get_recovery_file () {
-        return GLib.Path.build_filename (get_config_dir (), "recovery.json");
+        return GLib.Path.build_filename (get_config_dir (), "recovery.fcol");
     }
 
     // ─── 全局互斥锁，保护配置文件原子操作 ──────────────────────────────
