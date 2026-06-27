@@ -38,6 +38,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // Git 模式切换
     [GtkChild] private unowned Gtk.Button btn_toggle_git;
+    [GtkChild] private unowned Gtk.Label lbl_left_title;
     [GtkChild] private unowned Gtk.Button btn_global_search;
     [GtkChild] private unowned Gtk.Stack left_stack;
     [GtkChild] private unowned Gtk.Stack action_stack;
@@ -1662,6 +1663,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             action_stack.visible_child_name = "git_actions";
             btn_toggle_git.icon_name = "folder-symbolic";
             btn_toggle_git.tooltip_text = _("切换到文件树");
+            lbl_left_title.label = _("Git 提交历史");
             git_search_entry.visible = work_dir != null;
             btn_git_add_all_changed.sensitive = work_dir != null;
             btn_git_export_working_diff.sensitive = work_dir != null;
@@ -1674,6 +1676,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             action_stack.visible_child_name = "normal_actions";
             btn_toggle_git.icon_name = "xsi-git-symbolic";
             btn_toggle_git.tooltip_text = _("切换到 Git 提交历史");
+            lbl_left_title.label = _("资源管理器");
         }
     }
 

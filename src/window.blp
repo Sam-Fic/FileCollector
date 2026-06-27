@@ -106,16 +106,16 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
            hexpand: true;
            vexpand: true;
 
-           // 标题
-           Label {
-             label: _("资源管理器");
-             halign: center;
-             css-classes: ["panel-title"];
-             margin-top: 0;
-             margin-bottom: 0;
-             margin-start: 12;
-             margin-end: 12;
-           }
+            // 标题
+            Label lbl_left_title {
+              label: _("资源管理器");
+              halign: center;
+              css-classes: ["panel-title"];
+              margin-top: 0;
+              margin-bottom: 0;
+              margin-start: 12;
+              margin-end: 12;
+            }
 
            // 内容 Stack: 文件树 / Git 历史
            Stack left_stack {
