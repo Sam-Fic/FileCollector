@@ -105,6 +105,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // Git 模式状态
     private bool is_git_mode = false;
+    private ulong handler_path_abs;
+    private ulong handler_path_rel;
+    private ulong handler_header;
     private GLib.ListStore git_commit_store;
 
     // 目录加载进度条
@@ -1342,19 +1345,29 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // 同步单选按钮到 use_absolute 状态
     private void sync_path_mode_radios () {
-        radio_absolute_path.notify["active"].disconnect (on_path_mode_changed);
-        radio_relative_path.notify["active"].disconnect (on_path_mode_changed);
+        block_option_signals ();
         radio_absolute_path.active = use_absolute;
         radio_relative_path.active = !use_absolute;
-        radio_absolute_path.notify["active"].connect (on_path_mode_changed);
-        radio_relative_path.notify["active"].connect (on_path_mode_changed);
+        unblock_option_signals ();
     }
 
     // 同步头部复选框到 show_header 状态
     private void sync_header_checkbox () {
-        check_write_header.notify["active"].disconnect (on_header_check_changed);
+        block_option_signals ();
         check_write_header.active = show_header;
-        check_write_header.notify["active"].connect (on_header_check_changed);
+        unblock_option_signals ();
+    }
+
+    private void block_option_signals () {
+        SignalHandler.block (radio_absolute_path, handler_path_abs);
+        SignalHandler.block (radio_relative_path, handler_path_rel);
+        SignalHandler.block (check_write_header, handler_header);
+    }
+
+    private void unblock_option_signals () {
+        SignalHandler.unblock (radio_absolute_path, handler_path_abs);
+        SignalHandler.unblock (radio_relative_path, handler_path_rel);
+        SignalHandler.unblock (check_write_header, handler_header);
     }
 
     // 根据 work_dir 更新窗口标题/副标题
@@ -1370,23 +1383,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void apply_absolute_change (bool new_abs, bool new_hdr) {
         use_absolute = new_abs;
         show_header = new_hdr;
-        radio_absolute_path.notify["active"].disconnect (on_path_mode_changed);
-        radio_relative_path.notify["active"].disconnect (on_path_mode_changed);
-        check_write_header.notify["active"].disconnect (on_header_check_changed);
+        block_option_signals ();
         radio_absolute_path.active = new_abs;
         radio_relative_path.active = !new_abs;
         check_write_header.active = new_hdr;
-        radio_absolute_path.notify["active"].connect (on_path_mode_changed);
-        radio_relative_path.notify["active"].connect (on_path_mode_changed);
-        check_write_header.notify["active"].connect (on_header_check_changed);
+        unblock_option_signals ();
     }
 
     // 统一应用 show_header 变更 (undo/redo 共用)
     private void apply_header_change (bool new_hdr) {
         show_header = new_hdr;
-        check_write_header.notify["active"].disconnect (on_header_check_changed);
+        block_option_signals ();
         check_write_header.active = new_hdr;
-        check_write_header.notify["active"].connect (on_header_check_changed);
+        unblock_option_signals ();
     }
 
     private void restore_undo_state (UndoState state) {
@@ -1399,15 +1408,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         use_absolute = state.use_absolute;
         show_header = state.show_header;
-        radio_absolute_path.notify["active"].disconnect (on_path_mode_changed);
-        radio_relative_path.notify["active"].disconnect (on_path_mode_changed);
-        check_write_header.notify["active"].disconnect (on_header_check_changed);
+        block_option_signals ();
         radio_absolute_path.active = use_absolute;
         radio_relative_path.active = !use_absolute;
         check_write_header.active = show_header;
-        radio_absolute_path.notify["active"].connect (on_path_mode_changed);
-        radio_relative_path.notify["active"].connect (on_path_mode_changed);
-        check_write_header.notify["active"].connect (on_header_check_changed);
+        unblock_option_signals ();
 
         bool work_dir_changed = false;
         if (state.work_dir != null && work_dir != null) {
