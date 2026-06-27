@@ -17,7 +17,9 @@ public class SearchService : GLib.Object {
 
     private void perform_search (string root_dir, string keyword, bool case_sensitive, GLib.Cancellable cancellable) {
         if (keyword.length == 0) {
-            Idle.add (() => { finished (0, 0); return Source.REMOVE; });
+            if (!cancellable.is_cancelled ()) {
+                Idle.add (() => { finished (0, 0); return Source.REMOVE; });
+            }
             return;
         }
 
@@ -33,10 +35,12 @@ public class SearchService : GLib.Object {
             warning ("Search error: %s", e.message);
         }
 
-        Idle.add (() => {
-            finished (scanned, matched);
-            return Source.REMOVE;
-        });
+        if (!cancellable.is_cancelled ()) {
+            Idle.add (() => {
+                finished (scanned, matched);
+                return Source.REMOVE;
+            });
+        }
     }
 
     private void scan_directory (string root, string current_dir, string keyword, bool case_sensitive,
@@ -108,7 +112,9 @@ public class SearchService : GLib.Object {
                     string fp = file_path;
                     string rp = rel_path;
                     Idle.add (() => {
-                        result_found (new SearchResult (fp, rp, ln, lc));
+                        if (!cancellable.is_cancelled ()) {
+                            result_found (new SearchResult (fp, rp, ln, lc));
+                        }
                         return Source.REMOVE;
                     });
                     if (matched >= MAX_RESULTS) break;
