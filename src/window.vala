@@ -2252,81 +2252,22 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // ─── Keyboard Shortcuts ───────────────────────────────────────────────
 
     private void setup_shortcuts () {
-        // 使用 GAction + set_accels_for_action 替代 ShortcutController,
-        // 避免 GTK4 bug (#6246): widget 销毁后 controller 仍留在 manager 中导致崩溃
-
-        var act_generate = new GLib.SimpleAction ("generate", null);
-        act_generate.activate.connect (() => on_generate_clicked ());
-        this.add_action (act_generate);
-
-        var act_generate_clipboard = new GLib.SimpleAction ("generate_to_clipboard", null);
-        act_generate_clipboard.activate.connect (() => on_generate_to_clipboard_clicked ());
-        this.add_action (act_generate_clipboard);
-
-        var act_undo = new GLib.SimpleAction ("undo", null);
-        act_undo.activate.connect (() => on_undo ());
-        this.add_action (act_undo);
-
-        var act_redo = new GLib.SimpleAction ("redo", null);
-        act_redo.activate.connect (() => on_redo ());
-        this.add_action (act_redo);
-
-        var act_clear = new GLib.SimpleAction ("clear_items", null);
-        act_clear.activate.connect (() => on_clear_items_with_confirm ());
-        this.add_action (act_clear);
-
-        var act_delete = new GLib.SimpleAction ("delete_item", null);
-        act_delete.activate.connect (() => on_delete_item ());
-        this.add_action (act_delete);
-
-        var act_move_up = new GLib.SimpleAction ("move_up", null);
-        act_move_up.activate.connect (() => on_move_up ());
-        this.add_action (act_move_up);
-
-        var act_move_down = new GLib.SimpleAction ("move_down", null);
-        act_move_down.activate.connect (() => on_move_down ());
-        this.add_action (act_move_down);
-
-        var act_add_external = new GLib.SimpleAction ("add_external_files", null);
-        act_add_external.activate.connect (() => on_add_external_files ());
-        this.add_action (act_add_external);
-
-        var act_insert = new GLib.SimpleAction ("insert_text", null);
-        act_insert.activate.connect (() => insert_text (true));
-        this.add_action (act_insert);
-
-        var act_insert_no_header = new GLib.SimpleAction ("insert_text_no_header", null);
-        act_insert_no_header.activate.connect (() => insert_text (false));
-        this.add_action (act_insert_no_header);
-
-        var act_toggle_ai = new GLib.SimpleAction ("toggle_ai_panel", null);
-        act_toggle_ai.activate.connect (() => toggle_ai_panel ());
-        this.add_action (act_toggle_ai);
-
-        var act_global_search = new GLib.SimpleAction ("global_search", null);
-        act_global_search.activate.connect (() => on_global_search ());
-        this.add_action (act_global_search);
-
-        // 延迟注册快捷键, 等待 application 就绪
-        GLib.Idle.add (() => {
-            var app = this.application;
-            if (app != null) {
-                app.set_accels_for_action ("win.generate", { "<Control>g" });
-                app.set_accels_for_action ("win.generate_to_clipboard", { "<Control><Shift>c" });
-                app.set_accels_for_action ("win.undo", { "<Control>z" });
-                app.set_accels_for_action ("win.redo", { "<Control><Shift>z" });
-                app.set_accels_for_action ("win.clear_items", { "<Control>n" });
-                app.set_accels_for_action ("win.delete_item", { "Delete" });
-                app.set_accels_for_action ("win.move_up", { "<Control>Up" });
-                app.set_accels_for_action ("win.move_down", { "<Control>Down" });
-                app.set_accels_for_action ("win.add_external_files", { "<Control>e" });
-                app.set_accels_for_action ("win.insert_text", { "<Control>i" });
-                app.set_accels_for_action ("win.insert_text_no_header", { "<Control><Shift>i" });
-                app.set_accels_for_action ("win.toggle_ai_panel", { "<Control>j" });
-                app.set_accels_for_action ("win.global_search", { "<Control><Shift>f" });
-            }
-            return GLib.Source.REMOVE;
-        });
+        ShortcutsHelper.setup (
+            this,
+            () => { on_generate_clicked (); },
+            () => { on_generate_to_clipboard_clicked (); },
+            () => { on_undo (); },
+            () => { on_redo (); },
+            () => { on_clear_items_with_confirm (); },
+            () => { on_delete_item (); },
+            () => { on_move_up (); },
+            () => { on_move_down (); },
+            () => { on_add_external_files (); },
+            () => { insert_text (true); },
+            () => { insert_text (false); },
+            () => { toggle_ai_panel (); },
+            () => { on_global_search (); }
+        );
     }
 
     public CliController create_cli_from_state () {

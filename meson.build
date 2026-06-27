@@ -96,6 +96,7 @@ sources = files(
   'src/widgets/phrases_picker.vala',
   'src/widgets/preview_syntax.vala',
   'src/widgets/settings_dialog.vala',
+  'src/widgets/shortcuts_helper.vala',
   'src/widgets/phrases_picker.vala',
   'src/widgets/templates_manager.vala'
 )
