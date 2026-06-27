@@ -1708,6 +1708,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
     }
 
+    private void append_git_commits (Gee.ArrayList<GitCommit> new_commits) {
+        foreach (var commit in new_commits) {
+            git_commits.add (commit);
+            // 如果有搜索过滤, 只添加匹配的
+            if (git_search_text != "" &&
+                !commit.message.down ().contains (git_search_text.down ()) &&
+                !commit.short_hash.down ().contains (git_search_text.down ())) {
+                continue;
+            }
+            git_commit_store.append (commit);
+        }
+    }
+
     private void load_git_history_async () {
         if (work_dir == null) return;
         git_commits.clear ();
@@ -1752,8 +1765,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 if (result.size < GIT_BATCH_SIZE) {
                     git_all_loaded = true;
                 }
-                foreach (var c in result) git_commits.add (c);
-                refresh_git_list ();
+                append_git_commits (result);
             }
             git_loading = false;
             if (thread != null) bg_threads.remove (thread);
