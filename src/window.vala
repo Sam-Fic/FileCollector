@@ -346,7 +346,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.ScrolledWindow dir_scrolled;
     [GtkChild] private unowned Gtk.ListView queue_list;
     [GtkChild] private unowned Gtk.Box preview_container;
-    [GtkChild] private unowned Gtk.TextView preview_view;
+    [GtkChild] private unowned GtkSource.View preview_view;
     [GtkChild] private unowned Gtk.Button open_folder_btn;
     [GtkChild] private unowned Gtk.Button btn_undo;
     [GtkChild] private unowned Gtk.Button btn_redo;
@@ -475,6 +475,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         setup_tree_view ();
         setup_git_view ();
         setup_vlm_queue ();
+        setup_preview_syntax ();
         sync_path_mode_radios ();
         setup_signals ();
         setup_ai_panel ();
@@ -1925,7 +1926,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
         preview_container.append (preview_view);
 
-        var buffer = preview_view.get_buffer ();
+        var buffer = preview_view.get_buffer () as GtkSource.Buffer;
+        buffer.set_highlight_syntax (false);
         buffer.set_text ("", -1);
 
         if (buffer.get_tag_table ().lookup ("diff-add") == null) {
@@ -1999,14 +2001,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // 简单的预览文本设置 (无 Markdown)
     private void apply_preview_raw (string text) {
-        Gtk.Widget? child = preview_container.get_first_child ();
-        while (child != null) {
-            Gtk.Widget? next = child.get_next_sibling ();
-            preview_container.remove (child);
-            child = next;
-        }
-        preview_container.append (preview_view);
-        preview_view.get_buffer ().set_text (text, -1);
+        apply_preview_no_highlight (text);
     }
 
     // ─── Git 中栏按钮操作 ────────────────────────────────────────────────
@@ -2108,6 +2103,69 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         } catch (Error e) {
             show_error (_("Git 错误"), e.message);
         }
+    }
+
+    // ─── 语法高亮 ────────────────────────────────────────────────────────
+
+    private GtkSource.LanguageManager lang_manager;
+    private GtkSource.StyleSchemeManager scheme_manager;
+
+    private void setup_preview_syntax () {
+        lang_manager = GtkSource.LanguageManager.get_default ();
+        scheme_manager = new GtkSource.StyleSchemeManager ();
+        var scheme = scheme_manager.get_scheme ("Adwaita-dark");
+        if (scheme == null) scheme = scheme_manager.get_scheme ("classic");
+        if (scheme != null) {
+            (preview_view.get_buffer () as GtkSource.Buffer).set_style_scheme (scheme);
+        }
+        preview_view.set_wrap_mode (Gtk.WrapMode.WORD_CHAR);
+    }
+
+    private GtkSource.Language? guess_language (string? file_path) {
+        if (file_path == null) return null;
+        // 先按文件名猜测 (如 Makefile, Dockerfile)
+        var lang = lang_manager.guess_language (file_path, null);
+        if (lang != null) return lang;
+        // fallback: 按 MIME 类型
+        var file = File.new_for_path (file_path);
+        try {
+            var info = file.query_info (FileAttribute.STANDARD_CONTENT_TYPE, FileQueryInfoFlags.NONE, null);
+            string? mime = info.get_content_type ();
+            if (mime != null) {
+                lang = lang_manager.guess_language (null, mime);
+            }
+        } catch (Error e) { /* ignore */ }
+        return lang;
+    }
+
+    private void apply_preview_with_highlight (string text, string? file_path) {
+        Gtk.Widget? child = preview_container.get_first_child ();
+        while (child != null) {
+            Gtk.Widget? next = child.get_next_sibling ();
+            preview_container.remove (child);
+            child = next;
+        }
+        preview_container.append (preview_view);
+
+        var buffer = preview_view.get_buffer () as GtkSource.Buffer;
+        buffer.set_text ("", -1);
+        buffer.set_language (guess_language (file_path));
+        buffer.set_highlight_syntax (true);
+        buffer.set_text (text, -1);
+    }
+
+    private void apply_preview_no_highlight (string text) {
+        Gtk.Widget? child = preview_container.get_first_child ();
+        while (child != null) {
+            Gtk.Widget? next = child.get_next_sibling ();
+            preview_container.remove (child);
+            child = next;
+        }
+        preview_container.append (preview_view);
+
+        var buffer = preview_view.get_buffer () as GtkSource.Buffer;
+        buffer.set_highlight_syntax (false);
+        buffer.set_text (text, -1);
     }
 
     // ─── VLM 预处理队列 ────────────────────────────────────────────────
@@ -3006,14 +3064,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void clear_preview () {
-        Gtk.Widget? child = preview_container.get_first_child ();
-        while (child != null) {
-            Gtk.Widget? next = child.get_next_sibling ();
-            preview_container.remove (child);
-            child = next;
-        }
-        preview_container.append (preview_view);
-        preview_view.get_buffer ().set_text ("", -1);
+        apply_preview_no_highlight ("");
     }
 
     private void update_queue_buttons () {
@@ -3452,7 +3503,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             && (is_markdown_path (item.file_path)
                 || (item.preprocess_status == PreprocessStatus.COMPLETED && item.preprocessed_content != null));
 
-        // 清理 container 内的旧 widget
         Gtk.Widget? child = preview_container.get_first_child ();
         while (child != null) {
             Gtk.Widget? next = child.get_next_sibling ();
@@ -3463,8 +3513,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (use_markdown) {
             preview_container.append (new MarkdownView (text));
         } else {
-            preview_container.append (preview_view);
-            preview_view.get_buffer ().set_text (text, -1);
+            apply_preview_with_highlight (text, item.file_path);
         }
     }
 

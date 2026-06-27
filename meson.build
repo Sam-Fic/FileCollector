@@ -11,6 +11,7 @@ dependency('json-glib-1.0')
 dependency('libsoup-3.0')
 dependency('gee-0.8')
 dependency('libsecret-1')
+dependency('gtksourceview-5')
 
 # cmark-gfm (GitHub Flavored Markdown) — 用于 AI 聊天气泡的 Markdown 渲染 (含表格)
 # 不用 dependency() 避免 meson 自动注入错误的 --pkg 名
@@ -116,6 +117,7 @@ executable('filecollector',
     dependency('libsoup-3.0'),
     dependency('gee-0.8'),
     dependency('libsecret-1'),
+    dependency('gtksourceview-5'),
     cmark_dep,
     cmark_ext_dep
   ],
