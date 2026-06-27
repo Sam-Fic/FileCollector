@@ -14,7 +14,6 @@ public class ProjectController : GLib.Object {
         string? project_file;
         bool use_absolute;
         bool show_header;
-        bool generate_ai_toc;
 
         var items = new Gee.ArrayList<ItemData> ();
         var checked_paths = new Gee.HashSet<string> ();
@@ -24,11 +23,10 @@ public class ProjectController : GLib.Object {
         ProjectManager.load_project_file (
             file_path,
             items, checked_paths, checked_dirs, common_phrases,
-            out work_dir, out project_file, out use_absolute, out show_header,
-            out generate_ai_toc
+            out work_dir, out project_file, out use_absolute, out show_header
         );
 
-        app_state.replace_from (work_dir, use_absolute, show_header, items, checked_paths, checked_dirs, common_phrases, generate_ai_toc);
+        app_state.replace_from (work_dir, use_absolute, show_header, items, checked_paths, checked_dirs, common_phrases);
         app_state.project_file = project_file;
     }
 
@@ -42,8 +40,7 @@ public class ProjectController : GLib.Object {
             app_state.items,
             app_state.check_model.checked_files,
             app_state.check_model.checked_dirs,
-            app_state.common_phrases,
-            app_state.generate_ai_toc
+            app_state.common_phrases
         );
         app_state.project_file = file_path;
     }
