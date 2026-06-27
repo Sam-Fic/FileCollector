@@ -17,7 +17,7 @@ public class MarkdownView : Gtk.Box {
         // 防止极长/畸形 Markdown 导致解析资源耗尽: 超过 1MB 降级为纯文本
         const size_t MAX_MARKDOWN_BYTES = 1024 * 1024;
         if (markdown.length > (int) MAX_MARKDOWN_BYTES) {
-            append (make_label (markdown.substring (0, 1000) + "\n…(内容过长, 已截断)", false));
+            append (make_label (markdown.substring (0, 1000) + _("\n…(内容过长, 已截断)"), false));
             return;
         }
 

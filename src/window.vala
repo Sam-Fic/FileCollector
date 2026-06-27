@@ -760,21 +760,21 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 if (data.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
                     switch (data.preprocess_status) {
                         case PreprocessStatus.PENDING:
-                            display_name += " [等待处理]";
+                            display_name += _(" [等待处理]");
                             break;
                         case PreprocessStatus.CHECKING:
                             // 正在查缓存, 还没真去调 VLM; 复用缓存时只闪这一行
-                            display_name += " [检查缓存]";
+                            display_name += _(" [检查缓存]");
                             break;
                         case PreprocessStatus.PROCESSING:
-                            display_name += " [处理中...]";
+                            display_name += _(" [处理中...]");
                             break;
                         case PreprocessStatus.COMPLETED:
-                            string cache_tag = data.from_cache ? "已缓存" : "已转换";
+                            string cache_tag = data.from_cache ? _("已缓存") : _("已转换");
                             display_name += " [%s]".printf (cache_tag);
                             break;
                         case PreprocessStatus.FAILED:
-                            display_name += " [转换失败]";
+                            display_name += _(" [转换失败]");
                             break;
                     }
                 }
@@ -3245,7 +3245,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     apply_preview_content (item, _("[正在准备 AI 转换...]"));
                     break;
                 default: // NONE
-                    apply_preview_content (item, _("[二进制文件，预览不可用]"));
+                    apply_preview_content (item, _(_("[二进制文件，预览不可用]")));
                     break;
             }
         } else {
@@ -3256,7 +3256,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     var info = file.query_info (FileAttribute.STANDARD_SIZE, FileQueryInfoFlags.NONE);
                         file_size = info.get_size ();
                     } catch (Error e) {
-                        apply_preview_content (item, "[读取错误: " + e.message + "]");
+                        apply_preview_content (item, _("[读取错误: ") + e.message + "]");
                         return;
                     }
                 const int64 PREVIEW_MAX_BYTES = 8192;
@@ -3285,12 +3285,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                         if (preview.length > 2000) {
                             preview = truncate_utf8 (preview, 2000);
                             if (file_size > PREVIEW_MAX_BYTES) {
-                                preview += "\n\n... [预览截断，文件总大小: %s]".printf (format_preview_size (file_size));
+                                preview += _("\n\n... [预览截断，文件总大小: %s]").printf (format_preview_size (file_size));
                             } else {
-                                preview += "\n\n... [预览截断]";
+                                preview += _("\n\n... [预览截断]");
                             }
                         } else if (file_size > PREVIEW_MAX_BYTES) {
-                            preview += "\n\n... [文件较大 (%s)，预览仅显示前 %s]".printf (
+                            preview += _("\n\n... [文件较大 (%s)，预览仅显示前 %s]").printf (
                                 format_preview_size (file_size), format_preview_size (read_size));
                         }
                     }
@@ -3806,11 +3806,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                         count++;
                     }
                 } catch (Error e) {
-                    sb.append ("[无法读取文件内容]\n");
+                    sb.append (_("[无法读取文件内容]\n"));
                 }
                 sb.append ("\n");
             } else if (item.item_type == "text") {
-                sb.append ("### [自定义文本片段]\n");
+                sb.append (_("### [自定义文本片段]\n"));
                 string preview = item.content ?? "";
                 if (preview.length > 200) preview = preview.substring (0, 200) + "...";
                 sb.append (preview).append ("\n\n");

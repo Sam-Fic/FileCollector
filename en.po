@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: filecollector\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-27 04:03+0800\n"
+"POT-Creation-Date: 2026-06-27 09:13+0800\n"
 "PO-Revision-Date: 2026-05-30 01:40+0800\n"
 "Last-Translator: Sam-Fic\n"
 "Language-Team: English\n"
@@ -389,21 +389,6 @@ msgstr "Switch to file tree"
 msgid "切换到 Git 提交历史"
 msgstr "Switch to Git commit history"
 
-#: src/window.vala:1804
-#, fuzzy, c-format
-msgid "Git 日志加载失败: %s"
-msgstr "Failed to load project: %s\n"
-
-#: src/window.vala:1835
-#, fuzzy
-msgid "正在加载 Diff..."
-msgstr "Loading..."
-
-#: src/window.vala:1912 src/window.vala:1970 src/window.vala:4382
-#, fuzzy
-msgid "请先设置工作目录"
-msgstr "Set working directory"
-
 #: src/window.vala:1919 src/window.vala:1977
 msgid "当前工作区没有未提交的改动"
 msgstr "No uncommitted changes in working tree"
@@ -411,11 +396,6 @@ msgstr "No uncommitted changes in working tree"
 #: src/window.vala:1941
 msgid "没有可添加的文件"
 msgstr "No files to add"
-
-#: src/window.vala:1962
-#, fuzzy, c-format
-msgid "已添加 %d 个改动文件到编排列表"
-msgstr "Added %d file(s)"
 
 #: src/window.vala:1964 src/window.vala:1986 src/window.vala:2005
 msgid "Git 错误"
@@ -440,11 +420,6 @@ msgstr "Pause"
 #: src/window.vala:2028
 msgid "取消全部"
 msgstr "Cancel All"
-
-#: src/window.vala:2083
-#, fuzzy
-msgid "继续"
-msgstr "Continue Saving"
 
 #: src/window.vala:2089
 msgid "已取消所有预处理任务"
@@ -541,18 +516,6 @@ msgstr "Processing..."
 msgid "等待处理"
 msgstr "Pending"
 
-#: src/window.vala:3236
-#, fuzzy
-msgid "[正在处理中，请稍候...]"
-msgstr "Processing..."
-
-#: src/window.vala:3239
-#, fuzzy
-msgid "[AI 转换失败，点击工具栏的重试按钮可重新转换]"
-msgstr ""
-"AI conversion failed\n"
-"Click to retry conversion"
-
 #: src/window.vala:3242
 msgid "[正在检查缓存...]"
 msgstr "[Checking cache...]"
@@ -564,6 +527,38 @@ msgstr "[Preparing AI conversion...]"
 #: src/window.vala:3248
 msgid "[二进制文件，预览不可用]"
 msgstr "[Binary file, preview unavailable]"
+
+#: src/window.vala:3288
+#, c-format
+msgid ""
+"\n"
+"\n"
+"... [预览截断，文件总大小: %s]"
+msgstr ""
+"\n"
+"\n"
+"... [Preview truncated, total size: %s]"
+
+#: src/window.vala:3290
+msgid ""
+"\n"
+"\n"
+"... [预览截断]"
+msgstr ""
+"\n"
+"\n"
+"... [Preview truncated]"
+
+#: src/window.vala:3293
+#, c-format
+msgid ""
+"\n"
+"\n"
+"... [文件较大 (%s)，预览仅显示前 %s]"
+msgstr ""
+"\n"
+"\n"
+"... [Large file (%s), showing first %s only]"
 
 #: src/window.vala:3361
 msgid "尚未设置工作目录"
@@ -611,11 +606,6 @@ msgstr "Move Up"
 msgid "下移"
 msgstr "Move Down"
 
-#: src/window.vala:3481
-#, fuzzy, c-format
-msgid "重新进行 AI 转换 (%d 项)"
-msgstr "Re-run AI conversion"
-
 #: src/window.vala:3481 src/window.blp:478
 msgid "重新进行 AI 转换"
 msgstr "Re-run AI conversion"
@@ -624,11 +614,6 @@ msgstr "Re-run AI conversion"
 #, c-format
 msgid "切换绝对/相对路径 (%d 项)"
 msgstr "Switch absolute/relative path (%d items)"
-
-#: src/window.vala:3497
-#, fuzzy
-msgid "切换绝对/相对路径"
-msgstr "Use Relative Paths"
 
 #: src/window.vala:3511 src/window.vala:3563
 msgid "路径已复制到剪贴板"
@@ -704,16 +689,6 @@ msgstr "Merged Text Copied to Clipboard"
 msgid "复制失败"
 msgstr "Copy Failed"
 
-#: src/window.vala:3728
-#, fuzzy
-msgid "编排列表为空，请先添加文件"
-msgstr "The queue is empty. Please check some files or add text content first"
-
-#: src/window.vala:3734
-#, fuzzy
-msgid "请先在 AI 设置中配置 API"
-msgstr "Please configure the API in Settings → AI Settings first."
-
 #: src/window.vala:3741
 msgid "正在让 AI 生成阅读指南..."
 msgstr "Generating reading guide with AI..."
@@ -729,6 +704,10 @@ msgstr "AI reading guide inserted at top of list"
 #: src/window.vala:3786
 msgid "无法启动 AI 生成线程"
 msgstr "Failed to start AI generation thread"
+
+#: src/window.vala:3813
+msgid "### [自定义文本片段]\n"
+msgstr "### [Custom text snippet]\n"
 
 #: src/window.vala:3851 src/window.vala:4023
 msgid "打开项目"
@@ -805,11 +784,6 @@ msgstr "Quit"
 #: src/window.vala:4219 src/window.vala:4227
 msgid "编辑常用语"
 msgstr "Edit Common Phrase"
-
-#: src/window.vala:4404
-#, fuzzy, c-format
-msgid "已从搜索结果添加 %d 个文件"
-msgstr "Added %d file(s)"
 
 #: src/window.blp:7
 msgid "FileCollector - 文件收集与编排工具"
@@ -1038,6 +1012,15 @@ msgstr "Stopped"
 msgid "未找到模板: %s"
 msgstr "Template not found: %s"
 
+#: src/widgets/ai_panel.vala:836
+#, c-format
+msgid ""
+"[应用模板: %s]\n"
+"%s"
+msgstr ""
+"[Applied template: %s]\n"
+"%s"
+
 #: src/widgets/ai_panel.vala:859
 msgid "请先在 设置 → AI 设置 中启用 AI 助手。"
 msgstr "Please enable the AI assistant in Settings → AI Settings first."
@@ -1052,7 +1035,9 @@ msgstr "Confirm Revert"
 
 #: src/widgets/ai_panel.vala:890
 msgid "这将撤销此消息之后 AI 的所有回复以及对文件列表的修改。是否继续？"
-msgstr "This will revert all AI replies and file list changes after this message. Continue?"
+msgstr ""
+"This will revert all AI replies and file list changes after this message. "
+"Continue?"
 
 #: src/widgets/ai_panel.vala:893
 msgid "撤回"
@@ -1108,16 +1093,6 @@ msgstr "Save"
 #: src/widgets/ai_settings_dialog.vala:97
 msgid "AI 助手 (侧边栏)"
 msgstr "AI Assistant (Sidebar)"
-
-#: src/widgets/ai_settings_dialog.vala:99
-msgid ""
-"配置 OpenAI 兼容 API，即可在 AI 边栏使用自然语言编排文件。\n"
-"支持 OpenAI、Azure OpenAI 及任何兼容端点（例如本地 Ollama）。"
-msgstr ""
-"Configure an OpenAI-compatible API to orchestrate files with natural "
-"language in the AI sidebar.\n"
-"Supports OpenAI, Azure OpenAI, and any compatible endpoint (e.g. local "
-"Ollama)."
 
 #: src/widgets/ai_settings_dialog.vala:104
 msgid "启用 AI 助手"
@@ -1241,16 +1216,9 @@ msgstr ""
 msgid ""
 "您正在配置 HTTP (非 HTTPS) 端点。\n"
 "\n"
-"这将导致 API 密钥在传输过程中以明文形式发送，存在被第三方截获的风险。\n"
-"\n"
-"是否仍要继续保存？"
 msgstr ""
 "You are configuring an HTTP (non-HTTPS) endpoint.\n"
 "\n"
-"This will cause the API key to be sent in plaintext during transmission, "
-"with the risk of being intercepted by third parties.\n"
-"\n"
-"Do you still want to continue saving?"
 
 #: src/widgets/ai_settings_dialog.vala:329
 msgid "继续保存"
@@ -1290,20 +1258,10 @@ msgstr "Search code content... (press Enter to search)"
 msgid "区分大小写"
 msgstr "Case Sensitive"
 
-#: src/widgets/global_search_dialog.vala:63
-#, fuzzy
-msgid "搜索"
-msgstr "Search…"
-
 #: src/widgets/global_search_dialog.vala:97
 #: src/widgets/global_search_dialog.vala:185
 msgid "全选"
 msgstr "Select All"
-
-#: src/widgets/global_search_dialog.vala:111
-#, fuzzy
-msgid "添加选中文件到编排列表"
-msgstr "Add file to queue (can be used multiple times)"
 
 #: src/widgets/global_search_dialog.vala:117
 msgid "添加全部"
@@ -1327,11 +1285,6 @@ msgstr "Search complete: scanned %d files, found %d matches (%d unique files)"
 msgid "全不选"
 msgstr "Deselect All"
 
-#: src/widgets/global_search_dialog.vala:186
-#, fuzzy, c-format
-msgid "添加选中文件到编排列表 (%d)"
-msgstr "Add file to queue (can be used multiple times)"
-
 #: src/widgets/global_search_dialog.vala:187
 #, c-format
 msgid "添加全部 (%d)"
@@ -1344,11 +1297,6 @@ msgstr "Prompt Templates"
 #: src/widgets/templates_manager.vala:30
 msgid "关闭"
 msgstr "Close"
-
-#: src/widgets/templates_manager.vala:78
-#, fuzzy
-msgid "编辑"
-msgstr "Edit Text"
 
 #: src/widgets/templates_manager.vala:106
 msgid "添加模板"
@@ -1369,16 +1317,6 @@ msgstr "Display Name"
 #: src/widgets/templates_manager.vala:135
 msgid "描述"
 msgstr "Description"
-
-#: src/widgets/templates_manager.vala:143
-#, fuzzy
-msgid "头部插入文本"
-msgstr "Insert Text Above"
-
-#: src/widgets/templates_manager.vala:146
-#, fuzzy
-msgid "尾部插入文本"
-msgstr "Insert Text Above"
 
 #: src/widgets/templates_manager.vala:149
 msgid "AI 驱动提示词"
@@ -1460,6 +1398,14 @@ msgstr "Response is not valid JSON: "
 msgid "响应顶层不是对象"
 msgstr "Response top-level is not an object"
 
+#: src/widgets/markdown_view.vala:20
+msgid ""
+"\n"
+"…(内容过长, 已截断)"
+msgstr ""
+"\n"
+"…(Content too long, truncated)"
+
 #~ msgid "编排列表为空"
 #~ msgstr "Queue is Empty"
 
@@ -1523,9 +1469,6 @@ msgstr "Response top-level is not an object"
 #~ "It is recommended to use an HTTPS endpoint for security.\n"
 #~ "\n"
 #~ "Do you still want to continue saving?"
-
-#~ msgid "AI 转换失败"
-#~ msgstr "AI conversion failed"
 
 #~ msgid "AI 转换完成"
 #~ msgstr "AI conversion complete"

@@ -97,7 +97,7 @@ public class AISettingsDialog : GLib.Object {
         sidebar_group.set_title (_("AI 助手 (侧边栏)"));
         sidebar_group.set_description (
             _("配置 OpenAI 兼容 API，即可在 AI 边栏使用自然语言编排文件。\n"
-              + "支持 OpenAI、Azure OpenAI 及任何兼容端点（例如本地 Ollama）。"));
+              + _("支持 OpenAI、Azure OpenAI 及任何兼容端点（例如本地 Ollama）。")));
         prefs_page.add (sidebar_group);
 
         var sb_enabled_row = new Adw.ActionRow ();
@@ -322,8 +322,8 @@ public class AISettingsDialog : GLib.Object {
         var warning_dialog = new Adw.AlertDialog (
             _("安全警告"),
             _("您正在配置 HTTP (非 HTTPS) 端点。\n\n"
-              + "这将导致 API 密钥在传输过程中以明文形式发送，存在被第三方截获的风险。\n\n"
-              + "是否仍要继续保存？")
+              + _("这将导致 API 密钥在传输过程中以明文形式发送，存在被第三方截获的风险。\n\n")
+              + _("是否仍要继续保存？"))
         );
         warning_dialog.add_response ("cancel", _("取消"));
         warning_dialog.add_response ("continue", _("继续保存"));

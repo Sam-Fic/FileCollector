@@ -833,7 +833,7 @@ public class AIPanel : GLib.Object {
         }
 
         template_triggered (tpl.header_text, tpl.footer_text);
-        send_user_message ("[应用模板: %s]\n%s".printf (tpl.name, tpl.ai_prompt));
+        send_user_message (_("[应用模板: %s]\n%s").printf (tpl.name, tpl.ai_prompt));
     }
 
     private void on_send () {
