@@ -5,10 +5,7 @@ using Gee;
 
 namespace UIHelpers {
     public static string format_size (int64 size) {
-        if (size < 1024) return size.to_string () + " B";
-        if (size < 1024 * 1024) return "%.1f KB".printf (size / 1024.0);
-        if (size < 1024 * 1024 * 1024) return "%.1f MB".printf (size / 1024.0 / 1024.0);
-        return "%.1f GB".printf (size / 1024.0 / 1024.0 / 1024.0);
+        return GLib.format_size ((uint64) size);
     }
 
     public static string truncate_utf8 (string text, int max_bytes) {
