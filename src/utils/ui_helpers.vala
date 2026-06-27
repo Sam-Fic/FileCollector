@@ -1,4 +1,5 @@
 using GLib;
+using Gee;
 
 // ─── UI 辅助方法 (纯函数, 无状态依赖) ────────────────────────────────
 
@@ -10,7 +11,6 @@ namespace UIHelpers {
         return "%.1f GB".printf (size / 1024.0 / 1024.0 / 1024.0);
     }
 
-    // 按字节长度截断, 但不切断多字节 UTF-8 字符, 避免乱码
     public static string truncate_utf8 (string text, int max_bytes) {
         if (text.length <= max_bytes) return text;
         int cut = max_bytes;
@@ -91,6 +91,77 @@ namespace UIHelpers {
             Gtk.show_uri (parent, target.get_uri (), Gdk.CURRENT_TIME);
         } catch (Error e) {
             warning ("Failed to open folder: %s", e.message);
+        }
+    }
+
+    // ─── 文件系统辅助 ──────────────────────────────────────────────────
+
+    public static Gee.ArrayList<DirChildInfo> enumerate_dir_children (string dir_path, GLib.Cancellable? cancellable = null) {
+        var dirs = new Gee.ArrayList<DirChildInfo> ();
+        var files = new Gee.ArrayList<DirChildInfo> ();
+        var dir = File.new_for_path (dir_path);
+        if (!dir.query_exists ()) return new Gee.ArrayList<DirChildInfo> ();
+        try {
+            var enumerator = dir.enumerate_children (
+                FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE + "," + FileAttribute.STANDARD_IS_SYMLINK,
+                FileQueryInfoFlags.NOFOLLOW_SYMLINKS
+            );
+            FileInfo info;
+            while ((info = enumerator.next_file ()) != null) {
+                if (cancellable != null && cancellable.is_cancelled ()) break;
+                string entry_name = info.get_name ();
+                if (entry_name == ".filecollector_cache") continue;
+                if (info.get_is_symlink () && info.get_file_type () == FileType.DIRECTORY) {
+                    continue;
+                }
+                var child_path = dir.get_child (entry_name).get_path ();
+                bool is_dir = info.get_file_type () == FileType.DIRECTORY;
+                var entry = new DirChildInfo (info.get_name (), child_path, is_dir);
+                if (is_dir) {
+                    dirs.add (entry);
+                } else {
+                    files.add (entry);
+                }
+            }
+        } catch (Error e) {
+            warning ("enumerate_dir_children: %s", e.message);
+        }
+        dirs.sort ((a, b) => {
+            bool a_dot = a.name.has_prefix (".");
+            bool b_dot = b.name.has_prefix (".");
+            if (a_dot != b_dot) return a_dot ? -1 : 1;
+            return a.name.casefold ().collate (b.name.casefold ());
+        });
+        files.sort ((a, b) => {
+            bool a_dot = a.name.has_prefix (".");
+            bool b_dot = b.name.has_prefix (".");
+            if (a_dot != b_dot) return a_dot ? -1 : 1;
+            return a.name.casefold ().collate (b.name.casefold ());
+        });
+        var result = new Gee.ArrayList<DirChildInfo> ();
+        for (int i = 0; i < dirs.size; i++) result.add (dirs.get (i));
+        for (int i = 0; i < files.size; i++) result.add (files.get (i));
+        return result;
+    }
+
+    // ─── 队列辅助 ──────────────────────────────────────────────────────
+
+    public static bool path_in_items (Gee.ArrayList<ItemData> items, string path) {
+        for (int i = 0; i < items.size; i++) {
+            var item = items.get (i);
+            if (item.item_type == "file" && item.file_path == path) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static void remove_items_by_path (Gee.ArrayList<ItemData> items, string path) {
+        for (int i = items.size - 1; i >= 0; i--) {
+            var item = items.get (i);
+            if (item.item_type == "file" && item.file_path == path) {
+                items.remove_at (i);
+            }
         }
     }
 }

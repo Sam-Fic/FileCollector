@@ -311,7 +311,7 @@ public class DirectoryItem : GLib.Object {
 
 // ─── 目录条目信息 (后台线程收集用) ──────────────────────────────────
 
-private class DirChildInfo {
+public class DirChildInfo {
     public string name;
     public string path;
     public bool is_dir;

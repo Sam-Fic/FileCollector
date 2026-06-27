@@ -2385,23 +2385,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // ─── Tree View ───────────────────────────────────────────────────────
 
     private void remove_items_by_path (string path) {
-        for (int i = items.size - 1; i >= 0; i--) {
-            var item = items.get (i);
-            if (item.item_type == "file" && item.file_path == path) {
-                items.remove_at (i);
-            }
-        }
+        UIHelpers.remove_items_by_path (items, path);
     }
 
-    // 检查 items 中是否已存在指定路径的文件项 (含 force_absolute 外部文件)
     private bool path_in_items (string path) {
-        for (int i = 0; i < items.size; i++) {
-            var item = items.get (i);
-            if (item.item_type == "file" && item.file_path == path) {
-                return true;
-            }
-        }
-        return false;
+        return UIHelpers.path_in_items (items, path);
     }
 
     private async void on_open_folder_clicked () {
@@ -2449,54 +2437,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
     }
 
-    // 后台线程: 枚举单个目录的子条目 (纯文件系统 I/O, 不访问实例状态)
+    // 后台线程: 枚举单个目录的子条目
     private static Gee.ArrayList<DirChildInfo> enumerate_dir_children (string dir_path, GLib.Cancellable? cancellable = null) {
-        var dirs = new Gee.ArrayList<DirChildInfo> ();
-        var files = new Gee.ArrayList<DirChildInfo> ();
-        var dir = File.new_for_path (dir_path);
-        if (!dir.query_exists ()) return new Gee.ArrayList<DirChildInfo> ();
-        try {
-            var enumerator = dir.enumerate_children (
-                FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE + "," + FileAttribute.STANDARD_IS_SYMLINK,
-                FileQueryInfoFlags.NOFOLLOW_SYMLINKS
-            );
-            FileInfo info;
-            while ((info = enumerator.next_file ()) != null) {
-                if (cancellable != null && cancellable.is_cancelled ()) break;
-                string entry_name = info.get_name ();
-                if (entry_name == ".filecollector_cache") continue;
-                if (info.get_is_symlink () && info.get_file_type () == FileType.DIRECTORY) {
-                    continue;
-                }
-                var child_path = dir.get_child (entry_name).get_path ();
-                bool is_dir = info.get_file_type () == FileType.DIRECTORY;
-                var entry = new DirChildInfo (info.get_name (), child_path, is_dir);
-                if (is_dir) {
-                    dirs.add (entry);
-                } else {
-                    files.add (entry);
-                }
-            }
-        } catch (Error e) {
-            warning ("enumerate_dir_children: %s", e.message);
-        }
-        // 排序: 点文件优先, 然后大小写不敏感
-        dirs.sort ((a, b) => {
-            bool a_dot = a.name.has_prefix (".");
-            bool b_dot = b.name.has_prefix (".");
-            if (a_dot != b_dot) return a_dot ? -1 : 1;
-            return a.name.casefold ().collate (b.name.casefold ());
-        });
-        files.sort ((a, b) => {
-            bool a_dot = a.name.has_prefix (".");
-            bool b_dot = b.name.has_prefix (".");
-            if (a_dot != b_dot) return a_dot ? -1 : 1;
-            return a.name.casefold ().collate (b.name.casefold ());
-        });
-        var result = new Gee.ArrayList<DirChildInfo> ();
-        for (int i = 0; i < dirs.size; i++) result.add (dirs.get (i));
-        for (int i = 0; i < files.size; i++) result.add (files.get (i));
-        return result;
+        return UIHelpers.enumerate_dir_children (dir_path, cancellable);
     }
 
     // 同步版本: 直接在调用线程加载子节点 (用于需要立即获取结果的场景, 如 ensure_path_loaded)
