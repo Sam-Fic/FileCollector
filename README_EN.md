@@ -31,6 +31,12 @@ For the usage process and tips of the graphical interface, please refer to the [
 - **Internationalization**: Supports Chinese and English UI, automatically follows system language
 - **Modern UI**: Designed following GNOME Human Interface Guidelines
 - **Git History Integration**: One-click collection of changed files, export Diff code blocks, quickly build Git context for AI
+- **Global Content Search**: `Ctrl+Shift+F` opens a search dialog with async background scanning, encoding auto-detection, result highlighting, and one-click addition of matched files to the orchestration list
+- **Scene-based Prompt Templates**: Built-in templates for Bug analysis, API documentation, and code refactoring. Use `/t <id>` slash commands to insert structured placeholders and drive AI execution in one step
+- **AI Reading Guide Generation**: One-click AI analysis of the orchestration list to generate a structured table of contents and reading guide
+- **Multi-select Batch Operations**: The orchestration list supports Ctrl/Shift multi-select with context menu options for batch delete, batch AI conversion retry, and batch path mode switching
+- **One-click AI Undo**: After AI batch operations (add files, clear list, etc.), a Toast notification appears at the bottom with an "Undo" button to instantly revert to the previous state
+- **User Message Revert**: Each user message in the AI sidebar has a revert button to undo that message and all subsequent AI replies and file list changes, with the original text automatically filled back into the input
 
 > **Tip**: If you are on a non-GNOME platform (such as Windows or macOS), please check out the [Flet version repository](https://github.com/Sam-Fic/filecollector). This version supports Windows, macOS, and Linux, and is built with Flet.
 
@@ -127,29 +133,35 @@ You can also hand [BUILD_FLATPAK.md](BUILD_FLATPAK.md) directly to programming t
 │   ├── models/
 │   │   ├── app_state.vala                 # Application state model
 │   │   ├── item_data.vala                 # Queue item data model
-│   │   └── git_commit.vala                # Git commit data model
+│   │   ├── git_commit.vala                # Git commit data model
+│   │   ├── prompt_template.vala           # Scene prompt template model
+│   │   └── search_result.vala             # Global search result model
 │   ├── services/
 │   │   ├── ai_client.vala                 # AI assistant backend (OpenAI-compatible API + Function Calling)
 │   │   ├── ai_types.vala                  # AI shared type definitions
 │   │   ├── binary_converter.vala          # Binary file to Base64 conversion (image scaling + document-to-PDF rendering)
-│   │   ├── config_manager.vala            # Config/settings/phrases persistence
+│   │   ├── config_manager.vala            # Config/settings/phrases/templates persistence
 │   │   ├── file_generator.vala            # File merging and clipboard copy
 │   │   ├── git_service.vala               # Git read-only operations (status/diff/log/show)
 │   │   ├── multimodal_ai_client.vala      # VLM client (sends Base64 images to vision models)
 │   │   ├── preprocess_cache.vala          # Preprocessing cache (SHA256 hash + manifest management)
 │   │   ├── project_manager.vala           # Project save and load
-│   │   └── undo_manager.vala              # Undo/redo management
+│   │   ├── search_service.vala            # Global content search engine (async, binary skip, encoding detection)
+│   │   ├── undo_manager.vala              # Undo/redo management
+│   │   └── vlm_queue.vala                 # VLM preprocessing queue manager (concurrency control, pause/cancel)
 │   ├── utils/
 │   │   ├── encoding_helper.vala           # Encoding auto-detection and conversion
 │   │   └── glob_helper.vala               # Glob pattern matching utilities
 │   ├── vapi/
 │   │   └── cmark.vapi                     # cmark (Markdown) Vala bindings
 │   └── widgets/
-│       ├── ai_panel.vala                  # AI assistant chat panel (bubbles + tool call cards)
+│       ├── ai_panel.vala                  # AI assistant chat panel (bubbles + tool call cards + slash command autocomplete)
 │       ├── ai_settings_dialog.vala        # AI assistant settings dialog
+│       ├── global_search_dialog.vala      # Global content search dialog
 │       ├── markdown_view.vala             # Markdown rendering view
 │       ├── phrases_picker.vala            # Common phrases picker and management
-│       └── settings_dialog.vala           # Settings dialog
+│       ├── settings_dialog.vala           # Settings dialog
+│       └── templates_manager.vala         # Scene prompt template management dialog
 ├── docs/                                  # Usage documentation
 │   ├── images/                            # Documentation images
 │   ├── USAGE.md                           # Chinese usage guide
@@ -177,6 +189,8 @@ You can also hand [BUILD_FLATPAK.md](BUILD_FLATPAK.md) directly to programming t
 | `Delete`       | Delete selected item    |
 | `Ctrl+G`       | Generate merged text    |
 | `Ctrl+Shift+C` | Generate to clipboard   |
+| `Ctrl+J`       | Toggle AI assistant     |
+| `Ctrl+Shift+F` | Global content search   |
 | `Ctrl+,`       | Language settings       |
 | `Ctrl+/`       | Show keyboard shortcuts |
 | `F1`           | About                   |

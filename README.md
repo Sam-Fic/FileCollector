@@ -31,6 +31,12 @@ FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排
 - **国际化**：支持中文和英文界面，跟随系统语言自动切换
 - **现代化界面**：采用 GNOME Human Interface Guidelines 设计
 - **Git 提交历史集成**：一键收集工作区改动文件、导出 Diff 代码块，快速为 AI 构建 Git 上下文
+- **全局内容搜索**：`Ctrl+Shift+F` 弹出搜索对话框，支持后台异步扫描、编码自动识别、结果高亮，一键将命中文件添加到编排列表
+- **场景化编排模板**：内置 Bug 分析、API 文档生成、代码重构等模板，通过 `/t <id>` 斜杠指令一键插入结构化占位符并驱动 AI 执行
+- **AI 生成阅读指南**：一键让 AI 分析编排列表中的文件，生成结构化的目录与阅读指南
+- **多选批量操作**：编排列表支持 Ctrl/Shift 多选，右键菜单提供批量删除、批量重试 AI 转换、批量切换路径模式等操作
+- **AI 操作一键撤销**：AI 批量操作（添加文件、清空列表等）后，窗口底部弹出 Toast 通知并提供"撤销"按钮，一键回滚到操作前状态
+- **用户消息撤回**：AI 侧边栏中每条用户消息旁提供撤回按钮，可撤销该消息及后续所有 AI 回复和文件列表修改，原文自动回填输入框
 
 > **提示**：如果您使用的是非 GNOME 平台（如 Windows 或 macOS），请移步 [Flet 版本仓库](https://github.com/Sam-Fic/filecollector)。该版本跨平台支持 Windows、macOS 和 Linux，基于 Flet 构建。
 
@@ -127,29 +133,35 @@ flatpak run com.github.samfic.filecollector
 │   ├── models/
 │   │   ├── app_state.vala                 # 应用状态模型
 │   │   ├── item_data.vala                 # 队列项数据模型
-│   │   └── git_commit.vala                # Git 提交数据模型
+│   │   ├── git_commit.vala                # Git 提交数据模型
+│   │   ├── prompt_template.vala           # 场景化编排模板模型
+│   │   └── search_result.vala             # 全局搜索结果模型
 │   ├── services/
 │   │   ├── ai_client.vala                 # AI 助手后端（OpenAI 兼容接口 + Function Calling）
 │   │   ├── ai_types.vala                  # AI 共享类型定义
 │   │   ├── binary_converter.vala          # 二进制文件转 Base64（图片缩放 + 文档转 PDF 渲染）
-│   │   ├── config_manager.vala            # 配置/设置/常用语持久化
+│   │   ├── config_manager.vala            # 配置/设置/常用语/模板持久化
 │   │   ├── file_generator.vala            # 文件合并生成与剪贴板复制
 │   │   ├── git_service.vala               # Git 只读操作服务（status/diff/log/show）
 │   │   ├── multimodal_ai_client.vala      # VLM 客户端（发送 Base64 图片给视觉模型）
 │   │   ├── preprocess_cache.vala          # 预转换缓存（SHA256 哈希 + manifest 管理）
 │   │   ├── project_manager.vala           # 项目保存与加载
-│   │   └── undo_manager.vala              # 撤销/重做管理
+│   │   ├── search_service.vala            # 全局内容搜索引擎（异步、二进制跳过、编码识别）
+│   │   ├── undo_manager.vala              # 撤销/重做管理
+│   │   └── vlm_queue.vala                 # VLM 预处理队列管理器（并发控制、暂停/取消）
 │   ├── utils/
 │   │   ├── encoding_helper.vala           # 编码自动检测与转换
 │   │   └── glob_helper.vala               # 全局路径匹配工具
 │   ├── vapi/
 │   │   └── cmark.vapi                     # cmark (Markdown) Vala 绑定
 │   └── widgets/
-│       ├── ai_panel.vala                  # AI 助手聊天面板（气泡 + 工具调用卡片）
+│       ├── ai_panel.vala                  # AI 助手聊天面板（气泡 + 工具调用卡片 + 斜杠指令补全）
 │       ├── ai_settings_dialog.vala        # AI 助手配置对话框
+│       ├── global_search_dialog.vala      # 全局内容搜索对话框
 │       ├── markdown_view.vala             # Markdown 渲染视图
 │       ├── phrases_picker.vala            # 常用语选择器与管理
-│       └── settings_dialog.vala           # 设置对话框
+│       ├── settings_dialog.vala           # 设置对话框
+│       └── templates_manager.vala         # 场景化编排模板管理对话框
 ├── docs/                                  # 使用说明文档
 │   ├── images/                            # 文档图片
 │   ├── USAGE.md                           # 中文使用说明
@@ -177,6 +189,8 @@ flatpak run com.github.samfic.filecollector
 | `Delete`       | 删除选中项     |
 | `Ctrl+G`       | 生成合并文本   |
 | `Ctrl+Shift+C` | 生成到剪贴板   |
+| `Ctrl+J`       | 显示/隐藏 AI 助手 |
+| `Ctrl+Shift+F` | 全局内容搜索   |
 | `Ctrl+,`       | 语言设置       |
 | `Ctrl+/`       | 显示键盘快捷键 |
 | `F1`           | 关于           |
