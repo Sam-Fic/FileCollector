@@ -431,16 +431,29 @@ popover.ctx-menu separator {
     background-color: transparent;
 }
 
-.sourceview text {
+.sourceview text,
+.sourceview text text {
+    background-color: transparent;
+    background: transparent;
+}
+
+.sourceview border,
+.sourceview border border {
+    background-color: transparent;
+    background: transparent;
+}
+
+.sourceview gutter,
+.sourceview gutter gutter {
+    background-color: transparent;
+    background: transparent;
+}
+
+.sourceview .current-line {
     background-color: transparent;
 }
 
-.sourceview border {
-    background-color: transparent;
-    color: transparent;
-}
-
-.sourceview gutter {
+.sourceview .line-numbers {
     background-color: transparent;
 }
 .vlm-progress-card {
