@@ -65,6 +65,7 @@ sources = files(
   'src/window.vala',
   'src/models/item_data.vala',
   'src/models/app_state.vala',
+  'src/models/directory_item.vala',
   'src/models/git_commit.vala',
   'src/models/prompt_template.vala',
   'src/models/search_result.vala',
