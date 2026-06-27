@@ -3312,7 +3312,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     }
                     string preview;
                     if (is_binary) {
-                        preview = "[二进制文件，预览不可用]";
+                        preview = _("[二进制文件，预览不可用]");
                     } else {
                         preview = EncodingHelper.decode_to_utf8 (buf);
                         if (preview.length > 2000) {
@@ -3334,7 +3334,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     }
                 }
             } catch (Error e) {
-                apply_preview_content (item, "[读取错误: " + e.message + "]");
+                apply_preview_content (item, _("[读取错误: ") + e.message + "]");
             }
         }
     }

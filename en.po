@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: filecollector\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-27 11:14+0800\n"
-"PO-Revision-Date: 2026-05-30 01:40+0800\n"
+"POT-Creation-Date: 2026-06-27 11:35+0800\n"
+"PO-Revision-Date: 2026-06-27 11:30+0800\n"
 "Last-Translator: Sam-Fic\n"
 "Language-Team: English\n"
 "Language: en\n"
@@ -379,29 +379,24 @@ msgid "⚠ %s (缺失)"
 msgstr "⚠ %s (missing)"
 
 #: src/window.vala:763
-#, fuzzy
 msgid " [等待处理]"
 msgstr "Pending"
 
 #: src/window.vala:767
-#, fuzzy
 msgid " [检查缓存]"
 msgstr "[Checking cache...]"
 
 #: src/window.vala:770
-#, fuzzy
 msgid " [处理中...]"
 msgstr "Processing..."
 
 #: src/window.vala:773
-#, fuzzy
 msgid "已缓存"
-msgstr "Reused from cache"
+msgstr "Cached"
 
 #: src/window.vala:773
-#, fuzzy
 msgid "已转换"
-msgstr "VLM conversion called"
+msgstr "Converted"
 
 #: src/window.vala:777
 msgid " [转换失败]"
@@ -431,14 +426,13 @@ msgstr "Switch to Git commit history"
 #: src/window.vala:1837
 #, fuzzy, c-format
 msgid "Git 日志加载失败: %s"
-msgstr "Failed to load project: %s\n"
+msgstr "Failed to load Git log: %s"
 
 #: src/window.vala:1868
 msgid "正在加载 Diff..."
 msgstr "Loading Diff..."
 
 #: src/window.vala:1945 src/window.vala:2003 src/window.vala:4415
-#, fuzzy
 msgid "请先设置工作目录"
 msgstr "Set working directory"
 
@@ -453,7 +447,7 @@ msgstr "No files to add"
 #: src/window.vala:1995
 #, fuzzy, c-format
 msgid "已添加 %d 个改动文件到编排列表"
-msgstr "Added %d file(s)"
+msgstr "Added %d changed files to orchestration list"
 
 #: src/window.vala:1997 src/window.vala:2019 src/window.vala:2038
 msgid "Git 错误"
@@ -480,7 +474,6 @@ msgid "取消全部"
 msgstr "Cancel All"
 
 #: src/window.vala:2116
-#, fuzzy
 msgid "继续"
 msgstr "Continue Saving"
 
@@ -580,12 +573,10 @@ msgid "等待处理"
 msgstr "Pending"
 
 #: src/window.vala:3269
-#, fuzzy
 msgid "[正在处理中，请稍候...]"
 msgstr "Processing..."
 
 #: src/window.vala:3272
-#, fuzzy
 msgid "[AI 转换失败，点击工具栏的重试按钮可重新转换]"
 msgstr ""
 "AI conversion failed\n"
@@ -599,12 +590,11 @@ msgstr "[Checking cache...]"
 msgid "[正在准备 AI 转换...]"
 msgstr "[Preparing AI conversion...]"
 
-#: src/window.vala:3281
+#: src/window.vala:3281 src/window.vala:3315
 msgid "[二进制文件，预览不可用]"
 msgstr "[Binary file, preview unavailable]"
 
-#: src/window.vala:3292
-#, fuzzy
+#: src/window.vala:3292 src/window.vala:3337
 msgid "[读取错误: "
 msgstr "Network error: "
 
@@ -689,7 +679,7 @@ msgstr "Move Down"
 #: src/window.vala:3514
 #, fuzzy, c-format
 msgid "重新进行 AI 转换 (%d 项)"
-msgstr "Re-run AI conversion"
+msgstr "Retry AI Conversion (%d items)"
 
 #: src/window.vala:3514 src/window.blp:478
 msgid "重新进行 AI 转换"
@@ -701,7 +691,6 @@ msgid "切换绝对/相对路径 (%d 项)"
 msgstr "Switch absolute/relative path (%d items)"
 
 #: src/window.vala:3530
-#, fuzzy
 msgid "切换绝对/相对路径"
 msgstr "Switch absolute/relative path (%d items)"
 
@@ -780,12 +769,10 @@ msgid "复制失败"
 msgstr "Copy Failed"
 
 #: src/window.vala:3761
-#, fuzzy
 msgid "编排列表为空，请先添加文件"
 msgstr "The queue is empty. Please check some files or add text content first"
 
 #: src/window.vala:3767
-#, fuzzy
 msgid "请先在 AI 设置中配置 API"
 msgstr "Please configure the API in Settings → AI Settings first."
 
@@ -806,7 +793,6 @@ msgid "无法启动 AI 生成线程"
 msgstr "Failed to start AI generation thread"
 
 #: src/window.vala:3842
-#, fuzzy
 msgid "[无法读取文件内容]\n"
 msgstr "[Failed to read file: %s]\n"
 
@@ -893,7 +879,7 @@ msgstr "Edit Common Phrase"
 #: src/window.vala:4437
 #, fuzzy, c-format
 msgid "已从搜索结果添加 %d 个文件"
-msgstr "Added %d file(s)"
+msgstr "Added %d files from search results"
 
 #: src/window.blp:7
 msgid "FileCollector - 文件收集与编排工具"
@@ -992,7 +978,6 @@ msgid "项目另存为..."
 msgstr "Save Project As..."
 
 #: src/window.blp:497
-#, fuzzy
 msgid "常用语管理..."
 msgstr "Manage Phrases..."
 
@@ -1009,12 +994,10 @@ msgid "清除工作区缓存"
 msgstr "Clear Workspace Cache"
 
 #: src/window.blp:501
-#, fuzzy
 msgid "语言设置..."
 msgstr "Language Settings..."
 
 #: src/window.blp:504
-#, fuzzy
 msgid "键盘快捷键..."
 msgstr "Keyboard Shortcuts..."
 
@@ -1027,7 +1010,6 @@ msgid "未知工具: "
 msgstr "Unknown tool: "
 
 #: src/controllers/ai_controller.vala:104
-#, fuzzy
 msgid "工作目录未设置"
 msgstr "Working directory set: %s"
 
@@ -1038,7 +1020,6 @@ msgid "参数错误"
 msgstr "Invalid parameters"
 
 #: src/controllers/ai_controller.vala:161
-#, fuzzy
 msgid "读取目录失败: "
 msgstr "Unable to read directory: %s"
 
@@ -1047,7 +1028,6 @@ msgid "缺少 path"
 msgstr "Missing path"
 
 #: src/controllers/ai_controller.vala:218
-#, fuzzy
 msgid "无法解析路径 (未设置工作目录)"
 msgstr "No working directory set yet"
 
@@ -1056,31 +1036,26 @@ msgid "拒绝访问: 路径超出工作目录范围"
 msgstr "Access denied: path outside work directory"
 
 #: src/controllers/ai_controller.vala:222
-#, fuzzy
 msgid "文件不存在: "
-msgstr "[File does not exist: %s]\n"
+msgstr "[File does not exist: %s]"
 
 #: src/controllers/ai_controller.vala:229
-#, fuzzy
 msgid "读取文件信息失败: "
 msgstr "Failed to read file"
 
 #: src/controllers/ai_controller.vala:239
-#, fuzzy
 msgid "读取失败: "
-msgstr "[Failed to read file: %s]\n"
+msgstr "[Failed to read file: %s]"
 
 #: src/controllers/ai_controller.vala:283
 msgid "拒绝访问: 工作目录必须在当前项目目录或用户主目录内"
 msgstr "Access denied: work directory must be within project or home directory"
 
 #: src/controllers/ai_controller.vala:285
-#, fuzzy
 msgid "目录不存在: "
-msgstr "Error: Directory does not exist: %s\n"
+msgstr "Error: Directory does not exist: %s"
 
 #: src/controllers/ai_controller.vala:287
-#, fuzzy
 msgid "工作目录已切换到: "
 msgstr "Working directory set: %s"
 
@@ -1097,14 +1072,12 @@ msgid "$p (无法解析路径)"
 msgstr "$p (cannot resolve path)"
 
 #: src/controllers/ai_controller.vala:320
-#, fuzzy
 msgid "$p (路径超出工作目录)"
 msgstr "Set working directory"
 
 #: src/controllers/ai_controller.vala:325
-#, fuzzy
 msgid "$p (文件不存在)"
-msgstr "[File does not exist: %s]\n"
+msgstr "[File does not exist: %s]"
 
 #: src/controllers/ai_controller.vala:333
 msgid "$p (已在列表中)"
@@ -1113,7 +1086,7 @@ msgstr "$p (already in list)"
 #: src/controllers/ai_controller.vala:347
 #, fuzzy, c-format
 msgid "AI 添加了 %d 个文件"
-msgstr "Added %d file(s)"
+msgstr "AI added %d files"
 
 #: src/controllers/ai_controller.vala:349
 #, c-format
@@ -1137,7 +1110,6 @@ msgid "缺少 text / content"
 msgstr "Missing text / content"
 
 #: src/controllers/ai_controller.vala:431
-#, fuzzy
 msgid "AI 插入了自定义文本"
 msgstr "Insert Custom Text"
 
@@ -1154,7 +1126,6 @@ msgid "缺少 value"
 msgstr "Missing value"
 
 #: src/controllers/ai_controller.vala:533
-#, fuzzy
 msgid "AI 清空了编排列表"
 msgstr "Clear the queue"
 
@@ -1171,14 +1142,13 @@ msgid "当前没有已暂存的改动。"
 msgstr "No staged changes."
 
 #: src/controllers/ai_controller.vala:684
-#, fuzzy
 msgid "当前工作区没有未提交的改动。"
 msgstr "No uncommitted changes in working tree"
 
 #: src/controllers/ai_controller.vala:697
 #, fuzzy, c-format
 msgid "已成功将 Git Diff 注入编排列表 (%d 行)。"
-msgstr "Commit diff inserted into list"
+msgstr "Git Diff injected into list (%d lines)."
 
 #: src/controllers/ai_controller.vala:710
 msgid "未找到该 Commit 的 Diff 或 Commit 不存在。"
@@ -1187,7 +1157,7 @@ msgstr "Commit diff not found or commit does not exist."
 #: src/controllers/ai_controller.vala:731
 #, fuzzy, c-format
 msgid "已成功将 Commit %s 的 Diff 注入编排列表 (%d 行)。"
-msgstr "Commit diff inserted into list"
+msgstr "Commit %s Diff injected into list (%d lines)."
 
 #: src/widgets/settings_dialog.vala:17
 msgid "设置界面语言"
@@ -1508,22 +1478,15 @@ msgstr ""
 "plaintext over the network, which poses a security risk."
 
 #: src/widgets/ai_settings_dialog.vala:325
-#, fuzzy
 msgid ""
 "这将导致 API 密钥在传输过程中以明文形式发送，存在被第三方截获的风险。\n"
 "\n"
 msgstr ""
-"You are configuring an HTTP (non-HTTPS) endpoint.\n"
+"This will send the API key in plaintext during transmission, with the risk "
+"of being intercepted by third parties.\n"
 "\n"
-"This will cause the API key to be sent in plaintext during transmission, "
-"with the risk of being intercepted by third parties.\n"
-"\n"
-"It is recommended to use an HTTPS endpoint for security.\n"
-"\n"
-"Do you still want to continue saving?"
 
 #: src/widgets/ai_settings_dialog.vala:326
-#, fuzzy
 msgid "是否仍要继续保存？"
 msgstr "Continue Saving"
 
@@ -1574,7 +1537,6 @@ msgid "区分大小写"
 msgstr "Case Sensitive"
 
 #: src/widgets/global_search_dialog.vala:63
-#, fuzzy
 msgid "搜索"
 msgstr "Search…"
 
@@ -1584,7 +1546,6 @@ msgid "全选"
 msgstr "Select All"
 
 #: src/widgets/global_search_dialog.vala:111
-#, fuzzy
 msgid "添加选中文件到编排列表"
 msgstr "Add file to queue (can be used multiple times)"
 
@@ -1613,7 +1574,7 @@ msgstr "Deselect All"
 #: src/widgets/global_search_dialog.vala:186
 #, fuzzy, c-format
 msgid "添加选中文件到编排列表 (%d)"
-msgstr "Add file to queue (can be used multiple times)"
+msgstr "Add Selected Files to List (%d)"
 
 #: src/widgets/global_search_dialog.vala:187
 #, c-format
@@ -1629,7 +1590,6 @@ msgid "关闭"
 msgstr "Close"
 
 #: src/widgets/templates_manager.vala:78
-#, fuzzy
 msgid "编辑"
 msgstr "Edit Text"
 
@@ -1654,12 +1614,10 @@ msgid "描述"
 msgstr "Description"
 
 #: src/widgets/templates_manager.vala:145
-#, fuzzy
 msgid "头部插入文本"
 msgstr "Insert Text Above"
 
 #: src/widgets/templates_manager.vala:148
-#, fuzzy
 msgid "尾部插入文本"
 msgstr "Insert Text Above"
 
