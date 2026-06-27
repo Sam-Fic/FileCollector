@@ -3887,31 +3887,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // ─── 多模态 AI 预处理 ────────────────────────────────────────────────
 
     private string get_prompt_for_item (ItemData item) {
-        if (item.is_image_target ()) {
-            string lower = item.file_path.down ();
-            if (lower.contains ("screenshot") || lower.contains ("error") || lower.contains ("bug")) {
-                return "这是一张系统截图。请提取图中所有可见文本内容（包括错误信息、堆栈跟踪、UI 元素）。" +
-                       "保留原始格式，使用代码块包裹命令行输出或报错信息。";
-            }
-            if (lower.contains ("diagram") || lower.contains ("flow") || lower.contains ("arch")) {
-                return "这是一张技术图表。请描述图表的结构和逻辑关系。" +
-                       "如果可能，使用 Mermaid 语法重构此图表。";
-            }
-            return "请提取图片中的所有文本内容，并将其转换为结构清晰的 Markdown。" +
-                   "保留标题层级、列表结构和表格。";
-        }
-        if (item.is_document_target ()) {
-            string lower = item.file_path.down ();
-            if (lower.has_suffix (".xlsx") || lower.has_suffix (".xls") || lower.has_suffix (".ods")) {
-                return "请将图片中的电子表格数据转换为标准 Markdown 表格。" +
-                       "保留表头结构、合并单元格的语义以及数值精度。";
-            }
-            if (lower.has_suffix (".pptx") || lower.has_suffix (".ppt") || lower.has_suffix (".odp")) {
-                return "这是演示文稿的页面截图。请将每页内容提取为 Markdown，" +
-                       "使用二级标题 (##) 分隔每页幻灯片，保留要点列表。";
-            }
-        }
-        return "请将图片中的内容转换为结构清晰的 Markdown 格式。保留标题、列表和表格。";
+        return BinaryPreprocessor.get_default_prompt (item);
     }
 
     // ─── AI 助手集成 ───────────────────────────────────────────────────
