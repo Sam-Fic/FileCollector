@@ -92,6 +92,8 @@ sources = files(
   'src/widgets/context_menus.vala',
   'src/widgets/global_search_dialog.vala',
   'src/widgets/markdown_view.vala',
+  'src/widgets/phrases_picker.vala',
+  'src/widgets/preview_syntax.vala',
   'src/widgets/settings_dialog.vala',
   'src/widgets/phrases_picker.vala',
   'src/widgets/templates_manager.vala'

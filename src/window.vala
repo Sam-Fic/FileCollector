@@ -1956,94 +1956,30 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // ─── 语法高亮 ────────────────────────────────────────────────────────
 
-    private GtkSource.LanguageManager lang_manager;
-    private GtkSource.StyleSchemeManager scheme_manager;
+    private PreviewSyntaxManager? syntax_manager;
 
     private void setup_preview_syntax () {
-        lang_manager = GtkSource.LanguageManager.get_default ();
-        scheme_manager = new GtkSource.StyleSchemeManager ();
-
-        // 注册应用自带主题目录
-        string app_data_dir = "/usr/share/filecollector";
-        if (!FileUtils.test (app_data_dir, FileTest.EXISTS)) {
-            app_data_dir = GLib.Path.build_filename (Environment.get_current_dir (), "data");
-        }
-        string theme_dir = GLib.Path.build_filename (app_data_dir, "gtksourceview-5", "styles");
-        if (FileUtils.test (theme_dir, FileTest.EXISTS)) {
-            string[] search_paths = scheme_manager.get_search_path ();
-            var new_paths = new string[search_paths.length + 1];
-            new_paths[0] = theme_dir;
-            for (int i = 0; i < search_paths.length; i++) new_paths[i + 1] = search_paths[i];
-            scheme_manager.set_search_path ((string?[]?) new_paths);
-        }
-
-        apply_preview_scheme ();
-
-        preview_view.set_wrap_mode (Gtk.WrapMode.WORD_CHAR);
-        preview_view.add_css_class ("sourceview");
-        preview_view.set_show_line_numbers (false);
-
-        // 监听系统深浅色模式变化
-        var style_manager = Adw.StyleManager.get_default ();
-        style_manager.notify["dark"].connect (() => apply_preview_scheme ());
+        syntax_manager = new PreviewSyntaxManager (preview_view);
     }
 
     private void apply_preview_scheme () {
-        bool dark = Adw.StyleManager.get_default ().dark;
-        string scheme_id = dark ? "filecollector-dark" : "filecollector-light";
-        var scheme = scheme_manager.get_scheme (scheme_id);
-        if (scheme != null) {
-            (preview_view.get_buffer () as GtkSource.Buffer).set_style_scheme (scheme);
-        }
+        if (syntax_manager != null) syntax_manager.apply_scheme ();
     }
 
     private GtkSource.Language? guess_language (string? file_path) {
-        if (file_path == null) return null;
-        // 先按文件名猜测 (如 Makefile, Dockerfile)
-        var lang = lang_manager.guess_language (file_path, null);
-        if (lang != null) return lang;
-        // fallback: 按 MIME 类型
-        var file = File.new_for_path (file_path);
-        try {
-            var info = file.query_info (FileAttribute.STANDARD_CONTENT_TYPE, FileQueryInfoFlags.NONE, null);
-            string? mime = info.get_content_type ();
-            if (mime != null) {
-                lang = lang_manager.guess_language (null, mime);
-            }
-        } catch (Error e) { /* ignore */ }
-        return lang;
+        return syntax_manager != null ? syntax_manager.guess_language (file_path) : null;
     }
 
     private void apply_preview_with_highlight (string text, string? file_path) {
-        Gtk.Widget? child = preview_container.get_first_child ();
-        while (child != null) {
-            Gtk.Widget? next = child.get_next_sibling ();
-            preview_container.remove (child);
-            child = next;
+        if (syntax_manager != null) {
+            syntax_manager.apply_with_highlight (preview_container, text, file_path);
         }
-        preview_container.append (preview_view);
-
-        var buffer = preview_view.get_buffer () as GtkSource.Buffer;
-        buffer.set_text ("", -1);
-        buffer.set_language (guess_language (file_path));
-        buffer.set_highlight_syntax (true);
-        buffer.set_text (text, -1);
-        preview_view.set_show_line_numbers (text.length > 0);
     }
 
     private void apply_preview_no_highlight (string text) {
-        Gtk.Widget? child = preview_container.get_first_child ();
-        while (child != null) {
-            Gtk.Widget? next = child.get_next_sibling ();
-            preview_container.remove (child);
-            child = next;
+        if (syntax_manager != null) {
+            syntax_manager.apply_no_highlight (preview_container, text);
         }
-        preview_container.append (preview_view);
-
-        var buffer = preview_view.get_buffer () as GtkSource.Buffer;
-        buffer.set_highlight_syntax (false);
-        buffer.set_text (text, -1);
-        preview_view.set_show_line_numbers (text.length > 0);
     }
 
     // ─── VLM 预处理队列 ────────────────────────────────────────────────
