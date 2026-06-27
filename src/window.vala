@@ -1922,11 +1922,29 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             buffer.create_tag ("diff-header",
                 "foreground", "rgba(3,102,214,1.0)",
                 "weight", Pango.Weight.BOLD, null);
+            buffer.create_tag ("diff-file",
+                "foreground", "rgba(145,65,172,1.0)",
+                "weight", Pango.Weight.BOLD, null);
+            buffer.create_tag ("diff-sep",
+                "foreground", "rgba(128,128,128,0.5)", null);
         }
 
         Gtk.TextIter iter;
         buffer.get_start_iter (out iter);
+        string? last_file = null;
         foreach (var line in diff_text.split ("\n")) {
+            // 提取文件名并插入分隔标题
+            if (line.has_prefix ("diff ")) {
+                // diff --git a/path b/path → 提取 path
+                string fname = extract_diff_filename (line);
+                if (fname != null && fname != last_file) {
+                    last_file = fname;
+                    buffer.insert_with_tags_by_name (ref iter, "\n", -1, "diff-sep");
+                    buffer.insert_with_tags_by_name (ref iter,
+                        "━━━ %s ━━━\n".printf (fname), -1, "diff-file");
+                }
+            }
+
             string? tag = null;
             if (line.has_prefix ("+++") || line.has_prefix ("---") ||
                 line.has_prefix ("diff ") || line.has_prefix ("index ")) {
@@ -1945,6 +1963,21 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 buffer.insert (ref iter, line + "\n", -1);
             }
         }
+    }
+
+    private static string? extract_diff_filename (string diff_line) {
+        // diff --git a/src/foo.vala b/src/foo.vala → src/foo.vala
+        int a_pos = diff_line.index_of (" a/");
+        int b_pos = diff_line.index_of (" b/");
+        if (b_pos > a_pos && a_pos >= 0) {
+            return diff_line.substring (b_pos + 3);
+        }
+        if (a_pos >= 0) {
+            string rest = diff_line.substring (a_pos + 3);
+            int space = rest.index_of (" ");
+            return space >= 0 ? rest.substring (0, space) : rest;
+        }
+        return null;
     }
 
     // 简单的预览文本设置 (无 Markdown)
