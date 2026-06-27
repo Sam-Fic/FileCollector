@@ -212,6 +212,7 @@ public class AIController : GLib.Object {
         int64 start_line = o.has_member ("start_line") ? o.get_int_member ("start_line") : 1;
         int64 max_lines = o.has_member ("max_lines") ? o.get_int_member ("max_lines") : 500;
         if (max_bytes <= 0) max_bytes = 102400;
+        if (max_bytes > 524288) max_bytes = 524288; // 512KB hard cap
         if (max_lines <= 0) max_lines = 500;
 
         string? resolved = resolve_ai_path (path);
