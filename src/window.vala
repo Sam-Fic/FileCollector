@@ -1630,7 +1630,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         btn_move_up.clicked.connect (on_move_up);
         btn_move_down.clicked.connect (on_move_down);
         btn_delete.clicked.connect (on_delete_item);
-        btn_clear.clicked.connect (on_clear_items);
+        btn_clear.clicked.connect (on_clear_items_with_confirm);
         btn_generate.clicked.connect (on_generate_clicked);
         btn_generate_clipboard.clicked.connect (on_generate_to_clipboard_clicked);
         radio_absolute_path.notify["active"].connect (on_path_mode_changed);
@@ -1676,7 +1676,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         btn_git_export_working_diff.clicked.connect (on_git_export_working_diff);
         btn_git_export_commit_diff.clicked.connect (on_git_export_commit_diff);
         btn_git_delete.clicked.connect (on_delete_item);
-        btn_git_clear.clicked.connect (on_clear_items);
+        btn_git_clear.clicked.connect (on_clear_items_with_confirm);
 
         git_selection.selection_changed.connect (on_git_selection_changed);
     }
@@ -2451,7 +2451,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         this.add_action (act_redo);
 
         var act_clear = new GLib.SimpleAction ("clear_items", null);
-        act_clear.activate.connect (() => on_clear_items ());
+        act_clear.activate.connect (() => on_clear_items_with_confirm ());
         this.add_action (act_clear);
 
         var act_delete = new GLib.SimpleAction ("delete_item", null);
@@ -3212,11 +3212,34 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_clear_items () {
+        if (items.size == 0) return;
         push_undo_state ();
         items.clear ();
         check_model.clear ();
         refresh_all_tree_states ();
         refresh_list ();
+    }
+
+    private void on_clear_items_with_confirm () {
+        if (items.size == 0) return;
+
+        var dialog = new Adw.AlertDialog (
+            _("确认清空"),
+            _("确定要清空编排列表中的所有 %d 个项目吗？").printf (items.size)
+        );
+        dialog.add_response ("cancel", _("取消"));
+        dialog.add_response ("clear", _("清空"));
+        dialog.set_response_appearance ("clear", Adw.ResponseAppearance.DESTRUCTIVE);
+        dialog.set_default_response ("cancel");
+
+        dialog.response.connect ((response) => {
+            if (response == "clear") {
+                on_clear_items ();
+            }
+            dialog.destroy ();
+        });
+
+        dialog.present (this);
     }
 
     private void select_queue_row (int index) {
