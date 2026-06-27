@@ -1928,6 +1928,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         var buffer = preview_view.get_buffer () as GtkSource.Buffer;
         buffer.set_highlight_syntax (false);
+        preview_view.show_line_numbers = true;
         buffer.set_text ("", -1);
 
         if (buffer.get_tag_table ().lookup ("diff-add") == null) {
@@ -2153,6 +2154,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         buffer.set_language (guess_language (file_path));
         buffer.set_highlight_syntax (true);
         buffer.set_text (text, -1);
+        preview_view.show_line_numbers = (text.length > 0);
     }
 
     private void apply_preview_no_highlight (string text) {
@@ -2167,6 +2169,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var buffer = preview_view.get_buffer () as GtkSource.Buffer;
         buffer.set_highlight_syntax (false);
         buffer.set_text (text, -1);
+        // 空内容时隐藏行号
+        preview_view.show_line_numbers = (text.length > 0);
     }
 
     // ─── VLM 预处理队列 ────────────────────────────────────────────────
@@ -3065,7 +3069,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void clear_preview () {
-        apply_preview_no_highlight ("");
+        Gtk.Widget? child = preview_container.get_first_child ();
+        while (child != null) {
+            Gtk.Widget? next = child.get_next_sibling ();
+            preview_container.remove (child);
+            child = next;
+        }
     }
 
     private void update_queue_buttons () {

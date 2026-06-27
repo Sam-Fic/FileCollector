@@ -453,8 +453,13 @@ popover.ctx-menu separator {
     background-color: transparent;
 }
 
-.sourceview .line-numbers {
+/* 行号: 正常字重, 半透明灰色 */
+.sourceview .line-numbers,
+.sourceview .line-numbers label {
+    font-weight: normal;
+    opacity: 0.5;
     background-color: transparent;
+    background: transparent;
 }
 .vlm-progress-card {
     background: @card_bg_color;
