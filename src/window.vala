@@ -1458,6 +1458,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 break;
             case UndoOp.MOVE:
                 // undo: 从 to_index 移回 from_index
+                if (d.to_index < 0 || d.to_index >= items.size ||
+                    d.from_index < 0 || d.from_index > items.size) break;
                 var it = items.get (d.to_index);
                 items.remove_at (d.to_index);
                 items.insert (d.from_index, it);
@@ -1498,6 +1500,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 items.set (d.index2, tmp);
                 break;
             case UndoOp.MOVE:
+                if (d.from_index < 0 || d.from_index >= items.size ||
+                    d.to_index < 0 || d.to_index > items.size) break;
                 var it = items.get (d.from_index);
                 items.remove_at (d.from_index);
                 items.insert (d.to_index, it);
