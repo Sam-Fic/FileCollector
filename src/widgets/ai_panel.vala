@@ -224,9 +224,14 @@ public class AIPanel : GLib.Object {
             placeholder_lbl.visible = input_view.get_buffer ().get_text (s, e, false).length == 0;
         });
         input_box.append (input_overlay);
-        // Enter 发送, Ctrl+Enter 换行, 补全列表导航
+        // ── 快捷键 ──
+        // Enter 键不在 EventControllerKey 中处理, 而是通过 buffer.changed 信号检测:
+        // 当 IME 未消费 Enter 时, GtkSource.View 会插入换行, 我们检测到后删除换行并触发发送。
+        // 这样完全不干扰 IME 的候选词确认。
+
         var key = new Gtk.EventControllerKey ();
         key.key_pressed.connect ((keyval, keycode, state) => {
+            // 补全列表导航
             if (completion_frame.visible) {
                 if (keyval == Gdk.Key.Down) {
                     move_completion_selection (1);
@@ -234,33 +239,72 @@ public class AIPanel : GLib.Object {
                 } else if (keyval == Gdk.Key.Up) {
                     move_completion_selection (-1);
                     return true;
-                } else if (keyval == Gdk.Key.Return || keyval == Gdk.Key.KP_Enter) {
-                    var selected = completion_list.get_selected_row ();
-                    if (selected != null) {
-                        apply_completion (selected);
-                        return true;
-                    }
                 } else if (keyval == Gdk.Key.Escape) {
                     hide_completion ();
                     return true;
                 }
             }
-
-            if (keyval == Gdk.Key.Return || keyval == Gdk.Key.KP_Enter) {
-                if ((state & Gdk.ModifierType.CONTROL_MASK) != 0) {
-                    input_view.get_buffer ().insert_at_cursor ("\n", 1);
-                    Gtk.TextIter cursor_iter;
-                    input_view.get_buffer ().get_iter_at_mark (out cursor_iter,
-                        input_view.get_buffer ().get_insert ());
-                    input_view.scroll_to_iter (cursor_iter, 0, false, 0, 0);
-                    return true;
-                }
-                on_send_or_stop ();
-                return true;
-            }
             return false;
         });
         input_view.add_controller (key);
+
+        // 通过 buffer.changed 检测 Enter (换行插入) 来触发发送
+        // 使用标记防止递归
+        bool suppress_send = false;
+        bool ctrl_enter_pressed = false;
+
+        // Ctrl+Enter 标记: 在 key handler 中检测
+        var ctrl_key = new Gtk.EventControllerKey ();
+        ctrl_key.key_pressed.connect ((keyval, keycode, state) => {
+            if ((keyval == Gdk.Key.Return || keyval == Gdk.Key.KP_Enter) &&
+                (state & Gdk.ModifierType.CONTROL_MASK) != 0) {
+                ctrl_enter_pressed = true;
+            }
+            return false;
+        });
+        input_view.add_controller (ctrl_key);
+
+        input_view.get_buffer ().changed.connect (() => {
+            if (suppress_send) return;
+
+            Gtk.TextBuffer buf = input_view.get_buffer ();
+            Gtk.TextIter end_iter;
+            buf.get_end_iter (out end_iter);
+
+            // 检查末尾是否有换行
+            if (buf.get_char_count () == 0) return;
+            Gtk.TextIter prev = end_iter;
+            prev.backward_char ();
+            string last_char = prev.get_text (end_iter);
+            if (last_char != "\n") return;
+
+            // 补全列表可见时, Enter 确认补全
+            if (completion_frame.visible) {
+                var selected = completion_list.get_selected_row ();
+                if (selected != null) {
+                    suppress_send = true;
+                    buf.delete (ref prev, ref end_iter);
+                    suppress_send = false;
+                    apply_completion (selected);
+                    return;
+                }
+            }
+
+            // Ctrl+Enter = 换行 (保留换行, 不触发发送)
+            // 检查 buffer 中倒数第二个字符, 如果 Ctrl 被按住则不处理
+            // 但这里无法获取 modifier state, 改用另一个策略:
+            // 在 key handler 中标记是否按了 Ctrl
+            if (ctrl_enter_pressed) {
+                ctrl_enter_pressed = false;
+                return; // 保留换行
+            }
+
+            // 删除换行, 触发发送
+            suppress_send = true;
+            buf.delete (ref prev, ref end_iter);
+            suppress_send = false;
+            on_send_or_stop ();
+        });
 
         // 监听输入变化以触发补全
         input_view.get_buffer ().changed.connect (on_input_changed);
