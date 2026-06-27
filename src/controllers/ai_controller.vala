@@ -742,10 +742,26 @@ public class AIController : GLib.Object {
 
         string wd = app_state.work_dir.get_path ();
 
-        // Get commits in range (newest first): from_hash..to_hash
-        string log_output = GitService.run_git (wd, {
-            "log", "--pretty=format:%H|%s", from_hash + ".." + to_hash
-        });
+        // Get commits in range (newest first), inclusive of both endpoints.
+        // git log from~1..to includes 'from' itself (from~1 = parent of from).
+        string log_output;
+        try {
+            log_output = GitService.run_git (wd, {
+                "log", "--pretty=format:%H|%s", from_hash + "~1.." + to_hash
+            });
+        } catch (Error e) {
+            // from_hash might be a root commit (~1 fails), fall back to from..to + manual include
+            log_output = GitService.run_git (wd, {
+                "log", "--pretty=format:%H|%s", from_hash + ".." + to_hash
+            });
+            // Prepend the from commit itself
+            string from_msg = GitService.run_git (wd, {
+                "log", "-1", "--pretty=format:%H|%s", from_hash
+            }).strip ();
+            if (from_msg.length > 0) {
+                log_output = from_msg + "\n" + log_output;
+            }
+        }
 
         var commit_hashes = new Gee.ArrayList<string> ();
         var commit_msgs = new Gee.ArrayList<string> ();
