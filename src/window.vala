@@ -1760,6 +1760,18 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         });
         box.add_controller (right_click);
 
+        // 左键点击: 强制刷新预览 (解决点击同一行不触发 selection_changed 的问题)
+        var left_click = new Gtk.GestureClick ();
+        left_click.set_button (Gdk.BUTTON_PRIMARY);
+        left_click.pressed.connect ((n_press, gx, gy) => {
+            // 延迟一帧, 等 SingleSelection 先更新选中项
+            Idle.add (() => {
+                refresh_git_preview ();
+                return Source.REMOVE;
+            });
+        });
+        box.add_controller (left_click);
+
         list_item.set_child (box);
     }
 
@@ -1867,12 +1879,17 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_git_selection_changed (uint position, uint n_items) {
-        if (position == Gtk.INVALID_LIST_POSITION || position >= git_commit_store.get_n_items ()) {
+        refresh_git_preview ();
+    }
+
+    private void refresh_git_preview () {
+        uint pos = git_selection.selected;
+        if (pos == Gtk.INVALID_LIST_POSITION || pos >= git_commit_store.get_n_items ()) {
             btn_git_export_commit_diff.sensitive = false;
             return;
         }
 
-        var commit = git_commit_store.get_item (position) as GitCommit;
+        var commit = git_commit_store.get_item (pos) as GitCommit;
         if (commit == null) {
             btn_git_export_commit_diff.sensitive = false;
             return;
