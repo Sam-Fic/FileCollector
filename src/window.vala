@@ -2154,13 +2154,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void vlm_task_executor (ItemData item, VLMQueueManager manager) {
+        // 捕获 work_dir 到本地变量, 防止主线程并发修改
+        File? local_work_dir = work_dir;
+
         // 1. 检查缓存
         string? cached_md = null;
         string hash = "";
         try {
             hash = PreprocessCache.compute_file_hash (item.file_path);
-            if (work_dir != null) {
-                var cache = new PreprocessCache (work_dir.get_path ());
+            if (local_work_dir != null) {
+                var cache = new PreprocessCache (local_work_dir.get_path ());
                 cached_md = cache.get_cached_markdown (item.file_path, hash);
             }
         } catch (Error e) {
@@ -2233,8 +2236,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
             if (manager.check_cancelled ()) { manager.notify_finished (item); return; }
 
-            if (work_dir != null) {
-                var cache = new PreprocessCache (work_dir.get_path ());
+            if (local_work_dir != null) {
+                var cache = new PreprocessCache (local_work_dir.get_path ());
                 cache.save_markdown (item.file_path, hash, md);
             }
 
