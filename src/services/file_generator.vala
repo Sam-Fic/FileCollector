@@ -64,10 +64,11 @@ public class FileGenerator : GLib.Object {
                 FileInputStream? fis = null;
                 try {
                     fis = f.read ();
-                    // 扫描前 2048 字节判定是否为二进制文件 (含 NULL 字节)
-                    uint8[] head_buf = new uint8[2048];
+                    // 扫描前 8192 字节判定是否为二进制文件 (含 NULL 字节)
+                    const int PEEK_SIZE = 8192;
+                    uint8[] head_buf = new uint8[PEEK_SIZE];
                     size_t head_read = 0;
-                    var peek_bytes = fis.read_bytes (2048);
+                    var peek_bytes = fis.read_bytes (PEEK_SIZE);
                     unowned uint8[] peek_data = peek_bytes.get_data ();
                     head_read = peek_data.length;
                     Memory.copy (head_buf, peek_data, head_read);
