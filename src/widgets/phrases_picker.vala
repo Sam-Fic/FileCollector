@@ -164,9 +164,11 @@ public class PhrasesPicker : GLib.Object {
                 delete_btn.add_css_class ("destructive-action");
                 delete_btn.add_css_class ("flat");
                 delete_btn.set_valign (Gtk.Align.CENTER);
-                int captured_index = i;
+                string captured_phrase = phrase;
                 delete_btn.clicked.connect (() => {
-                    common_phrases.remove_at (captured_index);
+                    int idx = common_phrases.index_of (captured_phrase);
+                    if (idx < 0) return;
+                    common_phrases.remove_at (idx);
                     ConfigManager.save_common_phrases (common_phrases);
                     populate_phrases_picker_list (list_box, dialog, above);
                     phrases_changed ();
@@ -285,9 +287,11 @@ public class PhrasesPicker : GLib.Object {
             delete_btn.add_css_class ("destructive-action");
             delete_btn.add_css_class ("flat");
             delete_btn.set_valign (Gtk.Align.CENTER);
-            int captured_index = i;
+            string captured_phrase = phrase;
             delete_btn.clicked.connect (() => {
-                common_phrases.remove_at (captured_index);
+                int idx = common_phrases.index_of (captured_phrase);
+                if (idx < 0) return;
+                common_phrases.remove_at (idx);
                 ConfigManager.save_common_phrases (common_phrases);
                 refresh_phrases_list (list_box);
                 phrases_changed ();
