@@ -928,7 +928,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             });
             check.set_data<ulong?> ("state_handler_id", state_handler_id);
 
-            label.set_text (item.name);
+            highlight_tree_label (label, item.name);
 
             if (item.is_dir) {
                 ulong expanded_handler_id = row.notify["expanded"].connect (() => {
@@ -1042,6 +1042,34 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void on_search_changed () {
         search_text = search_entry.text;
         tree_filter.changed (Gtk.FilterChange.DIFFERENT);
+    }
+
+    private void highlight_tree_label (Gtk.Label label, string name) {
+        if (search_text.length == 0) {
+            label.set_text (name);
+            return;
+        }
+        string lower_name = name.casefold ();
+        string lower_search = search_text.casefold ();
+        int idx = lower_name.index_of (lower_search);
+        if (idx < 0) {
+            label.set_text (name);
+            return;
+        }
+        string escaped = GLib.Markup.escape_text (name);
+        string escaped_search = GLib.Markup.escape_text (name.substring (idx, search_text.length));
+        // 重新搜索转义后的文本 (因为 escape 可能改变长度)
+        string lower_escaped = escaped.casefold ();
+        string lower_escaped_search = escaped_search.casefold ();
+        int esc_idx = lower_escaped.index_of (lower_escaped_search);
+        if (esc_idx < 0) {
+            label.set_markup (escaped);
+            return;
+        }
+        string before = escaped.substring (0, esc_idx);
+        string match = escaped.substring (esc_idx, escaped_search.length);
+        string after = escaped.substring (esc_idx + escaped_search.length);
+        label.set_markup (before + "<b><u>" + match + "</u></b>" + after);
     }
 
     private bool filter_tree_func (GLib.Object item) {
