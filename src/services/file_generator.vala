@@ -56,7 +56,7 @@ public class FileGenerator : GLib.Object {
                     continue;
                 }
                 if (file_size > MAX_FILE_CONTENT_SIZE) {
-                    dis.put_string (_("[文件过大 (%s), 已跳过内容读取]\n").printf (format_gen_size (file_size)));
+                    dis.put_string (_("[文件过大 (%s), 已跳过内容读取]\n").printf (UIHelpers.format_size (file_size)));
                     continue;
                 }
 
@@ -192,12 +192,5 @@ public class FileGenerator : GLib.Object {
         } catch (Error e) {
             debug ("枚举剪贴板缓存目录失败: %s", e.message);
         }
-    }
-
-    private static string format_gen_size (int64 size) {
-        if (size < 1024) return size.to_string () + " B";
-        if (size < 1024 * 1024) return "%.1f KB".printf (size / 1024.0);
-        if (size < 1024 * 1024 * 1024) return "%.1f MB".printf (size / 1024.0 / 1024.0);
-        return "%.1f GB".printf (size / 1024.0 / 1024.0 / 1024.0);
     }
 }

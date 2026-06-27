@@ -3088,13 +3088,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                         if (preview.length > 2000) {
                             preview = truncate_utf8 (preview, 2000);
                             if (file_size > PREVIEW_MAX_BYTES) {
-                                preview += _("\n\n... [预览截断，文件总大小: %s]").printf (format_preview_size (file_size));
+                                preview += _("\n\n... [预览截断，文件总大小: %s]").printf (UIHelpers.format_size (file_size));
                             } else {
                                 preview += _("\n\n... [预览截断]");
                             }
                         } else if (file_size > PREVIEW_MAX_BYTES) {
                             preview += _("\n\n... [文件较大 (%s)，预览仅显示前 %s]").printf (
-                                format_preview_size (file_size), format_preview_size (read_size));
+                                UIHelpers.format_size (file_size), UIHelpers.format_size (read_size));
                         }
                     }
                     apply_preview_content (item, preview);
@@ -3274,10 +3274,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void show_file_in_folder (string path) {
         UIHelpers.show_file_in_folder (this, path);
-    }
-
-    private static string format_preview_size (int64 size) {
-        return UIHelpers.format_size (size);
     }
 
     private static string truncate_utf8 (string text, int max_bytes) {

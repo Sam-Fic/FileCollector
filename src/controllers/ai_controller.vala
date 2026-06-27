@@ -141,7 +141,7 @@ public class AIController : GLib.Object {
                         sb.append ("DIR  ").append (rel_path (app_state.work_dir.get_path (), path)).append ("\n");
                     } else {
                         sb.append ("FILE ").append (rel_path (app_state.work_dir.get_path (), path))
-                          .append ("  (").append (format_size (info.get_size ())).append (")\n");
+                          .append ("  (").append (UIHelpers.format_size (info.get_size ())).append (")\n");
                     }
                     count++;
                 } catch (Error e) {
@@ -196,7 +196,7 @@ public class AIController : GLib.Object {
                 total++;
                 if (matcher.match_string (name.down ())) {
                     sb.append ("FILE ").append (rel_path (root, full))
-                      .append ("  (").append (format_size (info.get_size ())).append (")\n");
+                      .append ("  (").append (UIHelpers.format_size (info.get_size ())).append (")\n");
                     count++;
                 }
             }
@@ -259,7 +259,7 @@ public class AIController : GLib.Object {
         int end = int.min (lines.length, start + (int) max_lines);
         var sb = new StringBuilder ();
         sb.append ("# file: ").append (rel_path (app_state.work_dir != null ? app_state.work_dir.get_path () : "/", abs))
-          .append ("  (").append (format_size (file_size));
+          .append ("  (").append (UIHelpers.format_size (file_size));
         if (!read_all) {
             sb.append (", 前 ").append (max_bytes.to_string ()).append (" 字节");
         }
@@ -750,13 +750,6 @@ public class AIController : GLib.Object {
             cut--;
         }
         return text[0:cut];
-    }
-
-    private static string format_size (int64 size) {
-        if (size < 1024) return size.to_string () + " B";
-        if (size < 1024 * 1024) return "%.1f KB".printf (size / 1024.0);
-        if (size < 1024 * 1024 * 1024) return "%.1f MB".printf (size / 1024.0 / 1024.0);
-        return "%.1f GB".printf (size / 1024.0 / 1024.0 / 1024.0);
     }
 
     private static string normalize_path (string path) {
