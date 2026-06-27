@@ -426,38 +426,27 @@ popover.ctx-menu separator {
     min-width: 40px;
 }
 
-/* GtkSourceView 预览: 去除行号和背景色, 跟随系统深浅色 */
-.sourceview {
-    background-color: transparent;
-}
-
+/* GtkSourceView 预览: 透明背景 + 正常字重 */
+.sourceview,
 .sourceview text,
-.sourceview text text {
-    background-color: transparent;
-    background: transparent;
-}
-
+.sourceview text text,
 .sourceview border,
-.sourceview border border {
-    background-color: transparent;
-    background: transparent;
-}
-
+.sourceview border border,
 .sourceview gutter,
 .sourceview gutter gutter {
     background-color: transparent;
     background: transparent;
 }
 
-.sourceview .current-line {
-    background-color: transparent;
+.sourceview,
+.sourceview * {
+    font-weight: normal;
 }
 
-/* 行号: 正常字重, 半透明灰色 */
+/* 行号: 半透明 */
 .sourceview .line-numbers,
 .sourceview .line-numbers label {
-    font-weight: normal;
-    opacity: 0.5;
+    opacity: 0.6;
     background-color: transparent;
     background: transparent;
 }

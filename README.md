@@ -67,13 +67,13 @@ flatpak run com.github.samfic.filecollector
 #### Debian/Ubuntu
 
 ```bash
-sudo apt install meson valac libgtk-4-dev libadwaita-1-dev libjson-glib-dev libsoup-3.0-dev libgee-0.8-dev libcmark-gfm-dev blueprint-compiler gettext
+sudo apt install meson valac libgtk-4-dev libadwaita-1-dev libjson-glib-dev libsoup-3.0-dev libgee-0.8-dev libcmark-gfm-dev libgtksourceview-5-dev blueprint-compiler gettext
 ```
 
 #### Fedora
 
 ```bash
-sudo dnf install meson vala gtk4-devel libadwaita-devel json-glib-devel libsoup3-devel libgee-devel cmark-gfm-devel blueprint-compiler gettext
+sudo dnf install meson vala gtk4-devel libadwaita-devel json-glib-devel libsoup3-devel libgee-devel cmark-gfm-devel gtksourceview5-devel blueprint-compiler gettext
 ```
 
 ### 构建与安装

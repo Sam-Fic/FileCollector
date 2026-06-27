@@ -1928,7 +1928,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         var buffer = preview_view.get_buffer () as GtkSource.Buffer;
         buffer.set_highlight_syntax (false);
-        preview_view.show_line_numbers = true;
         buffer.set_text ("", -1);
 
         if (buffer.get_tag_table ().lookup ("diff-add") == null) {
@@ -2114,13 +2113,39 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void setup_preview_syntax () {
         lang_manager = GtkSource.LanguageManager.get_default ();
         scheme_manager = new GtkSource.StyleSchemeManager ();
-        var scheme = scheme_manager.get_scheme ("Adwaita-dark");
-        if (scheme == null) scheme = scheme_manager.get_scheme ("classic");
+
+        // 注册应用自带主题目录
+        string app_data_dir = "/usr/share/filecollector";
+        if (!FileUtils.test (app_data_dir, FileTest.EXISTS)) {
+            app_data_dir = GLib.Path.build_filename (Environment.get_current_dir (), "data");
+        }
+        string theme_dir = GLib.Path.build_filename (app_data_dir, "gtksourceview-5", "styles");
+        if (FileUtils.test (theme_dir, FileTest.EXISTS)) {
+            string[] search_paths = scheme_manager.get_search_path ();
+            var new_paths = new string[search_paths.length + 1];
+            new_paths[0] = theme_dir;
+            for (int i = 0; i < search_paths.length; i++) new_paths[i + 1] = search_paths[i];
+            scheme_manager.set_search_path ((string?[]?) new_paths);
+        }
+
+        apply_preview_scheme ();
+
+        preview_view.set_wrap_mode (Gtk.WrapMode.WORD_CHAR);
+        preview_view.add_css_class ("sourceview");
+        preview_view.set_show_line_numbers (false);
+
+        // 监听系统深浅色模式变化
+        var style_manager = Adw.StyleManager.get_default ();
+        style_manager.notify["dark"].connect (() => apply_preview_scheme ());
+    }
+
+    private void apply_preview_scheme () {
+        bool dark = Adw.StyleManager.get_default ().dark;
+        string scheme_id = dark ? "filecollector-dark" : "filecollector-light";
+        var scheme = scheme_manager.get_scheme (scheme_id);
         if (scheme != null) {
             (preview_view.get_buffer () as GtkSource.Buffer).set_style_scheme (scheme);
         }
-        preview_view.set_wrap_mode (Gtk.WrapMode.WORD_CHAR);
-        preview_view.add_css_class ("sourceview");
     }
 
     private GtkSource.Language? guess_language (string? file_path) {
@@ -2154,7 +2179,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         buffer.set_language (guess_language (file_path));
         buffer.set_highlight_syntax (true);
         buffer.set_text (text, -1);
-        preview_view.show_line_numbers = (text.length > 0);
+        preview_view.set_show_line_numbers (text.length > 0);
     }
 
     private void apply_preview_no_highlight (string text) {
@@ -2169,8 +2194,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var buffer = preview_view.get_buffer () as GtkSource.Buffer;
         buffer.set_highlight_syntax (false);
         buffer.set_text (text, -1);
-        // 空内容时隐藏行号
-        preview_view.show_line_numbers = (text.length > 0);
+        preview_view.set_show_line_numbers (text.length > 0);
     }
 
     // ─── VLM 预处理队列 ────────────────────────────────────────────────
