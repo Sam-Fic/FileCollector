@@ -140,9 +140,7 @@ public class PhrasesPicker : GLib.Object {
     }
 
     private void populate_phrases_picker_list (Gtk.ListBox list_box, Adw.Dialog dialog, bool above) {
-        while (list_box.get_first_child () != null) {
-            list_box.remove (list_box.get_first_child ());
-        }
+        list_box.remove_all ();
 
         if (common_phrases.size == 0) {
             var empty_label = new Gtk.Label (_("暂无常用语"));
@@ -269,9 +267,7 @@ public class PhrasesPicker : GLib.Object {
     }
 
     private void refresh_phrases_list (Gtk.ListBox list_box) {
-        while (list_box.get_first_child () != null) {
-            list_box.remove (list_box.get_first_child ());
-        }
+        list_box.remove_all ();
         for (int i = 0; i < common_phrases.size; i++) {
             var phrase = common_phrases.get (i);
             var row = new Adw.ActionRow ();
