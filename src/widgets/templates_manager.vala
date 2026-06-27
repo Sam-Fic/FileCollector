@@ -122,7 +122,8 @@ public class TemplatesManager : GLib.Object {
 
         var list_box = new Gtk.ListBox ();
         list_box.add_css_class ("boxed-list");
-        list_box.margin_top = 0;
+        list_box.set_selection_mode (Gtk.SelectionMode.NONE);
+        list_box.margin_top = 12;
         list_box.margin_bottom = 12;
         list_box.margin_start = 12;
         list_box.margin_end = 12;
@@ -136,11 +137,6 @@ public class TemplatesManager : GLib.Object {
         var entry_desc = new Adw.EntryRow ();
         entry_desc.set_title (_("描述"));
         entry_desc.set_text (tpl.description);
-
-        list_box.append (entry_id);
-        list_box.append (entry_name);
-        list_box.append (entry_desc);
-
         var entry_header = new Adw.EntryRow ();
         entry_header.set_title (_("头部插入文本"));
         entry_header.set_text (tpl.header_text);
@@ -151,6 +147,9 @@ public class TemplatesManager : GLib.Object {
         entry_prompt.set_title (_("AI 驱动提示词"));
         entry_prompt.set_text (tpl.ai_prompt);
 
+        list_box.append (entry_id);
+        list_box.append (entry_name);
+        list_box.append (entry_desc);
         list_box.append (entry_header);
         list_box.append (entry_footer);
         list_box.append (entry_prompt);
@@ -180,7 +179,11 @@ public class TemplatesManager : GLib.Object {
             edit_dialog.close ();
         });
 
-        toolbar_view.set_content (list_box);
+        var scrolled = new Gtk.ScrolledWindow ();
+        scrolled.set_child (list_box);
+        scrolled.set_vexpand (true);
+        scrolled.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
+        toolbar_view.set_content (scrolled);
         edit_dialog.set_child (toolbar_view);
         edit_dialog.present (dialog);
     }

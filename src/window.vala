@@ -1716,15 +1716,32 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (commit == null) return;
 
             var menu = new GLib.Menu ();
-            menu.append (_("复制提交哈希"), "git.copy_hash");
+            menu.append (_("复制短哈希"), "git.copy_short_hash");
+            menu.append (_("复制完整哈希"), "git.copy_full_hash");
+            menu.append (_("复制提交信息"), "git.copy_message");
 
             var actions = new GLib.SimpleActionGroup ();
-            var act = new GLib.SimpleAction ("copy_hash", null);
-            act.activate.connect (() => {
+
+            var act_short = new GLib.SimpleAction ("copy_short_hash", null);
+            act_short.activate.connect (() => {
+                get_clipboard ().set_text (commit.short_hash);
+                show_toast (_("已复制: %s").printf (commit.short_hash));
+            });
+            actions.add_action (act_short);
+
+            var act_full = new GLib.SimpleAction ("copy_full_hash", null);
+            act_full.activate.connect (() => {
                 get_clipboard ().set_text (commit.hash);
                 show_toast (_("已复制: %s").printf (commit.short_hash));
             });
-            actions.add_action (act);
+            actions.add_action (act_full);
+
+            var act_msg = new GLib.SimpleAction ("copy_message", null);
+            act_msg.activate.connect (() => {
+                get_clipboard ().set_text (commit.message);
+                show_toast (_("已复制提交信息"));
+            });
+            actions.add_action (act_msg);
 
             var popover = new Gtk.PopoverMenu.from_model (menu);
             popover.set_has_arrow (false);
