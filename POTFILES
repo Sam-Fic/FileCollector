@@ -1,6 +1,9 @@
 src/cli.vala
 src/window.vala
 src/window.blp
+src/controllers/ai_controller.vala
+src/models/app_state.vala
+src/models/item_data.vala
 src/widgets/settings_dialog.vala
 src/widgets/phrases_picker.vala
 src/widgets/ai_panel.vala

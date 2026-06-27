@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: filecollector\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-27 10:59+0800\n"
+"POT-Creation-Date: 2026-06-27 11:14+0800\n"
 "PO-Revision-Date: 2026-05-30 01:40+0800\n"
 "Last-Translator: Sam-Fic\n"
 "Language-Team: English\n"
@@ -326,7 +326,8 @@ msgstr "Queue is empty\n"
 msgid "当前编排列表 (%d 项):\n"
 msgstr "Current queue (%d items):\n"
 
-#: src/cli.vala:419
+#: src/cli.vala:419 src/controllers/ai_controller.vala:588
+#: src/models/app_state.vala:31
 msgid "文件"
 msgstr "File"
 
@@ -1021,6 +1022,173 @@ msgstr "Keyboard Shortcuts..."
 msgid "关于 FileCollector"
 msgstr "About FileCollector"
 
+#: src/controllers/ai_controller.vala:97
+msgid "未知工具: "
+msgstr "Unknown tool: "
+
+#: src/controllers/ai_controller.vala:104
+#, fuzzy
+msgid "工作目录未设置"
+msgstr "Working directory set: %s"
+
+#: src/controllers/ai_controller.vala:105
+#: src/controllers/ai_controller.vala:658
+#: src/controllers/ai_controller.vala:702
+msgid "参数错误"
+msgstr "Invalid parameters"
+
+#: src/controllers/ai_controller.vala:161
+#, fuzzy
+msgid "读取目录失败: "
+msgstr "Unable to read directory: %s"
+
+#: src/controllers/ai_controller.vala:210
+msgid "缺少 path"
+msgstr "Missing path"
+
+#: src/controllers/ai_controller.vala:218
+#, fuzzy
+msgid "无法解析路径 (未设置工作目录)"
+msgstr "No working directory set yet"
+
+#: src/controllers/ai_controller.vala:219
+msgid "拒绝访问: 路径超出工作目录范围"
+msgstr "Access denied: path outside work directory"
+
+#: src/controllers/ai_controller.vala:222
+#, fuzzy
+msgid "文件不存在: "
+msgstr "[File does not exist: %s]\n"
+
+#: src/controllers/ai_controller.vala:229
+#, fuzzy
+msgid "读取文件信息失败: "
+msgstr "Failed to read file"
+
+#: src/controllers/ai_controller.vala:239
+#, fuzzy
+msgid "读取失败: "
+msgstr "[Failed to read file: %s]\n"
+
+#: src/controllers/ai_controller.vala:283
+msgid "拒绝访问: 工作目录必须在当前项目目录或用户主目录内"
+msgstr "Access denied: work directory must be within project or home directory"
+
+#: src/controllers/ai_controller.vala:285
+#, fuzzy
+msgid "目录不存在: "
+msgstr "Error: Directory does not exist: %s\n"
+
+#: src/controllers/ai_controller.vala:287
+#, fuzzy
+msgid "工作目录已切换到: "
+msgstr "Working directory set: %s"
+
+#: src/controllers/ai_controller.vala:293
+msgid "缺少 paths"
+msgstr "Missing paths"
+
+#: src/controllers/ai_controller.vala:295
+msgid "paths 必须是数组"
+msgstr "paths must be an array"
+
+#: src/controllers/ai_controller.vala:316
+msgid "$p (无法解析路径)"
+msgstr "$p (cannot resolve path)"
+
+#: src/controllers/ai_controller.vala:320
+#, fuzzy
+msgid "$p (路径超出工作目录)"
+msgstr "Set working directory"
+
+#: src/controllers/ai_controller.vala:325
+#, fuzzy
+msgid "$p (文件不存在)"
+msgstr "[File does not exist: %s]\n"
+
+#: src/controllers/ai_controller.vala:333
+msgid "$p (已在列表中)"
+msgstr "$p (already in list)"
+
+#: src/controllers/ai_controller.vala:347
+#, fuzzy, c-format
+msgid "AI 添加了 %d 个文件"
+msgstr "Added %d file(s)"
+
+#: src/controllers/ai_controller.vala:349
+#, c-format
+msgid "，跳过 %d 个"
+msgstr ", skipped %d"
+
+#: src/controllers/ai_controller.vala:355
+#, c-format
+msgid ""
+"\n"
+"跳过 %d 个:\n"
+msgstr ""
+
+#: src/controllers/ai_controller.vala:389
+#, c-format
+msgid "AI 移除了 %d 个文件"
+msgstr "AI removed %d files"
+
+#: src/controllers/ai_controller.vala:398
+msgid "缺少 text / content"
+msgstr "Missing text / content"
+
+#: src/controllers/ai_controller.vala:431
+#, fuzzy
+msgid "AI 插入了自定义文本"
+msgstr "Insert Custom Text"
+
+#: src/controllers/ai_controller.vala:437
+msgid "缺少 index"
+msgstr "Missing index"
+
+#: src/controllers/ai_controller.vala:461
+msgid "缺少 from_index / to_index"
+msgstr "Missing from_index / to_index"
+
+#: src/controllers/ai_controller.vala:479
+msgid "缺少 value"
+msgstr "Missing value"
+
+#: src/controllers/ai_controller.vala:533
+#, fuzzy
+msgid "AI 清空了编排列表"
+msgstr "Clear the queue"
+
+#: src/controllers/ai_controller.vala:576
+msgid "无效 mode: "
+msgstr "Invalid mode: "
+
+#: src/controllers/ai_controller.vala:599
+msgid "未知 meta 工具: "
+msgstr "Unknown meta tool: "
+
+#: src/controllers/ai_controller.vala:684
+msgid "当前没有已暂存的改动。"
+msgstr "No staged changes."
+
+#: src/controllers/ai_controller.vala:684
+#, fuzzy
+msgid "当前工作区没有未提交的改动。"
+msgstr "No uncommitted changes in working tree"
+
+#: src/controllers/ai_controller.vala:697
+#, fuzzy, c-format
+msgid "已成功将 Git Diff 注入编排列表 (%d 行)。"
+msgstr "Commit diff inserted into list"
+
+#: src/controllers/ai_controller.vala:710
+msgid "未找到该 Commit 的 Diff 或 Commit 不存在。"
+msgstr "Commit diff not found or commit does not exist."
+
+#: src/controllers/ai_controller.vala:731
+#, fuzzy, c-format
+msgid "已成功将 Commit %s 的 Diff 注入编排列表 (%d 行)。"
+msgstr "Commit diff inserted into list"
+
 #: src/widgets/settings_dialog.vala:17
 msgid "设置界面语言"
 msgstr "Set Interface Language"
@@ -1590,10 +1758,6 @@ msgstr ""
 #~ msgid "[缺失文件: %s]"
 #~ msgstr "[Missing file: %s]"
 
-#, c-format
-#~ msgid "[文件不存在: %s]\n"
-#~ msgstr "[File does not exist: %s]\n"
-
 #~ msgid "项目文件 (*.project.json)"
 #~ msgstr "Project File (*.project.json)"
 
@@ -1719,7 +1883,3 @@ msgstr ""
 
 #~ msgid "展开"
 #~ msgstr "Expand"
-
-#, c-format
-#~ msgid "无法读取目录: %s"
-#~ msgstr "Unable to read directory: %s"
