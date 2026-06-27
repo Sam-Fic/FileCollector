@@ -370,10 +370,10 @@ public class AIPanel : GLib.Object {
         if (request_cancellable != null) {
             request_cancellable.cancel ();
         }
-        if (worker_thread != null) {
-            worker_thread.join ();
-            worker_thread = null;
-        }
+        // 不阻塞主线程等待 HTTP 请求超时。
+        // cancel() 会令 libsoup 中断请求, worker 线程将自行退出。
+        // 窗口关闭时进程即将终止, 无需 join。
+        worker_thread = null;
     }
 
     // 供外部 (如 FileCollectorWindow) 查询 AI 是否已被用户停止
