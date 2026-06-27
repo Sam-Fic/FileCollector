@@ -105,7 +105,7 @@ public class TemplatesManager : GLib.Object {
         var edit_dialog = new Adw.Dialog ();
         edit_dialog.set_title (is_new ? _("添加模板") : _("编辑模板"));
         edit_dialog.set_content_width (450);
-        edit_dialog.set_content_height (450);
+        edit_dialog.set_content_height (400);
 
         var toolbar_view = new Adw.ToolbarView ();
         var header = new Adw.HeaderBar ();
@@ -120,10 +120,12 @@ public class TemplatesManager : GLib.Object {
         save_btn.add_css_class ("suggested-action");
         header.pack_end (save_btn);
 
-        var page = new Adw.PreferencesPage ();
-        page.margin_top = 0;
-        var group = new Adw.PreferencesGroup ();
-        page.add (group);
+        var list_box = new Gtk.ListBox ();
+        list_box.add_css_class ("boxed-list");
+        list_box.margin_top = 0;
+        list_box.margin_bottom = 12;
+        list_box.margin_start = 12;
+        list_box.margin_end = 12;
 
         var entry_id = new Adw.EntryRow ();
         entry_id.set_title (_("指令 ID (如 bug)"));
@@ -135,9 +137,9 @@ public class TemplatesManager : GLib.Object {
         entry_desc.set_title (_("描述"));
         entry_desc.set_text (tpl.description);
 
-        group.add (entry_id);
-        group.add (entry_name);
-        group.add (entry_desc);
+        list_box.append (entry_id);
+        list_box.append (entry_name);
+        list_box.append (entry_desc);
 
         var entry_header = new Adw.EntryRow ();
         entry_header.set_title (_("头部插入文本"));
@@ -149,9 +151,9 @@ public class TemplatesManager : GLib.Object {
         entry_prompt.set_title (_("AI 驱动提示词"));
         entry_prompt.set_text (tpl.ai_prompt);
 
-        group.add (entry_header);
-        group.add (entry_footer);
-        group.add (entry_prompt);
+        list_box.append (entry_header);
+        list_box.append (entry_footer);
+        list_box.append (entry_prompt);
 
         save_btn.clicked.connect (() => {
             tpl.id = entry_id.get_text ().strip ();
@@ -178,7 +180,7 @@ public class TemplatesManager : GLib.Object {
             edit_dialog.close ();
         });
 
-        toolbar_view.set_content (page);
+        toolbar_view.set_content (list_box);
         edit_dialog.set_child (toolbar_view);
         edit_dialog.present (dialog);
     }
