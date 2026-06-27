@@ -3485,103 +3485,20 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // ─── 编排列表右键菜单 ───────────────────────────────────────────────────
 
     private void show_queue_context_menu (Gtk.Widget parent, ItemData item, int index, int gx, int gy) {
-        var menu_model = new GLib.Menu ();
-        var action_group = new GLib.SimpleActionGroup ();
         var indices = get_selected_indices ();
-        int count = indices.size;
-        bool single = (count == 1);
-
-        // 编辑与插入 (仅单选)
-        if (single) {
-            var section_edit = new GLib.Menu ();
-
-            var act_edit = new GLib.SimpleAction ("ctx_edit", null);
-            act_edit.set_enabled (item.item_type == "text");
-            act_edit.activate.connect (() => { insert_text (false, item.content, item); });
-            action_group.add_action (act_edit);
-            section_edit.append (_("编辑文本"), "ctx.ctx_edit");
-
-            var act_insert_above = new GLib.SimpleAction ("ctx_insert_above", null);
-            act_insert_above.activate.connect (() => { insert_text (true); });
-            action_group.add_action (act_insert_above);
-            section_edit.append (_("在上方插入文本"), "ctx.ctx_insert_above");
-
-            var act_insert_below = new GLib.SimpleAction ("ctx_insert_below", null);
-            act_insert_below.activate.connect (() => { insert_text (false); });
-            action_group.add_action (act_insert_below);
-            section_edit.append (_("在下方插入文本"), "ctx.ctx_insert_below");
-
-            menu_model.append_section (null, section_edit);
-        }
-
-        // 排序 (仅单选)
-        if (single) {
-            var section_order = new GLib.Menu ();
-
-            var act_move_up = new GLib.SimpleAction ("ctx_move_up", null);
-            act_move_up.set_enabled (index > 0);
-            act_move_up.activate.connect (() => { on_move_up (); });
-            action_group.add_action (act_move_up);
-            section_order.append (_("上移"), "ctx.ctx_move_up");
-
-            var act_move_down = new GLib.SimpleAction ("ctx_move_down", null);
-            act_move_down.set_enabled (index < items.size - 1);
-            act_move_down.activate.connect (() => { on_move_down (); });
-            action_group.add_action (act_move_down);
-            section_order.append (_("下移"), "ctx.ctx_move_down");
-
-            menu_model.append_section (null, section_order);
-        }
-
-        // 文件专属操作 (支持多选)
-        var section_file = new GLib.Menu ();
-        bool can_retry_vlm = count > 0;
-        bool has_external = false;
-
-        foreach (int idx in indices) {
-            if (idx < 0 || idx >= items.size) continue;
-            var it = items.get (idx);
-            if (it.item_type != "file" || !it.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())
-                || it.preprocess_status == PreprocessStatus.PROCESSING) {
-                can_retry_vlm = false;
-            }
-            if (it.item_type == "file" && work_dir != null && it.file_path != null) {
-                if (!it.file_path.has_prefix (work_dir.get_path () + "/")) {
-                    has_external = true;
-                }
-            }
-        }
-
-        if (can_retry_vlm) {
-            var act_retry = new GLib.SimpleAction ("ctx_retry_ai", null);
-            act_retry.activate.connect (() => {
-                foreach (int idx in indices) {
-                    if (idx >= 0 && idx < items.size) on_retry_preprocess (items.get (idx));
-                }
-            });
-            action_group.add_action (act_retry);
-            section_file.append (count > 1 ? _("重新进行 AI 转换 (%d 项)").printf (count) : _("重新进行 AI 转换"), "ctx.ctx_retry_ai");
-        }
-
-        if (has_external) {
-            var act_toggle_abs = new GLib.SimpleAction ("ctx_toggle_absolute", null);
-            act_toggle_abs.activate.connect (() => {
-                push_undo_state ();
-                foreach (int idx in indices) {
-                    if (idx >= 0 && idx < items.size) {
-                        var it = items.get (idx);
-                        if (it.item_type == "file") it.force_absolute = !it.force_absolute;
-                    }
-                }
-                refresh_list ();
-            });
-            action_group.add_action (act_toggle_abs);
-            section_file.append (count > 1 ? _("切换绝对/相对路径 (%d 项)").printf (count) : _("切换绝对/相对路径"), "ctx.ctx_toggle_absolute");
-        }
-
-        if (single && item.item_type == "file" && item.file_path != null) {
-            var act_copy_path = new GLib.SimpleAction ("ctx_copy_path", null);
-            act_copy_path.activate.connect (() => {
+        ContextMenus.show_queue_menu (
+            parent, item, index, gx, gy,
+            indices, items, work_dir, use_absolute,
+            () => { insert_text (false, item.content, item); },
+            () => { insert_text (true); },
+            () => { insert_text (false); },
+            () => { on_move_up (); },
+            () => { on_move_down (); },
+            () => { on_delete_item (); },
+            () => { refresh_list (); },
+            () => { push_undo_state (); },
+            (it) => { on_retry_preprocess (it); },
+            () => {
                 string path_to_copy = item.file_path;
                 if (!item.force_absolute && work_dir != null && !use_absolute) {
                     string wd = work_dir.get_path () + "/";
@@ -3591,82 +3508,32 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 }
                 get_clipboard ().set_text (path_to_copy);
                 show_toast (_("路径已复制到剪贴板"));
-            });
-            action_group.add_action (act_copy_path);
-            section_file.append (_("复制路径"), "ctx.ctx_copy_path");
-
-            var act_show_folder = new GLib.SimpleAction ("ctx_show_folder", null);
-            act_show_folder.activate.connect (() => { show_file_in_folder (item.file_path); });
-            action_group.add_action (act_show_folder);
-            section_file.append (_("在文件管理器中显示"), "ctx.ctx_show_folder");
-        }
-
-        if (section_file.get_n_items () > 0) {
-            menu_model.append_section (null, section_file);
-        }
-
-        // 删除
-        var section_delete = new GLib.Menu ();
-        var act_delete = new GLib.SimpleAction ("ctx_delete", null);
-        act_delete.activate.connect (() => { on_delete_item (); });
-        action_group.add_action (act_delete);
-        section_delete.append (count > 1 ? _("删除 (%d 项)").printf (count) : _("删除"), "ctx.ctx_delete");
-        menu_model.append_section (null, section_delete);
-
-        var popover = new Gtk.PopoverMenu.from_model (menu_model);
-        popover.set_has_arrow (false);
-        popover.set_parent (parent);
-        popover.insert_action_group ("ctx", action_group);
-        popover.add_css_class ("ctx-menu");
-        popover.set_halign (Gtk.Align.START);
-        popover.set_valign (Gtk.Align.START);
-
-        Gdk.Rectangle rect = Gdk.Rectangle () { x = gx, y = gy, width = 1, height = 1 };
-        popover.set_pointing_to (rect);
-        popover.popup ();
+            },
+            () => { show_file_in_folder (item.file_path); }
+        );
     }
 
     // ─── 目录树右键菜单 ─────────────────────────────────────────────────────
 
     private void show_tree_context_menu (Gtk.Widget parent, DirectoryItem item, int gx, int gy) {
-        var menu_model = new GLib.Menu ();
-        var action_group = new GLib.SimpleActionGroup ();
-
-        var act_copy_path = new GLib.SimpleAction ("tree_copy_path", null);
-        act_copy_path.activate.connect (() => {
-            string path_to_copy = item.path;
-            if (work_dir != null) {
-                string wd = work_dir.get_path () + "/";
-                if (path_to_copy.has_prefix (wd)) {
-                    path_to_copy = path_to_copy.substring (wd.length);
+        ContextMenus.show_tree_menu (
+            parent, item, gx, gy, work_dir,
+            () => {
+                string path_to_copy = item.path;
+                if (work_dir != null) {
+                    string wd = work_dir.get_path () + "/";
+                    if (path_to_copy.has_prefix (wd)) {
+                        path_to_copy = path_to_copy.substring (wd.length);
+                    }
                 }
-            }
-            get_clipboard ().set_text (path_to_copy);
-            show_toast (_("路径已复制到剪贴板"));
-        });
-        action_group.add_action (act_copy_path);
-        menu_model.append (_("复制路径"), "tree.tree_copy_path");
-
-        var act_show_folder = new GLib.SimpleAction ("tree_show_folder", null);
-        act_show_folder.activate.connect (() => {
-            string target_path = item.is_dir ? item.path : GLib.Path.get_dirname (item.path);
-            show_file_in_folder (target_path);
-        });
-        action_group.add_action (act_show_folder);
-        menu_model.append (_("在文件管理器中显示"), "tree.tree_show_folder");
-
-        if (!item.is_dir) {
-            var act_copy_content = new GLib.SimpleAction ("tree_copy_content", null);
-            bool is_likely_text = true;
-            string lower = item.path.down ();
-            string[] bin_exts = { ".pdf", ".docx", ".pptx", ".xlsx", ".zip", ".tar", ".gz",
-                                  ".png", ".jpg", ".jpeg", ".exe", ".so", ".dylib" };
-            foreach (var ext in bin_exts) {
-                if (lower.has_suffix (ext)) { is_likely_text = false; break; }
-            }
-            act_copy_content.set_enabled (is_likely_text);
-
-            act_copy_content.activate.connect (() => {
+                get_clipboard ().set_text (path_to_copy);
+                show_toast (_("路径已复制到剪贴板"));
+            },
+            () => {
+                string target_path = item.is_dir ? item.path : GLib.Path.get_dirname (item.path);
+                show_file_in_folder (target_path);
+            },
+            () => {
                 try {
                     uint8[] data;
                     FileUtils.get_data (item.path, out data);
@@ -3680,61 +3547,22 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 } catch (Error e) {
                     show_toast (_("读取文件失败"));
                 }
-            });
-            action_group.add_action (act_copy_content);
-            menu_model.append (_("复制文件内容"), "tree.tree_copy_content");
-        }
-
-        var popover = new Gtk.PopoverMenu.from_model (menu_model);
-        popover.set_has_arrow (false);
-        popover.set_parent (parent);
-        popover.insert_action_group ("tree", action_group);
-        // 统一两个右键菜单的字号, 避免从父容器 (.file-tree 14px) 继承导致不一致
-        popover.add_css_class ("ctx-menu");
-        // 让菜单的左上角对齐到鼠标点击位置 (默认会水平居中, 导致鼠标箭头落在菜单顶部中点)
-        popover.set_halign (Gtk.Align.START);
-        popover.set_valign (Gtk.Align.START);
-
-        Gdk.Rectangle rect = Gdk.Rectangle () { x = gx, y = gy, width = 1, height = 1 };
-        popover.set_pointing_to (rect);
-        popover.popup ();
+            }
+        );
     }
 
     // ─── 系统级辅助方法 ─────────────────────────────────────────────────────
 
     private void show_file_in_folder (string path) {
-        var file = File.new_for_path (path);
-        if (!file.query_exists ()) return;
-
-        File target = file;
-        if (file.query_file_type (FileQueryInfoFlags.NONE) != FileType.DIRECTORY) {
-            target = file.get_parent ();
-            if (target == null) return;
-        }
-
-        try {
-            Gtk.show_uri (this, target.get_uri (), Gdk.CURRENT_TIME);
-        } catch (Error e) {
-            warning ("Failed to open folder: %s", e.message);
-            show_toast (_("无法打开文件管理器"));
-        }
+        UIHelpers.show_file_in_folder (this, path);
     }
 
     private static string format_preview_size (int64 size) {
-        if (size < 1024) return size.to_string () + " B";
-        if (size < 1024 * 1024) return "%.1f KB".printf (size / 1024.0);
-        if (size < 1024 * 1024 * 1024) return "%.1f MB".printf (size / 1024.0 / 1024.0);
-        return "%.1f GB".printf (size / 1024.0 / 1024.0 / 1024.0);
+        return UIHelpers.format_size (size);
     }
 
-    // 按字节长度截断, 但不切断多字节 UTF-8 字符, 避免乱码
     private static string truncate_utf8 (string text, int max_bytes) {
-        if (text.length <= max_bytes) return text;
-        int cut = max_bytes;
-        while (cut > 0 && !text[0:cut].validate (-1)) {
-            cut--;
-        }
-        return text[0:cut];
+        return UIHelpers.truncate_utf8 (text, max_bytes);
     }
 
     // ─── Options ─────────────────────────────────────────────────────────
@@ -3870,60 +3698,15 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private string build_toc_prompt_context () {
-        var sb = new StringBuilder ();
-        foreach (var item in items) {
-            if (item.item_type == "file" && item.file_path != null) {
-                string rel_path = item.file_path;
-                if (work_dir != null && rel_path.has_prefix (work_dir.get_path () + "/")) {
-                    rel_path = rel_path.substring (work_dir.get_path ().length + 1);
-                }
-                sb.append ("### ").append (rel_path).append ("\n");
-                try {
-                    var file = File.new_for_path (item.file_path);
-                    var dis = new DataInputStream (file.read ());
-                    string? line;
-                    int count = 0;
-                    while ((line = dis.read_line (null)) != null && count < 15) {
-                        sb.append (line).append ("\n");
-                        count++;
-                    }
-                } catch (Error e) {
-                    sb.append (_("[无法读取文件内容]\n"));
-                }
-                sb.append ("\n");
-            } else if (item.item_type == "text") {
-                sb.append (_("### [自定义文本片段]\n"));
-                string preview = item.content ?? "";
-                if (preview.length > 200) preview = preview.substring (0, 200) + "...";
-                sb.append (preview).append ("\n\n");
-            }
-        }
-        return sb.str;
+        return UIHelpers.build_toc_prompt_context (items, work_dir);
     }
 
     private string build_toc_prompt (string context) {
-        return "你是一个高级软件架构师和文档专家。我将提供一个项目中的一系列文件路径及其开头部分的代码/内容摘要。\n" +
-               "请你根据这些信息，为这些文件生成一份结构化的 Markdown 格式的「阅读指南与目录」，并包含「文件关联性分析」。\n" +
-               "要求：\n" +
-               "1. 使用 Markdown 语法。\n" +
-               "2. 将文件按逻辑模块或功能进行分类（如：核心逻辑、配置文件、UI 组件、工具类等）。\n" +
-               "3. 为每个文件提供一句话的简要说明（基于文件名和代码内容推断）。\n" +
-               "4. 在「文件关联性分析」部分，简述这些文件是如何协同工作的，数据流或调用关系是怎样的。\n" +
-               "5. 直接输出 Markdown 内容，不要包含任何额外的解释或前言后语。\n\n" +
-               "以下是文件列表及摘要：\n\n" + context;
+        return UIHelpers.build_toc_prompt (context);
     }
 
     private string clean_ai_markdown (string raw) {
-        string s = raw.strip ();
-        if (s.has_prefix ("```markdown")) {
-            s = s.substring (11).strip ();
-        } else if (s.has_prefix ("```")) {
-            s = s.substring (3).strip ();
-        }
-        if (s.has_suffix ("```")) {
-            s = s.substring (0, s.length - 3).strip ();
-        }
-        return s;
+        return UIHelpers.clean_ai_markdown (raw);
     }
 
     // ─── Project ─────────────────────────────────────────────────────────
