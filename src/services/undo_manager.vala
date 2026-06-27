@@ -177,8 +177,6 @@ public class UndoManager : GLib.Object {
     private bool in_progress = false;
     private const int MAX_STACK_DEPTH = 50;
 
-    public signal void state_changed ();
-
     public UndoManager () {
         undo_stack = new Gee.ArrayList<UndoDelta> ();
         redo_stack = new Gee.ArrayList<UndoDelta> ();
@@ -191,7 +189,6 @@ public class UndoManager : GLib.Object {
             undo_stack.remove_at (0);
         }
         redo_stack.clear ();
-        state_changed ();
     }
 
     public UndoDelta? pop_undo () {
@@ -199,19 +196,16 @@ public class UndoManager : GLib.Object {
         var delta = undo_stack.get ((int) undo_stack.size - 1);
         undo_stack.remove_at ((int) undo_stack.size - 1);
         in_progress = true;
-        state_changed ();
         in_progress = false;
         return delta;
     }
 
     public void push_redo (UndoDelta delta) {
         redo_stack.add (delta);
-        state_changed ();
     }
 
     public void push_undo (UndoDelta delta) {
         undo_stack.add (delta);
-        state_changed ();
     }
 
     public UndoDelta? pop_redo () {
@@ -219,7 +213,6 @@ public class UndoManager : GLib.Object {
         var delta = redo_stack.get ((int) redo_stack.size - 1);
         redo_stack.remove_at ((int) redo_stack.size - 1);
         in_progress = true;
-        state_changed ();
         in_progress = false;
         return delta;
     }
@@ -227,6 +220,5 @@ public class UndoManager : GLib.Object {
     public void clear () {
         undo_stack.clear ();
         redo_stack.clear ();
-        state_changed ();
     }
 }
