@@ -443,6 +443,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // Git 模式状态
     private bool is_git_mode = false;
     private GLib.ListStore git_commit_store;
+
+    // 目录加载进度条
+    private Gtk.Revealer dir_load_revealer;
+    private Gtk.ProgressBar dir_load_progress;
+    private Gtk.Label dir_load_label;
     private Gtk.SingleSelection git_selection;
     private Gee.ArrayList<GitCommit> git_commits;
     private string git_search_text = "";
@@ -1661,7 +1666,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         git_list_view.model = git_selection;
         git_list_view.factory = factory;
 
-        // Set stack page names for existing children (already added by Blueprint)
+        // Register stack pages by name
         left_stack.get_page (tree_page).set_name ("tree_page");
         left_stack.get_page (git_page).set_name ("git_page");
         action_stack.get_page (normal_actions).set_name ("normal_actions");
@@ -1669,8 +1674,33 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         left_stack.visible_child = tree_page;
         action_stack.visible_child = normal_actions;
 
+        // 目录加载进度条 (添加到 left_stack 的父容器)
+        dir_load_label = new Gtk.Label (null);
+        dir_load_label.xalign = 0;
+        dir_load_label.add_css_class ("dim-label");
+        dir_load_label.add_css_class ("caption");
+
+        dir_load_progress = new Gtk.ProgressBar ();
+        dir_load_progress.add_css_class ("osd");
+
+        var dir_load_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 2);
+        dir_load_box.margin_start = 12;
+        dir_load_box.margin_end = 12;
+        dir_load_box.margin_bottom = 6;
+        dir_load_box.append (dir_load_label);
+        dir_load_box.append (dir_load_progress);
+
+        dir_load_revealer = new Gtk.Revealer ();
+        dir_load_revealer.transition_type = Gtk.RevealerTransitionType.SLIDE_DOWN;
+        dir_load_revealer.reveal_child = false;
+        dir_load_revealer.set_child (dir_load_box);
+
+        var parent_box = left_stack.get_parent () as Gtk.Box;
+        if (parent_box != null) {
+            parent_box.append (dir_load_revealer);
+        }
+
         btn_toggle_git.clicked.connect (on_toggle_git_mode);
-        btn_global_search.clicked.connect (on_global_search);
         git_search_entry.search_changed.connect (on_git_search_changed);
 
         btn_git_add_all_changed.clicked.connect (on_git_add_all_changed);
@@ -2861,11 +2891,22 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         int chunk_size = 100;
         int current_offset = 0;
 
+        // 显示进度条
+        if (total_items > chunk_size) {
+            Idle.add (() => {
+                dir_load_label.set_text (_("正在加载 %d 个项目...").printf (total_items));
+                dir_load_progress.set_fraction (0);
+                dir_load_revealer.reveal_child = true;
+                return Source.REMOVE;
+            });
+        }
+
         GLib.Idle.add (() => {
             if (window_closing) {
                 return GLib.Source.REMOVE;
             }
             if (parent == null || parent.children == null) {
+                dir_load_revealer.reveal_child = false;
                 return GLib.Source.REMOVE;
             }
 
@@ -2877,11 +2918,20 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             }
 
             current_offset = limit;
-            if (current_offset < total_items) {
-                return GLib.Source.CONTINUE; // 未完成, 下一帧主循环继续分批加载
+
+            // 更新进度
+            if (total_items > chunk_size) {
+                double frac = (double) current_offset / total_items;
+                dir_load_progress.set_fraction (frac);
+                dir_load_label.set_text (_("已加载 %d / %d").printf (current_offset, total_items));
             }
 
-            // 加载完毕: 标记已加载，刷新整个树的状态 (确保祖先节点能汇总新加载的子树)
+            if (current_offset < total_items) {
+                return GLib.Source.CONTINUE;
+            }
+
+            // 加载完毕: 隐藏进度条
+            dir_load_revealer.reveal_child = false;
             parent.children_loading = false;
             parent.children_loaded = true;
             refresh_all_tree_states ();
