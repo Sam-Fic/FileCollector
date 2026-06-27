@@ -66,11 +66,9 @@ public class BinaryConverter : GLib.Object {
 
     private static string? convert_office_to_pdf (string src) {
         // 输出到临时目录, 避免 PDF 落在用户工作目录中被文件收集器扫描
-        string tmp_dir;
-        try {
-            tmp_dir = DirUtils.make_tmp ("fc_pdf_XXXXXX");
-        } catch (Error e) {
-            warning ("Failed to create tmp dir for PDF: %s", e.message);
+        string? tmp_dir = DirUtils.make_tmp ("fc_pdf_XXXXXX");
+        if (tmp_dir == null) {
+            warning ("Failed to create tmp dir for PDF");
             return null;
         }
         string[] argv = {"soffice", "--headless", "--convert-to", "pdf", "--outdir", tmp_dir, src};
@@ -90,11 +88,9 @@ public class BinaryConverter : GLib.Object {
     }
 
     private static string[]? render_pdf_to_base64_images (string pdf_path) {
-        string tmp_dir;
-        try {
-            tmp_dir = DirUtils.make_tmp ("fc_vlm_XXXXXX");
-        } catch (Error e) {
-            warning ("Failed to create tmp dir: %s", e.message);
+        string? tmp_dir = DirUtils.make_tmp ("fc_vlm_XXXXXX");
+        if (tmp_dir == null) {
+            warning ("Failed to create tmp dir for VLM");
             return null;
         }
 
