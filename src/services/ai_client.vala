@@ -226,6 +226,20 @@ private static Json.Node get_git_commit_diff_params () {
     return SchemaHelper.obj_to_node (make_param ("object", SchemaHelper.obj_to_node (props), { "commit_hash" }));
 }
 
+private static Json.Node add_git_diff_params () {
+    var props = new Json.Object ();
+    props.set_member ("staged", SchemaHelper.obj_to_node (bool_prop (
+        "Whether to add the staged diff (true) or unstaged working tree diff (false). Default is false.")));
+    return SchemaHelper.obj_to_node (make_param ("object", SchemaHelper.obj_to_node (props)));
+}
+
+private static Json.Node add_git_commit_diff_params () {
+    var props = new Json.Object ();
+    props.set_member ("commit_hash", SchemaHelper.obj_to_node (str_prop (
+        "The hash of the commit whose diff should be added to the list.")));
+    return SchemaHelper.obj_to_node (make_param ("object", SchemaHelper.obj_to_node (props), { "commit_hash" }));
+}
+
 private static Json.Object make_tool (string name, string desc, Json.Node params) {
     var fn = new Json.Object ();
     fn.set_string_member ("name", name);
@@ -338,6 +352,16 @@ public static Json.Node build_full_tool_schema () {
         "get_git_commit_diff",
         "Get the diff of a specific Git commit by its hash.",
         AI.SchemaHelper.get_git_commit_diff_params ()));
+    arr.add_object_element (AI.SchemaHelper.make_tool (
+        "add_git_diff",
+        "Inject the current Git working tree or staged diff directly into the orchestration list as a Markdown code block. "
+        + "Use this instead of reading the diff and using add_text, to save tokens and avoid API limits.",
+        AI.SchemaHelper.add_git_diff_params ()));
+    arr.add_object_element (AI.SchemaHelper.make_tool (
+        "add_git_commit_diff",
+        "Inject the diff of a specific Git commit directly into the orchestration list. "
+        + "Requires the commit hash. Use this to export historical changes without passing the diff text through the LLM.",
+        AI.SchemaHelper.add_git_commit_diff_params ()));
     return AI.SchemaHelper.arr_to_node (arr);
 }
 

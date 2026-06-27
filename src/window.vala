@@ -1706,6 +1706,39 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         box.append (msg_label);
         box.append (date_label);
 
+        // 右键菜单: 复制提交哈希
+        var right_click = new Gtk.GestureClick ();
+        right_click.set_button (Gdk.BUTTON_SECONDARY);
+        right_click.pressed.connect ((n_press, gx, gy) => {
+            var li = obj as Gtk.ListItem;
+            if (li == null) return;
+            var commit = li.get_item () as GitCommit;
+            if (commit == null) return;
+
+            var menu = new GLib.Menu ();
+            menu.append (_("复制提交哈希"), "git.copy_hash");
+
+            var actions = new GLib.SimpleActionGroup ();
+            var act = new GLib.SimpleAction ("copy_hash", null);
+            act.activate.connect (() => {
+                get_clipboard ().set_text (commit.hash);
+                show_toast (_("已复制: %s").printf (commit.short_hash));
+            });
+            actions.add_action (act);
+
+            var popover = new Gtk.PopoverMenu.from_model (menu);
+            popover.set_has_arrow (false);
+            popover.set_parent (box);
+            popover.insert_action_group ("git", actions);
+            popover.add_css_class ("ctx-menu");
+            popover.set_halign (Gtk.Align.START);
+            popover.set_valign (Gtk.Align.START);
+            Gdk.Rectangle rect = { (int) gx, (int) gy, 1, 1 };
+            popover.set_pointing_to (rect);
+            popover.popup ();
+        });
+        box.add_controller (right_click);
+
         list_item.set_child (box);
     }
 

@@ -91,6 +91,8 @@ public class AIController : GLib.Object {
             case "get_git_diff": return tool_get_git_diff (args);
             case "get_git_log": return tool_get_git_log (args);
             case "get_git_commit_diff": return tool_get_git_commit_diff (args);
+            case "add_git_diff": return tool_add_git_diff (args);
+            case "add_git_commit_diff": return tool_add_git_commit_diff (args);
             default:
                 return _("未知工具: ") + name;
         }
@@ -603,7 +605,15 @@ public class AIController : GLib.Object {
         if (app_state.work_dir == null) return "Error: Work directory not set.";
         string output = GitService.get_status (app_state.work_dir.get_path ());
         if (output.strip ().length == 0) return "Working tree is clean. No uncommitted changes.";
-        return output;
+
+        string repo_root = "";
+        try {
+            repo_root = GitService.run_git (app_state.work_dir.get_path (), { "rev-parse", "--show-toplevel" }).strip ();
+        } catch (Error e) {
+            repo_root = app_state.work_dir.get_path ();
+        }
+
+        return "REPO_ROOT=" + repo_root + "\n" + output;
     }
 
     private string tool_get_git_diff (Json.Node args) throws GLib.Error {
@@ -645,7 +655,7 @@ public class AIController : GLib.Object {
 
     private string tool_get_git_commit_diff (Json.Node args) throws GLib.Error {
         if (app_state.work_dir == null) return "Error: Work directory not set.";
-        if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
+        if (args.get_node_type () != Json.NodeType.OBJECT) return _("参数错误");
         var o = args.get_object ();
         if (!o.has_member ("commit_hash")) return "Missing commit_hash";
         string hash = o.get_string_member ("commit_hash");
@@ -656,6 +666,69 @@ public class AIController : GLib.Object {
             return output.substring (0, MAX_DIFF_BYTES) + "\n\n... [Commit Diff truncated]";
         }
         return output;
+    }
+
+    private string tool_add_git_diff (Json.Node args) throws GLib.Error {
+        if (app_state.work_dir == null) return "Error: Work directory not set.";
+        bool staged = false;
+        if (args.get_node_type () == Json.NodeType.OBJECT) {
+            var o = args.get_object ();
+            if (o.has_member ("staged")) staged = o.get_boolean_member ("staged");
+        }
+
+        string diff = staged
+            ? GitService.get_staged_diff (app_state.work_dir.get_path ())
+            : GitService.get_working_tree_diff (app_state.work_dir.get_path ());
+
+        if (diff.strip ().length == 0) {
+            return staged ? _("当前没有已暂存的改动。") : _("当前工作区没有未提交的改动。");
+        }
+
+        string md_text = "# Git %s Diff\n\n```diff\n%s\n```".printf (staged ? "Staged" : "Working Tree", diff);
+        var item = new ItemData ("text", null, md_text, false);
+        int insert_idx = app_state.items.size;
+        var inserted = new Gee.ArrayList<ItemData> ();
+        inserted.add (item);
+        undo_delta_requested (new UndoDelta.for_insert (insert_idx, inserted));
+        app_state.add_item (item, insert_idx);
+        refresh_list_requested ();
+
+        int lines = diff.split ("\n").length;
+        return _("已成功将 Git Diff 注入编排列表 (%d 行)。").printf (lines);
+    }
+
+    private string tool_add_git_commit_diff (Json.Node args) throws GLib.Error {
+        if (app_state.work_dir == null) return "Error: Work directory not set.";
+        if (args.get_node_type () != Json.NodeType.OBJECT) return _("参数错误");
+        var o = args.get_object ();
+        if (!o.has_member ("commit_hash")) return "Missing commit_hash";
+        string hash = o.get_string_member ("commit_hash");
+        if (hash.length < 7 || hash.length > 40) return "Invalid commit hash.";
+
+        string diff = GitService.get_commit_diff (app_state.work_dir.get_path (), hash);
+        if (diff.strip ().length == 0) {
+            return _("未找到该 Commit 的 Diff 或 Commit 不存在。");
+        }
+
+        string info = "";
+        try {
+            info = GitService.run_git (app_state.work_dir.get_path (), { "log", "-1", "--pretty=format:%s", hash }).strip ();
+        } catch (Error e) {
+            info = hash.substring (0, 7);
+        }
+
+        string md_text = "# Git Commit: %s (%s)\n\n```diff\n%s\n```".printf (
+            hash.substring (0, int.min (7, hash.length)), info, diff);
+        var item = new ItemData ("text", null, md_text, false);
+        int insert_idx = app_state.items.size;
+        var inserted = new Gee.ArrayList<ItemData> ();
+        inserted.add (item);
+        undo_delta_requested (new UndoDelta.for_insert (insert_idx, inserted));
+        app_state.add_item (item, insert_idx);
+        refresh_list_requested ();
+
+        int lines = diff.split ("\n").length;
+        return _("已成功将 Commit %s 的 Diff 注入编排列表 (%d 行)。").printf (hash.substring (0, 7), lines);
     }
 
     // ─── 静态辅助方法 ────────────────────────────────────────────────

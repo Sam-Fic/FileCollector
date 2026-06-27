@@ -1007,7 +1007,9 @@ public class AIPanel : GLib.Object {
             + "- get_git_status(): check what files are modified/untracked in the working tree.\n"
             + "- get_git_diff(staged?): read the exact code changes to understand the user's current task.\n"
             + "- get_git_log(max_count?): list recent commits to find historical context.\n"
-            + "- get_git_commit_diff(commit_hash): inspect the code changes of a specific past commit.\n\n"
+            + "- get_git_commit_diff(commit_hash): inspect the code changes of a specific past commit.\n"
+            + "- add_git_diff(staged?): inject the current Git diff directly into the list (bypasses LLM context, saves tokens).\n"
+            + "- add_git_commit_diff(commit_hash): inject a specific commit's diff directly into the list.\n\n"
             + "Workflow rules:\n"
             + "1. Prefer tool calls over asking the user for paths you can discover yourself. "
             + "If the user says 'add all files about X' or 'find files matching Y', call "
@@ -1033,7 +1035,11 @@ public class AIPanel : GLib.Object {
             + "the bug I just fixed', ALWAYS call `get_git_status` and `get_git_diff` first. "
             + "Analyze the diff to identify ALL related files (including headers, configs, or "
             + "test files that might not show up in the diff but are relevant), then use "
-            + "`add_files` to collect them."
+            + "`add_files` to collect them.\n"
+            + "8. CRITICAL: When the user asks to 'export diff', 'add changes to context', or 'collect PR diff', "
+            + "NEVER use `get_git_diff` combined with `add_text`. Passing large diffs through the LLM context wastes tokens "
+            + "and risks API truncation. ALWAYS use the dedicated `add_git_diff` or `add_git_commit_diff` tools. "
+            + "These tools fetch the diff locally and inject it into the list bypassing the LLM context entirely."
         );
     }
 
