@@ -3,6 +3,9 @@ using Gee;
 // 单一真相源 (Single Source of Truth)
 // 持有 FileCollector 的核心业务状态，并通过信号通知 View/Controller 变更。
 public class AppState : GLib.Object {
+    // 内部可变列表: 外部代码应优先使用 add_item/remove_item_at 等方法修改,
+    // 这些方法会自动触发 items_changed 信号.
+    // 若直接修改 items (如 items.add/remove_at), 必须手动调用 items_changed() 通知 UI.
     public Gee.ArrayList<ItemData> items { get; private set; }
     public CheckStateModel check_model { get; private set; }
     public Gee.ArrayList<string> common_phrases { get; private set; }
