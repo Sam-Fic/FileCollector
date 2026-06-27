@@ -240,6 +240,15 @@ private static Json.Node add_git_commit_diff_params () {
     return SchemaHelper.obj_to_node (make_param ("object", SchemaHelper.obj_to_node (props), { "commit_hash" }));
 }
 
+private static Json.Node add_git_diff_range_params () {
+    var props = new Json.Object ();
+    props.set_member ("from_hash", SchemaHelper.obj_to_node (str_prop (
+        "The starting commit hash (exclusive). Use 'HEAD~N' or a specific hash.")));
+    props.set_member ("to_hash", SchemaHelper.obj_to_node (str_prop (
+        "The ending commit hash (inclusive). Defaults to 'HEAD'.")));
+    return SchemaHelper.obj_to_node (make_param ("object", SchemaHelper.obj_to_node (props), { "from_hash" }));
+}
+
 private static Json.Object make_tool (string name, string desc, Json.Node params) {
     var fn = new Json.Object ();
     fn.set_string_member ("name", name);
@@ -346,7 +355,9 @@ public static Json.Node build_full_tool_schema () {
         AI.SchemaHelper.get_git_diff_params ()));
     arr.add_object_element (AI.SchemaHelper.make_tool (
         "get_git_log",
-        "List recent Git commits. Use this to find a specific historical change.",
+        "List recent Git commits in reverse chronological order (newest first). "
+        + "Each entry includes: short hash, author, date (YYYY-MM-DD), and commit message. "
+        + "Use this to find commit hashes for range operations or to understand recent history.",
         AI.SchemaHelper.get_git_log_params ()));
     arr.add_object_element (AI.SchemaHelper.make_tool (
         "get_git_commit_diff",
@@ -362,6 +373,12 @@ public static Json.Node build_full_tool_schema () {
         "Inject the diff of a specific Git commit directly into the orchestration list. "
         + "Requires the commit hash. Use this to export historical changes without passing the diff text through the LLM.",
         AI.SchemaHelper.add_git_commit_diff_params ()));
+    arr.add_object_element (AI.SchemaHelper.make_tool (
+        "add_git_diff_range",
+        "Inject the combined diff of a range of commits (from_hash..to_hash) directly into the orchestration list. "
+        + "Use this when the user asks to 'add all diffs from commit X to Y' or 'export changes since commit X'. "
+        + "This is much more efficient than calling add_git_commit_diff for each commit individually.",
+        AI.SchemaHelper.add_git_diff_range_params ()));
     return AI.SchemaHelper.arr_to_node (arr);
 }
 

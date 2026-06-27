@@ -91,6 +91,7 @@ public class AIController : GLib.Object {
             case "get_git_commit_diff": return tool_get_git_commit_diff (args);
             case "add_git_diff": return tool_add_git_diff (args);
             case "add_git_commit_diff": return tool_add_git_commit_diff (args);
+            case "add_git_diff_range": return tool_add_git_diff_range (args);
             default:
                 return _("未知工具: ") + name;
         }
@@ -726,6 +727,51 @@ public class AIController : GLib.Object {
 
         int lines = diff.split ("\n").length;
         return _("已成功将 Commit %s 的 Diff 注入编排列表 (%d 行)。").printf (hash.substring (0, 7), lines);
+    }
+
+    private string tool_add_git_diff_range (Json.Node args) throws GLib.Error {
+        if (app_state.work_dir == null) return "Error: Work directory not set.";
+        if (args.get_node_type () != Json.NodeType.OBJECT) return _("参数错误");
+        var o = args.get_object ();
+        if (!o.has_member ("from_hash")) return "Missing from_hash";
+        string from_hash = o.get_string_member ("from_hash");
+        string to_hash = o.has_member ("to_hash") ? o.get_string_member ("to_hash") : "HEAD";
+
+        if (from_hash.length < 4 || from_hash.length > 64) return "Invalid from_hash.";
+        if (to_hash.length < 1 || to_hash.length > 64) return "Invalid to_hash.";
+
+        // git diff from..to gives the combined diff
+        string diff = GitService.run_git (app_state.work_dir.get_path (), { "diff", from_hash + ".." + to_hash });
+        if (diff.strip ().length == 0) {
+            return _("从 %s 到 %s 没有代码差异。").printf (from_hash, to_hash);
+        }
+
+        // Get commit count in range for the title
+        string log_output = GitService.run_git (app_state.work_dir.get_path (), {
+            "log", "--oneline", from_hash + ".." + to_hash
+        });
+        int commit_count = 0;
+        foreach (var line in log_output.split ("\n")) {
+            if (line.strip ().length > 0) commit_count++;
+        }
+
+        string md_text = "# Git Diff: %s..%s (%d commits)\n\n```diff\n%s\n```".printf (
+            from_hash.substring (0, int.min (7, from_hash.length)),
+            to_hash == "HEAD" ? "HEAD" : to_hash.substring (0, int.min (7, to_hash.length)),
+            commit_count, diff);
+        var item = new ItemData ("text", null, md_text, false);
+        int insert_idx = app_state.items.size;
+        var inserted = new Gee.ArrayList<ItemData> ();
+        inserted.add (item);
+        undo_delta_requested (new UndoDelta.for_insert (insert_idx, inserted));
+        app_state.add_item (item, insert_idx);
+        refresh_list_requested ();
+
+        int lines = diff.split ("\n").length;
+        return _("已成功将 %s..%s 的 Diff 注入编排列表 (%d commits, %d 行)。").printf (
+            from_hash.substring (0, int.min (7, from_hash.length)),
+            to_hash == "HEAD" ? "HEAD" : to_hash.substring (0, int.min (7, to_hash.length)),
+            commit_count, lines);
     }
 
     // ─── 静态辅助方法 ────────────────────────────────────────────────
