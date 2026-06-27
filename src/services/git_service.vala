@@ -44,14 +44,14 @@ public class GitService : GLib.Object {
     public static ArrayList<GitCommit> get_log (string work_dir, int max_count = 50) throws GLib.Error {
         string output = run_git (work_dir, {
             "log", "-n", max_count.to_string (),
-            "--pretty=format:%H|%an|%ad|%s", "--date=short"
+            "--pretty=format:%H%x1f%an%x1f%ad%x1f%s", "--date=short"
         });
 
         var commits = new ArrayList<GitCommit> ();
         foreach (var line in output.split ("\n")) {
             string trimmed = line.strip ();
             if (trimmed.length == 0) continue;
-            string[] parts = trimmed.split ("|", 4);
+            string[] parts = trimmed.split ("\x1f", 4);
             if (parts.length < 4) continue;
             commits.add (new GitCommit (parts[0], parts[1], parts[2], parts[3]));
         }
