@@ -426,7 +426,23 @@ popover.ctx-menu separator {
     min-width: 40px;
 }
 
-/* VLM 预处理进度卡片 */
+/* GtkSourceView 预览: 去除行号和背景色, 跟随系统深浅色 */
+.sourceview {
+    background-color: transparent;
+}
+
+.sourceview text {
+    background-color: transparent;
+}
+
+.sourceview border {
+    background-color: transparent;
+    color: transparent;
+}
+
+.sourceview gutter {
+    background-color: transparent;
+}
 .vlm-progress-card {
     background: @card_bg_color;
     border: 1px solid alpha(@borders, 0.5);

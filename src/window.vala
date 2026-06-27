@@ -2119,6 +2119,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             (preview_view.get_buffer () as GtkSource.Buffer).set_style_scheme (scheme);
         }
         preview_view.set_wrap_mode (Gtk.WrapMode.WORD_CHAR);
+        preview_view.add_css_class ("sourceview");
     }
 
     private GtkSource.Language? guess_language (string? file_path) {
