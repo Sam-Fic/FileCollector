@@ -69,9 +69,14 @@ public class MultimodalAIClient : GLib.Object {
         if (root == null || root.get_node_type () != Json.NodeType.OBJECT)
             throw new IOError.FAILED ("Invalid response format");
 
-        string content = root.get_object ()
-            .get_array_member ("choices").get_object_element (0)
-            .get_object_member ("message").get_string_member ("content");
+        var root_obj = root.get_object ();
+        if (root_obj == null) throw new IOError.FAILED ("Response root is not an object");
+        var choices = root_obj.get_array_member ("choices");
+        if (choices == null || choices.get_length () == 0) throw new IOError.FAILED ("Empty choices array");
+        var resp_msg = choices.get_object_element (0).get_object_member ("message");
+        if (resp_msg == null) throw new IOError.FAILED ("Missing message object");
+        string? content = resp_msg.get_string_member ("content");
+        if (content == null) throw new IOError.FAILED ("Missing content in response");
 
         // 去掉 API 响应开头/结尾的多余空行
         content = content.strip ();
