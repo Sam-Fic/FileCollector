@@ -362,19 +362,8 @@ public class CliController : GLib.Object {
             return false;
         }
         if (from == to) return true;
-        var tmp = items.get (from);
-        if (from < to) {
-            // 向后移动: [from+1..to] 各前移一位
-            for (int i = from; i < to; i++) {
-                items.set (i, items.get (i + 1));
-            }
-        } else {
-            // 向前移动: [to..from-1] 各后移一位
-            for (int i = from; i > to; i--) {
-                items.set (i, items.get (i - 1));
-            }
-        }
-        items.set (to, tmp);
+        var tmp = items.remove_at (from);
+        items.insert (to, tmp);
         stdout.printf (_("✓ 已将项目从索引 %d 移动到 %d\n"), from, to);
         operation_messages.add (_("已移动项目 %d → %d").printf (from, to));
         return true;

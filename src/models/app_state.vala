@@ -68,17 +68,8 @@ public class AppState : GLib.Object {
         if (from < 0 || from >= items.size) return false;
         if (to < 0 || to >= items.size) return false;
         if (from == to) return true;
-        var tmp = items.get (from);
-        if (from < to) {
-            for (int i = from; i < to; i++) {
-                items.set (i, items.get (i + 1));
-            }
-        } else {
-            for (int i = from; i > to; i--) {
-                items.set (i, items.get (i - 1));
-            }
-        }
-        items.set (to, tmp);
+        var tmp = items.remove_at (from);
+        items.insert (to, tmp);
         items_changed ();
         return true;
     }
