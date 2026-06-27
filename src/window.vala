@@ -2581,6 +2581,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         dialog.title = _("选择工作文件夹");
         try {
             var folder = yield dialog.select_folder (this, null);
+            if (folder == null) return;
             this.work_dir = folder;
 
             update_subtitle (folder.get_path ());
@@ -2588,7 +2589,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             root_store.remove_all ();
             check_model.clear ();
             items.clear ();
-            check_model.clear ();
             undo_manager.clear ();
             update_undo_redo_buttons ();
 
