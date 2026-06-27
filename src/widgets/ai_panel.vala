@@ -472,16 +472,6 @@ public class AIPanel : GLib.Object {
         return text.make_valid (-1);
     }
 
-    // 按字节长度截断, 但不切断多字节 UTF-8 字符, 避免乱码
-    private static string truncate_utf8 (string text, int max_bytes) {
-        if (text.length <= max_bytes) return text;
-        // 向前回退到字符边界
-        int cut = max_bytes;
-        while (cut > 0 && !text[0:cut].validate (-1)) {
-            cut--;
-        }
-        return text[0:cut];
-    }
 
     private void rerender () {
         // 保存当前滚动位置 (相对底部的偏移), 用于重建后恢复
@@ -702,7 +692,7 @@ public class AIPanel : GLib.Object {
 
                 // Preview (折叠时显示截断预览)
                 var preview = msg.tool_result ?? "";
-                if (preview.length > 80) preview = truncate_utf8 (preview, 80) + "…";
+                if (preview.length > 80) preview = UIHelpers.truncate_utf8 (preview, 80) + "…";
                 var preview_lbl = new Gtk.Label (sanitize_utf8 (preview));
                 preview_lbl.xalign = 0;
                 preview_lbl.wrap = true;
@@ -1008,7 +998,7 @@ public class AIPanel : GLib.Object {
                     string txt = snap.custom_instructions[i] ?? "";
                     if (txt.length == 0) continue;
                     string preview = txt;
-                    if (preview.length > 40) preview = truncate_utf8 (preview, 40) + "…";
+                    if (preview.length > 40) preview = UIHelpers.truncate_utf8 (preview, 40) + "…";
                     // 用 split/join 替代 string.replace, 避免 Vala 的 Regex 实现在某些情况下 assert_not_reached
                     preview = string.joinv (" ", preview.split ("\n"));
                     item_block.append ("  [").append ((file_count + text_idx).to_string ())

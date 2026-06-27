@@ -558,7 +558,7 @@ public class AIController : GLib.Object {
                 sb.append ("#" + (i + 1).to_string () + "  [file] ").append (rel).append ("\n");
             } else {
                 string preview = it.content ?? "";
-                if (preview.length > 80) preview = truncate_utf8 (preview, 80) + "…";
+                if (preview.length > 80) preview = UIHelpers.truncate_utf8 (preview, 80) + "…";
                 preview = string.joinv ("\\n", preview.split ("\n"));
                 sb.append ("#").append ((i + 1).to_string ()).append ("  [text] ").append (preview).append ("\n");
             }
@@ -741,15 +741,6 @@ public class AIController : GLib.Object {
             return r.length > 0 ? r : full;
         }
         return full;
-    }
-
-    private static string truncate_utf8 (string text, int max_bytes) {
-        if (text.length <= max_bytes) return text;
-        int cut = max_bytes;
-        while (cut > 0 && !text[0:cut].validate (-1)) {
-            cut--;
-        }
-        return text[0:cut];
     }
 
     private static string normalize_path (string path) {

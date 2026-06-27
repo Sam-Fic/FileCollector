@@ -3086,7 +3086,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     } else {
                         preview = EncodingHelper.decode_to_utf8 (buf);
                         if (preview.length > 2000) {
-                            preview = truncate_utf8 (preview, 2000);
+                            preview = UIHelpers.truncate_utf8 (preview, 2000);
                             if (file_size > PREVIEW_MAX_BYTES) {
                                 preview += _("\n\n... [预览截断，文件总大小: %s]").printf (UIHelpers.format_size (file_size));
                             } else {
@@ -3274,10 +3274,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void show_file_in_folder (string path) {
         UIHelpers.show_file_in_folder (this, path);
-    }
-
-    private static string truncate_utf8 (string text, int max_bytes) {
-        return UIHelpers.truncate_utf8 (text, max_bytes);
     }
 
     // ─── Options ─────────────────────────────────────────────────────────
