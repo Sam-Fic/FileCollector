@@ -467,11 +467,8 @@ public class AIPanel : GLib.Object {
 
     // 清洗 UTF-8: 用 replacement character 替换无效字节, 避免 Pango 警告
     private string sanitize_utf8 (string? text) {
-        if (text == null) return "";
-        if (text.validate (-1)) return text;
-        return text.make_valid (-1);
+        return UIHelpers.sanitize_utf8 (text);
     }
-
 
     private void rerender () {
         // 保存当前滚动位置 (相对底部的偏移), 用于重建后恢复

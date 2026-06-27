@@ -328,9 +328,7 @@ public class MarkdownView : Gtk.Box {
 
     // 清洗 UTF-8: 用 replacement character 替换无效字节, 确保字符串对 Pango 安全
     private string sanitize_utf8 (string? text) {
-        if (text == null) return "";
-        if (text.validate (-1)) return text;
-        return text.make_valid (-1);
+        return UIHelpers.sanitize_utf8 (text);
     }
 
     // 转义 Pango markup 特殊字符 (保留 UTF-8 多字节序列)

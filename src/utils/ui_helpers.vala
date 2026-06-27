@@ -17,6 +17,12 @@ namespace UIHelpers {
         return text[0:cut];
     }
 
+    public static string sanitize_utf8 (string? text) {
+        if (text == null) return "";
+        if (text.validate (-1)) return text;
+        return text.make_valid (-1);
+    }
+
     public static string clean_ai_markdown (string raw) {
         string s = raw.strip ();
         if (s.has_prefix ("```markdown")) {
