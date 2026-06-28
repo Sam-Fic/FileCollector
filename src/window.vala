@@ -236,18 +236,20 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (app_cancellable != null) {
             app_cancellable.cancel ();
         }
-        window_closing = true;
         if (vlm_queue != null) {
             vlm_queue.cancel ();
         }
         if (ai_panel_instance != null) {
             ai_panel_instance.shutdown ();
         }
-        // 正常退出时删除恢复文件
+        // 先取消挂起的自动保存定时器, 再同步保存一次:
+        //   - 避免 5s 延迟窗口内的状态变更丢失
+        //   - 切语言重启 / 主动关闭程序也能保留恢复文件供下次启动提示
+        //   - 真正的空状态由 save_recovery_state 内部判断后自动删除文件
         cancel_auto_save ();
-        delete_recovery_file ();
-        // 不 join 后台线程: cancel + window_closing 标志已通知线程退出,
-        // 进程终止时操作系统会自动回收线程资源, 避免 join 阻塞 GTK 主循环导致卡死
+        save_recovery_state ();
+        window_closing = true; // 必须在 save 之后置位, 否则 save 第一行会因 window_closing 早退
+        // 不再无条件 delete_recovery_file ()
         bg_threads.clear ();
         return false;
     }
@@ -352,8 +354,22 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
                     app_state.replace_from (wd, ua, sh, new_items, new_checked, new_dirs, new_phrases);
                     undo_manager.clear ();
-                    refresh_list ();
-                    update_title ();
+                    // 复原工作区文件夹位置: 重建目录树、加载子项、展开根节点
+                    if (wd != null) {
+                        if (wd.query_exists ()) {
+                            update_ui_after_project_load ();
+                        } else {
+                            // 文件夹已被删除/移动: 保留工作目录元数据但清空目录树
+                            update_subtitle (wd.get_path () + "  (" + _("文件夹不存在") + ")");
+                            root_store.remove_all ();
+                            search_entry.visible = false;
+                            refresh_list ();
+                            update_undo_redo_buttons ();
+                        }
+                    } else {
+                        update_title ();
+                        refresh_list ();
+                    }
                     toast_overlay.add_toast (new Adw.Toast (_("已恢复未保存的会话")));
                 } catch (Error e) {
                     warning ("Recovery failed: %s", e.message);
