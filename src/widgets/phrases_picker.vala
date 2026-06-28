@@ -84,7 +84,7 @@ public class PhrasesPicker : GLib.Object {
     public void show_manage_window () {
         var dialog = new Adw.Dialog ();
         dialog.set_title (_("常用语管理"));
-        dialog.set_content_width (400);
+        dialog.set_content_width (520);
         dialog.set_content_height (400);
 
         var toolbar_view = new Adw.ToolbarView ();
@@ -150,18 +150,31 @@ public class PhrasesPicker : GLib.Object {
             for (int i = 0; i < common_phrases.size; i++) {
                 var phrase = common_phrases.get (i);
                 var row = new Adw.ActionRow ();
-                if (phrase.char_count () > 40) {
-                    row.set_title (phrase.substring (0, phrase.index_of_nth_char (40)) + "...");
-                } else {
-                    row.set_title (phrase);
-                }
+                apply_phrase_title (row, phrase);
                 row.set_activatable (true);
+
+                int phrase_index = i;
+                row.activated.connect (() => {
+                    var selected_phrase = common_phrases.get (phrase_index);
+                    phrase_selected (selected_phrase, above);
+                    dialog.close ();
+                });
+
+                var edit_btn = new Gtk.Button.from_icon_name ("document-edit-symbolic");
+                edit_btn.add_css_class ("flat");
+                edit_btn.valign = Gtk.Align.CENTER;
+                edit_btn.tooltip_text = _("编辑");
+                edit_btn.clicked.connect (() => {
+                    edit_phrase_requested (common_phrases.get (phrase_index), phrase_index);
+                });
+                row.add_suffix (edit_btn);
 
                 var delete_btn = new Gtk.Button ();
                 delete_btn.set_icon_name ("user-trash-symbolic");
                 delete_btn.add_css_class ("destructive-action");
                 delete_btn.add_css_class ("flat");
                 delete_btn.set_valign (Gtk.Align.CENTER);
+                delete_btn.set_tooltip_text (_("删除"));
                 string captured_phrase = phrase;
                 delete_btn.clicked.connect (() => {
                     int idx = common_phrases.index_of (captured_phrase);
@@ -173,15 +186,56 @@ public class PhrasesPicker : GLib.Object {
                 });
                 row.add_suffix (delete_btn);
 
-                int phrase_index = i;
-                row.activated.connect (() => {
-                    var selected_phrase = common_phrases.get (phrase_index);
-                    phrase_selected (selected_phrase, above);
-                    dialog.close ();
-                });
-
                 list_box.append (row);
             }
+        }
+    }
+
+    private void refresh_phrases_list (Gtk.ListBox list_box) {
+        list_box.remove_all ();
+        for (int i = 0; i < common_phrases.size; i++) {
+            var phrase = common_phrases.get (i);
+            var row = new Adw.ActionRow ();
+            apply_phrase_title (row, phrase);
+
+            var edit_btn = new Gtk.Button.from_icon_name ("document-edit-symbolic");
+            edit_btn.add_css_class ("flat");
+            edit_btn.valign = Gtk.Align.CENTER;
+            edit_btn.tooltip_text = _("编辑");
+            int edit_index = i;
+            edit_btn.clicked.connect (() => {
+                edit_phrase_requested (common_phrases.get (edit_index), edit_index);
+            });
+            row.add_suffix (edit_btn);
+
+            var delete_btn = new Gtk.Button ();
+            delete_btn.set_icon_name ("user-trash-symbolic");
+            delete_btn.add_css_class ("destructive-action");
+            delete_btn.add_css_class ("flat");
+            delete_btn.set_valign (Gtk.Align.CENTER);
+            delete_btn.set_tooltip_text (_("删除"));
+            string captured_phrase = phrase;
+            delete_btn.clicked.connect (() => {
+                int idx = common_phrases.index_of (captured_phrase);
+                if (idx < 0) return;
+                common_phrases.remove_at (idx);
+                ConfigManager.save_common_phrases (common_phrases);
+                refresh_phrases_list (list_box);
+                phrases_changed ();
+            });
+            row.add_suffix (delete_btn);
+
+            list_box.append (row);
+        }
+    }
+
+    private static void apply_phrase_title (Adw.ActionRow row, string phrase) {
+        if (phrase.char_count () > 40) {
+            int split_at = phrase.index_of_nth_char (40);
+            row.set_title (phrase.substring (0, split_at) + "…");
+            row.set_subtitle (phrase.substring (split_at));
+        } else {
+            row.set_title (phrase);
         }
     }
 
@@ -264,42 +318,5 @@ public class PhrasesPicker : GLib.Object {
         });
 
         dialog.present (parent_window);
-    }
-
-    private void refresh_phrases_list (Gtk.ListBox list_box) {
-        list_box.remove_all ();
-        for (int i = 0; i < common_phrases.size; i++) {
-            var phrase = common_phrases.get (i);
-            var row = new Adw.ActionRow ();
-            if (phrase.char_count () > 40) {
-                row.set_title (phrase.substring (0, phrase.index_of_nth_char (40)) + "...");
-            } else {
-                row.set_title (phrase);
-            }
-            row.set_activatable (true);
-
-            var delete_btn = new Gtk.Button ();
-            delete_btn.set_icon_name ("user-trash-symbolic");
-            delete_btn.add_css_class ("destructive-action");
-            delete_btn.add_css_class ("flat");
-            delete_btn.set_valign (Gtk.Align.CENTER);
-            string captured_phrase = phrase;
-            delete_btn.clicked.connect (() => {
-                int idx = common_phrases.index_of (captured_phrase);
-                if (idx < 0) return;
-                common_phrases.remove_at (idx);
-                ConfigManager.save_common_phrases (common_phrases);
-                refresh_phrases_list (list_box);
-                phrases_changed ();
-            });
-            row.add_suffix (delete_btn);
-
-            int phrase_index = i;
-            row.activated.connect (() => {
-                edit_phrase_requested (common_phrases.get (phrase_index), phrase_index);
-            });
-
-            list_box.append (row);
-        }
     }
 }
