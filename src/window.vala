@@ -1364,15 +1364,15 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void block_option_signals () {
-        SignalHandler.block (radio_absolute_path, handler_path_abs);
-        SignalHandler.block (radio_relative_path, handler_path_rel);
-        SignalHandler.block (check_write_header, handler_header);
+        if (handler_path_abs != 0) SignalHandler.block (radio_absolute_path, handler_path_abs);
+        if (handler_path_rel != 0) SignalHandler.block (radio_relative_path, handler_path_rel);
+        if (handler_header != 0) SignalHandler.block (check_write_header, handler_header);
     }
 
     private void unblock_option_signals () {
-        SignalHandler.unblock (radio_absolute_path, handler_path_abs);
-        SignalHandler.unblock (radio_relative_path, handler_path_rel);
-        SignalHandler.unblock (check_write_header, handler_header);
+        if (handler_path_abs != 0) SignalHandler.unblock (radio_absolute_path, handler_path_abs);
+        if (handler_path_rel != 0) SignalHandler.unblock (radio_relative_path, handler_path_rel);
+        if (handler_header != 0) SignalHandler.unblock (check_write_header, handler_header);
     }
 
     // 根据 work_dir 更新窗口标题/副标题
