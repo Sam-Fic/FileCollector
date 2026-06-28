@@ -23,6 +23,26 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="4.4.0" date="2026-06-28">
+      <description>
+        <p>重大更新 — 感谢 <a href="https://github.com/Decembered">@Decembered</a> 对本版本的贡献！</p>
+        <ul>
+          <li>Git 集成：新增 Git 状态、差异、日志及提交差异查询与导出功能，支持 Git 提交历史懒加载与无限滚动</li>
+          <li>全局搜索：新增全局搜索对话框，支持实时过滤目录项和递归子目录匹配</li>
+          <li>模板管理：新增提示词模板管理功能，支持自定义模板的创建、编辑与删除</li>
+          <li>AI 补全列表：AI 面板输入框支持斜杠指令自动补全</li>
+          <li>AI 操作撤回：支持对 AI 执行的文件操作进行撤回</li>
+          <li>VLM 预处理队列：新增视觉语言大模型预处理队列，支持批量处理二进制文件</li>
+          <li>阅读指南导出：支持导出 AI 生成的阅读指南</li>
+          <li>队列多选：队列选择支持多选并修复预览更新逻辑</li>
+          <li>语法高亮：预览区使用 GtkSourceView 5 实现语法高亮，支持自动语言检测与亮/暗主题切换</li>
+          <li>目录加载进度条：添加目录加载时的进度指示器</li>
+          <li>搜索高亮：文件树中匹配搜索文本的标签高亮显示</li>
+          <li>代码重构：将 window.vala 拆分为多个独立模块（UIHelpers、ContextMenus、DirectoryItem、VLMTaskRunner、PreviewSyntaxManager、ShortcutsHelper），代码结构更清晰</li>
+          <li>修复：修复 AI 面板 IME 输入法兼容、Git 日志解析、撤销/重做边界检查等多个问题</li>
+        </ul>
+      </description>
+    </release>
     <release version="4.3.2" date="2026-06-24">
       <description>
         <p>新特性与修复：</p>
