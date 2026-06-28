@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: filecollector\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-28 20:01+0800\n"
+"POT-Creation-Date: 2026-06-28 22:57+0800\n"
 "PO-Revision-Date: 2026-06-27 11:30+0800\n"
 "Last-Translator: Sam-Fic\n"
 "Language-Team: English\n"
@@ -389,9 +389,9 @@ msgstr ""
 #: src/window.vala:258 src/window.vala:2812 src/window.vala:2990
 #: src/window.vala:3202 src/window.vala:3884
 #: src/widgets/settings_dialog.vala:49 src/widgets/phrases_picker.vala:42
-#: src/widgets/phrases_picker.vala:99 src/widgets/phrases_picker.vala:203
+#: src/widgets/phrases_picker.vala:99 src/widgets/phrases_picker.vala:257
 #: src/widgets/ai_panel.vala:910 src/widgets/ai_settings_dialog.vala:83
-#: src/widgets/ai_settings_dialog.vala:328
+#: src/widgets/ai_settings_dialog.vala:326
 #: src/widgets/templates_manager.vala:110
 msgid "取消"
 msgstr "Cancel"
@@ -974,7 +974,8 @@ msgstr "Move Up"
 msgid "下移"
 msgstr "Move Down"
 
-#: src/window.blp:276 src/window.blp:337 src/widgets/templates_manager.vala:82
+#: src/window.blp:276 src/window.blp:337 src/widgets/phrases_picker.vala:177
+#: src/widgets/phrases_picker.vala:216 src/widgets/templates_manager.vala:82
 msgid "删除"
 msgstr "Delete"
 
@@ -1255,7 +1256,7 @@ msgid "选择常用语"
 msgstr "Select Common Phrase"
 
 #: src/widgets/phrases_picker.vala:46 src/widgets/phrases_picker.vala:123
-#: src/widgets/phrases_picker.vala:207 src/widgets/templates_manager.vala:34
+#: src/widgets/phrases_picker.vala:261 src/widgets/templates_manager.vala:34
 msgid "添加"
 msgstr "Add"
 
@@ -1267,7 +1268,12 @@ msgstr "Manage Common Phrases"
 msgid "暂无常用语"
 msgstr "No Common Phrases Yet"
 
-#: src/widgets/phrases_picker.vala:190 src/widgets/phrases_picker.vala:198
+#: src/widgets/phrases_picker.vala:166 src/widgets/phrases_picker.vala:204
+#: src/widgets/templates_manager.vala:73
+msgid "编辑"
+msgstr "Edit Text"
+
+#: src/widgets/phrases_picker.vala:244 src/widgets/phrases_picker.vala:252
 msgid "添加常用语"
 msgstr "Add Common Phrase"
 
@@ -1409,76 +1415,74 @@ msgstr "Save"
 msgid "AI 助手 (侧边栏)"
 msgstr "AI Assistant (Sidebar)"
 
-#: src/widgets/ai_settings_dialog.vala:100
-msgid "支持 OpenAI、Azure OpenAI 及任何兼容端点（例如本地 Ollama）。"
-msgstr ""
-"Supports OpenAI, Azure OpenAI, and any compatible endpoint (e.g. local "
-"Ollama)."
-
-#: src/widgets/ai_settings_dialog.vala:99
-msgid "配置 OpenAI 兼容 API，即可在 AI 边栏使用自然语言编排文件。\n"
+#: src/widgets/ai_settings_dialog.vala:98
+msgid ""
+"配置 OpenAI 兼容 API，即可在 AI 边栏使用自然语言编排文件。\n"
+"支持 OpenAI、Azure OpenAI 及任何兼容端点（例如本地 Ollama）。"
 msgstr ""
 "Configure OpenAI-compatible API to use natural language orchestration in the "
 "AI sidebar.\n"
+"Supports OpenAI, Azure OpenAI, and any compatible endpoint (e.g. local "
+"Ollama)."
 
-#: src/widgets/ai_settings_dialog.vala:104
+#: src/widgets/ai_settings_dialog.vala:102
 msgid "启用 AI 助手"
 msgstr "Enable AI Assistant"
 
-#: src/widgets/ai_settings_dialog.vala:105
+#: src/widgets/ai_settings_dialog.vala:103
 msgid "关闭后 AI 边栏会保留, 但不会发送任何请求"
 msgstr ""
 "When disabled, the AI sidebar remains visible but won't send any requests"
 
-#: src/widgets/ai_settings_dialog.vala:113
-#: src/widgets/ai_settings_dialog.vala:172
+#: src/widgets/ai_settings_dialog.vala:111
+#: src/widgets/ai_settings_dialog.vala:170
 msgid "API 基础地址"
 msgstr "API Base URL"
 
-#: src/widgets/ai_settings_dialog.vala:119
-#: src/widgets/ai_settings_dialog.vala:178
+#: src/widgets/ai_settings_dialog.vala:117
+#: src/widgets/ai_settings_dialog.vala:176
 msgid "API 密钥"
 msgstr "API Key"
 
-#: src/widgets/ai_settings_dialog.vala:124
-#: src/widgets/ai_settings_dialog.vala:183
+#: src/widgets/ai_settings_dialog.vala:122
+#: src/widgets/ai_settings_dialog.vala:181
 msgid "模型名称"
 msgstr "Model Name"
 
-#: src/widgets/ai_settings_dialog.vala:130
-#: src/widgets/ai_settings_dialog.vala:189
+#: src/widgets/ai_settings_dialog.vala:128
+#: src/widgets/ai_settings_dialog.vala:187
 msgid "请求超时 (秒)"
 msgstr "Request Timeout (seconds)"
 
-#: src/widgets/ai_settings_dialog.vala:135
-#: src/widgets/ai_settings_dialog.vala:194
+#: src/widgets/ai_settings_dialog.vala:133
+#: src/widgets/ai_settings_dialog.vala:192
 msgid "高级"
 msgstr "Advanced"
 
-#: src/widgets/ai_settings_dialog.vala:139
-#: src/widgets/ai_settings_dialog.vala:211
+#: src/widgets/ai_settings_dialog.vala:137
+#: src/widgets/ai_settings_dialog.vala:209
 msgid "自定义系统提示词 (可选)"
 msgstr "Custom System Prompt (Optional)"
 
-#: src/widgets/ai_settings_dialog.vala:145
-#: src/widgets/ai_settings_dialog.vala:217
+#: src/widgets/ai_settings_dialog.vala:143
+#: src/widgets/ai_settings_dialog.vala:215
 msgid "测试连接"
 msgstr "Test Connection"
 
-#: src/widgets/ai_settings_dialog.vala:146
+#: src/widgets/ai_settings_dialog.vala:144
 msgid "验证侧边栏 AI 配置是否可用"
 msgstr "Verify sidebar AI configuration"
 
-#: src/widgets/ai_settings_dialog.vala:147
-#: src/widgets/ai_settings_dialog.vala:219
+#: src/widgets/ai_settings_dialog.vala:145
+#: src/widgets/ai_settings_dialog.vala:217
 msgid "测试"
 msgstr "Test"
 
-#: src/widgets/ai_settings_dialog.vala:157
+#: src/widgets/ai_settings_dialog.vala:155
 msgid "视觉语言大模型 (VLM) (二进制文件预处理)"
 msgstr "Vision-Language Model (VLM) (Binary File Preprocessing)"
 
-#: src/widgets/ai_settings_dialog.vala:159
+#: src/widgets/ai_settings_dialog.vala:157
 msgid ""
 "配置视觉语言大模型 (VLM) API，用于将 PDF、Word、PPT、图片等文件转换为 "
 "Markdown。"
@@ -1486,60 +1490,60 @@ msgstr ""
 "Configure a VLM (Vision-Language Model) API to convert PDF, Word, PPT, "
 "images, etc. into Markdown."
 
-#: src/widgets/ai_settings_dialog.vala:163
+#: src/widgets/ai_settings_dialog.vala:161
 msgid "启用 VLM"
 msgstr "Enable VLM"
 
-#: src/widgets/ai_settings_dialog.vala:164
+#: src/widgets/ai_settings_dialog.vala:162
 msgid "关闭后二进制文件将不会自动转换"
 msgstr "Binary files will not be auto-converted when disabled"
 
-#: src/widgets/ai_settings_dialog.vala:199
+#: src/widgets/ai_settings_dialog.vala:197
 msgid "允许转换的二进制扩展名 (逗号分隔, 如 .pdf, .docx)"
 msgstr "Allowed binary extensions (comma-separated, e.g. .pdf, .docx)"
 
-#: src/widgets/ai_settings_dialog.vala:204
+#: src/widgets/ai_settings_dialog.vala:202
 msgid "默认"
 msgstr "Default"
 
-#: src/widgets/ai_settings_dialog.vala:206
+#: src/widgets/ai_settings_dialog.vala:204
 msgid "恢复为默认扩展名列表"
 msgstr "Reset to default extension list"
 
-#: src/widgets/ai_settings_dialog.vala:218
+#: src/widgets/ai_settings_dialog.vala:216
 msgid "验证视觉语言大模型 (VLM) 配置是否可用"
 msgstr "Verify VLM (Vision-Language Model) configuration"
 
-#: src/widgets/ai_settings_dialog.vala:229
+#: src/widgets/ai_settings_dialog.vala:227
 msgid "扫描忽略目录"
 msgstr "Scan Ignored Directories"
 
-#: src/widgets/ai_settings_dialog.vala:231
+#: src/widgets/ai_settings_dialog.vala:229
 msgid "AI 扫描工作目录时将跳过这些目录名，用英文逗号分隔。"
 msgstr ""
 "These directory names will be skipped when AI scans the working directory. "
 "Separate with commas."
 
-#: src/widgets/ai_settings_dialog.vala:235
+#: src/widgets/ai_settings_dialog.vala:233
 msgid "忽略的目录名"
 msgstr "Ignored Directory Names"
 
-#: src/widgets/ai_settings_dialog.vala:246
-#: src/widgets/ai_settings_dialog.vala:323
+#: src/widgets/ai_settings_dialog.vala:244
+#: src/widgets/ai_settings_dialog.vala:321
 msgid "安全警告"
 msgstr "Security Warning"
 
-#: src/widgets/ai_settings_dialog.vala:250
+#: src/widgets/ai_settings_dialog.vala:248
 msgid "HTTP 端点安全风险"
 msgstr "HTTP Endpoint Security Risk"
 
-#: src/widgets/ai_settings_dialog.vala:251
+#: src/widgets/ai_settings_dialog.vala:249
 msgid "使用 HTTP (非 HTTPS) 端点时，API 密钥将在网络中明文传输，存在安全风险。"
 msgstr ""
 "When using an HTTP (non-HTTPS) endpoint, the API key will be transmitted in "
 "plaintext over the network, which poses a security risk."
 
-#: src/widgets/ai_settings_dialog.vala:325
+#: src/widgets/ai_settings_dialog.vala:323
 msgid ""
 "这将导致 API 密钥在传输过程中以明文形式发送，存在被第三方截获的风险。\n"
 "\n"
@@ -1548,11 +1552,11 @@ msgstr ""
 "of being intercepted by third parties.\n"
 "\n"
 
-#: src/widgets/ai_settings_dialog.vala:326
+#: src/widgets/ai_settings_dialog.vala:324
 msgid "是否仍要继续保存？"
 msgstr "Continue Saving"
 
-#: src/widgets/ai_settings_dialog.vala:324
+#: src/widgets/ai_settings_dialog.vala:322
 msgid ""
 "您正在配置 HTTP (非 HTTPS) 端点。\n"
 "\n"
@@ -1560,28 +1564,28 @@ msgstr ""
 "You are configuring an HTTP (non-HTTPS) endpoint.\n"
 "\n"
 
-#: src/widgets/ai_settings_dialog.vala:329
+#: src/widgets/ai_settings_dialog.vala:327
 msgid "继续保存"
 msgstr "Continue Saving"
 
-#: src/widgets/ai_settings_dialog.vala:420
+#: src/widgets/ai_settings_dialog.vala:418
 msgid "请先填写 API 基础地址、密钥和模型名称。"
 msgstr "Please fill in the API Base URL, Key, and Model Name first."
 
-#: src/widgets/ai_settings_dialog.vala:426
+#: src/widgets/ai_settings_dialog.vala:424
 msgid "正在测试..."
 msgstr "Testing..."
 
-#: src/widgets/ai_settings_dialog.vala:490
+#: src/widgets/ai_settings_dialog.vala:488
 msgid "✓ 连接成功"
 msgstr "✓ Connected successfully"
 
-#: src/widgets/ai_settings_dialog.vala:502
+#: src/widgets/ai_settings_dialog.vala:500
 #, c-format
 msgid "✗ 失败: HTTP %u %s"
 msgstr "✗ Failed: HTTP %u %s"
 
-#: src/widgets/ai_settings_dialog.vala:507
+#: src/widgets/ai_settings_dialog.vala:505
 #, c-format
 msgid "✗ 失败: %s"
 msgstr "✗ Failed: %s"
@@ -1646,10 +1650,6 @@ msgstr "Add All (%d)"
 #: src/widgets/templates_manager.vala:18 src/widgets/templates_manager.vala:26
 msgid "场景模板管理"
 msgstr "Prompt Templates"
-
-#: src/widgets/templates_manager.vala:73
-msgid "编辑"
-msgstr "Edit Text"
 
 #: src/widgets/templates_manager.vala:101
 msgid "添加模板"
@@ -1781,6 +1781,16 @@ msgstr ""
 "\n"
 "…(Content too long, truncated)"
 
+#~ msgid "支持 OpenAI、Azure OpenAI 及任何兼容端点（例如本地 Ollama）。"
+#~ msgstr ""
+#~ "Supports OpenAI, Azure OpenAI, and any compatible endpoint (e.g. local "
+#~ "Ollama)."
+
+#~ msgid "配置 OpenAI 兼容 API，即可在 AI 边栏使用自然语言编排文件。\n"
+#~ msgstr ""
+#~ "Configure OpenAI-compatible API to use natural language orchestration in "
+#~ "the AI sidebar.\n"
+
 #~ msgid "编辑文本"
 #~ msgstr "Edit Text"
 
@@ -1804,15 +1814,6 @@ msgstr ""
 
 #~ msgid "输入指令, Enter 发送, Ctrl+Enter 换行"
 #~ msgstr "Enter a command, Enter to send, Ctrl+Enter for new line"
-
-#~ msgid ""
-#~ "配置 OpenAI 兼容 API，即可在 AI 边栏使用自然语言编排文件。\n"
-#~ "支持 OpenAI、Azure OpenAI 及任何兼容端点（例如本地 Ollama）。"
-#~ msgstr ""
-#~ "Configure OpenAI-compatible API to use natural language orchestration in "
-#~ "the AI sidebar.\n"
-#~ "Supports OpenAI, Azure OpenAI, and any compatible endpoint (e.g. local "
-#~ "Ollama)."
 
 #~ msgid "编排列表为空"
 #~ msgstr "Queue is Empty"
