@@ -1537,6 +1537,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
 
         btn_toggle_git.clicked.connect (on_toggle_git_mode);
+        btn_global_search.clicked.connect (on_global_search);
         git_search_entry.search_changed.connect (on_git_search_changed);
 
         btn_git_add_all_changed.clicked.connect (on_git_add_all_changed);
