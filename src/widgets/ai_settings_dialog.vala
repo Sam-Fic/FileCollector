@@ -95,9 +95,7 @@ public class AISettingsDialog : GLib.Object {
         // ═══════════════════════════════════════════════════════
         var sidebar_group = new Adw.PreferencesGroup ();
         sidebar_group.set_title (_("AI 助手 (侧边栏)"));
-        sidebar_group.set_description (
-            _("配置 OpenAI 兼容 API，即可在 AI 边栏使用自然语言编排文件。\n"
-              "支持 OpenAI、Azure OpenAI 及任何兼容端点（例如本地 Ollama）。"));
+        sidebar_group.set_description (_("配置 OpenAI 兼容 API，即可在 AI 边栏使用自然语言编排文件。\n支持 OpenAI、Azure OpenAI 及任何兼容端点（例如本地 Ollama）。"));
         prefs_page.add (sidebar_group);
 
         var sb_enabled_row = new Adw.ActionRow ();
