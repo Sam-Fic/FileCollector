@@ -30,6 +30,18 @@ public class EncodingHelper {
             return raw;
         }
 
+        // 修复: 当文件按任意字节边界读取时 (例如预览只读前 8KB), 末尾可能残留 1-3 字节
+        // 不完整的 UTF-8 多字节序列, 导致 validate() 失败. 此时不应直接落入候选编码表
+        // (GBK 会把 UTF-8 字节重新解释为 GBK 2 字节字符, 产生乱码), 而是先回退末尾几个
+        // 字节再验证. UTF-8 一个码点最多 4 字节, 实际中文/日韩文 3 字节, 故回退 1-3 字节足够.
+        int max_trim = (int) int.min (3, raw.length);
+        for (int trim = 1; trim <= max_trim; trim++) {
+            string trimmed = raw.substring (0, raw.length - trim);
+            if (trimmed.validate ()) {
+                return trimmed;
+            }
+        }
+
         if (len >= 2) {
             if (data[0] == 0xFE && data[1] == 0xFF) {
                 return convert_encoding (data[2:len], "UTF-16BE");
