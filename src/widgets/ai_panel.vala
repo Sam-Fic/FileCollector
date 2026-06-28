@@ -203,7 +203,7 @@ public class AIPanel : GLib.Object {
         // GTK4 中 Gtk.TextView 没有 set_placeholder_text; 用 overlay 自行实现
         var input_overlay = new Gtk.Overlay ();
         input_overlay.set_child (input_view);
-        var placeholder_lbl = new Gtk.Label (_("输入指令, Enter 发送, Ctrl+Enter 换行"));
+        var placeholder_lbl = new Gtk.Label (_("输入指令, Enter 换行, Ctrl+Enter 发送"));
         placeholder_lbl.add_css_class ("dim-label");
         placeholder_lbl.add_css_class ("ai-placeholder");
         placeholder_lbl.set_wrap (true);
@@ -248,7 +248,7 @@ public class AIPanel : GLib.Object {
         });
         input_view.add_controller (key);
 
-        // 通过 buffer.changed 检测 Enter (换行插入) 来触发发送
+        // 通过 buffer.changed 检测 Enter (换行插入)
         // 使用标记防止递归
         bool suppress_send = false;
         bool ctrl_enter_pressed = false;
@@ -290,20 +290,17 @@ public class AIPanel : GLib.Object {
                 }
             }
 
-            // Ctrl+Enter = 换行 (保留换行, 不触发发送)
-            // 检查 buffer 中倒数第二个字符, 如果 Ctrl 被按住则不处理
-            // 但这里无法获取 modifier state, 改用另一个策略:
-            // 在 key handler 中标记是否按了 Ctrl
+            // Ctrl+Enter = 发送 (删除换行, 触发发送)
             if (ctrl_enter_pressed) {
                 ctrl_enter_pressed = false;
-                return; // 保留换行
+                suppress_send = true;
+                buf.delete (ref prev, ref end_iter);
+                suppress_send = false;
+                on_send_or_stop ();
+                return;
             }
 
-            // 删除换行, 触发发送
-            suppress_send = true;
-            buf.delete (ref prev, ref end_iter);
-            suppress_send = false;
-            on_send_or_stop ();
+            // Enter = 换行 (GtkTextView 已自动插入换行, 这里什么都不做)
         });
 
         // 监听输入变化以触发补全
