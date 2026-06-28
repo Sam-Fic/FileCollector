@@ -15,6 +15,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.Button btn_redo;
     [GtkChild] private unowned Gtk.Button btn_generate;
     [GtkChild] private unowned Gtk.Button btn_generate_clipboard;
+    [GtkChild] private unowned Gtk.Button btn_export_zip;
     [GtkChild] private unowned Gtk.Button btn_add_ext;
     [GtkChild] private unowned Gtk.Button btn_add_text_above;
     [GtkChild] private unowned Gtk.Button btn_add_text_below;
@@ -242,14 +243,38 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (ai_panel_instance != null) {
             ai_panel_instance.shutdown ();
         }
-        // 先取消挂起的自动保存定时器, 再同步保存一次:
-        //   - 避免 5s 延迟窗口内的状态变更丢失
-        //   - 切语言重启 / 主动关闭程序也能保留恢复文件供下次启动提示
-        //   - 真正的空状态由 save_recovery_state 内部判断后自动删除文件
+        // 先取消挂起的自动保存定时器, 再同步保存一次
+        // (保证 5s 延迟窗口内的状态变更也能落盘, 避免点关闭瞬间数据丢失)
         cancel_auto_save ();
         save_recovery_state ();
         window_closing = true; // 必须在 save 之后置位, 否则 save 第一行会因 window_closing 早退
-        // 不再无条件 delete_recovery_file ()
+
+        // 编排列表非空 → 弹确认对话框, 避免用户误关丢失未保存内容
+        if (items.size > 0) {
+            var dialog = new Adw.AlertDialog (
+                _("确认关闭"),
+                _("当前编排列表中有未保存的内容。\n关闭后下次启动将不再提示恢复, 确定要关闭吗？")
+            );
+            dialog.add_response ("cancel", _("取消"));
+            dialog.add_response ("close", _("关闭"));
+            dialog.set_response_appearance ("close", Adw.ResponseAppearance.DESTRUCTIVE);
+            dialog.set_default_response ("cancel");
+            dialog.set_close_response ("cancel");
+            dialog.response.connect ((response) => {
+                dialog.destroy ();
+                if (response == "close") {
+                    // 用户明确确认关闭 → 删除恢复文件, 下次启动不再弹恢复提示
+                    delete_recovery_file ();
+                    // destroy() 不会再次触发 close-request, 不会递归进 on_close_request
+                    this.destroy ();
+                }
+                // "cancel" / Esc: 恢复文件保留, 窗口保持打开 (GTK4 看到 on_close_request 返回 true 已阻止销毁)
+            });
+            dialog.present (this);
+            return true; // 阻止窗口关闭, 等待用户在对话框中确认
+        }
+
+        // 编排列表为空: save_recovery_state 内部已经自动删除恢复文件, 直接放行
         bg_threads.clear ();
         return false;
     }
@@ -3349,6 +3374,55 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
     }
 
+    // ─── ZIP 导出 ────────────────────────────────────────────────────────
+
+    private void on_export_zip_clicked () {
+        if (items.size == 0) {
+            show_toast (_("编排列表为空，请先勾选文件或添加文字内容"));
+            return;
+        }
+
+        var dialog = new Gtk.FileDialog ();
+        dialog.title = _("导出为 ZIP");
+        var filter_zip = new Gtk.FileFilter ();
+        filter_zip.name = _("ZIP 压缩包 (*.zip)");
+        filter_zip.add_pattern ("*.zip");
+        var filter_all = new Gtk.FileFilter ();
+        filter_all.name = _("所有文件 (*)");
+        filter_all.add_pattern ("*");
+        var filters_list = new GLib.ListStore (typeof (Gtk.FileFilter));
+        filters_list.append (filter_zip);
+        filters_list.append (filter_all);
+        dialog.set_filters (filters_list);
+        dialog.set_default_filter (filter_zip);
+
+        // 默认文件名: filecollector-export-2026-06-28-143012.zip
+        var now = new DateTime.now_local ();
+        dialog.set_initial_name (
+            "filecollector-export-%s.zip".printf (now.format ("%Y%m%d-%H%M%S"))
+        );
+
+        dialog.save.begin (this, null, (obj, res) => {
+            try {
+                var file = dialog.save.end (res);
+                var path = file.get_path ();
+                if (!path.has_suffix (".zip")) {
+                    path += ".zip";
+                }
+                // ZIP 导出: 文件是真实文件 (不是 VLM 转写后的 markdown),
+                // 所以 use_absolute 只影响 README 中路径显示, 这里传 false 即可
+                ZipExporter.export_to_zip (path, items, show_header, work_dir);
+                show_toast (_("已导出 ZIP: %s").printf (GLib.Path.get_basename (path)));
+            } catch (Error e) {
+                if (e is GLib.IOError.CANCELLED || e is Gtk.DialogError.DISMISSED) {
+                    show_toast (_("导出已取消"));
+                    return;
+                }
+                show_error (_("ZIP 导出失败"), e.message);
+            }
+        });
+    }
+
     // ─── AI 阅读指南生成 ─────────────────────────────────────────────────
 
     private void on_ai_toc_clicked () {
@@ -3411,6 +3485,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             btn_ai_toc.sensitive = true;
             btn_generate.sensitive = true;
             btn_generate_clipboard.sensitive = true;
+            btn_export_zip.sensitive = true;
             show_toast (_("无法启动 AI 生成线程"));
         }
     }

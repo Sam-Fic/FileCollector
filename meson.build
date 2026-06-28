@@ -24,6 +24,12 @@ cmark_ext_header = cc.has_header('cmark-gfm-core-extensions.h', required: true)
 gettext_package = meson.project_name ()
 locale_dir = join_paths (get_option ('prefix'), get_option ('localedir'))
 
+# 开发构建：优先使用源码树 locale/ 目录，避免 /usr/share/locale 找不到 .mo
+src_locale = join_paths (meson.project_source_root (), 'locale')
+if run_command('test', '-d', src_locale, check: false).returncode() == 0
+    locale_dir = src_locale
+endif
+
 # 添加 C 编译器定义
 add_project_arguments('-DGETTEXT_PACKAGE="' + gettext_package + '"', language: 'c')
 
@@ -77,6 +83,7 @@ sources = files(
   'src/services/binary_preprocessor.vala',
   'src/services/config_manager.vala',
   'src/services/file_generator.vala',
+  'src/services/zip_exporter.vala',
   'src/services/git_service.vala',
   'src/services/multimodal_ai_client.vala',
   'src/services/preprocess_cache.vala',

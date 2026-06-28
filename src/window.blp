@@ -394,25 +394,39 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
 
             // 生成按钮
             Box {
-              orientation: horizontal;
+              orientation: vertical;
               halign: center;
               spacing: 6;
               margin-top: 6;
               margin-start: 12;
               margin-end: 12;
               margin-bottom: 12;
-              Button btn_generate {
-                css-classes: ["suggested-action"];
-                hexpand: true;
-                Box {
-                  spacing: 4;
-                  Image { icon-name: "document-save-symbolic"; }
-                  Label { label: _("生成合并文本"); }
+              Box {
+                orientation: horizontal;
+                halign: center;
+                spacing: 6;
+                Button btn_generate {
+                  halign: center;
+                  css-classes: ["suggested-action"];
+                  Box {
+                    spacing: 4;
+                    Image { icon-name: "document-save-symbolic"; }
+                    Label { label: _("生成合并文本"); }
+                  }
+                }
+                Button btn_export_zip {
+                  halign: center;
+                  css-classes: ["suggested-action"];
+                  Box {
+                    spacing: 4;
+                    Image { icon-name: "package-x-generic-symbolic"; }
+                    Label { label: _("导出为 ZIP"); }
+                  }
                 }
               }
               Button btn_generate_clipboard {
+                halign: center;
                 css-classes: ["suggested-action"];
-                hexpand: true;
                 Box {
                   spacing: 4;
                   Image { icon-name: "edit-copy-symbolic"; }
