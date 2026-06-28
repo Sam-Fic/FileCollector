@@ -100,7 +100,7 @@ public class TemplatesManager : GLib.Object {
         var edit_dialog = new Adw.Dialog ();
         edit_dialog.set_title (is_new ? _("添加模板") : _("编辑模板"));
         edit_dialog.set_content_width (450);
-        edit_dialog.set_content_height (400);
+        // 不设固定高度, 让 Adw.Dialog 按内容自然尺寸自适应 (ScrolledWindow 处理溢出)
 
         var toolbar_view = new Adw.ToolbarView ();
         var header = new Adw.HeaderBar ();
@@ -115,13 +115,12 @@ public class TemplatesManager : GLib.Object {
         save_btn.add_css_class ("suggested-action");
         header.pack_end (save_btn);
 
-        var list_box = new Gtk.ListBox ();
-        list_box.add_css_class ("boxed-list");
-        list_box.set_selection_mode (Gtk.SelectionMode.NONE);
-        list_box.margin_top = 12;
-        list_box.margin_bottom = 12;
-        list_box.margin_start = 12;
-        list_box.margin_end = 12;
+        var group = new Adw.PreferencesGroup ();
+        group.set_title (_("模板字段"));
+        group.set_description (
+            _("在 AI 助手输入框中输入 \"/\" + 指令 ID 即可触发该模板。\n" +
+              "触发后头部/尾部插入文本会自动添加到编排列表的首位 / 末位，" +
+              "AI 驱动提示词会作为用户消息发送给 AI。"));
 
         var entry_id = new Adw.EntryRow ();
         entry_id.set_title (_("指令 ID (如 bug)"));
@@ -142,12 +141,12 @@ public class TemplatesManager : GLib.Object {
         entry_prompt.set_title (_("AI 驱动提示词"));
         entry_prompt.set_text (tpl.ai_prompt);
 
-        list_box.append (entry_id);
-        list_box.append (entry_name);
-        list_box.append (entry_desc);
-        list_box.append (entry_header);
-        list_box.append (entry_footer);
-        list_box.append (entry_prompt);
+        group.add (entry_id);
+        group.add (entry_name);
+        group.add (entry_desc);
+        group.add (entry_header);
+        group.add (entry_footer);
+        group.add (entry_prompt);
 
         save_btn.clicked.connect (() => {
             tpl.id = entry_id.get_text ().strip ();
@@ -174,11 +173,12 @@ public class TemplatesManager : GLib.Object {
             edit_dialog.close ();
         });
 
-        var scrolled = new Gtk.ScrolledWindow ();
-        scrolled.set_child (list_box);
-        scrolled.set_vexpand (true);
-        scrolled.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
-        toolbar_view.set_content (scrolled);
+        var prefs_page = new Adw.PreferencesPage ();
+        prefs_page.add (group);
+
+        // Adw.PreferencesPage 自身处理滚动, 直接挂到 toolbar_view 即可自适应内容高度
+        // (参考 AI 设置对话框 ai_settings_dialog.vala: 用 ToastOverlay 包 prefs_page)
+        toolbar_view.set_content (prefs_page);
         edit_dialog.set_child (toolbar_view);
         edit_dialog.present (dialog);
     }
