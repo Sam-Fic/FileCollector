@@ -3333,23 +3333,73 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
 
         var dialog = new Gtk.FileDialog ();
-        dialog.title = _("保存合并文本");
-        var filter = new Gtk.FileFilter ();
-        filter.name = _("文本文件 (*.txt)");
-        filter.add_pattern ("*.txt");
+        dialog.title = _("导出合并文本");
+
+        var filter_txt = new Gtk.FileFilter ();
+        filter_txt.name = _("文本文件 (*.txt)");
+        filter_txt.add_pattern ("*.txt");
+
+        var filter_md = new Gtk.FileFilter ();
+        filter_md.name = _("Markdown (*.md)");
+        filter_md.add_pattern ("*.md");
+
+        var filter_json = new Gtk.FileFilter ();
+        filter_json.name = _("JSON (*.json)");
+        filter_json.add_pattern ("*.json");
+
+        var filter_jsonl = new Gtk.FileFilter ();
+        filter_jsonl.name = _("JSONL (*.jsonl)");
+        filter_jsonl.add_pattern ("*.jsonl");
+
+        var filter_ipynb = new Gtk.FileFilter ();
+        filter_ipynb.name = _("Jupyter Notebook (*.ipynb)");
+        filter_ipynb.add_pattern ("*.ipynb");
+
+        var filter_all = new Gtk.FileFilter ();
+        filter_all.name = _("所有文件 (*)");
+        filter_all.add_pattern ("*");
+
         var filters_list = new GLib.ListStore (typeof (Gtk.FileFilter));
-        filters_list.append (filter);
+        filters_list.append (filter_txt);
+        filters_list.append (filter_md);
+        filters_list.append (filter_json);
+        filters_list.append (filter_jsonl);
+        filters_list.append (filter_ipynb);
+        filters_list.append (filter_all);
         dialog.set_filters (filters_list);
+        dialog.set_default_filter (filter_txt);
+
+        var now = new DateTime.now_local ();
+        dialog.set_initial_name (
+            "filecollector-export-%s".printf (now.format ("%Y%m%d-%H%M%S"))
+        );
 
         dialog.save.begin (this, null, (obj, res) => {
             try {
                 var file = dialog.save.end (res);
                 var path = file.get_path ();
-                if (!path.has_suffix (".txt")) {
-                    path += ".txt";
+                string lower = path.down ();
+                string fmt_name;
+                if (lower.has_suffix (".md")) {
+                    MultiFormatExporter.export_markdown (path, items, use_absolute, show_header, work_dir);
+                    fmt_name = _("Markdown");
+                } else if (lower.has_suffix (".jsonl")) {
+                    MultiFormatExporter.export_jsonl (path, items, use_absolute, show_header, work_dir);
+                    fmt_name = _("JSONL");
+                } else if (lower.has_suffix (".json")) {
+                    MultiFormatExporter.export_json (path, items, use_absolute, show_header, work_dir);
+                    fmt_name = _("JSON");
+                } else if (lower.has_suffix (".ipynb")) {
+                    MultiFormatExporter.export_ipynb (path, items, use_absolute, show_header, work_dir);
+                    fmt_name = _("Jupyter Notebook");
+                } else {
+                    if (!lower.has_suffix (".txt")) {
+                        path += ".txt";
+                    }
+                    FileGenerator.generate_file (path, items, use_absolute, show_header, work_dir);
+                    fmt_name = _("合并文本");
                 }
-                FileGenerator.generate_file (path, items, use_absolute, show_header, work_dir);
-                show_toast (_("合并文本已保存"));
+                show_toast (_("%s 已保存").printf (fmt_name));
             } catch (Error e) {
                 if (e is GLib.IOError.CANCELLED || e is Gtk.DialogError.DISMISSED) {
                     show_toast (_("保存已取消"));

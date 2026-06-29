@@ -83,6 +83,7 @@ sources = files(
   'src/services/binary_preprocessor.vala',
   'src/services/config_manager.vala',
   'src/services/file_generator.vala',
+  'src/services/multi_format_exporter.vala',
   'src/services/zip_exporter.vala',
   'src/services/git_service.vala',
   'src/services/multimodal_ai_client.vala',
