@@ -14,3 +14,4 @@ src/services/project_manager.vala
 src/services/file_generator.vala
 src/services/ai_client.vala
 src/widgets/markdown_view.vala
+src/widgets/context_menus.vala

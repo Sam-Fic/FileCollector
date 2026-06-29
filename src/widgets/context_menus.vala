@@ -10,6 +10,18 @@ public delegate void ContextMenuFileAction (ItemData item);
 
 public class ContextMenus : GLib.Object {
 
+    // 当前活动的右键菜单 popover, 持有强引用, 避免被 GC / 局部变量出作用域释放
+    // 同时在 parent widget 销毁前能正确清理
+    private static Gtk.PopoverMenu? active_popover = null;
+
+    private static void close_active_popover () {
+        if (active_popover != null) {
+            var p = active_popover;
+            active_popover = null;
+            p.popdown ();
+        }
+    }
+
     // ─── 编排列表右键菜单 ──────────────────────────────────────────────
 
     public static void show_queue_menu (
@@ -142,7 +154,29 @@ public class ContextMenus : GLib.Object {
 
         var section_delete = new GLib.Menu ();
         var act_delete = new GLib.SimpleAction ("ctx_delete", null);
-        act_delete.activate.connect (() => { on_delete (); });
+        act_delete.activate.connect (() => {
+            // 关键修复: 推迟 on_delete 到 GLib.Idle.add + 用 try/catch 包住整个调用.
+            //
+            // 之前 on_delete 通过 ContextMenuAction delegate 链传递, delegate 持 self ref.
+            // 但 vala 编译 instance method 调用时, lambda 内部再次 g_object_ref(self),
+            // 加上 delegate copy 时再 +1, 加上 closure finalize 时 -1, refcount 复杂.
+            // 在 close_active_popover() → action_group dispose 链触发某些 unref 后,
+            // 后续 self 可能是已 finalize 状态, vala wrapper 'self != NULL' 断言失败.
+            //
+            // 修复:
+            // 1. 先 popdown popover (释放 box 引用, 避免 parent race)
+            // 2. GLib.Idle.add 把 on_delete 推到下一 tick
+            // 3. try/catch 包住, 即使 self 出问题也不 segfault
+            close_active_popover ();
+            GLib.Idle.add (() => {
+                try {
+                    on_delete ();
+                } catch (GLib.Error err) {
+                    GLib.warning ("on_delete failed: %s", err.message);
+                }
+                return Source.REMOVE;
+            });
+        });
         action_group.add_action (act_delete);
         section_delete.append (count > 1 ? _("删除 (%d 项)").printf (count) : _("删除"), "ctx.ctx_delete");
         menu_model.append_section (null, section_delete);
@@ -196,6 +230,9 @@ public class ContextMenus : GLib.Object {
     private static void show_popover (Gtk.Widget parent, GLib.Menu menu_model,
                                        GLib.SimpleActionGroup action_group, string ns,
                                        int gx, int gy) {
+        // 关闭任何已存在的 popover, 避免多个 popover 同时显示
+        close_active_popover ();
+
         var popover = new Gtk.PopoverMenu.from_model (menu_model);
         popover.set_has_arrow (false);
         popover.set_parent (parent);
@@ -206,6 +243,16 @@ public class ContextMenus : GLib.Object {
 
         Gdk.Rectangle rect = Gdk.Rectangle () { x = gx, y = gy, width = 1, height = 1 };
         popover.set_pointing_to (rect);
+
+        // popover 关闭后 (包括外部点击 / action 触发 / Esc) 自动释放 class 引用,
+        // 避免野指针
+        popover.closed.connect (() => {
+            if (active_popover == popover) {
+                active_popover = null;
+            }
+        });
+
+        active_popover = popover;
         popover.popup ();
     }
 }

@@ -67,6 +67,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private GLib.ListStore queue_store;
     private Gtk.MultiSelection queue_selection;
 
+    // 防御: 在对 queue_store/queue_selection 进行突变 (splice/unselect/select)
+    // 时增加深度计数, 防止 selection_changed / notify 等信号处理函数重入访问
+    // 模型, 避免 gtk_selection_model_get_selection 断言失败或空指针解引用崩溃.
+    private int queue_update_depth = 0;
+
     private AppState app_state;
     // 向后兼容访问器, 逐步迁移到直接通过 app_state 访问
     private Gee.ArrayList<ItemData> items { get { return app_state.items; } }
@@ -448,11 +453,17 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             var right_click = new Gtk.GestureClick ();
             right_click.set_button (Gdk.BUTTON_SECONDARY);
             right_click.pressed.connect ((n_press, gx, gy) => {
+                // 防御: 若队列模型正在突变 (删除/刷新), 忽略此次右键, 避免访问不稳定模型.
+                if (queue_update_depth > 0) return;
+
                 var li = obj as Gtk.ListItem;
                 if (li == null) return;
                 uint pos = li.get_position ();
-                var bitset = queue_selection.get_selection ();
-                if (!bitset.contains (pos)) {
+                // 关键修复: gtk_selection_model_get_selection 返回 transfer-none 的 bitset,
+                // Vala VAPI 错误地将其标为 transfer-full, 导致 Vala 生成 gtk_bitset_unref,
+                // 进而释放 selection model 内部持有的 bitset, 破坏模型状态并引发崩溃.
+                // 改用 is_selected() 完全避免 get_selection() 调用.
+                if (!queue_selection.is_selected (pos)) {
                     queue_selection.unselect_all ();
                     queue_selection.select_item (pos, false);
                 }
@@ -517,10 +528,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 if (list_item != null && list_item.get_item () != null) {
                     render_queue_row (list_item, data, label, icon);
                 }
+                // 防御: 若队列模型正在突变 (如删除/刷新), 此时访问 queue_selection
+                // 可能触发 GTK 断言失败. 行内渲染已完成, 预览刷新延迟到更新结束后统一处理.
+                if (queue_update_depth > 0) return;
                 // 同步刷新右侧预览区, 避免状态变化后预览内容未更新
                 uint sel = list_item.get_position ();
-                var sel_bitset = queue_selection.get_selection ();
-                if (sel < queue_store.get_n_items () && sel_bitset.contains (sel) && queue_store.get_item (sel) == data) {
+                // 关键修复: 避免 get_selection() (VAPI 所有权错误导致误 unref),
+                // 改用 is_selected() 判断当前行是否被选中.
+                if (sel < queue_store.get_n_items () && queue_selection.is_selected (sel) && queue_store.get_item (sel) == data) {
                     update_preview (data);
                 }
             });
@@ -2386,6 +2401,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         try {
             var folder = yield dialog.select_folder (this, null);
             if (folder == null) return;
+
+            if (window_closing) return;
+
             this.work_dir = folder;
 
             update_subtitle (folder.get_path ());
@@ -2408,8 +2426,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             }
 
             GLib.Idle.add (() => {
+                if (window_closing) return Source.REMOVE;
                 refresh_list ();
-                // 打开新目录后刷新 Git 状态
                 git_commits.clear ();
                 refresh_git_list ();
                 btn_git_add_all_changed.sensitive = true;
@@ -2607,105 +2625,116 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // ─── Queue List ──────────────────────────────────────────────────────
 
     private void refresh_list () {
-        // 1. 记录当前选中的 ItemData 对象引用
-        var selected_items = new Gee.ArrayList<ItemData> ();
-        var bitset = queue_selection.get_selection ();
-        for (uint i = 0; i < queue_store.get_n_items (); i++) {
-            if (bitset.contains (i)) {
-                selected_items.add ((ItemData) queue_store.get_item (i));
+        // 防御: 在 splice/unselect/select 期间, selection 模型可能处于不稳定状态,
+        // 嵌套调用时只由最外层管理深度计数, 避免信号处理函数重入导致崩溃.
+        queue_update_depth++;
+        try {
+            // 1. 记录当前选中的 ItemData 对象引用
+            var selected_items = new Gee.ArrayList<ItemData> ();
+            // 关键修复: 避免 get_selection() (VAPI 所有权错误导致误 unref),
+            // 改用 is_selected() 逐行判断选中状态.
+            for (uint i = 0; i < queue_store.get_n_items (); i++) {
+                if (queue_selection.is_selected (i)) {
+                    selected_items.add ((ItemData) queue_store.get_item (i));
+                }
             }
-        }
 
-        uint n = queue_store.get_n_items ();
-        int m = items.size;
+            uint n = queue_store.get_n_items ();
+            int m = items.size;
 
-        // 差分同步: 只替换发生变化的段, 避免全量重建
-        // 2. 寻找第一个不一致的索引
-        int first_diff = -1;
-        int min_len = (int) uint.min (n, (uint) m);
-        for (int i = 0; i < min_len; i++) {
-            if (queue_store.get_item (i) != items.get (i)) {
-                first_diff = i;
-                break;
-            }
-        }
-
-        // 3. 根据差异类型执行最小化 splice
-        if (first_diff == -1) {
-            if (n == m) {
-                // 完全一致，无需任何操作
-            } else if (n < m) {
-                // 仅尾部追加
-                GLib.Object[] adds = new GLib.Object[m - n];
-                for (int i = (int)n; i < m; i++) adds[i - (int)n] = items.get (i);
-                queue_store.splice (n, 0, adds);
-            } else {
-                // 仅尾部删除
-                queue_store.splice (m, n - m, new GLib.Object[0]);
-            }
-        } else {
-            // 4. 存在中间差异，寻找最后一个不一致的索引
-            int last_diff_old = (int)n - 1;
-            int last_diff_new = m - 1;
-            while (last_diff_old >= first_diff && last_diff_new >= first_diff) {
-                if (queue_store.get_item (last_diff_old) == items.get (last_diff_new)) {
-                    last_diff_old--;
-                    last_diff_new--;
-                } else {
+            // 差分同步: 只替换发生变化的段, 避免全量重建
+            // 2. 寻找第一个不一致的索引
+            int first_diff = -1;
+            int min_len = (int) uint.min (n, (uint) m);
+            for (int i = 0; i < min_len; i++) {
+                if (queue_store.get_item (i) != items.get (i)) {
+                    first_diff = i;
                     break;
                 }
             }
 
-            int replace_len_old = last_diff_old - first_diff + 1;
-            int replace_len_new = last_diff_new - first_diff + 1;
+            // 3. 根据差异类型执行最小化 splice
+            if (first_diff == -1) {
+                if (n == m) {
+                    // 完全一致，无需任何操作
+                } else if (n < m) {
+                    // 仅尾部追加
+                    GLib.Object[] adds = new GLib.Object[m - n];
+                    for (int i = (int)n; i < m; i++) adds[i - (int)n] = items.get (i);
+                    queue_store.splice (n, 0, adds);
+                } else {
+                    // 仅尾部删除
+                    queue_store.splice (m, n - m, new GLib.Object[0]);
+                }
+            } else {
+                // 4. 存在中间差异，寻找最后一个不一致的索引
+                int last_diff_old = (int)n - 1;
+                int last_diff_new = m - 1;
+                while (last_diff_old >= first_diff && last_diff_new >= first_diff) {
+                    if (queue_store.get_item (last_diff_old) == items.get (last_diff_new)) {
+                        last_diff_old--;
+                        last_diff_new--;
+                    } else {
+                        break;
+                    }
+                }
 
-            GLib.Object[] adds = new GLib.Object[replace_len_new];
-            for (int i = 0; i < replace_len_new; i++) {
-                adds[i] = items.get (first_diff + i);
+                int replace_len_old = last_diff_old - first_diff + 1;
+                int replace_len_new = last_diff_new - first_diff + 1;
+
+                GLib.Object[] adds = new GLib.Object[replace_len_new];
+                for (int i = 0; i < replace_len_new; i++) {
+                    adds[i] = items.get (first_diff + i);
+                }
+                // 仅替换发生变化的中间段
+                queue_store.splice (first_diff, replace_len_old, adds);
             }
-            // 仅替换发生变化的中间段
-            queue_store.splice (first_diff, replace_len_old, adds);
-        }
 
-        // 5. 恢复选择状态 (基于对象引用)
-        queue_selection.unselect_all ();
-        bool any_selected = false;
-        foreach (var sel_item in selected_items) {
-            int idx = find_item_index (sel_item);
-            if (idx >= 0) {
-                queue_selection.select_item (idx, false);
-                any_selected = true;
+            // 5. 恢复选择状态 (基于对象引用)
+            queue_selection.unselect_all ();
+            bool any_selected = false;
+            foreach (var sel_item in selected_items) {
+                int idx = find_item_index (sel_item);
+                if (idx >= 0) {
+                    queue_selection.select_item (idx, false);
+                    any_selected = true;
+                }
             }
-        }
-        if (!any_selected && items.size > 0) {
-            queue_selection.select_item (0, false);
-        }
-
-        update_queue_buttons ();
-
-        // 6. 更新预览面板
-        var new_indices = get_selected_indices ();
-        if (new_indices.size == 1) {
-            int sel = new_indices.get (0);
-            if (sel >= 0 && sel < items.size) {
-                update_preview (items.get (sel));
+            if (!any_selected && items.size > 0) {
+                queue_selection.select_item (0, false);
             }
-        } else if (new_indices.size > 1) {
-            show_multi_selection_preview (new_indices.size);
-        } else {
-            clear_preview ();
+
+            update_queue_buttons ();
+
+            // 6. 更新预览面板
+            var new_indices = get_selected_indices ();
+            if (new_indices.size == 1) {
+                int sel = new_indices.get (0);
+                if (sel >= 0 && sel < items.size) {
+                    update_preview (items.get (sel));
+                }
+            } else if (new_indices.size > 1) {
+                show_multi_selection_preview (new_indices.size);
+            } else {
+                clear_preview ();
+            }
+        } finally {
+            queue_update_depth--;
+            if (queue_update_depth < 0) queue_update_depth = 0;
         }
+
+        // 模型已恢复稳定, 统一触发一次 UI 刷新 (包括清除目录树选择等副作用).
+        on_queue_selection_changed (0, 0);
     }
 
     private Gee.ArrayList<int> get_selected_indices () {
         var indices = new Gee.ArrayList<int> ();
-        var bitset = queue_selection.get_selection ();
-        var iter = Gtk.BitsetIter ();
-        uint value;
-        if (iter.init_first (bitset, out value)) {
-            indices.add ((int) value);
-            while (iter.next (out value)) {
-                indices.add ((int) value);
+        // 关键修复: 避免 get_selection() (VAPI 所有权错误导致误 unref),
+        // 改用 is_selected() 逐行收集选中索引. 同时防御模型未初始化/已释放.
+        if (queue_selection == null) return indices;
+        for (uint i = 0; i < queue_store.get_n_items (); i++) {
+            if (queue_selection.is_selected (i)) {
+                indices.add ((int) i);
             }
         }
         return indices;
@@ -2939,36 +2968,76 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_delete_item () {
-        var indices = get_selected_indices ();
-        if (indices.size == 0) return;
+        // 关键: 用 GLib.Idle.add 推迟 + 显式 ref. 这样:
+        // 1. popover.closed 释放上游的 self ref 链 (避免 race)
+        // 2. action 回调栈退栈后再跑删除
+        // 3. 我们在 closure 内部显式 hold self, 即使外部 dispose 也安全
+        GLib.Idle.add (() => {
+            this.@ref ();
+            try {
+                perform_delete_sync ();
+            } finally {
+                this.@unref ();
+            }
+            return Source.REMOVE;
+        });
+    }
 
-        push_undo_state ();
+    private void perform_delete_sync () {
+        // 防御: 整个删除流程 (unselect/remove/refresh_list) 期间屏蔽 selection 信号,
+        // 避免在模型突变时重入 get_selection() 导致 GTK 断言失败.
+        queue_update_depth++;
+        try {
+            var indices = get_selected_indices ();
+            if (indices.size == 0) return;
+            push_undo_state ();
 
-        indices.sort ((a, b) => b - a);
+            // 取消所有选中, 避免后续 refresh_list 走"还原选中"路径时
+            // 持有即将被释放的 row 引用
+            queue_selection.unselect_all ();
 
-        var paths_to_uncheck = new Gee.ArrayList<string> ();
-        foreach (int idx in indices) {
-            if (idx < 0 || idx >= items.size) continue;
-            var data = items.get (idx);
-            if (data.item_type == "file" && !data.force_absolute && data.file_path != null) {
-                if (data.file_path in check_model.checked_files) {
-                    paths_to_uncheck.add (data.file_path);
+            var paths_to_uncheck = new Gee.ArrayList<string> ();
+            for (int k = 0; k < indices.size; k++) {
+                int idx = indices.get (k);
+                if (idx < 0 || idx >= items.size) continue;
+                var data = items.get (idx);
+                if (data.item_type == "file" && !data.force_absolute && data.file_path != null) {
+                    if (data.file_path in check_model.checked_files) {
+                        paths_to_uncheck.add (data.file_path);
+                    }
                 }
             }
-        }
 
-        if (paths_to_uncheck.size > 0) {
-            check_model.remove_files ((string[]) paths_to_uncheck.to_array ());
-        }
-
-        foreach (int idx in indices) {
-            if (idx >= 0 && idx < items.size) {
-                items.remove_at (idx);
+            if (paths_to_uncheck.size > 0) {
+                check_model.remove_files ((string[]) paths_to_uncheck.to_array ());
             }
+
+            int[] sorted = new int[indices.size];
+            for (int k = 0; k < indices.size; k++) sorted[k] = indices.get (k);
+            for (int i = 1; i < sorted.length; i++) {
+                int v = sorted[i];
+                int j = i - 1;
+                while (j >= 0 && sorted[j] < v) {
+                    sorted[j + 1] = sorted[j];
+                    j--;
+                }
+                sorted[j + 1] = v;
+            }
+            foreach (int idx in sorted) {
+                if (idx >= 0 && idx < items.size) {
+                    items.remove_at (idx);
+                }
+            }
+
+            refresh_all_tree_states ();
+            refresh_list ();
+        } finally {
+            queue_update_depth--;
+            if (queue_update_depth < 0) queue_update_depth = 0;
         }
 
-        refresh_all_tree_states ();
-        refresh_list ();
+        // refresh_list() 退出时已经把 queue_update_depth 归零并调用过
+        // on_queue_selection_changed(), 这里不需要再触发一次.
     }
 
     private void on_clear_items () {
@@ -3010,6 +3079,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_queue_selection_changed (uint position, uint n_items) {
+        // 防御: 模型正在突变时, selection 状态可能处于中间态,
+        // 此时访问 queue_selection 可能触发 GTK 断言失败. 延迟到更新结束后再统一刷新 UI.
+        if (queue_update_depth > 0) return;
+
         update_queue_buttons ();
         var indices = get_selected_indices ();
         if (indices.size == 1) {
@@ -3235,70 +3308,128 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // ─── 编排列表右键菜单 ───────────────────────────────────────────────────
 
+    // 关键修复: ContextMenus.show_queue_menu 会把 delegate target 存为原始 gpointer
+    // 并且不 ref. 如果传捕获 item/self 的 lambda, target 是临时的闭包数据,
+    // 在 show_queue_context_menu 返回后就被释放, 导致点击菜单时 target 已成野指针
+    // (g_object_ref 断言失败并 segfault). 因此把所有需要 item 的状态先存到 window
+    // 字段, 再传实例方法 (target 固定为 window), 由 window 生命周期保证安全.
+    private ItemData? ctx_item = null;
+    private int ctx_index = -1;
+
+    private void on_ctx_edit_text () {
+        if (ctx_item != null) {
+            insert_text (false, ctx_item.content, ctx_item);
+        }
+    }
+
+    private void on_ctx_insert_above () {
+        insert_text (true);
+    }
+
+    private void on_ctx_insert_below () {
+        insert_text (false);
+    }
+
+    private void on_ctx_copy_path () {
+        if (ctx_item == null || ctx_item.file_path == null) return;
+        string path_to_copy = ctx_item.file_path;
+        if (!ctx_item.force_absolute && work_dir != null && !use_absolute) {
+            string wd = work_dir.get_path () + "/";
+            if (path_to_copy.has_prefix (wd)) {
+                path_to_copy = path_to_copy.substring (wd.length);
+            }
+        }
+        get_clipboard ().set_text (path_to_copy);
+        show_toast (_("路径已复制到剪贴板"));
+    }
+
+    private void on_ctx_show_folder () {
+        if (ctx_item == null || ctx_item.file_path == null) return;
+        show_file_in_folder (ctx_item.file_path);
+    }
+
+    private void on_ctx_refresh_list () {
+        refresh_list ();
+    }
+
+    private void on_ctx_push_undo () {
+        push_undo_state ();
+    }
+
+    private void on_ctx_retry_preprocess (ItemData it) {
+        on_retry_preprocess (it);
+    }
+
     private void show_queue_context_menu (Gtk.Widget parent, ItemData item, int index, int gx, int gy) {
+        ctx_item = item;
+        ctx_index = index;
         var indices = get_selected_indices ();
         ContextMenus.show_queue_menu (
             parent, item, index, gx, gy,
             indices, items, work_dir, use_absolute,
-            () => { insert_text (false, item.content, item); },
-            () => { insert_text (true); },
-            () => { insert_text (false); },
-            () => { on_move_up (); },
-            () => { on_move_down (); },
-            () => { on_delete_item (); },
-            () => { refresh_list (); },
-            () => { push_undo_state (); },
-            (it) => { on_retry_preprocess (it); },
-            () => {
-                string path_to_copy = item.file_path;
-                if (!item.force_absolute && work_dir != null && !use_absolute) {
-                    string wd = work_dir.get_path () + "/";
-                    if (path_to_copy.has_prefix (wd)) {
-                        path_to_copy = path_to_copy.substring (wd.length);
-                    }
-                }
-                get_clipboard ().set_text (path_to_copy);
-                show_toast (_("路径已复制到剪贴板"));
-            },
-            () => { show_file_in_folder (item.file_path); }
+            on_ctx_edit_text,
+            on_ctx_insert_above,
+            on_ctx_insert_below,
+            on_move_up,
+            on_move_down,
+            on_delete_item,
+            on_ctx_refresh_list,
+            on_ctx_push_undo,
+            on_ctx_retry_preprocess,
+            on_ctx_copy_path,
+            on_ctx_show_folder
         );
     }
 
     // ─── 目录树右键菜单 ─────────────────────────────────────────────────────
 
+    // 与编排列表右键菜单相同的修复: 避免把捕获 item 的 lambda 传给 ContextMenus,
+    // 否则 target 是临时闭包数据, popover 触发时已成为野指针.
+    private DirectoryItem? ctx_tree_item = null;
+
+    private void on_ctx_tree_copy_path () {
+        if (ctx_tree_item == null) return;
+        string path_to_copy = ctx_tree_item.path;
+        if (work_dir != null) {
+            string wd = work_dir.get_path () + "/";
+            if (path_to_copy.has_prefix (wd)) {
+                path_to_copy = path_to_copy.substring (wd.length);
+            }
+        }
+        get_clipboard ().set_text (path_to_copy);
+        show_toast (_("路径已复制到剪贴板"));
+    }
+
+    private void on_ctx_tree_show_folder () {
+        if (ctx_tree_item == null) return;
+        string target_path = ctx_tree_item.is_dir ? ctx_tree_item.path : GLib.Path.get_dirname (ctx_tree_item.path);
+        show_file_in_folder (target_path);
+    }
+
+    private void on_ctx_tree_copy_content () {
+        if (ctx_tree_item == null) return;
+        try {
+            uint8[] data;
+            FileUtils.get_data (ctx_tree_item.path, out data);
+            if (data.length > 1048576) {
+                show_toast (_("文件过大，无法复制内容"));
+                return;
+            }
+            string content = EncodingHelper.decode_to_utf8 (data);
+            get_clipboard ().set_text (content);
+            show_toast (_("文件内容已复制"));
+        } catch (Error e) {
+            show_toast (_("读取文件失败"));
+        }
+    }
+
     private void show_tree_context_menu (Gtk.Widget parent, DirectoryItem item, int gx, int gy) {
+        ctx_tree_item = item;
         ContextMenus.show_tree_menu (
             parent, item, gx, gy, work_dir,
-            () => {
-                string path_to_copy = item.path;
-                if (work_dir != null) {
-                    string wd = work_dir.get_path () + "/";
-                    if (path_to_copy.has_prefix (wd)) {
-                        path_to_copy = path_to_copy.substring (wd.length);
-                    }
-                }
-                get_clipboard ().set_text (path_to_copy);
-                show_toast (_("路径已复制到剪贴板"));
-            },
-            () => {
-                string target_path = item.is_dir ? item.path : GLib.Path.get_dirname (item.path);
-                show_file_in_folder (target_path);
-            },
-            () => {
-                try {
-                    uint8[] data;
-                    FileUtils.get_data (item.path, out data);
-                    if (data.length > 1048576) {
-                        show_toast (_("文件过大，无法复制内容"));
-                        return;
-                    }
-                    string content = EncodingHelper.decode_to_utf8 (data);
-                    get_clipboard ().set_text (content);
-                    show_toast (_("文件内容已复制"));
-                } catch (Error e) {
-                    show_toast (_("读取文件失败"));
-                }
-            }
+            on_ctx_tree_copy_path,
+            on_ctx_tree_show_folder,
+            on_ctx_tree_copy_content
         );
     }
 
