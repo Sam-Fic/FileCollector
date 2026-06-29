@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: filecollector\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-06-28 22:57+0800\n"
+"POT-Creation-Date: 2026-06-29 14:53+0800\n"
 "PO-Revision-Date: 2026-06-27 11:30+0800\n"
 "Last-Translator: Sam-Fic\n"
 "Language-Team: English\n"
@@ -387,7 +387,7 @@ msgstr ""
 "anyway?"
 
 #: src/window.vala:258 src/window.vala:2812 src/window.vala:2990
-#: src/window.vala:3202 src/window.vala:3884
+#: src/window.vala:3202 src/window.vala:3934
 #: src/widgets/settings_dialog.vala:49 src/widgets/phrases_picker.vala:42
 #: src/widgets/phrases_picker.vala:99 src/widgets/phrases_picker.vala:257
 #: src/widgets/ai_panel.vala:910 src/widgets/ai_settings_dialog.vala:83
@@ -507,7 +507,7 @@ msgstr "Failed to load Git log: %s"
 msgid "正在加载 Diff..."
 msgstr "Loading Diff..."
 
-#: src/window.vala:1907 src/window.vala:1965 src/window.vala:4010
+#: src/window.vala:1907 src/window.vala:1965 src/window.vala:4060
 msgid "请先设置工作目录"
 msgstr "Set working directory"
 
@@ -607,7 +607,7 @@ msgstr "Edit Text"
 msgid "插入自定义文字"
 msgstr "Insert Custom Text"
 
-#: src/window.vala:2816 src/window.vala:3858 src/window.vala:3888
+#: src/window.vala:2816 src/window.vala:3908 src/window.vala:3938
 msgid "确定"
 msgstr "OK"
 
@@ -760,164 +760,201 @@ msgstr "File content copied"
 msgid "读取文件失败"
 msgstr "Failed to read file"
 
-#: src/window.vala:3331 src/window.vala:3365 src/window.vala:3381
+#: src/window.vala:3331 src/window.vala:3415 src/window.vala:3431
 msgid "编排列表为空，请先勾选文件或添加文字内容"
 msgstr "The queue is empty. Please check some files or add text content first"
 
 #: src/window.vala:3336
-msgid "保存合并文本"
-msgstr "Save Merged Text"
+msgid "导出合并文本"
+msgstr "Export Merged Text"
 
-#: src/window.vala:3338
+#: src/window.vala:3339
 msgid "文本文件 (*.txt)"
 msgstr "Text File (*.txt)"
 
-#: src/window.vala:3352
-msgid "合并文本已保存"
-msgstr "Merged Text Saved"
+#: src/window.vala:3343
+msgid "Markdown (*.md)"
+msgstr "Markdown (*.md)"
+
+#: src/window.vala:3347
+msgid "JSON (*.json)"
+msgstr "JSON (*.json)"
+
+#: src/window.vala:3351
+msgid "JSONL (*.jsonl)"
+msgstr "JSONL (*.jsonl)"
 
 #: src/window.vala:3355
-msgid "保存已取消"
-msgstr "Save cancelled"
+msgid "Jupyter Notebook (*.ipynb)"
+msgstr "Jupyter Notebook (*.ipynb)"
 
-#: src/window.vala:3358 src/window.vala:3574 src/window.vala:3599
-msgid "保存失败"
-msgstr "Save Failed"
-
-#: src/window.vala:3371
-msgid "合并文本已复制到剪贴板"
-msgstr "Merged Text Copied to Clipboard"
-
-#: src/window.vala:3373
-msgid "复制失败"
-msgstr "Copy Failed"
-
-#: src/window.vala:3386 src/window.blp:423
-msgid "导出为 ZIP"
-msgstr "Export as ZIP"
-
-#: src/window.vala:3388
-msgid "ZIP 压缩包 (*.zip)"
-msgstr "ZIP Archive (*.zip)"
-
-#: src/window.vala:3391
+#: src/window.vala:3359 src/window.vala:3441
 msgid "所有文件 (*)"
 msgstr "All Files (*)"
 
-#: src/window.vala:3415
+#: src/window.vala:3385
+msgid "Markdown"
+msgstr "Markdown"
+
+#: src/window.vala:3388
+msgid "JSONL"
+msgstr "JSONL"
+
+#: src/window.vala:3391
+msgid "JSON"
+msgstr "JSON"
+
+#: src/window.vala:3394
+msgid "Jupyter Notebook"
+msgstr "Jupyter Notebook"
+
+#: src/window.vala:3400
+msgid "合并文本"
+msgstr "Merged Text"
+
+#: src/window.vala:3402
+#, c-format
+msgid "%s 已保存"
+msgstr "%s saved"
+
+#: src/window.vala:3405
+msgid "保存已取消"
+msgstr "Save cancelled"
+
+#: src/window.vala:3408 src/window.vala:3624 src/window.vala:3649
+msgid "保存失败"
+msgstr "Save Failed"
+
+#: src/window.vala:3421
+msgid "合并文本已复制到剪贴板"
+msgstr "Merged Text Copied to Clipboard"
+
+#: src/window.vala:3423
+msgid "复制失败"
+msgstr "Copy Failed"
+
+#: src/window.vala:3436 src/window.blp:423
+msgid "导出为 ZIP"
+msgstr "Export as ZIP"
+
+#: src/window.vala:3438
+msgid "ZIP 压缩包 (*.zip)"
+msgstr "ZIP Archive (*.zip)"
+
+#: src/window.vala:3465
 #, c-format
 msgid "已导出 ZIP: %s"
 msgstr "ZIP exported: %s"
 
-#: src/window.vala:3418
+#: src/window.vala:3468
 msgid "导出已取消"
 msgstr "Export Cancelled"
 
-#: src/window.vala:3421
+#: src/window.vala:3471
 msgid "ZIP 导出失败"
 msgstr "ZIP Export Failed"
 
-#: src/window.vala:3430
+#: src/window.vala:3480
 msgid "编排列表为空，请先添加文件"
 msgstr "The queue is empty. Please check some files or add text content first"
 
-#: src/window.vala:3436
+#: src/window.vala:3486
 msgid "请先在 AI 设置中配置 API"
 msgstr "Please configure the API in Settings → AI Settings first."
 
-#: src/window.vala:3443
+#: src/window.vala:3493
 msgid "正在让 AI 生成阅读指南..."
 msgstr "Generating reading guide with AI..."
 
-#: src/window.vala:3473
+#: src/window.vala:3523
 msgid "AI 生成阅读指南失败"
 msgstr "AI reading guide generation failed"
 
-#: src/window.vala:3478
+#: src/window.vala:3528
 msgid "AI 阅读指南已插入编排列表顶部"
 msgstr "AI reading guide inserted at top of list"
 
-#: src/window.vala:3489
+#: src/window.vala:3539
 msgid "无法启动 AI 生成线程"
 msgstr "Failed to start AI generation thread"
 
-#: src/window.vala:3509 src/window.vala:3681
+#: src/window.vala:3559 src/window.vala:3731
 msgid "打开项目"
 msgstr "Open Project"
 
-#: src/window.vala:3511
+#: src/window.vala:3561
 msgid "项目文件 (*.fcol, *.fcol.json, *.project.json)"
 msgstr "Project File (*.fcol, *.fcol.json, *.project.json)"
 
-#: src/window.vala:3527
+#: src/window.vala:3577
 msgid "打开失败"
 msgstr "Open Failed"
 
-#: src/window.vala:3569
+#: src/window.vala:3619
 msgid "项目文件已更新"
 msgstr "Project file updated"
 
-#: src/window.vala:3580 src/window.blp:507
+#: src/window.vala:3630 src/window.blp:507
 msgid "保存项目"
 msgstr "Save Project"
 
-#: src/window.vala:3582
+#: src/window.vala:3632
 msgid "项目文件 (*.fcol)"
 msgstr "Project File (*.fcol)"
 
-#: src/window.vala:3596
+#: src/window.vala:3646
 msgid "项目文件已保存"
 msgstr "Project file saved"
 
-#: src/window.vala:3618 src/window.blp:47
+#: src/window.vala:3668 src/window.blp:47
 msgid "未设置工作目录"
 msgstr "No Working Directory Set"
 
-#: src/window.vala:3620 src/window.vala:3650 src/window.blp:46
+#: src/window.vala:3670 src/window.vala:3700 src/window.blp:46
 msgid "FileCollector"
 msgstr "FileCollector"
 
-#: src/window.vala:3653
+#: src/window.vala:3703
 msgid "文件收集与编排工具"
 msgstr "File Collection & Organization Tool"
 
-#: src/window.vala:3676
+#: src/window.vala:3726
 msgid "常用操作"
 msgstr "Common Operations"
 
-#: src/window.vala:3677
+#: src/window.vala:3727
 msgid "列表操作"
 msgstr "List Operations"
 
-#: src/window.vala:3678
+#: src/window.vala:3728
 msgid "应用程序"
 msgstr "Application"
 
-#: src/window.vala:3679
+#: src/window.vala:3729
 msgid "清空列表"
 msgstr "Clear All"
 
-#: src/window.vala:3680
+#: src/window.vala:3730
 msgid "生成到剪贴板"
 msgstr "Generate to Clipboard"
 
-#: src/window.vala:3682
+#: src/window.vala:3732
 msgid "切换 AI 面板"
 msgstr "Toggle AI Panel"
 
-#: src/window.vala:3683
+#: src/window.vala:3733
 msgid "关于"
 msgstr "About"
 
-#: src/window.vala:3684
+#: src/window.vala:3734
 msgid "退出"
 msgstr "Quit"
 
-#: src/window.vala:3871 src/window.vala:3879
+#: src/window.vala:3921 src/window.vala:3929
 msgid "编辑常用语"
 msgstr "Edit Common Phrase"
 
-#: src/window.vala:4032
+#: src/window.vala:4082
 #, c-format
 msgid "已从搜索结果添加 %d 个文件"
 msgstr "Added %d files from search results"
@@ -966,16 +1003,17 @@ msgstr "Insert Text Above"
 msgid "下方插入文本"
 msgstr "Insert Text Below"
 
-#: src/window.blp:261
+#: src/window.blp:261 src/widgets/context_menus.vala:71
 msgid "上移"
 msgstr "Move Up"
 
-#: src/window.blp:268
+#: src/window.blp:268 src/widgets/context_menus.vala:77
 msgid "下移"
 msgstr "Move Down"
 
 #: src/window.blp:276 src/window.blp:337 src/widgets/phrases_picker.vala:177
 #: src/widgets/phrases_picker.vala:216 src/widgets/templates_manager.vala:82
+#: src/widgets/context_menus.vala:147
 msgid "删除"
 msgstr "Delete"
 
@@ -1015,7 +1053,7 @@ msgstr "Generate Merged Text to Clipboard"
 msgid "预览"
 msgstr "Preview"
 
-#: src/window.blp:492
+#: src/window.blp:492 src/widgets/context_menus.vala:108
 msgid "重新进行 AI 转换"
 msgstr "Re-run AI conversion"
 
@@ -1781,6 +1819,52 @@ msgstr ""
 "\n"
 "…(Content too long, truncated)"
 
+#: src/widgets/context_menus.vala:49
+msgid "编辑文本"
+msgstr "Edit Text"
+
+#: src/widgets/context_menus.vala:54
+msgid "在上方插入文本"
+msgstr "Insert Text Above"
+
+#: src/widgets/context_menus.vala:59
+msgid "在下方插入文本"
+msgstr "Insert Text Below"
+
+#: src/widgets/context_menus.vala:108
+#, c-format
+msgid "重新进行 AI 转换 (%d 项)"
+msgstr "Retry AI Conversion (%d items)"
+
+#: src/widgets/context_menus.vala:124
+#, c-format
+msgid "切换绝对/相对路径 (%d 项)"
+msgstr "Switch absolute/relative path (%d items)"
+
+#: src/widgets/context_menus.vala:124
+msgid "切换绝对/相对路径"
+msgstr "Switch absolute/relative path"
+
+#: src/widgets/context_menus.vala:131 src/widgets/context_menus.vala:171
+msgid "复制路径"
+msgstr "Copy Path"
+
+#: src/widgets/context_menus.vala:136 src/widgets/context_menus.vala:176
+msgid "在文件管理器中显示"
+msgstr "Show in File Manager"
+
+#: src/widgets/context_menus.vala:147
+#, c-format
+msgid "删除 (%d 项)"
+msgstr "Delete (%d items)"
+
+#: src/widgets/context_menus.vala:190
+msgid "复制文件内容"
+msgstr "Copy File Content"
+
+#~ msgid "合并文本已保存"
+#~ msgstr "Merged Text Saved"
+
 #~ msgid "支持 OpenAI、Azure OpenAI 及任何兼容端点（例如本地 Ollama）。"
 #~ msgstr ""
 #~ "Supports OpenAI, Azure OpenAI, and any compatible endpoint (e.g. local "
@@ -1790,24 +1874,6 @@ msgstr ""
 #~ msgstr ""
 #~ "Configure OpenAI-compatible API to use natural language orchestration in "
 #~ "the AI sidebar.\n"
-
-#~ msgid "编辑文本"
-#~ msgstr "Edit Text"
-
-#~ msgid "在上方插入文本"
-#~ msgstr "Insert Text Above"
-
-#~ msgid "在下方插入文本"
-#~ msgstr "Insert Text Below"
-
-#~ msgid "复制路径"
-#~ msgstr "Copy Path"
-
-#~ msgid "在文件管理器中显示"
-#~ msgstr "Show in File Manager"
-
-#~ msgid "复制文件内容"
-#~ msgstr "Copy File Content"
 
 #~ msgid "无法打开文件管理器"
 #~ msgstr "Cannot open file manager"
@@ -1962,21 +2028,6 @@ msgstr ""
 #, fuzzy, c-format
 #~ msgid "无法读取目录: %s"
 #~ msgstr "Unable to read directory: "
-
-#, fuzzy, c-format
-#~ msgid "重新进行 AI 转换 (%d 项)"
-#~ msgstr "Retry AI Conversion (%d items)"
-
-#, c-format
-#~ msgid "切换绝对/相对路径 (%d 项)"
-#~ msgstr "Switch absolute/relative path (%d items)"
-
-#~ msgid "切换绝对/相对路径"
-#~ msgstr "Switch absolute/relative path"
-
-#, c-format
-#~ msgid "删除 (%d 项)"
-#~ msgstr "Delete (%d items)"
 
 #~ msgid "[无法读取文件内容]\n"
 #~ msgstr "[Failed to read file: %s]\n"
