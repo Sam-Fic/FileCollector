@@ -3,5 +3,7 @@
   <gresource prefix="/com/github/samfic/filecollector">
     <file preprocess="xml-stripblanks">window.ui</file>
     <file>style.css</file>
+    <file alias="icons/com.github.samfic.filecollector.svg">com.github.samfic.filecollector.svg</file>
+    <file alias="icons/scalable/apps/com.github.samfic.filecollector.svg">com.github.samfic.filecollector.svg</file>
   </gresource>
 </gresources>

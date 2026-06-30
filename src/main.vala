@@ -72,6 +72,9 @@ public class FileCollectorApp : Adw.Application {
         }
 
         window.present ();
+
+        // 确保从 build 目录运行时也能解析应用图标
+        setup_app_icon_resource ();
     }
 
     protected override int command_line (ApplicationCommandLine command_line) {
@@ -176,6 +179,26 @@ public class FileCollectorApp : Adw.Application {
         set_accels_for_action ("app.settings", {"<Control>comma"});
         set_accels_for_action ("app.ai_settings", {"<Control><Shift>j"});
         set_accels_for_action ("app.quit", {"<Control>q"});
+
+        setup_app_icon_resource ();
+    }
+
+    private void setup_app_icon_resource () {
+        var display = Gdk.Display.get_default ();
+        if (display == null) return;
+
+        var icon_theme = Gtk.IconTheme.get_for_display (display);
+        var paths = icon_theme.resource_path ?? new string[] {};
+        if (paths.length > 0 && paths[0] == "/com/github/samfic/filecollector/icons") {
+            return;
+        }
+
+        var new_paths = new string[paths.length + 1];
+        new_paths[0] = "/com/github/samfic/filecollector/icons";
+        for (int i = 0; i < paths.length; i++) {
+            new_paths[i + 1] = paths[i];
+        }
+        icon_theme.set_resource_path (new_paths);
     }
 
     private static void setup_i18n (string locale_dir) {
