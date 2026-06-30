@@ -15,6 +15,11 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
           tooltip-text: _("显示 / 隐藏 AI 助手 (Ctrl+J)");
         }
 
+        Button open_folder_btn {
+          icon-name: "folder-open-symbolic";
+          tooltip-text: _("打开工作目录");
+        }
+
         Button btn_toggle_git {
           icon-name: "xsi-git-symbolic";
           tooltip-text: _("切换到 Git 提交历史");
@@ -25,11 +30,6 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
           icon-name: "edit-find-symbolic";
           tooltip-text: _("全局内容搜索 (Ctrl+Shift+F)");
           sensitive: false;
-        }
-
-        Button open_folder_btn {
-          icon-name: "folder-open-symbolic";
-          tooltip-text: _("打开工作目录");
         }
 
         Button btn_undo {
