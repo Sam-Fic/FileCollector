@@ -181,6 +181,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         this.close_request.connect (on_close_request);
 
+        // 窗口被加入 Application 后 application 属性才非空,
+        // 此时需要重新同步一次依赖 application 的菜单 Action 状态.
+        this.notify["application"].connect (() => {
+            update_workdir_dependent_buttons ();
+            update_queue_buttons ();
+        });
+
         GLib.Idle.add (() => {
             cache_title_widget ();
             check_recovery_on_startup ();
@@ -196,6 +203,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             sync_header_checkbox ();
             update_title ();
             update_undo_redo_buttons ();
+            update_workdir_dependent_buttons ();
             schedule_auto_save ();
         });
 
@@ -395,10 +403,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                             search_entry.visible = false;
                             refresh_list ();
                             update_undo_redo_buttons ();
+                            update_workdir_dependent_buttons ();
                         }
                     } else {
                         update_title ();
                         refresh_list ();
+                        update_workdir_dependent_buttons ();
                     }
                     toast_overlay.add_toast (new Adw.Toast (_("已恢复未保存的会话")));
                 } catch (Error e) {
@@ -1504,11 +1514,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         refresh_list ();
         update_undo_redo_buttons ();
+        update_workdir_dependent_buttons ();
     }
 
     private void update_undo_redo_buttons () {
         btn_undo.sensitive = undo_manager.can_undo;
         btn_redo.sensitive = undo_manager.can_redo;
+        update_action_sensitivity ();
     }
 
     private void setup_signals () {
@@ -1524,6 +1536,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         btn_clear.clicked.connect (on_clear_items_with_confirm);
         btn_generate.clicked.connect (on_generate_clicked);
         btn_generate_clipboard.clicked.connect (on_generate_to_clipboard_clicked);
+        btn_export_zip.clicked.connect (on_export_zip_clicked);
         radio_absolute_path.notify["active"].connect (on_path_mode_changed);
         radio_relative_path.notify["active"].connect (on_path_mode_changed);
         check_write_header.notify["active"].connect (on_header_check_changed);
@@ -1535,6 +1548,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         search_entry.search_changed.connect (on_search_changed);
 
         update_queue_buttons ();
+        update_workdir_dependent_buttons ();
     }
 
     // ─── Git 模式 ────────────────────────────────────────────────────────
@@ -2330,6 +2344,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             () => { toggle_ai_panel (); },
             () => { on_global_search (); }
         );
+
+        // 快捷键 Action 在 setup 后才创建, 需要重新同步一次状态
+        update_queue_buttons ();
+        update_workdir_dependent_buttons ();
     }
 
     public CliController create_cli_from_state () {
@@ -2364,6 +2382,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
 
         refresh_list ();
+        update_workdir_dependent_buttons ();
 
         if (cli.operation_messages.size > 0) {
             var messages = new Gee.ArrayList<string> ();
@@ -2413,6 +2432,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             items.clear ();
             undo_manager.clear ();
             update_undo_redo_buttons ();
+            update_workdir_dependent_buttons ();
 
             var root_item = new DirectoryItem (folder.get_basename (), folder.get_path (), true);
             root_store.append (root_item);
@@ -2430,8 +2450,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 refresh_list ();
                 git_commits.clear ();
                 refresh_git_list ();
-                btn_git_add_all_changed.sensitive = true;
-                btn_git_export_working_diff.sensitive = true;
                 git_search_entry.visible = true;
                 if (is_git_mode) {
                     load_git_history_async ();
@@ -2767,8 +2785,68 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         btn_move_down.sensitive = single && items.size > 1 && indices.get (0) < items.size - 1;
         btn_delete.sensitive = has_selection;
         btn_clear.sensitive = has_items;
+        btn_generate.sensitive = has_items;
+        btn_generate_clipboard.sensitive = has_items;
+        btn_export_zip.sensitive = has_items;
+        btn_ai_toc.sensitive = has_items;
         btn_git_delete.sensitive = has_selection;
         btn_git_clear.sensitive = has_items;
+
+        update_action_sensitivity ();
+    }
+
+    private void update_workdir_dependent_buttons () {
+        bool has_work_dir = work_dir != null;
+        radio_relative_path.sensitive = has_work_dir;
+        radio_absolute_path.sensitive = has_work_dir;
+        check_write_header.sensitive = has_work_dir;
+
+        btn_git_add_all_changed.sensitive = has_work_dir;
+        btn_git_export_working_diff.sensitive = has_work_dir;
+        btn_toggle_git.sensitive = has_work_dir;
+        btn_global_search.sensitive = has_work_dir;
+
+        set_win_action_enabled ("global_search", has_work_dir);
+
+        update_menu_action_sensitivity ();
+    }
+
+    private void update_menu_action_sensitivity () {
+        bool has_work_dir = work_dir != null;
+        var app = application;
+        if (app == null) return;
+
+        var save_action = app.lookup_action ("save_project") as SimpleAction;
+        var save_as_action = app.lookup_action ("save_as_project") as SimpleAction;
+        var clear_cache_action = app.lookup_action ("clear_cache") as SimpleAction;
+
+        if (save_action != null) save_action.set_enabled (has_work_dir);
+        if (save_as_action != null) save_as_action.set_enabled (has_work_dir);
+        if (clear_cache_action != null) clear_cache_action.set_enabled (has_work_dir);
+    }
+
+    private void update_action_sensitivity () {
+        var indices = get_selected_indices ();
+        int count = indices.size;
+        bool has_selection = count > 0;
+        bool single = count == 1;
+        bool has_items = items.size > 0;
+
+        set_win_action_enabled ("generate", has_items);
+        set_win_action_enabled ("generate_to_clipboard", has_items);
+        set_win_action_enabled ("clear_items", has_items);
+        set_win_action_enabled ("delete_item", has_selection);
+        set_win_action_enabled ("move_up", single && has_items && indices.get (0) > 0);
+        set_win_action_enabled ("move_down", single && has_items && indices.get (0) < items.size - 1);
+        set_win_action_enabled ("insert_text", single);
+        set_win_action_enabled ("insert_text_no_header", single);
+        set_win_action_enabled ("undo", undo_manager.can_undo);
+        set_win_action_enabled ("redo", undo_manager.can_redo);
+    }
+
+    private void set_win_action_enabled (string name, bool enabled) {
+        var action = lookup_action (name) as SimpleAction;
+        if (action != null) action.set_enabled (enabled);
     }
 
     private void on_add_external_files () {
@@ -3646,10 +3724,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 }
 
                 Idle.add (() => {
-                    btn_ai_toc.sensitive = true;
-                    btn_generate.sensitive = true;
-                    btn_generate_clipboard.sensitive = true;
-
                     if (toc_result.length == 0) {
                         show_toast (_("AI 生成阅读指南失败"));
                     } else {
@@ -3658,16 +3732,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                         refresh_list ();
                         show_toast (_("AI 阅读指南已插入编排列表顶部"));
                     }
+                    update_queue_buttons ();
                     return Source.REMOVE;
                 });
                 return null;
             });
         } catch (ThreadError e) {
-            btn_ai_toc.sensitive = true;
-            btn_generate.sensitive = true;
-            btn_generate_clipboard.sensitive = true;
-            btn_export_zip.sensitive = true;
             show_toast (_("无法启动 AI 生成线程"));
+            update_queue_buttons ();
         }
     }
 
@@ -3741,6 +3813,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             update_subtitle (null);
         }
         update_undo_redo_buttons ();
+        update_workdir_dependent_buttons ();
         refresh_list ();
     }
 

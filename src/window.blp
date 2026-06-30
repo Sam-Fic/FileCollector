@@ -18,11 +18,13 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
         Button btn_toggle_git {
           icon-name: "xsi-git-symbolic";
           tooltip-text: _("切换到 Git 提交历史");
+          sensitive: false;
         }
 
         Button btn_global_search {
           icon-name: "edit-find-symbolic";
           tooltip-text: _("全局内容搜索 (Ctrl+Shift+F)");
+          sensitive: false;
         }
 
         Button open_folder_btn {
@@ -235,6 +237,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                     }
                   }
                   Button btn_add_text_above {
+                    sensitive: false;
                     Box {
                       spacing: 4;
                       Image { icon-name: "go-up-symbolic"; }
@@ -242,6 +245,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                     }
                   }
                   Button btn_add_text_below {
+                    sensitive: false;
                     Box {
                       spacing: 4;
                       Image { icon-name: "go-down-symbolic"; }
@@ -255,6 +259,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                   halign: center;
                   spacing: 6;
                   Button btn_move_up {
+                    sensitive: false;
                     Box {
                       spacing: 4;
                       Image { icon-name: "go-up-symbolic"; }
@@ -262,6 +267,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                     }
                   }
                   Button btn_move_down {
+                    sensitive: false;
                     Box {
                       spacing: 4;
                       Image { icon-name: "go-down-symbolic"; }
@@ -269,6 +275,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                     }
                   }
                   Button btn_delete {
+                    sensitive: false;
                     css-classes: ["destructive-action"];
                     Box {
                       spacing: 4;
@@ -277,6 +284,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                     }
                   }
                   Button btn_clear {
+                    sensitive: false;
                     css-classes: ["destructive-action"];
                     Box {
                       spacing: 4;
@@ -330,6 +338,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                   }
 
                   Button btn_git_delete {
+                    sensitive: false;
                     css-classes: ["destructive-action"];
                     Box {
                       spacing: 4;
@@ -339,6 +348,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                   }
 
                   Button btn_git_clear {
+                    sensitive: false;
                     css-classes: ["destructive-action"];
                     Box {
                       spacing: 4;
@@ -352,6 +362,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
 
             Button btn_ai_toc {
               halign: center;
+              sensitive: false;
               margin-top: 6;
               margin-start: 12;
               margin-end: 12;
@@ -378,17 +389,20 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
 
                 CheckButton radio_relative_path {
                   label: _("使用相对路径");
+                  sensitive: false;
                 }
 
                 CheckButton radio_absolute_path {
                   label: _("使用绝对路径");
                   group: radio_relative_path;
+                  sensitive: false;
                 }
               }
 
               CheckButton check_write_header {
                 label: _("在文件头部标注工作目录信息");
                 halign: center;
+                sensitive: false;
               }
             }
 
@@ -407,6 +421,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                 spacing: 6;
                 Button btn_generate {
                   halign: center;
+                  sensitive: false;
                   css-classes: ["suggested-action"];
                   Box {
                     spacing: 4;
@@ -416,6 +431,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                 }
                 Button btn_export_zip {
                   halign: center;
+                  sensitive: false;
                   css-classes: ["suggested-action"];
                   Box {
                     spacing: 4;
@@ -426,6 +442,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
               }
               Button btn_generate_clipboard {
                 halign: center;
+                sensitive: false;
                 css-classes: ["suggested-action"];
                 Box {
                   spacing: 4;
