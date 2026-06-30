@@ -34,9 +34,6 @@ For the usage process and tips of the graphical interface, please refer to the [
 - **Global Content Search**: `Ctrl+Shift+F` opens a search dialog with async background scanning, encoding auto-detection, result highlighting, and one-click addition of matched files to the orchestration list
 - **Scene-based Prompt Templates**: Built-in templates for Bug analysis, API documentation, and code refactoring. Use `/t <id>` slash commands to insert structured placeholders and drive AI execution in one step
 - **AI Reading Guide Generation**: One-click AI analysis of the orchestration list to generate a structured table of contents and reading guide
-- **Multi-select Batch Operations**: The orchestration list supports Ctrl/Shift multi-select with context menu options for batch delete, batch AI conversion retry, and batch path mode switching
-- **One-click AI Undo**: After AI batch operations (add files, clear list, etc.), a Toast notification appears at the bottom with an "Undo" button to instantly revert to the previous state
-- **User Message Revert**: Each user message in the AI sidebar has a revert button to undo that message and all subsequent AI replies and file list changes, with the original text automatically filled back into the input
 
 > **Tip**: If you are on a non-GNOME platform (such as Windows or macOS), please check out the [Flet version repository](https://github.com/Sam-Fic/filecollector). This version supports Windows, macOS, and Linux, and is built with Flet.
 
