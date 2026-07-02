@@ -404,8 +404,6 @@ After switching to Git mode, the action buttons below the center orchestration l
 
 This project is licensed under the MIT License.
 
-> This project was developed entirely through **vibe coding**.
-
 ## Acknowledgements
 
 Special thanks to [Decembered](https://github.com/Decembered) for contributions and support.
