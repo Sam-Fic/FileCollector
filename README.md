@@ -404,8 +404,6 @@ FileCollector 内置了 Git 只读探查功能，方便开发者快速收集与�
 
 本项目采用 MIT 许可证。
 
-> 本项目完全通过 **vibe coding** 方式开发完成。
-
 ## 致谢
 
 特别感谢 [Decembered](https://github.com/Decembered) 的贡献与支持。
