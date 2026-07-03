@@ -34,6 +34,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.Frame ai_sidebar;
 
     [GtkChild] private unowned Gtk.Button btn_retry_preprocess;
+    [GtkChild] private unowned Gtk.DrawingArea token_ring;
 
     // Git 模式切换
     [GtkChild] private unowned Gtk.Button btn_toggle_git;
@@ -135,6 +136,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private Gtk.Button btn_vlm_cancel;
     private Gtk.ProgressBar progress_vlm;
 
+    // Token 估算
+    private int current_context_limit = 128000;
+    private double current_token_ratio = 0.0;
+
     // 自动保存 / 崩溃恢复
     private uint auto_save_timeout_id = 0;
     private const uint AUTO_SAVE_DELAY_MS = 5000; // 状态变更后 5 秒触发自动保存
@@ -166,6 +171,35 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         setup_pane_sizes ();
         setup_shortcuts ();
         search_entry.visible = false;
+
+        current_context_limit = ConfigManager.get_context_window_size ();
+
+        token_ring.set_draw_func ((area, cr, width, height) => {
+            double cx = width / 2.0;
+            double cy = height / 2.0;
+            double radius = (width / 2.0) - 2.0;
+            double line_width = 2.5;
+
+            cr.set_source_rgba (0.5, 0.5, 0.5, 0.2);
+            cr.set_line_width (line_width);
+            cr.arc (cx, cy, radius, 0, 2 * Math.PI);
+            cr.stroke ();
+
+            if (current_token_ratio > 0) {
+                if (current_token_ratio >= 0.9) {
+                    cr.set_source_rgba (0.88, 0.11, 0.14, 1.0);
+                } else if (current_token_ratio >= 0.7) {
+                    cr.set_source_rgba (0.90, 0.65, 0.04, 1.0);
+                } else {
+                    cr.set_source_rgba (0.22, 0.52, 0.18, 1.0);
+                }
+
+                cr.set_line_width (line_width);
+                double end_angle = -Math.PI / 2 + (2 * Math.PI * current_token_ratio.clamp (0.0, 1.0));
+                cr.arc (cx, cy, radius, -Math.PI / 2, end_angle);
+                cr.stroke ();
+            }
+        });
 
         btn_retry_preprocess.clicked.connect (() => {
             var indices = get_selected_indices ();
@@ -975,6 +1009,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // 统一的勾选变更处理: 修改 check_model -> 同步 items -> 刷新 UI 三态
     private void apply_check_change (DirectoryItem item, bool new_checked) {
+        message ("[DIAG] apply_check_change start: is_dir=%s new_checked=%s ref=%u",
+                 item.is_dir.to_string (), new_checked.to_string (), ((GLib.Object) item).ref_count);
         if (item.is_dir) {
             // 立即更新 checked_dirs 确保未展开目录状态正确
             check_model.set_dir_checked (item.path, new_checked);
@@ -1015,16 +1051,27 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     if (!path_in_items (item.path)) {
                     var new_item = new ItemData ("file", item.path, null, false);
                     items.add (new_item);
-                    if (new_item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
+                    bool is_binary = new_item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ());
+                    message ("[DIAG] file check: path=%s is_binary=%s new_item_ref=%u",
+                             item.path, is_binary.to_string (), ((GLib.Object) new_item).ref_count);
+                    if (is_binary) {
+                        message ("[DIAG] before vlm_queue.enqueue: new_item_ref=%u vlm_queue=%p",
+                                 ((GLib.Object) new_item).ref_count, (void*) vlm_queue);
                         vlm_queue.enqueue (new_item);
+                        message ("[DIAG] after vlm_queue.enqueue: new_item_ref=%u",
+                                 ((GLib.Object) new_item).ref_count);
                     }
                 }
             } else {
                 remove_items_by_path (item.path);
             }
+            message ("[DIAG] before refresh_all_tree_states");
             refresh_all_tree_states ();
+            message ("[DIAG] before queue_draw");
             dir_column_view.queue_draw ();
+            message ("[DIAG] before refresh_list");
             refresh_list ();
+            message ("[DIAG] apply_check_change end");
         }
     }
 
@@ -2743,6 +2790,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         // 模型已恢复稳定, 统一触发一次 UI 刷新 (包括清除目录树选择等副作用).
         on_queue_selection_changed (0, 0);
+
+        update_token_display ();
     }
 
     private Gee.ArrayList<int> get_selected_indices () {
@@ -2980,6 +3029,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     if (edit_index >= 0) {
                         push_undo_delta (new UndoDelta.for_edit (edit_index, old_content, text));
                     }
+                    edit_data.update_token_stats ();
                     refresh_list ();
                     update_preview (edit_data);
                 } else {
@@ -3524,12 +3574,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         use_absolute = radio_absolute_path.active;
         push_undo_delta (new UndoDelta.for_absolute (old_abs, use_absolute, old_hdr, show_header));
         refresh_list ();
+        update_token_display ();
     }
 
     private void on_header_check_changed () {
         bool old_val = show_header;
         show_header = check_write_header.active;
         push_undo_delta (new UndoDelta.for_header (old_val, show_header));
+        update_token_display ();
     }
 
     // ─── Generate ────────────────────────────────────────────────────────
@@ -3816,6 +3868,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         update_undo_redo_buttons ();
         update_workdir_dependent_buttons ();
         refresh_list ();
+        foreach (var it in items) {
+            if (it.item_type == "text") it.update_token_stats ();
+        }
+        update_token_display ();
     }
 
     public void on_save_project () {
@@ -4211,6 +4267,76 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private string get_prompt_for_item (ItemData item) {
         return BinaryPreprocessor.get_default_prompt (item);
+    }
+
+    // ─── Token 估算 ────────────────────────────────────────────────────
+
+    private void update_token_display () {
+        int total_tokens = 0;
+
+        if (show_header && work_dir != null) {
+            string header = "# 工作目录绝对路径: " + work_dir.get_path () + "\n\n";
+            total_tokens += TokenEstimator.estimate_tokens_fast (header);
+        }
+
+        for (int i = 0; i < items.size; i++) {
+            if (i > 0) total_tokens += 1;
+
+            var data = items.get (i);
+            if (data.item_type == "file" && data.file_path != null) {
+                string display = get_display_path (data);
+                total_tokens += TokenEstimator.estimate_tokens_fast (display + ":\n");
+
+                if (data.preprocessed_content != null && data.preprocessed_content.length > 0) {
+                    total_tokens += data.cached_tokens;
+                } else {
+                    total_tokens += estimate_file_tokens_fast (data.file_path);
+                }
+            } else if (data.item_type == "text") {
+                total_tokens += data.cached_tokens;
+            }
+        }
+
+        current_token_ratio = current_context_limit > 0 ? (double) total_tokens / current_context_limit : 0.0;
+
+        btn_generate.tooltip_text = _("预估上下文: %d / %d Tokens (%.1f%%)").printf (
+            total_tokens, current_context_limit, current_token_ratio * 100
+        );
+
+        token_ring.queue_draw ();
+    }
+
+    private int estimate_file_tokens_fast (string path) {
+        var file = File.new_for_path (path);
+        if (!file.query_exists ()) return 0;
+
+        try {
+            var info = file.query_info (FileAttribute.STANDARD_SIZE, FileQueryInfoFlags.NONE);
+            if (info.get_size () > 10 * 1024 * 1024) return 0;
+            return (int) Math.ceil (info.get_size () / 3.5);
+        } catch (Error e) {
+            return 0;
+        }
+    }
+
+    private string get_display_path (ItemData data) {
+        if (data.force_absolute || use_absolute || work_dir == null) return data.file_path;
+        var wd_path = work_dir.get_path () + "/";
+        if (data.file_path.has_prefix (wd_path)) return data.file_path.substring (wd_path.length);
+        return data.file_path;
+    }
+
+    private ContextSettingsDialog? ctx_settings_dialog = null;
+
+    public void on_context_window_settings () {
+        if (ctx_settings_dialog == null) {
+            ctx_settings_dialog = new ContextSettingsDialog (this);
+            ctx_settings_dialog.settings_changed.connect (() => {
+                current_context_limit = ConfigManager.get_context_window_size ();
+                update_token_display ();
+            });
+        }
+        ctx_settings_dialog.present ();
     }
 
     // ─── AI 助手集成 ───────────────────────────────────────────────────

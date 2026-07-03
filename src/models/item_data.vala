@@ -28,6 +28,8 @@ public class ItemData : GLib.Object {
         ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"
     };
 
+    public int cached_tokens { get; set; default = 0; }
+
     public ItemData (string type, string? path, string? content, bool force_abs, bool missing = false) {
         GLib.Object (
             item_type: type,
@@ -36,6 +38,17 @@ public class ItemData : GLib.Object {
             force_absolute: force_abs,
             is_missing: missing
         );
+    }
+
+    public void update_token_stats () {
+        string text = get_effective_content ();
+        cached_tokens = TokenEstimator.estimate_tokens_fast (text);
+    }
+
+    public string get_effective_content () {
+        if (preprocessed_content != null && preprocessed_content.length > 0) return preprocessed_content;
+        if (content != null && content.length > 0) return content;
+        return "";
     }
 
     public bool is_document_target () {

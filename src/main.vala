@@ -65,6 +65,11 @@ public class FileCollectorApp : Adw.Application {
                 ((GLib.SimpleAction) shortcuts_action).activate.connect (() => window.on_show_shortcuts ());
             }
 
+            var ctx_settings_action = lookup_action ("context_window_settings");
+            if (ctx_settings_action != null) {
+                ((GLib.SimpleAction) ctx_settings_action).activate.connect (() => window.on_context_window_settings ());
+            }
+
             var quit_action = lookup_action ("quit");
             if (quit_action != null) {
                 ((GLib.SimpleAction) quit_action).activate.connect (() => window.close ());
@@ -169,6 +174,7 @@ public class FileCollectorApp : Adw.Application {
         add_action (new GLib.SimpleAction ("ai_settings", null));
         add_action (new GLib.SimpleAction ("clear_cache", null));
         add_action (new GLib.SimpleAction ("shortcuts", null));
+        add_action (new GLib.SimpleAction ("context_window_settings", null));
         add_action (new GLib.SimpleAction ("quit", null));
 
         set_accels_for_action ("app.open_project", {"<Control>o"});

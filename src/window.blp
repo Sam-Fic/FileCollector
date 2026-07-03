@@ -250,11 +250,6 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                   icon-name: "go-down-symbolic";
                   tooltip-text: _("下移");
                 }
-                Button btn_ai_toc {
-                  sensitive: false;
-                  icon-name: "xsi-view-list-ordered-symbolic";
-                  tooltip-text: _("AI 生成阅读指南");
-                }
                 Button btn_delete {
                   sensitive: false;
                   css-classes: ["destructive-action"];
@@ -308,6 +303,16 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
               }
             }
 
+            Button btn_ai_toc {
+              halign: center;
+              sensitive: false;
+              margin-top: 6;
+              margin-start: 12;
+              margin-end: 12;
+              icon-name: "xsi-view-list-ordered-symbolic";
+              tooltip-text: _("AI 生成阅读指南");
+            }
+
             // 选项区
             Box {
               orientation: vertical;
@@ -358,10 +363,18 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                   halign: center;
                   sensitive: false;
                   css-classes: ["suggested-action"];
+                  tooltip-text: _("预估上下文: 0 / 128000 Tokens");
                   Box {
-                    spacing: 4;
+                    spacing: 6;
+                    halign: center;
                     Image { icon-name: "document-save-symbolic"; }
                     Label { label: _("生成合并文本"); }
+                    DrawingArea token_ring {
+                      width-request: 18;
+                      height-request: 18;
+                      valign: center;
+                      margin-start: 4;
+                    }
                   }
                 }
                 Gtk.MenuButton btn_more_menu {
@@ -451,6 +464,7 @@ menu primary_menu {
     item (_("场景模板管理..."), "app.manage_templates")
     item (_("AI 设置..."), "app.ai_settings")
     item (_("清除工作区缓存"), "app.clear_cache")
+    item (_("上下文窗口设置..."), "app.context_window_settings")
     item (_("语言设置..."), "app.settings")
   }
   section {

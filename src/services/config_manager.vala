@@ -479,6 +479,32 @@ public class ConfigManager : GLib.Object {
         }
     }
 
+    // ─── 上下文窗口大小 ─────────────────────────────────────────────────
+
+    public static int get_context_window_size () {
+        config_mutex.lock ();
+        try {
+            var root = load_settings_root_unlocked ();
+            if (root != null && root.has_member ("context_window_size")) {
+                return (int) root.get_int_member ("context_window_size");
+            }
+        } catch (Error e) {} finally {
+            config_mutex.unlock ();
+        }
+        return 128000;
+    }
+
+    public static void save_context_window_size (int size) {
+        config_mutex.lock ();
+        try {
+            Json.Object root = load_settings_root_unlocked () ?? new Json.Object ();
+            root.set_int_member ("context_window_size", size);
+            write_settings_root_unlocked (root);
+        } catch (Error e) {} finally {
+            config_mutex.unlock ();
+        }
+    }
+
     // ─── 场景化编排模板 ─────────────────────────────────────────────────
 
     private static string get_templates_file () {

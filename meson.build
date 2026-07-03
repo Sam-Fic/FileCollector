@@ -80,6 +80,7 @@ sources = files(
   'src/services/ai_client.vala',
   'src/services/ai_types.vala',
   'src/services/binary_converter.vala',
+  'src/services/token_estimator.vala',
   'src/services/binary_preprocessor.vala',
   'src/services/config_manager.vala',
   'src/services/file_generator.vala',
@@ -99,6 +100,7 @@ sources = files(
   'src/widgets/ai_panel.vala',
   'src/widgets/ai_settings_dialog.vala',
   'src/widgets/context_menus.vala',
+  'src/widgets/context_settings_dialog.vala',
   'src/widgets/global_search_dialog.vala',
   'src/widgets/markdown_view.vala',
   'src/widgets/phrases_picker.vala',
@@ -134,7 +136,8 @@ executable('filecollector',
     dependency('libsecret-1'),
     dependency('gtksourceview-5'),
     cmark_dep,
-    cmark_ext_dep
+    cmark_ext_dep,
+    meson.get_compiler('c').find_library('m', required: false)
   ],
   vala_args: [
     '--header', 'filecollector_types.h',
