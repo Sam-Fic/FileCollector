@@ -1,10 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#3584e4;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#1a5fb4;stop-opacity:1" />
-    </linearGradient>
     <filter id="softShadowOnly" x="-50%" y="-50%" width="200%" height="200%">
       <feGaussianBlur in="SourceAlpha" stdDeviation="1.2"/>
       <feOffset dx="0" dy="1.5"/>
@@ -20,23 +16,35 @@
       <stop offset="50%" style="stop-color:#62a0ea;stop-opacity:0.5"/>
       <stop offset="100%" style="stop-color:#62a0ea;stop-opacity:0"/>
     </linearGradient>
+    <linearGradient id="orangeHighlight" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ffd7a8;stop-opacity:0"/>
+      <stop offset="50%" style="stop-color:#ffd7a8;stop-opacity:0.2"/>
+      <stop offset="100%" style="stop-color:#ffd7a8;stop-opacity:0"/>
+    </linearGradient>
     <filter id="cornerBlur" x="-20%" y="-10%" width="140%" height="120%">
-      <feGaussianBlur stdDeviation="0.5 0"/>
+      <feGaussianBlur stdDeviation="0.3 0"/>
     </filter>
     <clipPath id="darkRectClip">
-      <rect x="8" y="28" width="112" height="88" rx="8" ry="8"/>
+      <rect x="8" y="30" width="112" height="88" rx="8" ry="8"/>
+    </clipPath>
+    <clipPath id="orangeShadowClip">
+      <rect x="28" y="15" width="72" height="16" rx="3" ry="3"/>
     </clipPath>
   </defs>
-  <rect x="8" y="28" width="112" height="88" rx="8" ry="8" fill="#0d4a8c"/>
+  <rect x="8" y="30" width="112" height="88" rx="8" ry="8" fill="#1a5fb4"/>
   <g clip-path="url(#darkRectClip)" filter="url(#cornerBlur)">
-    <rect x="8" y="28" width="10" height="88" fill="url(#cornerHighlight)"/>
-    <rect x="110" y="28" width="10" height="88" fill="url(#cornerHighlight)"/>
+    <rect x="8" y="30" width="10" height="88" fill="url(#cornerHighlight)"/>
+    <rect x="110" y="30" width="10" height="88" fill="url(#cornerHighlight)"/>
   </g>
-  <rect x="8" y="24" width="112" height="88" rx="8" ry="8" fill="url(#bg)"/>
+  <rect x="8" y="24" width="112" height="88" rx="8" ry="8" fill="#3584e4"/>
   <rect x="8" y="24" width="112" height="20" rx="8" ry="8" fill="#1a5fb4"/>
   <rect x="8" y="36" width="112" height="8" fill="#1a5fb4"/>
   <g clip-path="url(#panelClip)">
-    <rect x="28" y="15" width="72" height="16" rx="3" ry="3" fill="#000" fill-opacity="0.2"/>
+    <rect x="28" y="15" width="72" height="16" rx="3" ry="3" fill="#cc6a1a" fill-opacity="1"/>
+  </g>
+  <g clip-path="url(#orangeShadowClip)" filter="url(#cornerBlur)">
+    <rect x="28" y="15" width="3" height="16" fill="url(#orangeHighlight)"/>
+    <rect x="97" y="15" width="3" height="16" fill="url(#orangeHighlight)"/>
   </g>
   <rect x="28" y="12" width="72" height="16" rx="3" ry="3" fill="#ffa348"/>
   <line x1="28" y1="62" x2="100" y2="62" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round"/>
