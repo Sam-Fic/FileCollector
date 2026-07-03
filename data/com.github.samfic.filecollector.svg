@@ -25,16 +25,16 @@
       <feGaussianBlur stdDeviation="0.3 0"/>
     </filter>
     <clipPath id="darkRectClip">
-      <rect x="8" y="30" width="112" height="88" rx="8" ry="8"/>
+      <rect x="8" y="32" width="112" height="88" rx="8" ry="8"/>
     </clipPath>
     <clipPath id="orangeShadowClip">
       <rect x="28" y="15" width="72" height="16" rx="3" ry="3"/>
     </clipPath>
   </defs>
-  <rect x="8" y="30" width="112" height="88" rx="8" ry="8" fill="#1a5fb4"/>
+  <rect x="8" y="32" width="112" height="88" rx="8" ry="8" fill="#1a5fb4"/>
   <g clip-path="url(#darkRectClip)" filter="url(#cornerBlur)">
-    <rect x="8" y="30" width="10" height="88" fill="url(#cornerHighlight)"/>
-    <rect x="110" y="30" width="10" height="88" fill="url(#cornerHighlight)"/>
+    <rect x="8" y="32" width="10" height="88" fill="url(#cornerHighlight)"/>
+    <rect x="110" y="32" width="10" height="88" fill="url(#cornerHighlight)"/>
   </g>
   <rect x="8" y="24" width="112" height="88" rx="8" ry="8" fill="#3584e4"/>
   <rect x="8" y="24" width="112" height="20" rx="8" ry="8" fill="#1a5fb4"/>
