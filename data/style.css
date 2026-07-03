@@ -474,3 +474,12 @@ popover.ctx-menu separator {
     border-bottom: none;
     box-shadow: none;
 }
+
+/* 操作按钮: 图标-only, 参考三点菜单按钮样式 */
+.normal-actions button {
+    padding: 4px;
+}
+
+.normal-actions button image {
+    -gtk-icon-size: 16px;
+}

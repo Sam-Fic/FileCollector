@@ -222,154 +222,89 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
 
               // 页面 1: 常规编排按钮
               Box normal_actions {
-                orientation: vertical;
-                spacing: 4;
-
-                Box {
-                  orientation: horizontal;
-                  halign: center;
-                  spacing: 6;
-                  Button btn_add_ext {
-                    Box {
-                      spacing: 4;
-                      Image { icon-name: "document-open-symbolic"; }
-                      Label { label: _("添加外部文件"); }
-                    }
-                  }
-                  Button btn_add_text_above {
-                    sensitive: false;
-                    Box {
-                      spacing: 4;
-                      Image { icon-name: "go-up-symbolic"; }
-                      Label { label: _("上方插入文本"); }
-                    }
-                  }
-                  Button btn_add_text_below {
-                    sensitive: false;
-                    Box {
-                      spacing: 4;
-                      Image { icon-name: "go-down-symbolic"; }
-                      Label { label: _("下方插入文本"); }
-                    }
-                  }
+                css-classes: ["normal-actions"];
+                orientation: horizontal;
+                halign: center;
+                spacing: 6;
+                Button btn_add_ext {
+                  icon-name: "document-open-symbolic";
+                  tooltip-text: _("添加外部文件");
                 }
-
-                Box {
-                  orientation: horizontal;
-                  halign: center;
-                  spacing: 6;
-                  Button btn_move_up {
-                    sensitive: false;
-                    Box {
-                      spacing: 4;
-                      Image { icon-name: "go-up-symbolic"; }
-                      Label { label: _("上移"); }
-                    }
-                  }
-                  Button btn_move_down {
-                    sensitive: false;
-                    Box {
-                      spacing: 4;
-                      Image { icon-name: "go-down-symbolic"; }
-                      Label { label: _("下移"); }
-                    }
-                  }
-                  Button btn_delete {
-                    sensitive: false;
-                    css-classes: ["destructive-action"];
-                    Box {
-                      spacing: 4;
-                      Image { icon-name: "edit-clear-symbolic"; }
-                      Label { label: _("删除"); }
-                    }
-                  }
-                  Button btn_clear {
-                    sensitive: false;
-                    css-classes: ["destructive-action"];
-                    Box {
-                      spacing: 4;
-                      Image { icon-name: "user-trash-symbolic"; }
-                      Label { label: _("清空"); }
-                    }
-                  }
+                Button btn_add_text_above {
+                  sensitive: false;
+                  icon-name: "go-top-symbolic";
+                  tooltip-text: _("上方插入文本");
+                }
+                Button btn_add_text_below {
+                  sensitive: false;
+                  icon-name: "go-bottom-symbolic";
+                  tooltip-text: _("下方插入文本");
+                }
+                Button btn_move_up {
+                  sensitive: false;
+                  icon-name: "go-up-symbolic";
+                  tooltip-text: _("上移");
+                }
+                Button btn_move_down {
+                  sensitive: false;
+                  icon-name: "go-down-symbolic";
+                  tooltip-text: _("下移");
+                }
+                Button btn_ai_toc {
+                  sensitive: false;
+                  icon-name: "xsi-view-list-ordered-symbolic";
+                  tooltip-text: _("AI 生成阅读指南");
+                }
+                Button btn_delete {
+                  sensitive: false;
+                  css-classes: ["destructive-action"];
+                  icon-name: "edit-clear-symbolic";
+                  tooltip-text: _("删除");
+                }
+                Button btn_clear {
+                  sensitive: false;
+                  css-classes: ["destructive-action"];
+                  icon-name: "user-trash-symbolic";
+                  tooltip-text: _("清空");
                 }
               }
 
               // 页面 2: Git 专属按钮
               Box git_actions {
-                orientation: vertical;
-                spacing: 4;
+                css-classes: ["normal-actions"];
+                orientation: horizontal;
                 halign: center;
+                spacing: 6;
 
-                Box {
-                  orientation: horizontal;
-                  spacing: 6;
-                  halign: center;
-
-                  Button btn_git_add_all_changed {
-                    Box {
-                      spacing: 4;
-                      Image { icon-name: "document-open-symbolic"; }
-                      Label { label: _("一键添加所有改动文件"); }
-                    }
-                  }
-
-                  Button btn_git_export_working_diff {
-                    Box {
-                      spacing: 4;
-                      Image { icon-name: "edit-copy-symbolic"; }
-                      Label { label: _("导出工作区 Diff"); }
-                    }
-                  }
+                Button btn_git_add_all_changed {
+                  icon-name: "document-open-symbolic";
+                  tooltip-text: _("一键添加所有改动文件");
                 }
 
-                Box {
-                  orientation: horizontal;
-                  spacing: 6;
-                  halign: center;
-
-                  Button btn_git_export_commit_diff {
-                    sensitive: false;
-                    Box {
-                      spacing: 4;
-                      Image { icon-name: "document-save-symbolic"; }
-                      Label { label: _("导出选中 Commit Diff"); }
-                    }
-                  }
-
-                  Button btn_git_delete {
-                    sensitive: false;
-                    css-classes: ["destructive-action"];
-                    Box {
-                      spacing: 4;
-                      Image { icon-name: "edit-clear-symbolic"; }
-                      Label { label: _("删除"); }
-                    }
-                  }
-
-                  Button btn_git_clear {
-                    sensitive: false;
-                    css-classes: ["destructive-action"];
-                    Box {
-                      spacing: 4;
-                      Image { icon-name: "user-trash-symbolic"; }
-                      Label { label: _("清空"); }
-                    }
-                  }
+                Button btn_git_export_working_diff {
+                  icon-name: "edit-copy-symbolic";
+                  tooltip-text: _("导出工作区 Diff");
                 }
-              }
-            }
 
-            Button btn_ai_toc {
-              halign: center;
-              sensitive: false;
-              margin-top: 6;
-              margin-start: 12;
-              margin-end: 12;
-              Box {
-                spacing: 4;
-                Image { icon-name: "xsi-view-list-ordered-symbolic"; }
-                Label { label: _("AI 生成阅读指南"); }
+                Button btn_git_export_commit_diff {
+                  sensitive: false;
+                  icon-name: "document-save-symbolic";
+                  tooltip-text: _("导出选中 Commit Diff");
+                }
+
+                Button btn_git_delete {
+                  sensitive: false;
+                  css-classes: ["destructive-action"];
+                  icon-name: "edit-clear-symbolic";
+                  tooltip-text: _("删除");
+                }
+
+                Button btn_git_clear {
+                  sensitive: false;
+                  css-classes: ["destructive-action"];
+                  icon-name: "user-trash-symbolic";
+                  tooltip-text: _("清空");
+                }
               }
             }
 
@@ -429,25 +364,12 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                     Label { label: _("生成合并文本"); }
                   }
                 }
-                Button btn_export_zip {
-                  halign: center;
-                  sensitive: false;
+                Gtk.MenuButton btn_more_menu {
+                  valign: center;
+                  icon-name: "view-more-symbolic";
+                  tooltip-text: _("更多操作");
                   css-classes: ["suggested-action"];
-                  Box {
-                    spacing: 4;
-                    Image { icon-name: "package-x-generic-symbolic"; }
-                    Label { label: _("导出为 ZIP"); }
-                  }
-                }
-              }
-              Button btn_generate_clipboard {
-                halign: center;
-                sensitive: false;
-                css-classes: ["suggested-action"];
-                Box {
-                  spacing: 4;
-                  Image { icon-name: "edit-copy-symbolic"; }
-                  Label { label: _("生成合并文本到剪贴板"); }
+                  menu-model: generate_menu;
                 }
               }
             }
@@ -534,5 +456,12 @@ menu primary_menu {
   section {
     item (_("键盘快捷键..."), "app.shortcuts")
     item (_("关于 FileCollector"), "app.about")
+  }
+}
+
+menu generate_menu {
+  section {
+    item (_("生成合并文本到剪贴板"), "win.generate_to_clipboard")
+    item (_("导出为 ZIP"), "win.export_zip")
   }
 }

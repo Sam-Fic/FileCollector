@@ -14,8 +14,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.Button btn_undo;
     [GtkChild] private unowned Gtk.Button btn_redo;
     [GtkChild] private unowned Gtk.Button btn_generate;
-    [GtkChild] private unowned Gtk.Button btn_generate_clipboard;
-    [GtkChild] private unowned Gtk.Button btn_export_zip;
     [GtkChild] private unowned Gtk.Button btn_add_ext;
     [GtkChild] private unowned Gtk.Button btn_add_text_above;
     [GtkChild] private unowned Gtk.Button btn_add_text_below;
@@ -1535,8 +1533,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         btn_delete.clicked.connect (on_delete_item);
         btn_clear.clicked.connect (on_clear_items_with_confirm);
         btn_generate.clicked.connect (on_generate_clicked);
-        btn_generate_clipboard.clicked.connect (on_generate_to_clipboard_clicked);
-        btn_export_zip.clicked.connect (on_export_zip_clicked);
         radio_absolute_path.notify["active"].connect (on_path_mode_changed);
         radio_relative_path.notify["active"].connect (on_path_mode_changed);
         check_write_header.notify["active"].connect (on_header_check_changed);
@@ -2345,6 +2341,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             () => { on_global_search (); }
         );
 
+        var export_zip_act = new GLib.SimpleAction ("export_zip", null);
+        export_zip_act.activate.connect (() => { on_export_zip_clicked (); });
+        add_action (export_zip_act);
+
         // 快捷键 Action 在 setup 后才创建, 需要重新同步一次状态
         update_queue_buttons ();
         update_workdir_dependent_buttons ();
@@ -2786,8 +2786,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         btn_delete.sensitive = has_selection;
         btn_clear.sensitive = has_items;
         btn_generate.sensitive = has_items;
-        btn_generate_clipboard.sensitive = has_items;
-        btn_export_zip.sensitive = has_items;
         btn_ai_toc.sensitive = has_items;
         btn_git_delete.sensitive = has_selection;
         btn_git_clear.sensitive = has_items;
@@ -2834,6 +2832,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         set_win_action_enabled ("generate", has_items);
         set_win_action_enabled ("generate_to_clipboard", has_items);
+        set_win_action_enabled ("export_zip", has_items);
         set_win_action_enabled ("clear_items", has_items);
         set_win_action_enabled ("delete_item", has_selection);
         set_win_action_enabled ("move_up", single && has_items && indices.get (0) > 0);
@@ -3698,7 +3697,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         btn_ai_toc.sensitive = false;
         btn_generate.sensitive = false;
-        btn_generate_clipboard.sensitive = false;
+        set_win_action_enabled ("generate", false);
+        set_win_action_enabled ("generate_to_clipboard", false);
+        set_win_action_enabled ("export_zip", false);
         show_toast (_("正在让 AI 生成阅读指南..."));
 
         var client = new AIClient (s.base_url, s.api_key, s.model, s.timeout);
