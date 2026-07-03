@@ -408,4 +408,6 @@ FileCollector 内置了 Git 只读探查功能，方便开发者快速收集与�
 
 特别感谢 [Decembered](https://github.com/Decembered) 的贡献与支持。
 
+Token 估算功能参考了开源项目 [tokenx](https://github.com/johannschopplich/tokenx)。
+
 > 欢迎贡献想法或参与开发！

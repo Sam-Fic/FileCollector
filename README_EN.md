@@ -408,4 +408,6 @@ This project is licensed under the MIT License.
 
 Special thanks to [Decembered](https://github.com/Decembered) for contributions and support.
 
+The token estimation feature is inspired by the open-source project [tokenx](https://github.com/johannschopplich/tokenx).
+
 > Contributions and ideas are welcome!
