@@ -67,3 +67,7 @@ __pycache__/
 # Compiled translation files
 *.mo
 locale/
+
+# Debug sessions and environment
+.dbg/
+debug-*.md
