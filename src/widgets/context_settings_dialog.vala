@@ -13,7 +13,6 @@ public class ContextSettingsDialog : GLib.Object {
         dialog = new Adw.Dialog ();
         dialog.set_title (_("上下文窗口设置"));
         dialog.set_content_width (400);
-        dialog.set_content_height (250);
 
         var toolbar_view = new Adw.ToolbarView ();
         var header_bar = new Adw.HeaderBar ();

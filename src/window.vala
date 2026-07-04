@@ -1881,8 +1881,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     display_msg = display_msg.replace ("fatal: ", "").replace ("fatal:", "");
                 }
                 display_msg = display_msg.strip ();
-                if (display_msg.length > 60) {
-                    display_msg = display_msg.substring (0, 57) + "...";
+                if (display_msg.char_count () > 60) {
+                    int byte_pos = display_msg.index_of_nth_char (57);
+                    display_msg = display_msg.substring (0, byte_pos) + "...";
                 }
                 show_toast (_("Git 日志加载失败: %s").printf (display_msg));
             } else if (result != null) {
