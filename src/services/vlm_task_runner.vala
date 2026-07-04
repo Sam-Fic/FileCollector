@@ -12,7 +12,9 @@ public delegate string PromptProvider (string file_path);
 
 public class VLMTaskRunner : GLib.Object {
 
-    private File? work_dir;
+    // 作为 GObject 属性, 可通过 bind_property 与 AppState.work_dir 同步,
+    // 确保工作线程执行时拿到的是最新的 work_dir 而非构造时的快照.
+    public File? work_dir { get; set; }
     private PromptProvider prompt_provider;
 
     public VLMTaskRunner (File? work_dir, owned PromptProvider prompt_provider) {
@@ -21,6 +23,8 @@ public class VLMTaskRunner : GLib.Object {
     }
 
     public void execute (string file_path, VLMQueueManager manager) {
+        // 读取属性: Vala 为局部 owned 变量添加 ref, 即使主线程在此期间
+        // 更新了 vlm_runner.work_dir, local_work_dir 持有的 GFile 也不会被释放.
         File? local_work_dir = work_dir;
 
         // 1. 检查缓存

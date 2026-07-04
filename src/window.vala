@@ -2108,6 +2108,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             work_dir,
             (file_path) => { return BinaryPreprocessor.get_default_prompt_for_path (file_path); }
         );
+        // 绑定 work_dir: 用户切换工作目录时, vlm_runner.work_dir 自动同步,
+        // 工作线程执行时即可读取到最新的 work_dir 用于缓存读写.
+        app_state.bind_property (
+            "work-dir", vlm_runner, "work-dir", GLib.BindingFlags.SYNC_CREATE
+        );
         vlm_queue.executor = vlm_runner.execute;
 
         // 工作线程的结果回送: 在 items 中按 file_path 查找 ItemData,

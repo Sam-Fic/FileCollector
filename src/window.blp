@@ -250,6 +250,11 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                   icon-name: "go-down-symbolic";
                   tooltip-text: _("下移");
                 }
+                Button btn_ai_toc {
+                  sensitive: false;
+                  icon-name: "xsi-view-list-ordered-symbolic";
+                  tooltip-text: _("AI 生成阅读指南");
+                }
                 Button btn_delete {
                   sensitive: false;
                   css-classes: ["destructive-action"];
@@ -301,16 +306,6 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                   tooltip-text: _("清空");
                 }
               }
-            }
-
-            Button btn_ai_toc {
-              halign: center;
-              sensitive: false;
-              margin-top: 6;
-              margin-start: 12;
-              margin-end: 12;
-              icon-name: "xsi-view-list-ordered-symbolic";
-              tooltip-text: _("AI 生成阅读指南");
             }
 
             // 选项区
