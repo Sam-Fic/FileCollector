@@ -1022,7 +1022,9 @@ public class AIPanel : GLib.Object {
             + "- get_git_commit_diff(commit_hash): inspect the code changes of a specific past commit.\n"
             + "- add_git_diff(staged?): inject the current Git diff directly into the list (bypasses LLM context, saves tokens).\n"
             + "- add_git_commit_diff(commit_hash): inject a specific commit's diff directly into the list.\n"
-            + "- add_git_diff_range(from_hash, to_hash?): inject the combined diff of a commit range (from..to) into the list.\n\n"
+            + "- add_git_diff_range(from_hash, to_hash?): inject the combined diff of a commit range (from..to) into the list.\n"
+            + "- add_file_snippet(path, start_line, end_line): add only a specific line range of a file. "
+            + "Use this after read_file to extract just the relevant function/class, saving tokens.\n\n"
             + "Workflow rules:\n"
             + "1. Prefer tool calls over asking the user for paths you can discover yourself. "
             + "If the user says 'add all files about X' or 'find files matching Y', call "
@@ -1055,7 +1057,9 @@ public class AIPanel : GLib.Object {
             + "These tools fetch the diff locally and inject it into the list bypassing the LLM context entirely.\n"
             + "9. When the user asks to 'add all diffs from commit X to Y' or 'export changes since commit X', "
             + "use `add_git_diff_range(from_hash, to_hash)` instead of calling `add_git_commit_diff` multiple times. "
-            + "This is much more efficient. First call `get_git_log` to find the exact hashes if needed."
+            + "This is much more efficient. First call `get_git_log` to find the exact hashes if needed.\n"
+            + "10. When a file is large but only a specific function or class is relevant, use `read_file` to locate the exact line numbers, "
+            + "then use `add_file_snippet` instead of `add_files` to avoid bloating the context window with irrelevant code."
         );
     }
 

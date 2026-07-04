@@ -92,6 +92,7 @@ public class AIController : GLib.Object {
             case "add_git_diff": return tool_add_git_diff (args);
             case "add_git_commit_diff": return tool_add_git_commit_diff (args);
             case "add_git_diff_range": return tool_add_git_diff_range (args);
+            case "add_file_snippet": return tool_add_file_snippet (args);
             default:
                 return _("未知工具: ") + name;
         }
@@ -804,6 +805,32 @@ public class AIController : GLib.Object {
         }
 
         return _("已成功将 %d 个 Commit 的 Diff 注入编排列表 (%d 行)。").printf (inserted.size, total_lines);
+    }
+
+    private string tool_add_file_snippet (Json.Node args) throws GLib.Error {
+        if (args.get_node_type () != Json.NodeType.OBJECT) return _("参数错误");
+        var o = args.get_object ();
+        string path = o.get_string_member_with_default ("path", "");
+        int sl = (int) o.get_int_member ("start_line");
+        int el = (int) o.get_int_member ("end_line");
+
+        if (path == "" || sl <= 0 || el < sl) return "参数无效";
+
+        string? resolved = resolve_ai_path (path);
+        if (resolved == null || !is_path_in_work_dir (resolved)) return "路径无效或越界";
+        if (!FileUtils.test (resolved, FileTest.EXISTS)) return "文件不存在";
+
+        undo_snapshot_requested ();
+
+        var item = new ItemData ("file", resolved, null, false);
+        item.start_line = sl;
+        item.end_line = el;
+        app_state.add_item (item, -1);
+
+        preprocess_item_requested (resolved);
+        refresh_list_requested ();
+
+        return "已添加片段: %s [L%d-L%d]".printf (GLib.Path.get_basename (resolved), sl, el);
     }
 
     // ─── 静态辅助方法 ────────────────────────────────────────────────

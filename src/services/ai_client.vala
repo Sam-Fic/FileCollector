@@ -249,6 +249,14 @@ private static Json.Node add_git_diff_range_params () {
     return SchemaHelper.obj_to_node (make_param ("object", SchemaHelper.obj_to_node (props), { "from_hash" }));
 }
 
+private static Json.Node add_file_snippet_params () {
+    var props = new Json.Object ();
+    props.set_member ("path", SchemaHelper.obj_to_node (str_prop ("Absolute path to the file.")));
+    props.set_member ("start_line", SchemaHelper.obj_to_node (int_prop ("1-based starting line number.")));
+    props.set_member ("end_line", SchemaHelper.obj_to_node (int_prop ("1-based ending line number (inclusive).")));
+    return SchemaHelper.obj_to_node (make_param ("object", SchemaHelper.obj_to_node (props), { "path", "start_line", "end_line" }));
+}
+
 private static Json.Object make_tool (string name, string desc, Json.Node params) {
     var fn = new Json.Object ();
     fn.set_string_member ("name", name);
@@ -379,6 +387,12 @@ public static Json.Node build_full_tool_schema () {
         + "Use this when the user asks to 'add all diffs from commit X to Y' or 'export changes since commit X'. "
         + "This is much more efficient than calling add_git_commit_diff for each commit individually.",
         AI.SchemaHelper.add_git_diff_range_params ()));
+    arr.add_object_element (AI.SchemaHelper.make_tool (
+        "add_file_snippet",
+        "Add a specific line range (snippet) of a file to the orchestration list. "
+        + "Use this after `read_file` to extract only the relevant function, class, or code block, "
+        + "saving massive amounts of tokens compared to adding the whole file.",
+        AI.SchemaHelper.add_file_snippet_params ()));
     return AI.SchemaHelper.arr_to_node (arr);
 }
 

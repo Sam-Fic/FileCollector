@@ -39,6 +39,25 @@ public class FileGenerator : GLib.Object {
                 }
                 dis.put_string ("%s:\n".printf (display));
 
+                if (data.is_snippet ()) {
+                    try {
+                        uint8[] raw_bytes;
+                        FileUtils.get_data (data.file_path, out raw_bytes);
+                        string content = EncodingHelper.decode_to_utf8 (raw_bytes);
+                        string[] lines = content.split ("\n");
+                        int s = int.max (0, data.start_line - 1);
+                        int e = int.min (lines.length, data.end_line);
+                        var sb = new StringBuilder ();
+                        for (int j = s; j < e; j++) {
+                            sb.append (lines[j]).append ("\n");
+                        }
+                        dis.put_string (sb.str);
+                    } catch (Error e) {
+                        dis.put_string (_("[读取片段失败: %s]\n").printf (e.message));
+                    }
+                    continue;
+                }
+
                 // 优先使用已预处理好的 Markdown 内容 (二进制文件经 VLM 转换后)
                 if (data.preprocessed_content != null && data.preprocessed_content.length > 0) {
                     dis.put_string (data.preprocessed_content);

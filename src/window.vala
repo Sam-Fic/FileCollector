@@ -144,6 +144,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private int current_context_limit = 128000;
     private double current_token_ratio = 0.0;
 
+    // 片段提取
+    private Gtk.Popover? snippet_popover = null;
+    private Gtk.Button snippet_btn;
+    private int snippet_sl = 0;
+    private int snippet_el = 0;
+    private string? current_preview_file_path = null;
+
     // 自动保存 / 崩溃恢复
     private uint auto_save_timeout_id = 0;
     private const uint AUTO_SAVE_DELAY_MS = 5000; // 状态变更后 5 秒触发自动保存
@@ -204,6 +211,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 cr.stroke ();
             }
         });
+
+        setup_snippet_popover ();
 
         btn_retry_preprocess.clicked.connect (() => {
             var indices = get_selected_indices ();
@@ -645,6 +654,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (data.item_type == "file") {
             var file = File.new_for_path (data.file_path);
             display_name = file.get_basename ();
+            if (data.is_snippet ()) {
+                display_name += " [L%d-L%d]".printf (data.start_line, data.end_line);
+            }
             if (data.is_missing) {
                 icon_name = "dialog-warning-symbolic";
                 display_name = _("⚠ %s (缺失)").printf (display_name);
@@ -3294,8 +3306,61 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
     }
 
+    // ─── 片段提取 Popover ──────────────────────────────────────────────
+
+    private void setup_snippet_popover () {
+        snippet_popover = new Gtk.Popover ();
+        snippet_popover.set_has_arrow (false);
+        snippet_popover.set_parent (preview_view);
+
+        snippet_btn = new Gtk.Button ();
+        snippet_btn.add_css_class ("suggested-action");
+        snippet_btn.clicked.connect (on_add_snippet_clicked);
+        snippet_popover.set_child (snippet_btn);
+
+        var click_gesture = new Gtk.GestureClick ();
+        click_gesture.set_button (Gdk.BUTTON_PRIMARY);
+        click_gesture.released.connect ((n_press, x, y) => {
+            var buffer = preview_view.get_buffer ();
+            if (buffer.get_has_selection () && current_preview_file_path != null) {
+                Gtk.TextIter start, end;
+                buffer.get_selection_bounds (out start, out end);
+                int sl = start.get_line () + 1;
+                int el = end.get_line () + 1;
+
+                snippet_sl = sl;
+                snippet_el = el;
+                snippet_btn.label = _("添加 L%d-L%d 至编排列表").printf (sl, el);
+
+                Gdk.Rectangle rect = { (int) x, (int) y, 1, 1 };
+                snippet_popover.set_pointing_to (rect);
+                snippet_popover.set_halign (Gtk.Align.START);
+                snippet_popover.set_valign (Gtk.Align.START);
+                snippet_popover.popup ();
+            } else if (snippet_popover != null) {
+                snippet_popover.popdown ();
+            }
+        });
+        preview_view.add_controller (click_gesture);
+    }
+
+    private void on_add_snippet_clicked () {
+        if (current_preview_file_path == null) return;
+
+        push_undo_state ();
+        var item = new ItemData ("file", current_preview_file_path, null, false);
+        item.start_line = snippet_sl;
+        item.end_line = snippet_el;
+
+        items.add (item);
+        refresh_list ();
+        snippet_popover.popdown ();
+        show_toast (_("已添加代码片段 L%d-L%d").printf (snippet_sl, snippet_el));
+    }
+
     private void update_preview (ItemData item) {
         bool show_action_bar = false;
+        current_preview_file_path = (item.item_type == "file") ? item.file_path : null;
 
         if (item.item_type == "file" && item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
             btn_retry_preprocess.sensitive = true;
@@ -4344,6 +4409,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     total_tokens += data.cached_tokens;
                 } else if (data.is_binary_target ()) {
                     // 二进制文件预处理前不估算 token, 只统计转换后的 Markdown
+                } else if (data.is_snippet ()) {
+                    total_tokens += estimate_snippet_tokens_fast (data.file_path, data.start_line, data.end_line);
                 } else {
                     total_tokens += estimate_file_tokens_fast (data.file_path);
                 }
@@ -4369,6 +4436,30 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             var info = file.query_info (FileAttribute.STANDARD_SIZE, FileQueryInfoFlags.NONE);
             if (info.get_size () > 10 * 1024 * 1024) return 0;
             return (int) Math.ceil (info.get_size () / 3.5);
+        } catch (Error e) {
+            return 0;
+        }
+    }
+
+    private int estimate_snippet_tokens_fast (string path, int start_line, int end_line) {
+        var file = File.new_for_path (path);
+        if (!file.query_exists ()) return 0;
+
+        try {
+            var info = file.query_info (FileAttribute.STANDARD_SIZE, FileQueryInfoFlags.NONE);
+            if (info.get_size () > 10 * 1024 * 1024) return 0;
+            int total_lines = 0;
+            try {
+                uint8[] raw;
+                FileUtils.get_data (path, out raw);
+                string content = EncodingHelper.decode_to_utf8 (raw);
+                total_lines = content.split ("\n").length;
+            } catch (Error e) {
+                return (int) Math.ceil (info.get_size () / 3.5);
+            }
+            if (total_lines <= 0) return 0;
+            double ratio = (double) (end_line - start_line + 1) / total_lines;
+            return (int) Math.ceil (info.get_size () / 3.5 * ratio * 1.05);
         } catch (Error e) {
             return 0;
         }

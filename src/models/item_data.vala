@@ -18,6 +18,8 @@ public class ItemData : GLib.Object {
     public PreprocessStatus preprocess_status { get; set; default = PreprocessStatus.NONE; }
     public string? preprocessed_content { get; set; }
     public bool from_cache { get; set; default = false; }
+    public int start_line { get; set; default = 0; }
+    public int end_line { get; set; default = 0; }
 
     private static string[] DOCUMENT_EXTENSIONS = {
         ".pdf", ".docx", ".pptx", ".doc", ".ppt",
@@ -52,6 +54,10 @@ public class ItemData : GLib.Object {
         if (preprocessed_content != null && preprocessed_content.length > 0) return preprocessed_content;
         if (content != null && content.length > 0) return content;
         return "";
+    }
+
+    public bool is_snippet () {
+        return item_type == "file" && start_line > 0 && end_line > 0;
     }
 
     public static bool is_document_file (string path) {

@@ -26,6 +26,8 @@ public class UndoState : GLib.Object {
     internal string?[] _contents;
     internal bool[] _force_abs;
     internal bool[] _is_missing;
+    internal int[] _start_lines;
+    internal int[] _end_lines;
     public Gee.HashSet<string> checked_paths { get; private set; }
     public Gee.HashSet<string> checked_dirs { get; private set; }
     public File? work_dir { get; private set; }
@@ -47,13 +49,17 @@ public class UndoState : GLib.Object {
         _contents = new string?[n];
         _force_abs = new bool[n];
         _is_missing = new bool[n];
+        _start_lines = new int[n];
+        _end_lines = new int[n];
         for (int i = 0; i < n; i++) {
             var it = src_items.get (i);
-            _types[i] = it.item_type;        // 引用共享
+            _types[i] = it.item_type;
             _paths[i] = it.file_path;
             _contents[i] = it.content;
             _force_abs[i] = it.force_absolute;
             _is_missing[i] = it.is_missing;
+            _start_lines[i] = it.start_line;
+            _end_lines[i] = it.end_line;
         }
         checked_paths = new Gee.HashSet<string> ();
         foreach (var key in src_checked_paths) {
@@ -69,7 +75,10 @@ public class UndoState : GLib.Object {
     }
 
     public ItemData get_item (int index) {
-        return new ItemData (_types[index], _paths[index], _contents[index], _force_abs[index], _is_missing[index]);
+        var item = new ItemData (_types[index], _paths[index], _contents[index], _force_abs[index], _is_missing[index]);
+        item.start_line = _start_lines[index];
+        item.end_line = _end_lines[index];
+        return item;
     }
 }
 

@@ -65,10 +65,18 @@ public class ProjectManager : GLib.Object {
                 if (type == "file") {
                     var p = obj.get_string_member ("path");
                     var fa = obj.get_boolean_member_with_default ("force_absolute", false);
+                    var sl = (int) obj.get_int_member_with_default ("start_line", 0);
+                    var el = (int) obj.get_int_member_with_default ("end_line", 0);
                     if (File.new_for_path (p).query_exists ()) {
-                        items.add (new ItemData ("file", p, null, fa));
+                        var item = new ItemData ("file", p, null, fa);
+                        item.start_line = sl;
+                        item.end_line = el;
+                        items.add (item);
                     } else {
-                        items.add (new ItemData ("file", p, null, fa, true));
+                        var item = new ItemData ("file", p, null, fa, true);
+                        item.start_line = sl;
+                        item.end_line = el;
+                        items.add (item);
                     }
                 } else {
                     var c = obj.get_string_member_with_default ("content", "");
@@ -143,6 +151,14 @@ public class ProjectManager : GLib.Object {
                 if (data.is_missing) {
                     builder.set_member_name ("missing");
                     builder.add_boolean_value (true);
+                }
+                if (data.start_line > 0) {
+                    builder.set_member_name ("start_line");
+                    builder.add_int_value (data.start_line);
+                }
+                if (data.end_line > 0) {
+                    builder.set_member_name ("end_line");
+                    builder.add_int_value (data.end_line);
                 }
             } else {
                 builder.set_member_name ("content");
