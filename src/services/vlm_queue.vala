@@ -1,15 +1,27 @@
 using GLib;
 using Gee;
 
-public delegate void VLMTaskExecutor (ItemData item, VLMQueueManager manager);
+// 工作线程执行器签名: 只接收不可变的 file_path 字符串, 不共享 ItemData GObject.
+// 结果通过 VLMQueueManager.task_completed 信号 (在 Idle 回调中, 主线程上发射)
+// 回送到主线程.
+public delegate void VLMTaskExecutor (string file_path, VLMQueueManager manager);
 
 public class VLMQueueManager : GLib.Object {
     public signal void progress_changed (int completed, int total, int active);
     public signal void state_changed (bool has_tasks);
+    // 工作线程的结果回送信号. 主线程接收后, 在 items 中按 file_path 查找 ItemData
+    // 并更新其属性. md 为 null 表示无内容更新 (PROCESSING/FAILED 阶段).
+    public signal void task_completed (
+        string file_path,
+        string? preprocessed_content,
+        PreprocessStatus status,
+        bool from_cache
+    );
 
-    private Gee.LinkedList<ItemData> pending_queue;
-    private Gee.HashSet<ItemData> pending_set;
-    private Gee.HashSet<ItemData> active_set;
+    private Gee.LinkedList<string> pending_queue;
+    private Gee.HashSet<string> pending_set;
+    private Gee.HashSet<string> active_set;
+    private Gee.ArrayList<Thread<void*>> bg_threads;
 
     private int completed_count;
     private int total_count;
@@ -21,18 +33,17 @@ public class VLMQueueManager : GLib.Object {
     public unowned VLMTaskExecutor? executor { get; set; }
 
     public VLMQueueManager () {
-        pending_queue = new Gee.LinkedList<ItemData> ();
-        pending_set = new Gee.HashSet<ItemData> ();
-        active_set = new Gee.HashSet<ItemData> ();
+        pending_queue = new Gee.LinkedList<string> ();
+        pending_set = new Gee.HashSet<string> ();
+        active_set = new Gee.HashSet<string> ();
+        bg_threads = new Gee.ArrayList<Thread<void*>> ();
     }
 
-    public void enqueue (ItemData item) {
-        if (active_set.contains (item) || pending_set.contains (item)) return;
-        if (item.preprocess_status == PreprocessStatus.PROCESSING ||
-            item.preprocess_status == PreprocessStatus.CHECKING) return;
+    public void enqueue (string file_path) {
+        if (active_set.contains (file_path) || pending_set.contains (file_path)) return;
 
-        pending_queue.offer (item);
-        pending_set.add (item);
+        pending_queue.offer (file_path);
+        pending_set.add (file_path);
         total_count++;
         is_cancelled = false;
         emit_signals ();
@@ -65,9 +76,9 @@ public class VLMQueueManager : GLib.Object {
         return is_cancelled;
     }
 
-    public void notify_finished (ItemData item) {
+    public void notify_finished (string file_path) {
         Idle.add (() => {
-            finish_task (item);
+            finish_task (file_path);
             return Source.REMOVE;
         });
     }
@@ -85,17 +96,16 @@ public class VLMQueueManager : GLib.Object {
         if (is_paused || is_cancelled) return;
 
         while (active_set.size < max_concurrency && !pending_queue.is_empty) {
-            var item = pending_queue.poll ();
-            pending_set.remove (item);
-            active_set.add (item);
+            var path = pending_queue.poll ();
+            pending_set.remove (path);
+            active_set.add (path);
             emit_signals ();
-
-            execute_task_in_background (item);
+            execute_task_in_background (path);
         }
     }
 
-    private void finish_task (ItemData item) {
-        active_set.remove (item);
+    private void finish_task (string file_path) {
+        active_set.remove (file_path);
         completed_count++;
         emit_signals ();
         if (active_set.size == 0 && pending_queue.is_empty) {
@@ -105,21 +115,29 @@ public class VLMQueueManager : GLib.Object {
         }
     }
 
-    private void execute_task_in_background (ItemData item) {
+    private void execute_task_in_background (string file_path) {
         if (executor == null) {
-            finish_task (item);
+            finish_task (file_path);
             return;
         }
         try {
-            new Thread<void*> ("vlm-queue-task", () => {
-                executor (item, this);
+            Thread<void*>? thread = null;
+            thread = new Thread<void*> ("vlm-queue-task", () => {
+                executor (file_path, this);
+                if (thread != null) {
+                    Idle.add (() => {
+                        bg_threads.remove (thread);
+                        return Source.REMOVE;
+                    });
+                }
                 return null;
             });
+            bg_threads.add (thread);
         } catch (ThreadError e) {
             warning ("Failed to create VLM thread: %s", e.message);
-            item.preprocess_status = PreprocessStatus.FAILED;
             Idle.add (() => {
-                finish_task (item);
+                task_completed (file_path, null, PreprocessStatus.FAILED, false);
+                finish_task (file_path);
                 return Source.REMOVE;
             });
         }

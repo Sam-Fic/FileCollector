@@ -76,18 +76,22 @@ public class BinaryPreprocessor : GLib.Object {
     }
 
     // 仅尝试从缓存读取, 不调用 VLM. 用于加载项目文件时复用已缓存的转换结果.
+    // work_dir_path 接受 null: 当 GFile 失效 (G_IS_FILE 断言失败) 时 get_path() 返回 null,
+    // 此时直接返回 null 而不是构造 PreprocessCache 触发连锁临界警告.
     public static string? try_cache_only (
-        ItemData item, string work_dir_path
+        ItemData item, string? work_dir_path
     ) throws Error {
+        if (work_dir_path == null) return null;
         string hash = PreprocessCache.compute_file_hash (item.file_path);
         var cache = new PreprocessCache (work_dir_path);
         return cache.get_cached_markdown (item.file_path, hash);
     }
 
-    // 默认提示词 (从 window.vala 提取的逻辑, 供 CLI 调用)
-    public static string get_default_prompt (ItemData item) {
-        if (item.is_image_target ()) {
-            string lower = item.file_path.down ();
+    // 默认提示词 (基于 file_path 字符串, 不依赖 ItemData GObject)
+    // 队列工作线程使用此方法, 避免跨线程共享 ItemData.
+    public static string get_default_prompt_for_path (string file_path) {
+        if (ItemData.is_image_file (file_path)) {
+            string lower = file_path.down ();
             if (lower.contains ("screenshot") || lower.contains ("error") || lower.contains ("bug")) {
                 return "这是一张系统截图。请提取图中所有可见文本内容（包括错误信息、堆栈跟踪、UI 元素）。" +
                        "保留原始格式，使用代码块包裹命令行输出或报错信息。";
@@ -99,8 +103,8 @@ public class BinaryPreprocessor : GLib.Object {
             return "请提取图片中的所有文本内容，并将其转换为结构清晰的 Markdown。" +
                    "保留标题层级、列表结构和表格。";
         }
-        if (item.is_document_target ()) {
-            string lower = item.file_path.down ();
+        if (ItemData.is_document_file (file_path)) {
+            string lower = file_path.down ();
             if (lower.has_suffix (".xlsx") || lower.has_suffix (".xls") || lower.has_suffix (".ods")) {
                 return "请将图片中的电子表格数据转换为标准 Markdown 表格。" +
                        "保留表头结构、合并单元格的语义以及数值精度。";
@@ -111,5 +115,10 @@ public class BinaryPreprocessor : GLib.Object {
             }
         }
         return "请将图片中的内容转换为结构清晰的 Markdown 格式。保留标题、列表和表格。";
+    }
+
+    // 兼容: 通过 ItemData 转发到基于 file_path 的实现
+    public static string get_default_prompt (ItemData item) {
+        return get_default_prompt_for_path (item.file_path);
     }
 }

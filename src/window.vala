@@ -130,6 +130,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // VLM 预处理队列
     private VLMQueueManager vlm_queue;
+    // 必须作为字段持有: vlm_queue.executor 是 unowned 委托, 不会对 runner 做 ref.
+    // 若 runner 仅是 setup_vlm_queue 的局部变量, 函数返回后 runner 即被释放,
+    // 后续 vlm-queue-task 线程调用 executor() 会解引用悬空指针导致 SIGSEGV.
+    private VLMTaskRunner vlm_runner;
     private Gtk.Revealer vlm_progress_revealer;
     private Gtk.Label lbl_vlm_status;
     private Gtk.Button btn_vlm_pause;
@@ -180,7 +184,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             double radius = (width / 2.0) - 2.0;
             double line_width = 2.5;
 
-            cr.set_source_rgba (0.5, 0.5, 0.5, 0.2);
+            cr.set_source_rgba (1.0, 1.0, 1.0, 0.25);
             cr.set_line_width (line_width);
             cr.arc (cx, cy, radius, 0, 2 * Math.PI);
             cr.stroke ();
@@ -252,7 +256,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 var it = items.get (i);
                 if (it.item_type == "file" && it.file_path == path) {
                     if (it.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
-                        vlm_queue.enqueue (it);
+                        enqueue_item_for_preprocess (it);
                     }
                     break;
                 }
@@ -911,9 +915,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         // 二进制文件仅检查缓存, 命中则直接展示; 未命中不触发 VLM 转换
         if (temp_item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
-            if (work_dir != null) {
+            // work_dir 可能为非空但失效的 GFile (例如跨线程引用计数竞争后释放),
+            // get_path() 此时返回 null 并触发 G_IS_FILE 临界警告. 这里提前取路径并判空,
+            // 避免将 null 传给 PreprocessCache 构造函数导致后续解引用崩溃.
+            string? work_dir_path = (work_dir != null) ? work_dir.get_path () : null;
+            if (work_dir_path != null) {
                 try {
-                    string? cached = BinaryPreprocessor.try_cache_only (temp_item, work_dir.get_path ());
+                    string? cached = BinaryPreprocessor.try_cache_only (temp_item, work_dir_path);
                     if (cached != null) {
                         temp_item.preprocess_status = PreprocessStatus.COMPLETED;
                         temp_item.preprocessed_content = cached;
@@ -1009,8 +1017,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // 统一的勾选变更处理: 修改 check_model -> 同步 items -> 刷新 UI 三态
     private void apply_check_change (DirectoryItem item, bool new_checked) {
-        message ("[DIAG] apply_check_change start: is_dir=%s new_checked=%s ref=%u",
-                 item.is_dir.to_string (), new_checked.to_string (), ((GLib.Object) item).ref_count);
         if (item.is_dir) {
             // 立即更新 checked_dirs 确保未展开目录状态正确
             check_model.set_dir_checked (item.path, new_checked);
@@ -1047,31 +1053,24 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         } else {
             // 文件: 直接切换 (无 I/O, 同步即可)
             check_model.toggle_file (item.path);
+            ItemData? binary_item = null;
             if (new_checked) {
-                    if (!path_in_items (item.path)) {
+                if (!path_in_items (item.path)) {
                     var new_item = new ItemData ("file", item.path, null, false);
                     items.add (new_item);
-                    bool is_binary = new_item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ());
-                    message ("[DIAG] file check: path=%s is_binary=%s new_item_ref=%u",
-                             item.path, is_binary.to_string (), ((GLib.Object) new_item).ref_count);
-                    if (is_binary) {
-                        message ("[DIAG] before vlm_queue.enqueue: new_item_ref=%u vlm_queue=%p",
-                                 ((GLib.Object) new_item).ref_count, (void*) vlm_queue);
-                        vlm_queue.enqueue (new_item);
-                        message ("[DIAG] after vlm_queue.enqueue: new_item_ref=%u",
-                                 ((GLib.Object) new_item).ref_count);
+                    if (new_item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
+                        binary_item = new_item;
                     }
                 }
             } else {
                 remove_items_by_path (item.path);
             }
-            message ("[DIAG] before refresh_all_tree_states");
             refresh_all_tree_states ();
-            message ("[DIAG] before queue_draw");
             dir_column_view.queue_draw ();
-            message ("[DIAG] before refresh_list");
             refresh_list ();
-            message ("[DIAG] apply_check_change end");
+            if (binary_item != null) {
+                enqueue_item_for_preprocess (binary_item);
+            }
         }
     }
 
@@ -1114,7 +1113,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                         var new_item = new ItemData ("file", p, null, false);
                         items.add (new_item);
                         if (new_item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
-                            vlm_queue.enqueue (new_item);
+                            enqueue_item_for_preprocess (new_item);
                         }
                     }
                 } else {
@@ -2016,7 +2015,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     var new_item = new ItemData ("file", path, null, false);
                     items.add (new_item);
                     if (new_item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
-                        vlm_queue.enqueue (new_item);
+                        enqueue_item_for_preprocess (new_item);
                     }
                     if (!(path in check_model.checked_files)) {
                         check_model.add_files ({ path });
@@ -2105,12 +2104,26 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void setup_vlm_queue () {
         vlm_queue = new VLMQueueManager ();
-        var runner = new VLMTaskRunner (
+        vlm_runner = new VLMTaskRunner (
             work_dir,
-            (item) => { return get_prompt_for_item (item); },
-            () => { refresh_list (); }
+            (file_path) => { return BinaryPreprocessor.get_default_prompt_for_path (file_path); }
         );
-        vlm_queue.executor = runner.execute;
+        vlm_queue.executor = vlm_runner.execute;
+
+        // 工作线程的结果回送: 在 items 中按 file_path 查找 ItemData,
+        // 在主线程上更新其属性并刷新 UI. 工作线程不直接接触 ItemData.
+        vlm_queue.task_completed.connect ((file_path, md, status, from_cache) => {
+            for (int i = 0; i < items.size; i++) {
+                var it = items.get (i);
+                if (it.item_type == "file" && it.file_path == file_path) {
+                    if (md != null) it.preprocessed_content = md;
+                    it.preprocess_status = status;
+                    it.from_cache = from_cache;
+                    refresh_list ();
+                    break;
+                }
+            }
+        });
 
         // 构建悬浮进度卡片 (programmatic, 避免 Blueprint 嵌套问题)
         lbl_vlm_status = new Gtk.Label (_("正在预处理 0/0 个文件..."));
@@ -2197,6 +2210,15 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void on_vlm_state_changed (bool has_tasks) {
         vlm_progress_revealer.set_reveal_child (has_tasks);
+    }
+
+    // 调用方包装: 保留原 enqueue 内部的状态守卫, 防止重复入队已经在处理中的项.
+    // 内部以 file_path (string) 入队, 不向 VLM 队列传递 ItemData GObject.
+    private void enqueue_item_for_preprocess (ItemData item) {
+        if (item.file_path == null) return;
+        if (item.preprocess_status == PreprocessStatus.PROCESSING ||
+            item.preprocess_status == PreprocessStatus.CHECKING) return;
+        vlm_queue.enqueue (item.file_path);
     }
 
     private void setup_pane_sizes () {
@@ -2618,7 +2640,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 var new_item = new ItemData ("file", abs_path, null, false);
                 items.add (new_item);
                 if (new_item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
-                    vlm_queue.enqueue (new_item);
+                    enqueue_item_for_preprocess (new_item);
                 }
             }
         } else {
@@ -2724,9 +2746,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     // 完全一致，无需任何操作
                 } else if (n < m) {
                     // 仅尾部追加
-                    GLib.Object[] adds = new GLib.Object[m - n];
-                    for (int i = (int)n; i < m; i++) adds[i - (int)n] = items.get (i);
-                    queue_store.splice (n, 0, adds);
+                    for (int i = (int)n; i < m; i++) {
+                        queue_store.append (items.get (i));
+                    }
                 } else {
                     // 仅尾部删除
                     queue_store.splice (m, n - m, new GLib.Object[0]);
@@ -2929,7 +2951,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     foreach (var item in to_add) {
                         items.add (item);
                         if (item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
-                            vlm_queue.enqueue (item);
+                            enqueue_item_for_preprocess (item);
                         }
                         added++;
                     }
@@ -3386,7 +3408,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         refresh_list ();
         update_preview (item);
-        vlm_queue.enqueue (item);
+        enqueue_item_for_preprocess (item);
     }
 
     public void on_clear_cache () {
@@ -4263,12 +4285,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         return phrases_picker_instance;
     }
 
-    // ─── 多模态 AI 预处理 ────────────────────────────────────────────────
-
-    private string get_prompt_for_item (ItemData item) {
-        return BinaryPreprocessor.get_default_prompt (item);
-    }
-
     // ─── Token 估算 ────────────────────────────────────────────────────
 
     private void update_token_display () {
@@ -4400,7 +4416,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     var new_item = new ItemData ("file", p, null, false);
                     items.add (new_item);
                     if (new_item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
-                        vlm_queue.enqueue (new_item);
+                        enqueue_item_for_preprocess (new_item);
                     }
                     if (!(p in check_model.checked_files)) {
                         check_model.add_files ({ p });
@@ -4566,7 +4582,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 // 重新进入允许列表: 此前因为不在列表中而未触发缓存检查, 现在补上
                 if (item.preprocess_status == PreprocessStatus.NONE
                     || item.preprocess_status == PreprocessStatus.FAILED) {
-                    vlm_queue.enqueue (item);
+                    enqueue_item_for_preprocess (item);
                 }
             } else {
                 // 移出允许列表: 清空预处理状态, 不再显示 AI 相关 UI

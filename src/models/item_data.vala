@@ -51,22 +51,30 @@ public class ItemData : GLib.Object {
         return "";
     }
 
-    public bool is_document_target () {
-        if (item_type != "file" || file_path == null) return false;
-        string lower = file_path.down ();
+    public static bool is_document_file (string path) {
+        string lower = path.down ();
         foreach (var ext in DOCUMENT_EXTENSIONS) {
             if (lower.has_suffix (ext)) return true;
         }
         return false;
     }
 
-    public bool is_image_target () {
-        if (item_type != "file" || file_path == null) return false;
-        string lower = file_path.down ();
+    public static bool is_image_file (string path) {
+        string lower = path.down ();
         foreach (var ext in IMAGE_EXTENSIONS) {
             if (lower.has_suffix (ext)) return true;
         }
         return false;
+    }
+
+    public bool is_document_target () {
+        if (item_type != "file" || file_path == null) return false;
+        return is_document_file (file_path);
+    }
+
+    public bool is_image_target () {
+        if (item_type != "file" || file_path == null) return false;
+        return is_image_file (file_path);
     }
 
     public bool is_binary_target () {
