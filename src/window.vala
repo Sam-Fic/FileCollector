@@ -2142,7 +2142,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         btn_vlm_pause.add_css_class ("flat");
         btn_vlm_pause.add_css_class ("circular");
 
-        btn_vlm_cancel = new Gtk.Button.from_icon_name ("process-stop-symbolic");
+        btn_vlm_cancel = new Gtk.Button.from_icon_name ("media-record-symbolic");
         btn_vlm_cancel.tooltip_text = _("取消全部");
         btn_vlm_cancel.add_css_class ("flat");
         btn_vlm_cancel.add_css_class ("circular");
