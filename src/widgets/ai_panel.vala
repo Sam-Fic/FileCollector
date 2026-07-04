@@ -660,11 +660,6 @@ public class AIPanel : GLib.Object {
                 args_lbl.halign = Gtk.Align.START;
                 header_box.append (args_lbl);
 
-                var action = new Gtk.Label (msg.expanded ? _("收起") : _("查看结果"));
-                action.add_css_class ("ai-tool-action");
-                action.valign = Gtk.Align.CENTER;
-                header_box.append (action);
-
                 header_btn.set_child (header_box);
 
                 // Body (展开时显示完整结果)
@@ -700,7 +695,6 @@ public class AIPanel : GLib.Object {
                     body.set_visible (msg.expanded);
                     preview_lbl.set_visible (!msg.expanded);
                     arrow.icon_name = msg.expanded ? "pan-down-symbolic" : "pan-end-symbolic";
-                    action.label = msg.expanded ? _("收起") : _("查看结果");
 
                     // 展开时保持头部位置不动 (内容向下展开)
                     if (msg.expanded) {

@@ -217,12 +217,10 @@ popover.ctx-menu separator {
 }
 
 .ai-tool-arrow {
-    font-size: 10px;
     min-width: 12px;
 }
 
 .ai-tool-icon {
-    font-size: 11px;
     font-weight: bold;
     color: @accent_color;
     background-color: alpha(@accent_color, 0.12);
@@ -233,18 +231,14 @@ popover.ctx-menu separator {
 
 .ai-tool-name {
     font-weight: 600;
-    font-size: 12px;
     color: @window_fg_color;
 }
 
 .ai-tool-args {
-    font-size: 11px;
     color: alpha(@window_fg_color, 0.7);
-    font-family: monospace;
 }
 
 .ai-tool-action {
-    font-size: 11px;
     color: @accent_color;
 }
 
@@ -255,16 +249,12 @@ popover.ctx-menu separator {
 }
 
 .ai-tool-result {
-    font-size: 12px;
     color: @window_fg_color;
-    font-family: monospace;
 }
 
 .ai-tool-preview {
-    font-size: 11px;
     color: alpha(@window_fg_color, 0.6);
     padding: 0 8px 6px 8px;
-    font-family: monospace;
 }
 
 .ai-status-ok {
