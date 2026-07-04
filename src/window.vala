@@ -2089,20 +2089,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (selected_commits.size == 0) return;
 
         try {
-            var sb = new StringBuilder ();
-            sb.append ("# Git Commit Diff\n\n");
-            // git_commit_store 中索引 0 为最新提交；按提交先后（最旧在前）输出
-            for (int i = selected_commits.size - 1; i >= 0; i--) {
-                var commit = selected_commits[i];
-                string diff = GitService.get_commit_diff (work_dir.get_path (), commit.hash);
-                sb.append ("## %s (%s)\n\n".printf (commit.short_hash, commit.message));
-                sb.append ("```diff\n");
-                sb.append (diff);
-                sb.append ("\n```\n\n");
-            }
-
             push_undo_state ();
-            items.insert (0, new ItemData ("text", null, sb.str, false));
+            // git_commit_store 中索引 0 为最新提交；依次在位置 0 插入，最终列表为提交先后顺序（最旧在前）
+            foreach (var commit in selected_commits) {
+                string diff = GitService.get_commit_diff (work_dir.get_path (), commit.hash);
+                string md_text = "# Git Commit: %s (%s)\n\n```diff\n%s\n```".printf (
+                    commit.short_hash, commit.message, diff);
+                items.insert (0, new ItemData ("text", null, md_text, false));
+            }
             refresh_list ();
             show_toast (_("已将 %d 个 Commit Diff 插入编排列表").printf (selected_commits.size));
         } catch (Error e) {
