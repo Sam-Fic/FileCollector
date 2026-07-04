@@ -1790,6 +1790,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             git_search_entry.visible = work_dir != null;
             btn_git_add_all_changed.sensitive = work_dir != null;
             btn_git_export_working_diff.sensitive = work_dir != null;
+            btn_git_export_commit_diff.sensitive = false;
 
             if (git_commits.size == 0 && work_dir != null) {
                 load_git_history_async ();
