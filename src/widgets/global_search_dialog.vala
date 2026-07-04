@@ -20,6 +20,10 @@ public class GlobalSearchDialog : Adw.Dialog {
     private GLib.Cancellable cancellable;
     private Gee.HashSet<string> matched_files;
     private Gee.HashSet<string> selected_files;
+    private Gee.HashMap<string, Gtk.Revealer> file_revealers;
+    private Gee.HashMap<string, Gtk.Box> file_matches_boxes;
+    private Gee.HashMap<string, Gtk.CheckButton> file_checks;
+    private Gee.HashMap<string, Gtk.Button> file_arrow_buttons;
 
     public signal void add_files_requested (string[] paths);
 
@@ -28,6 +32,10 @@ public class GlobalSearchDialog : Adw.Dialog {
         this.work_dir = dir;
         this.matched_files = new Gee.HashSet<string> ();
         this.selected_files = new Gee.HashSet<string> ();
+        this.file_revealers = new Gee.HashMap<string, Gtk.Revealer> ();
+        this.file_matches_boxes = new Gee.HashMap<string, Gtk.Box> ();
+        this.file_checks = new Gee.HashMap<string, Gtk.CheckButton> ();
+        this.file_arrow_buttons = new Gee.HashMap<string, Gtk.Button> ();
         build_ui ();
     }
 
@@ -140,6 +148,10 @@ public class GlobalSearchDialog : Adw.Dialog {
         result_list.remove_all ();
         matched_files.clear ();
         selected_files.clear ();
+        file_revealers.clear ();
+        file_matches_boxes.clear ();
+        file_checks.clear ();
+        file_arrow_buttons.clear ();
         btn_add_selected.sensitive = false;
         btn_add_all.sensitive = false;
         btn_toggle_select.sensitive = false;
@@ -159,8 +171,8 @@ public class GlobalSearchDialog : Adw.Dialog {
 
     private void on_result_found (SearchResult res) {
         matched_files.add (res.file_path);
-        var row = create_result_row (res);
-        result_list.append (row);
+        ensure_file_row (res.file_path, res.rel_path);
+        add_match_row (res);
     }
 
     private void on_progress (int scanned, int matched) {
@@ -188,78 +200,143 @@ public class GlobalSearchDialog : Adw.Dialog {
     }
 
     private void sync_checkboxes () {
-        Gtk.Widget? child = result_list.get_first_child ();
-        while (child != null) {
-            var row = child as Gtk.ListBoxRow;
-            if (row != null) {
-                var hbox = row.get_child () as Gtk.Box;
-                if (hbox != null) {
-                    var check = hbox.get_first_child () as Gtk.CheckButton;
-                    if (check != null) {
-                        string? fp = check.get_data<string> ("file_path");
-                        if (fp != null) {
-                            check.active = (fp in selected_files);
-                        }
-                    }
-                }
-            }
-            child = child.get_next_sibling ();
+        foreach (string fp in file_checks.keys) {
+            file_checks[fp].active = (fp in selected_files);
         }
     }
 
-    private Gtk.ListBoxRow create_result_row (SearchResult res) {
-        var hbox = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
-        hbox.margin_top = 6;
-        hbox.margin_bottom = 6;
-        hbox.margin_start = 8;
-        hbox.margin_end = 8;
+    private void ensure_file_row (string file_path, string rel_path) {
+        if (file_revealers.has_key (file_path)) {
+            return;
+        }
 
         var check = new Gtk.CheckButton ();
         check.valign = Gtk.Align.CENTER;
-        check.set_data<string> ("file_path", res.file_path);
-        check.active = (res.file_path in selected_files);
+        check.set_data<string> ("file_path", file_path);
+        check.active = (file_path in selected_files);
 
-        var vbox = new Gtk.Box (Gtk.Orientation.VERTICAL, 2);
-        vbox.hexpand = true;
+        var arrow_btn = new Gtk.Button.from_icon_name ("pan-end-symbolic");
+        arrow_btn.add_css_class ("flat");
+        arrow_btn.valign = Gtk.Align.CENTER;
+        arrow_btn.tooltip_text = _("展开");
 
-        var lbl_path = new Gtk.Label ("%s : %d".printf (res.rel_path, res.line_number));
-        lbl_path.xalign = 0;
-        lbl_path.add_css_class ("heading");
-        lbl_path.ellipsize = Pango.EllipsizeMode.START;
+        var filename_lbl = new Gtk.Label (rel_path);
+        filename_lbl.xalign = 0;
+        filename_lbl.hexpand = true;
+        filename_lbl.ellipsize = Pango.EllipsizeMode.START;
+        filename_lbl.add_css_class ("heading");
 
-        string keyword = search_entry.text.strip ();
-        var lbl_code = new Gtk.Label (null);
-        lbl_code.xalign = 0;
-        lbl_code.add_css_class ("monospace");
-        lbl_code.ellipsize = Pango.EllipsizeMode.END;
-        if (keyword.length > 0 && btn_case_sensitive.active) {
-            string escaped = GLib.Markup.escape_text (res.line_content);
-            string escaped_kw = GLib.Markup.escape_text (keyword);
-            string highlighted = escaped.replace (escaped_kw, "<b><span foreground='#3584e4'>" + escaped_kw + "</span></b>");
-            lbl_code.set_markup (highlighted);
-        } else {
-            lbl_code.set_text (res.line_content);
-        }
+        var file_hbox = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
+        file_hbox.margin_top = 8;
+        file_hbox.margin_bottom = 8;
+        file_hbox.margin_start = 8;
+        file_hbox.margin_end = 8;
+        file_hbox.append (arrow_btn);
+        file_hbox.append (check);
+        file_hbox.append (filename_lbl);
 
-        vbox.append (lbl_path);
-        vbox.append (lbl_code);
-        hbox.append (check);
-        hbox.append (vbox);
+        var matches_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+        matches_box.margin_start = 52;
+        matches_box.margin_end = 8;
+        matches_box.margin_bottom = 8;
 
-        string fp = res.file_path;
+        var revealer = new Gtk.Revealer ();
+        revealer.set_child (matches_box);
+        revealer.reveal_child = false;
+
+        var vbox = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+        vbox.append (file_hbox);
+        vbox.append (revealer);
+
+        var row = new Gtk.ListBoxRow ();
+        row.set_child (vbox);
+        row.activatable = false;
+
+        result_list.append (row);
+
+        arrow_btn.clicked.connect (() => {
+            bool expanded = !revealer.reveal_child;
+            revealer.reveal_child = expanded;
+            arrow_btn.icon_name = expanded ? "pan-down-symbolic" : "pan-end-symbolic";
+            arrow_btn.tooltip_text = expanded ? _("收起") : _("展开");
+        });
+
         check.toggled.connect (() => {
             if (check.active) {
-                selected_files.add (fp);
+                selected_files.add (file_path);
             } else {
-                selected_files.remove (fp);
+                selected_files.remove (file_path);
             }
             update_button_labels ();
         });
 
-        var row = new Gtk.ListBoxRow ();
-        row.set_child (hbox);
-        row.activatable = false;
-        return row;
+        file_revealers[file_path] = revealer;
+        file_matches_boxes[file_path] = matches_box;
+        file_checks[file_path] = check;
+        file_arrow_buttons[file_path] = arrow_btn;
+    }
+
+    private void add_match_row (SearchResult res) {
+        var matches_box = file_matches_boxes[res.file_path];
+
+        var hbox = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
+        hbox.margin_top = 4;
+        hbox.margin_bottom = 4;
+
+        var line_lbl = new Gtk.Label ("%d".printf (res.line_number));
+        line_lbl.xalign = 0;
+        line_lbl.add_css_class ("dim-label");
+
+        string keyword = search_entry.text.strip ();
+        string highlighted = highlight_keyword (res.line_content, keyword, btn_case_sensitive.active);
+
+        var content_lbl = new Gtk.Label (null);
+        content_lbl.set_markup (highlighted);
+        content_lbl.xalign = 0;
+        content_lbl.hexpand = true;
+        content_lbl.wrap = true;
+        content_lbl.wrap_mode = Pango.WrapMode.WORD_CHAR;
+
+        hbox.append (line_lbl);
+        hbox.append (content_lbl);
+        matches_box.append (hbox);
+    }
+
+    private string highlight_keyword (string text, string keyword, bool case_sensitive) {
+        if (keyword.length == 0) {
+            return GLib.Markup.escape_text (text);
+        }
+
+        var result = new StringBuilder ();
+        int text_chars = text.char_count ();
+        int kw_chars = keyword.char_count ();
+        int last = 0;
+        int i = 0;
+
+        while (i <= text_chars - kw_chars) {
+            int byte_start = text.index_of_nth_char (i);
+            int byte_end = text.index_of_nth_char (i + kw_chars);
+            string candidate = text.slice (byte_start, byte_end);
+
+            bool is_match = case_sensitive
+                ? candidate == keyword
+                : candidate.down () == keyword.down ();
+
+            if (is_match) {
+                int prev_byte_end = text.index_of_nth_char (last);
+                result.append (GLib.Markup.escape_text (text.slice (prev_byte_end, byte_start)));
+                result.append ("<b><span foreground='#3584e4'>");
+                result.append (GLib.Markup.escape_text (candidate));
+                result.append ("</span></b>");
+                last = i + kw_chars;
+                i = last;
+            } else {
+                i++;
+            }
+        }
+
+        result.append (GLib.Markup.escape_text (text.slice (text.index_of_nth_char (last), text.length)));
+        return result.str;
     }
 
     private void on_add_selected_clicked () {
