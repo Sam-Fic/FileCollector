@@ -121,7 +121,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private Gtk.Revealer dir_load_revealer;
     private Gtk.ProgressBar dir_load_progress;
     private Gtk.Label dir_load_label;
-    private Gtk.SingleSelection git_selection;
+    private Gtk.MultiSelection git_selection;
     private Gee.ArrayList<GitCommit> git_commits;
     private string git_search_text = "";
     private bool git_loading = false;
@@ -1598,8 +1598,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void setup_git_view () {
         git_commits = new Gee.ArrayList<GitCommit> ();
         git_commit_store = new GLib.ListStore (typeof (GitCommit));
-        git_selection = new Gtk.SingleSelection (git_commit_store);
-        git_selection.set_autoselect (false);
+        git_selection = new Gtk.MultiSelection (git_commit_store);
 
         var factory = new Gtk.SignalListItemFactory ();
         factory.setup.connect (setup_git_list_item);
@@ -1903,13 +1902,21 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void refresh_git_preview () {
-        uint pos = git_selection.selected;
-        if (pos == Gtk.INVALID_LIST_POSITION || pos >= git_commit_store.get_n_items ()) {
+        uint first_selected = Gtk.INVALID_LIST_POSITION;
+        uint n = git_commit_store.get_n_items ();
+        for (uint i = 0; i < n; i++) {
+            if (git_selection.is_selected (i)) {
+                first_selected = i;
+                break;
+            }
+        }
+
+        if (first_selected == Gtk.INVALID_LIST_POSITION || first_selected >= n) {
             btn_git_export_commit_diff.sensitive = false;
             return;
         }
 
-        var commit = git_commit_store.get_item (pos) as GitCommit;
+        var commit = git_commit_store.get_item (first_selected) as GitCommit;
         if (commit == null) {
             btn_git_export_commit_diff.sensitive = false;
             return;
@@ -2066,19 +2073,38 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_git_export_commit_diff () {
-        uint pos = git_selection.selected;
-        if (pos == Gtk.INVALID_LIST_POSITION || pos >= git_commit_store.get_n_items ()) return;
-        var commit = git_commit_store.get_item (pos) as GitCommit;
-        if (commit == null || work_dir == null) return;
+        if (work_dir == null) return;
+
+        var selected_commits = new Gee.ArrayList<GitCommit> ();
+        uint n = git_commit_store.get_n_items ();
+        for (uint i = 0; i < n; i++) {
+            if (git_selection.is_selected (i)) {
+                var commit = git_commit_store.get_item (i) as GitCommit;
+                if (commit != null) {
+                    selected_commits.add (commit);
+                }
+            }
+        }
+
+        if (selected_commits.size == 0) return;
 
         try {
-            string diff = GitService.get_commit_diff (work_dir.get_path (), commit.hash);
+            var sb = new StringBuilder ();
+            sb.append ("# Git Commit Diff\n\n");
+            // git_commit_store 中索引 0 为最新提交；按提交先后（最旧在前）输出
+            for (int i = selected_commits.size - 1; i >= 0; i--) {
+                var commit = selected_commits[i];
+                string diff = GitService.get_commit_diff (work_dir.get_path (), commit.hash);
+                sb.append ("## %s (%s)\n\n".printf (commit.short_hash, commit.message));
+                sb.append ("```diff\n");
+                sb.append (diff);
+                sb.append ("\n```\n\n");
+            }
+
             push_undo_state ();
-            string md_text = "# Git Commit: %s (%s)\n\n```diff\n%s\n```".printf (
-                commit.short_hash, commit.message, diff);
-            items.insert (0, new ItemData ("text", null, md_text, false));
+            items.insert (0, new ItemData ("text", null, sb.str, false));
             refresh_list ();
-            show_toast (_("已将 Commit Diff 插入编排列表"));
+            show_toast (_("已将 %d 个 Commit Diff 插入编排列表").printf (selected_commits.size));
         } catch (Error e) {
             show_error (_("Git 错误"), e.message);
         }
