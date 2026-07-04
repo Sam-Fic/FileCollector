@@ -1665,7 +1665,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var list_item = obj as Gtk.ListItem;
 
         var hash_label = new Gtk.Label ("");
-        hash_label.add_css_class ("monospace");
         hash_label.add_css_class ("dim-label");
         hash_label.xalign = 0;
         hash_label.ellipsize = Pango.EllipsizeMode.END;
