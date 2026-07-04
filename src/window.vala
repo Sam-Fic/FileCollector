@@ -1873,7 +1873,18 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         Idle.add (() => {
             if (window_closing) return Source.REMOVE;
             if (error_msg != null) {
-                show_toast (_("Git 日志加载失败: %s").printf (error_msg));
+                string display_msg = error_msg;
+                if (display_msg.has_prefix ("Git error: ")) {
+                    display_msg = display_msg.substring (11);
+                }
+                if (display_msg.contains ("fatal:")) {
+                    display_msg = display_msg.replace ("fatal: ", "").replace ("fatal:", "");
+                }
+                display_msg = display_msg.strip ();
+                if (display_msg.length > 60) {
+                    display_msg = display_msg.substring (0, 57) + "...";
+                }
+                show_toast (_("Git 日志加载失败: %s").printf (display_msg));
             } else if (result != null) {
                 if (result.size < GIT_BATCH_SIZE) {
                     git_all_loaded = true;
@@ -4310,6 +4321,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
                 if (data.preprocessed_content != null && data.preprocessed_content.length > 0) {
                     total_tokens += data.cached_tokens;
+                } else if (data.is_binary_target ()) {
+                    // 二进制文件预处理前不估算 token, 只统计转换后的 Markdown
                 } else {
                     total_tokens += estimate_file_tokens_fast (data.file_path);
                 }

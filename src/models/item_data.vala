@@ -38,6 +38,8 @@ public class ItemData : GLib.Object {
             force_absolute: force_abs,
             is_missing: missing
         );
+        // preprocessed_content 赋值时自动刷新 cached_tokens, 避免遗漏调用点导致估算为 0
+        notify["preprocessed-content"].connect (() => update_token_stats ());
     }
 
     public void update_token_stats () {
