@@ -194,7 +194,8 @@ public class ContextMenus : GLib.Object {
         File? work_dir,
         ContextMenuAction on_copy_path,
         ContextMenuAction on_show_folder,
-        ContextMenuAction on_copy_content
+        ContextMenuAction on_copy_content,
+        ContextMenuAction on_select_lines
     ) {
         var menu_model = new GLib.Menu ();
         var action_group = new GLib.SimpleActionGroup ();
@@ -222,6 +223,11 @@ public class ContextMenus : GLib.Object {
             act_copy_content.activate.connect (() => { on_copy_content (); });
             action_group.add_action (act_copy_content);
             menu_model.append (_("复制文件内容"), "tree.tree_copy_content");
+
+            var act_select_lines = new GLib.SimpleAction ("tree_select_lines", null);
+            act_select_lines.activate.connect (() => { on_select_lines (); });
+            action_group.add_action (act_select_lines);
+            menu_model.append (_("选择行..."), "tree.tree_select_lines");
         }
 
         show_popover (parent, menu_model, action_group, "tree", gx, gy);

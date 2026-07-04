@@ -6,6 +6,7 @@ using Gee;
 
 [GtkTemplate (ui = "/com/github/samfic/filecollector/window.ui")]
 public class FileCollectorWindow : Adw.ApplicationWindow {
+
     [GtkChild] private unowned Gtk.ScrolledWindow dir_scrolled;
     [GtkChild] private unowned Gtk.ListView queue_list;
     [GtkChild] private unowned Gtk.Box preview_container;
@@ -144,12 +145,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private int current_context_limit = 128000;
     private double current_token_ratio = 0.0;
 
-    // 片段提取
-    private Gtk.Popover? snippet_popover = null;
-    private Gtk.Button snippet_btn;
-    private int snippet_sl = 0;
-    private int snippet_el = 0;
-    private string? current_preview_file_path = null;
+    private ItemData? current_preview_item = null;
 
     // 自动保存 / 崩溃恢复
     private uint auto_save_timeout_id = 0;
@@ -211,8 +207,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 cr.stroke ();
             }
         });
-
-        setup_snippet_popover ();
 
         btn_retry_preprocess.clicked.connect (() => {
             var indices = get_selected_indices ();
@@ -2879,6 +2873,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void show_multi_selection_preview (int count) {
+        current_preview_item = null;
         UIHelpers.clear_container (preview_container);
         var label = new Gtk.Label (_("已选择 %d 个项目").printf (count));
         label.add_css_class ("dim-label");
@@ -2890,6 +2885,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void clear_preview () {
+        current_preview_item = null;
         UIHelpers.clear_container (preview_container);
     }
 
@@ -3306,61 +3302,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
     }
 
-    // ─── 片段提取 Popover ──────────────────────────────────────────────
-
-    private void setup_snippet_popover () {
-        snippet_popover = new Gtk.Popover ();
-        snippet_popover.set_has_arrow (false);
-        snippet_popover.set_parent (preview_view);
-
-        snippet_btn = new Gtk.Button ();
-        snippet_btn.add_css_class ("suggested-action");
-        snippet_btn.clicked.connect (on_add_snippet_clicked);
-        snippet_popover.set_child (snippet_btn);
-
-        var click_gesture = new Gtk.GestureClick ();
-        click_gesture.set_button (Gdk.BUTTON_PRIMARY);
-        click_gesture.released.connect ((n_press, x, y) => {
-            var buffer = preview_view.get_buffer ();
-            if (buffer.get_has_selection () && current_preview_file_path != null) {
-                Gtk.TextIter start, end;
-                buffer.get_selection_bounds (out start, out end);
-                int sl = start.get_line () + 1;
-                int el = end.get_line () + 1;
-
-                snippet_sl = sl;
-                snippet_el = el;
-                snippet_btn.label = _("添加 L%d-L%d 至编排列表").printf (sl, el);
-
-                Gdk.Rectangle rect = { (int) x, (int) y, 1, 1 };
-                snippet_popover.set_pointing_to (rect);
-                snippet_popover.set_halign (Gtk.Align.START);
-                snippet_popover.set_valign (Gtk.Align.START);
-                snippet_popover.popup ();
-            } else if (snippet_popover != null) {
-                snippet_popover.popdown ();
-            }
-        });
-        preview_view.add_controller (click_gesture);
-    }
-
-    private void on_add_snippet_clicked () {
-        if (current_preview_file_path == null) return;
-
-        push_undo_state ();
-        var item = new ItemData ("file", current_preview_file_path, null, false);
-        item.start_line = snippet_sl;
-        item.end_line = snippet_el;
-
-        items.add (item);
-        refresh_list ();
-        snippet_popover.popdown ();
-        show_toast (_("已添加代码片段 L%d-L%d").printf (snippet_sl, snippet_el));
-    }
-
     private void update_preview (ItemData item) {
         bool show_action_bar = false;
-        current_preview_file_path = (item.item_type == "file") ? item.file_path : null;
+        current_preview_item = item;
 
         if (item.item_type == "file" && item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
             btn_retry_preprocess.sensitive = true;
@@ -3446,6 +3390,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                         preview = _("[二进制文件，预览不可用]");
                     } else {
                         preview = EncodingHelper.decode_to_utf8 (buf);
+                        bool has_line_range = item.start_line > 0 && item.end_line > 0 && item.start_line <= item.end_line;
+                        if (has_line_range) {
+                            preview = extract_line_range (preview, item.start_line, item.end_line);
+                        }
                         if (preview.length > 2000) {
                             preview = UIHelpers.truncate_utf8 (preview, 2000);
                             if (file_size > PREVIEW_MAX_BYTES) {
@@ -3453,9 +3401,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                             } else {
                                 preview += _("\n\n... [预览截断]");
                             }
-                        } else if (file_size > PREVIEW_MAX_BYTES) {
+                        } else if (file_size > PREVIEW_MAX_BYTES && !has_line_range) {
                             preview += _("\n\n... [文件较大 (%s)，预览仅显示前 %s]").printf (
                                 UIHelpers.format_size (file_size), UIHelpers.format_size (read_size));
+                        }
+                        if (has_line_range) {
+                            apply_preview_with_highlight (preview, item.file_path);
+                            return;
                         }
                     }
                     apply_preview_content (item, preview);
@@ -3468,6 +3420,21 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 apply_preview_content (item, _("[读取错误: ") + e.message + "]");
             }
         }
+    }
+
+    // 按 1-based 行号范围从文本中提取对应行
+    private static string extract_line_range (string text, int start_line, int end_line) {
+        if (start_line < 1 || end_line < start_line) return text;
+        string[] lines = text.split ("\n");
+        int s = start_line - 1;
+        int e = int.min (end_line, lines.length);
+        if (s >= lines.length) return "";
+        var sb = new StringBuilder ();
+        for (int i = s; i < e; i++) {
+            sb.append (lines[i]);
+            sb.append_c ('\n');
+        }
+        return sb.str;
     }
 
     // 根据文件扩展名判断是否按 Markdown 渲染 (.md / .markdown),
@@ -3674,13 +3641,94 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
     }
 
+    private void on_ctx_tree_select_lines () {
+        if (ctx_tree_item == null) return;
+
+        var dialog = new Adw.AlertDialog (
+            _("选择行"),
+            _("输入行范围，用逗号分隔，用连字符表示区间。\n例如：1-10,15,20-25")
+        );
+
+        var entry = new Gtk.Entry ();
+        entry.placeholder_text = _("1-10,15,20-25");
+        entry.activate.connect (() => dialog.response ("ok"));
+        dialog.set_extra_child (entry);
+
+        dialog.add_response ("cancel", _("取消"));
+        dialog.add_response ("ok", _("添加"));
+
+        dialog.set_close_response ("cancel");
+        dialog.set_default_response ("ok");
+
+        dialog.choose.begin (this, null, (obj, res) => {
+            try {
+                string response = dialog.choose.end (res);
+                string text = entry.text.strip ();
+                if (response == "ok" && text.length > 0) {
+                    add_line_ranges_to_queue (ctx_tree_item, text);
+                }
+            } catch (Error e) {
+                // 用户取消
+            }
+        });
+    }
+
+    private void add_line_ranges_to_queue (DirectoryItem item, string input) {
+        // 解析行范围: 1-10,15,20-25
+        string[] parts = input.split (",");
+        var starts = new Gee.ArrayList<int> ();
+        var ends = new Gee.ArrayList<int> ();
+        foreach (string part in parts) {
+            string trimmed = part.strip ();
+            if (trimmed.length == 0) continue;
+            if (trimmed.contains ("-")) {
+                string[] bounds = trimmed.split ("-", 2);
+                int start = int.parse (bounds[0].strip ());
+                int end = int.parse (bounds[1].strip ());
+                if (start > 0 && end > 0 && start <= end) {
+                    starts.add (start);
+                    ends.add (end);
+                } else {
+                    show_toast (_("无效的行范围: %s").printf (trimmed));
+                    return;
+                }
+            } else {
+                int line = int.parse (trimmed);
+                if (line > 0) {
+                    starts.add (line);
+                    ends.add (line);
+                } else {
+                    show_toast (_("无效的行号: %s").printf (trimmed));
+                    return;
+                }
+            }
+        }
+
+        if (starts.size == 0) {
+            show_toast (_("未输入有效的行范围"));
+            return;
+        }
+
+        push_undo_state ();
+        for (int i = 0; i < starts.size; i++) {
+            var new_item = new ItemData ("file", item.path, null, false);
+            new_item.start_line = starts.get (i);
+            new_item.end_line = ends.get (i);
+            items.add (new_item);
+        }
+        refresh_list ();
+        update_token_display ();
+        show_toast (_("已添加 %d 个行范围").printf (starts.size));
+    }
+
     private void show_tree_context_menu (Gtk.Widget parent, DirectoryItem item, int gx, int gy) {
         ctx_tree_item = item;
         ContextMenus.show_tree_menu (
             parent, item, gx, gy, work_dir,
             on_ctx_tree_copy_path,
             on_ctx_tree_show_folder,
-            on_ctx_tree_copy_content
+            on_ctx_tree_copy_content,
+            on_ctx_tree_select_lines
         );
     }
 
