@@ -1713,21 +1713,18 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             var act_short = new GLib.SimpleAction ("copy_short_hash", null);
             act_short.activate.connect (() => {
                 get_clipboard ().set_text (commit.short_hash);
-                show_toast (_("已复制: %s").printf (commit.short_hash));
             });
             actions.add_action (act_short);
 
             var act_full = new GLib.SimpleAction ("copy_full_hash", null);
             act_full.activate.connect (() => {
                 get_clipboard ().set_text (commit.hash);
-                show_toast (_("已复制: %s").printf (commit.short_hash));
             });
             actions.add_action (act_full);
 
             var act_msg = new GLib.SimpleAction ("copy_message", null);
             act_msg.activate.connect (() => {
                 get_clipboard ().set_text (commit.message);
-                show_toast (_("已复制提交信息"));
             });
             actions.add_action (act_msg);
 
@@ -3558,7 +3555,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             }
         }
         get_clipboard ().set_text (path_to_copy);
-        show_toast (_("路径已复制到剪贴板"));
     }
 
     private void on_ctx_show_folder () {
@@ -3615,7 +3611,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             }
         }
         get_clipboard ().set_text (path_to_copy);
-        show_toast (_("路径已复制到剪贴板"));
     }
 
     private void on_ctx_tree_show_folder () {
@@ -3644,33 +3639,55 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void on_ctx_tree_select_lines () {
         if (ctx_tree_item == null) return;
 
-        var dialog = new Adw.AlertDialog (
-            _("选择行"),
+        var dialog = new Adw.Dialog ();
+        dialog.set_title (_("选择行"));
+        dialog.set_content_width (400);
+
+        var toolbar_view = new Adw.ToolbarView ();
+        var header = new Adw.HeaderBar ();
+        header.set_show_end_title_buttons (false);
+        toolbar_view.add_top_bar (header);
+
+        var cancel_btn = new Gtk.Button.with_label (_("取消"));
+        header.pack_start (cancel_btn);
+        cancel_btn.clicked.connect (() => dialog.close ());
+
+        var add_btn = new Gtk.Button.with_label (_("添加"));
+        add_btn.add_css_class ("suggested-action");
+        header.pack_end (add_btn);
+
+        var group = new Adw.PreferencesGroup ();
+        group.set_description (
             _("输入行范围，用逗号分隔，用连字符表示区间。\n例如：1-10,15,20-25")
         );
 
-        var entry = new Gtk.Entry ();
-        entry.placeholder_text = _("1-10,15,20-25");
-        entry.activate.connect (() => dialog.response ("ok"));
-        dialog.set_extra_child (entry);
+        var entry = new Adw.EntryRow ();
+        entry.set_title (_("行范围"));
+        group.add (entry);
 
-        dialog.add_response ("cancel", _("取消"));
-        dialog.add_response ("ok", _("添加"));
+        var prefs_page = new Adw.PreferencesPage ();
+        prefs_page.add (group);
 
-        dialog.set_close_response ("cancel");
-        dialog.set_default_response ("ok");
+        toolbar_view.set_content (prefs_page);
+        dialog.set_child (toolbar_view);
 
-        dialog.choose.begin (this, null, (obj, res) => {
-            try {
-                string response = dialog.choose.end (res);
-                string text = entry.text.strip ();
-                if (response == "ok" && text.length > 0) {
-                    add_line_ranges_to_queue (ctx_tree_item, text);
-                }
-            } catch (Error e) {
-                // 用户取消
+        add_btn.clicked.connect (() => {
+            string text = entry.get_text ().strip ();
+            if (text.length > 0) {
+                add_line_ranges_to_queue (ctx_tree_item, text);
+                dialog.close ();
             }
         });
+
+        entry.activate.connect (() => {
+            string text = entry.get_text ().strip ();
+            if (text.length > 0) {
+                add_line_ranges_to_queue (ctx_tree_item, text);
+                dialog.close ();
+            }
+        });
+
+        dialog.present (this);
     }
 
     private void add_line_ranges_to_queue (DirectoryItem item, string input) {
