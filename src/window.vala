@@ -9,7 +9,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     [GtkChild] private unowned Gtk.ScrolledWindow dir_scrolled;
     [GtkChild] private unowned Gtk.ListView queue_list;
-    [GtkChild] private unowned Gtk.Box preview_container;
+    [GtkChild] private unowned Gtk.Stack preview_stack;
+    [GtkChild] private unowned Gtk.Box preview_markdown_box;
+    [GtkChild] private unowned Gtk.Box preview_info_box;
     [GtkChild] private unowned GtkSource.View preview_view;
     [GtkChild] private unowned Gtk.Button open_folder_btn;
     [GtkChild] private unowned Gtk.Button btn_undo;
@@ -1947,8 +1949,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void render_diff_to_preview (string diff_text) {
-        UIHelpers.clear_container (preview_container);
-        preview_container.append (preview_view);
+        preview_stack.visible_child = preview_view;
 
         var buffer = preview_view.get_buffer () as GtkSource.Buffer;
         var lang_manager = GtkSource.LanguageManager.get_default ();
@@ -2124,14 +2125,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void apply_preview_with_highlight (string text, string? file_path) {
+        preview_stack.visible_child = preview_view;
         if (syntax_manager != null) {
-            syntax_manager.apply_with_highlight (preview_container, text, file_path);
+            syntax_manager.apply_with_highlight (text, file_path);
         }
     }
 
     private void apply_preview_no_highlight (string text) {
+        preview_stack.visible_child = preview_view;
         if (syntax_manager != null) {
-            syntax_manager.apply_no_highlight (preview_container, text);
+            syntax_manager.apply_no_highlight (text);
         }
     }
 
@@ -2871,19 +2874,21 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void show_multi_selection_preview (int count) {
         current_preview_item = null;
-        UIHelpers.clear_container (preview_container);
+        UIHelpers.clear_container (preview_info_box);
         var label = new Gtk.Label (_("已选择 %d 个项目").printf (count));
         label.add_css_class ("dim-label");
         label.valign = Gtk.Align.CENTER;
         label.halign = Gtk.Align.CENTER;
         label.vexpand = true;
         label.hexpand = true;
-        preview_container.append (label);
+        preview_info_box.append (label);
+        preview_stack.visible_child = preview_info_box;
     }
 
     private void clear_preview () {
         current_preview_item = null;
-        UIHelpers.clear_container (preview_container);
+        preview_stack.visible_child = preview_view;
+        (preview_view.get_buffer () as GtkSource.Buffer).set_text ("", -1);
     }
 
     private void update_queue_buttons () {
@@ -3442,7 +3447,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         return lower.has_suffix (".md") || lower.has_suffix (".markdown");
     }
 
-    // 切换 preview_container 内容: Markdown 文件或已被多模态 AI 预解析的
+    // 切换 preview_stack 内容: Markdown 文件或已被多模态 AI 预解析的
     // 二进制文件用 MarkdownView 渲染 (基于 cmark-gfm, 支持标题/列表/代码块/表格等),
     // 其余文件继续用 TextView 显示纯文本.
     private void apply_preview_content (ItemData item, string text) {
@@ -3450,10 +3455,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             && (is_markdown_path (item.file_path)
                 || (item.preprocess_status == PreprocessStatus.COMPLETED && item.preprocessed_content != null));
 
-        UIHelpers.clear_container (preview_container);
-
         if (use_markdown) {
-            preview_container.append (new MarkdownView (text));
+            UIHelpers.clear_container (preview_markdown_box);
+            preview_markdown_box.append (new MarkdownView (text));
+            preview_stack.visible_child = preview_markdown_box;
         } else {
             apply_preview_with_highlight (text, item.file_path);
         }

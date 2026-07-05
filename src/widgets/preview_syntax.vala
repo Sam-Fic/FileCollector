@@ -60,10 +60,7 @@ public class PreviewSyntaxManager : GLib.Object {
         return lang;
     }
 
-    public void apply_with_highlight (Gtk.Box container, string text, string? file_path) {
-        clear_container (container);
-        container.append (preview_view);
-
+    public void apply_with_highlight (string text, string? file_path) {
         var buffer = preview_view.get_buffer () as Buffer;
         buffer.set_text ("", -1);
         buffer.set_language (guess_language (file_path));
@@ -72,17 +69,10 @@ public class PreviewSyntaxManager : GLib.Object {
         preview_view.set_show_line_numbers (text.length > 0);
     }
 
-    public void apply_no_highlight (Gtk.Box container, string text) {
-        clear_container (container);
-        container.append (preview_view);
-
+    public void apply_no_highlight (string text) {
         var buffer = preview_view.get_buffer () as Buffer;
         buffer.set_highlight_syntax (false);
         buffer.set_text (text, -1);
         preview_view.set_show_line_numbers (text.length > 0);
-    }
-
-    private static void clear_container (Gtk.Box container) {
-        UIHelpers.clear_container (container);
     }
 }

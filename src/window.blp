@@ -413,10 +413,13 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                margin-end: 12;
 
                child: ScrolledWindow {
-                 hexpand: true;
-                 vexpand: true;
-                  Box preview_container {
-                    orientation: vertical;
+                  hexpand: true;
+                  vexpand: true;
+                  Stack preview_stack {
+                    transition-type: crossfade;
+                    hexpand: true;
+                    vexpand: true;
+
                     GtkSource.View preview_view {
                       editable: false;
                       left-margin: 12;
@@ -424,8 +427,16 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                       top-margin: 9;
                       bottom-margin: 12;
                     }
-                 }
-               };
+
+                    Box preview_markdown_box {
+                      orientation: vertical;
+                    }
+
+                    Box preview_info_box {
+                      orientation: vertical;
+                    }
+                  }
+                };
 
                [overlay]
                Button btn_retry_preprocess {
