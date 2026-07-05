@@ -31,7 +31,7 @@ public class SettingsDialog : GLib.Object {
         header.pack_end (apply_btn);
 
         var lang_model = new Gtk.StringList (new string[] {
-            _("跟随系统"), "中文", "English"
+            _("跟随系统"), _("中文"), _("English")
         });
 
         var combo = new Adw.ComboRow ();

@@ -9,7 +9,7 @@ public class EncodingHelper {
         size_t inspect_len = size_t.min (len, 1024);
         for (size_t i = 0; i < inspect_len; i++) {
             if (data[i] == 0) {
-                return "[Binary file detected: Text decoding skipped]";
+                return _("[检测到二进制文件: 跳过文本解码]");
             }
         }
 

@@ -36,6 +36,7 @@ public class PreferencesDialog : GLib.Object {
 
     private ConfigManager.AISettings sidebar_current;
     private ConfigManager.MultimodalAISettings mm_current;
+    private uint ai_auto_save_id = 0;
 
     private Soup.Session? test_session = null;
     private Cancellable? test_cancellable = null;
@@ -230,26 +231,29 @@ public class PreferencesDialog : GLib.Object {
         security_row.add_prefix (warning_icon);
         security_group.add (security_row);
 
-        // ── AI 保存按钮 ──
-        var ai_action_group = new PreferencesGroup ();
-        var ai_save_row = new ActionRow ();
-        ai_save_row.set_title (_("保存 AI 设置"));
-        ai_save_row.set_subtitle (_("保存侧边栏 AI 与 VLM 配置"));
-        var ai_save_btn = new Button.with_label (_("保存"));
-        ai_save_btn.add_css_class ("suggested-action");
-        ai_save_btn.valign = Align.CENTER;
-        ai_save_row.add_suffix (ai_save_btn);
-        ai_save_row.set_activatable_widget (ai_save_btn);
-        ai_action_group.add (ai_save_row);
-        page.add (ai_action_group);
-
         dialog.add (page);
 
         // Load values
         load_ai_into_ui ();
 
-        // Signals
-        ai_save_btn.clicked.connect (on_ai_save);
+        // Auto-save on any AI setting change (debounced 500ms)
+        chk_sidebar_enabled.notify["active"].connect (schedule_ai_auto_save);
+        edit_sidebar_base_url.notify["text"].connect (schedule_ai_auto_save);
+        edit_sidebar_api_key.notify["text"].connect (schedule_ai_auto_save);
+        edit_sidebar_model.notify["text"].connect (schedule_ai_auto_save);
+        spin_sidebar_timeout.notify["value"].connect (schedule_ai_auto_save);
+        edit_sidebar_prompt.notify["text"].connect (schedule_ai_auto_save);
+
+        chk_mm_enabled.notify["active"].connect (schedule_ai_auto_save);
+        edit_mm_base_url.notify["text"].connect (schedule_ai_auto_save);
+        edit_mm_api_key.notify["text"].connect (schedule_ai_auto_save);
+        edit_mm_model.notify["text"].connect (schedule_ai_auto_save);
+        spin_mm_timeout.notify["value"].connect (schedule_ai_auto_save);
+        edit_mm_prompt.notify["text"].connect (schedule_ai_auto_save);
+
+        edit_mm_allowed_exts.notify["text"].connect (schedule_ai_auto_save);
+        edit_ignored_dirs.notify["text"].connect (schedule_ai_auto_save);
+
         btn_sidebar_test.clicked.connect (() => { testing_sidebar = true; on_ai_test (); });
         btn_mm_test.clicked.connect (() => { testing_sidebar = false; on_ai_test (); });
         btn_mm_reset_exts.clicked.connect (() => {
@@ -293,7 +297,7 @@ public class PreferencesDialog : GLib.Object {
 
         current_language = ConfigManager.load_settings_language ();
         var lang_model = new StringList (new string[] {
-            _("跟随系统"), "中文", "English"
+            _("跟随系统"), _("中文"), _("English")
         });
 
         combo_language = new ComboRow ();
@@ -427,38 +431,17 @@ public class PreferencesDialog : GLib.Object {
         edit_mm_allowed_exts.set_text (string.joinv (", ", current_exts));
     }
 
-    private void on_ai_save () {
-        var sb = collect_sidebar_from_ui ();
-        var mm = collect_mm_from_ui ();
-        bool any_http = false;
-        if (sb.base_url.has_prefix ("http://") && !sb.base_url.has_prefix ("https://")) any_http = true;
-        if (mm.base_url.has_prefix ("http://") && !mm.base_url.has_prefix ("https://")) any_http = true;
-        if (any_http) {
-            show_http_warning_dialog (sb, mm);
-        } else {
-            save_all (sb, mm);
+    private void schedule_ai_auto_save () {
+        if (ai_auto_save_id > 0) {
+            Source.remove (ai_auto_save_id);
         }
-    }
-
-    private void show_http_warning_dialog (ConfigManager.AISettings sb, ConfigManager.MultimodalAISettings mm) {
-        var warning_dialog = new Adw.AlertDialog (
-            _("安全警告"),
-            _("您正在配置 HTTP (非 HTTPS) 端点。\n\n"
-              + _("这将导致 API 密钥在传输过程中以明文形式发送，存在被第三方截获的风险。\n\n")
-              + _("是否仍要继续保存？"))
-        );
-        warning_dialog.add_response ("cancel", _("取消"));
-        warning_dialog.add_response ("continue", _("继续保存"));
-        warning_dialog.set_response_appearance ("continue", Adw.ResponseAppearance.DESTRUCTIVE);
-        warning_dialog.set_default_response ("cancel");
-        warning_dialog.set_close_response ("cancel");
-        warning_dialog.response.connect ((response) => {
-            if (response == "continue") {
-                save_all (sb, mm);
-            }
-            warning_dialog.destroy ();
+        ai_auto_save_id = Timeout.add (500, () => {
+            ai_auto_save_id = 0;
+            var sb = collect_sidebar_from_ui ();
+            var mm = collect_mm_from_ui ();
+            save_all (sb, mm);
+            return Source.REMOVE;
         });
-        warning_dialog.present (dialog);
     }
 
     private void save_all (ConfigManager.AISettings sb, ConfigManager.MultimodalAISettings mm) {
