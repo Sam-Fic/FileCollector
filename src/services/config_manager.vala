@@ -479,6 +479,32 @@ public class ConfigManager : GLib.Object {
         }
     }
 
+    // ─── 色彩主题 ─────────────────────────────────────────────────────
+
+    public static string load_color_scheme () {
+        config_mutex.lock ();
+        try {
+            var root = load_settings_root_unlocked ();
+            if (root != null && root.has_member ("color_scheme")) {
+                return root.get_string_member ("color_scheme");
+            }
+        } catch (Error e) {} finally {
+            config_mutex.unlock ();
+        }
+        return "default";
+    }
+
+    public static void save_color_scheme (string scheme) {
+        config_mutex.lock ();
+        try {
+            Json.Object root = load_settings_root_unlocked () ?? new Json.Object ();
+            root.set_string_member ("color_scheme", scheme);
+            write_settings_root_unlocked (root);
+        } catch (Error e) {} finally {
+            config_mutex.unlock ();
+        }
+    }
+
     // ─── 上下文窗口大小 ─────────────────────────────────────────────────
 
     public static int get_context_window_size () {

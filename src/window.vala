@@ -38,6 +38,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     [GtkChild] private unowned Gtk.Button btn_retry_preprocess;
     [GtkChild] private unowned Gtk.DrawingArea token_ring;
+    [GtkChild] private unowned Gtk.ScrolledWindow preview_scrolled;
 
     // Git 模式切换
     [GtkChild] private unowned Gtk.Button btn_toggle_git;
@@ -98,7 +99,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // AI 助手
     private AIPanel? ai_panel_instance = null;
-    private AISettingsDialog? ai_settings_dialog_instance = null;
+    private PreferencesDialog? preferences_dialog_instance = null;
     private bool ai_panel_visible = false;
     // 记录 AI 面板展开前的窗口宽度, 隐藏时恢复
     private int pre_ai_width = 0;
@@ -149,6 +150,17 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private ItemData? current_preview_item = null;
 
+    // ─── 预览懒加载状态 ────────────────────────────────────────────────
+    private string? preview_current_path = null;
+    private int64 preview_file_size = 0;
+    private int64 preview_loaded_bytes = 0;
+    private uint8[] preview_leftover = new uint8[0];
+    private bool preview_fully_loaded = false;
+    private bool preview_loading = false;
+    private FileInputStream? preview_fis = null;
+    private bool preview_auto_scroll = true;
+    private const int64 PREVIEW_CHUNK_SIZE = 65536;
+
     // 自动保存 / 崩溃恢复
     private uint auto_save_timeout_id = 0;
     private const uint AUTO_SAVE_DELAY_MS = 5000; // 状态变更后 5 秒触发自动保存
@@ -174,6 +186,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         setup_git_view ();
         setup_vlm_queue ();
         setup_preview_syntax ();
+        setup_preview_signals ();
         sync_path_mode_radios ();
         setup_signals ();
         setup_ai_panel ();
@@ -291,6 +304,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (app_cancellable != null) {
             app_cancellable.cancel ();
         }
+        cancel_preview_loading ();
         if (vlm_queue != null) {
             vlm_queue.cancel ();
         }
@@ -2116,6 +2130,20 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         syntax_manager = new PreviewSyntaxManager (preview_view);
     }
 
+    private void setup_preview_signals () {
+        preview_scrolled.edge_reached.connect ((pos) => {
+            if (pos == Gtk.PositionType.BOTTOM) {
+                load_preview_chunk.begin ();
+            }
+        });
+
+        preview_scrolled.get_vadjustment ().value_changed.connect (() => {
+            var adj = preview_scrolled.get_vadjustment ();
+            double bottom = adj.get_upper () - adj.get_page_size ();
+            preview_auto_scroll = (adj.get_value () >= bottom - 30);
+        });
+    }
+
     private void apply_preview_scheme () {
         if (syntax_manager != null) syntax_manager.apply_scheme ();
     }
@@ -3305,6 +3333,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void update_preview (ItemData item) {
+        cancel_preview_loading ();
         bool show_action_bar = false;
         current_preview_item = item;
 
@@ -3322,7 +3351,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     btn_retry_preprocess.tooltip_text = _("AI 转换失败\n点击重试转换");
                     break;
                 case PreprocessStatus.PROCESSING:
-                    // 正在转换中, 隐藏按钮而不是置灰, 避免给用户"可点"错觉
                     btn_retry_preprocess.tooltip_text = _("正在处理中...");
                     btn_retry_preprocess.sensitive = false;
                     break;
@@ -3336,91 +3364,213 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         btn_retry_preprocess.visible = show_action_bar;
 
         if (item.item_type == "text") {
-            apply_preview_content (item, item.content.make_valid ());
+            apply_preview_content_full (item, item.content.make_valid ());
         } else if (item.item_type == "file" && item.preprocess_status == PreprocessStatus.COMPLETED && item.preprocessed_content != null) {
-            apply_preview_content (item, item.preprocessed_content.strip ());
+            apply_preview_content_full (item, item.preprocessed_content.strip ());
         } else if (item.item_type == "file" && item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
-            // 二进制文件未完成转换时, 根据预处理状态显示对应提示
             switch (item.preprocess_status) {
                 case PreprocessStatus.PROCESSING:
-                    apply_preview_content (item, _("[正在处理中，请稍候...]"));
+                    apply_preview_content_full (item, _("[正在处理中，请稍候...]"));
                     break;
                 case PreprocessStatus.FAILED:
-                    apply_preview_content (item, _("[AI 转换失败，点击工具栏的重试按钮可重新转换]"));
+                    apply_preview_content_full (item, _("[AI 转换失败，点击工具栏的重试按钮可重新转换]"));
                     break;
                 case PreprocessStatus.CHECKING:
-                    apply_preview_content (item, _("[正在检查缓存...]"));
+                    apply_preview_content_full (item, _("[正在检查缓存...]"));
                     break;
                 case PreprocessStatus.PENDING:
-                    apply_preview_content (item, _("[正在准备 AI 转换...]"));
+                    apply_preview_content_full (item, _("[正在准备 AI 转换...]"));
                     break;
-                default: // NONE
-                    apply_preview_content (item, _(_("[二进制文件，预览不可用]")));
+                default:
+                    apply_preview_content_full (item, _("[二进制文件，预览不可用]"));
                     break;
             }
         } else {
             try {
                 var file = File.new_for_path (item.file_path);
-                int64 file_size = 0;
-                try {
-                    var info = file.query_info (FileAttribute.STANDARD_SIZE, FileQueryInfoFlags.NONE);
-                        file_size = info.get_size ();
-                    } catch (Error e) {
-                        apply_preview_content (item, _("[读取错误: ") + e.message + "]");
-                        return;
-                    }
-                const int64 PREVIEW_MAX_BYTES = 8192;
-                int64 read_size = int64.min (file_size, PREVIEW_MAX_BYTES);
-                FileInputStream? fis = null;
-                try {
-                    fis = file.read ();
-                    uint8[] buf = new uint8[read_size];
-                    size_t bytes_read = 0;
-                    while (bytes_read < (size_t) read_size) {
-                        size_t chunk = size_t.min (4096, (size_t) read_size - bytes_read);
-                        ssize_t n = fis.read (buf[bytes_read:bytes_read + chunk]);
-                        if (n <= 0) break;
-                        bytes_read += (size_t) n;
-                    }
-                    buf.resize ((int) bytes_read);
-                    bool is_binary = false;
-                    for (size_t i = 0; i < bytes_read; i++) {
-                        if (buf[i] == 0) { is_binary = true; break; }
-                    }
-                    string preview;
-                    if (is_binary) {
-                        preview = _("[二进制文件，预览不可用]");
-                    } else {
-                        preview = EncodingHelper.decode_to_utf8 (buf);
-                        bool has_line_range = item.start_line > 0 && item.end_line > 0 && item.start_line <= item.end_line;
-                        if (has_line_range) {
-                            preview = extract_line_range (preview, item.start_line, item.end_line);
-                        }
-                        if (preview.length > 2000) {
-                            preview = UIHelpers.truncate_utf8 (preview, 2000);
-                            if (file_size > PREVIEW_MAX_BYTES) {
-                                preview += _("\n\n... [预览截断，文件总大小: %s]").printf (UIHelpers.format_size (file_size));
-                            } else {
-                                preview += _("\n\n... [预览截断]");
-                            }
-                        } else if (file_size > PREVIEW_MAX_BYTES && !has_line_range) {
-                            preview += _("\n\n... [文件较大 (%s)，预览仅显示前 %s]").printf (
-                                UIHelpers.format_size (file_size), UIHelpers.format_size (read_size));
-                        }
-                        if (has_line_range) {
-                            apply_preview_with_highlight (preview, item.file_path);
-                            return;
-                        }
-                    }
-                    apply_preview_content (item, preview);
-                } finally {
-                    if (fis != null) {
-                        try { fis.close (); } catch (Error e) { debug ("Close failed: %s", e.message); }
-                    }
+                var info = file.query_info (FileAttribute.STANDARD_SIZE, FileQueryInfoFlags.NONE);
+                int64 file_size = info.get_size ();
+
+                if (item.is_snippet ()) {
+                    load_snippet_preview (item, file_size);
+                } else if (is_markdown_path (item.file_path)) {
+                    load_full_text_preview (item, true);
+                } else {
+                    start_lazy_preview (item, file_size);
                 }
             } catch (Error e) {
-                apply_preview_content (item, _("[读取错误: ") + e.message + "]");
+                apply_preview_content_full (item, _("[读取错误: %s]").printf (e.message));
             }
+        }
+    }
+
+    private void apply_preview_content_full (ItemData item, string text) {
+        bool use_markdown = item.item_type == "file"
+            && (is_markdown_path (item.file_path)
+                || (item.preprocess_status == PreprocessStatus.COMPLETED && item.preprocessed_content != null));
+
+        if (use_markdown) {
+            UIHelpers.clear_container (preview_markdown_box);
+            preview_markdown_box.append (new MarkdownView (text));
+            preview_stack.visible_child = preview_markdown_box;
+        } else {
+            apply_preview_with_highlight (text, item.file_path);
+        }
+    }
+
+    private void load_full_text_preview (ItemData item, bool use_markdown) {
+        try {
+            uint8[] buf;
+            FileUtils.get_data (item.file_path, out buf);
+            string text = EncodingHelper.decode_to_utf8 (buf);
+            if (use_markdown) {
+                UIHelpers.clear_container (preview_markdown_box);
+                preview_markdown_box.append (new MarkdownView (text));
+                preview_stack.visible_child = preview_markdown_box;
+            } else {
+                apply_preview_with_highlight (text, item.file_path);
+            }
+        } catch (Error e) {
+            apply_preview_content_full (item, _("[读取错误: %s]").printf (e.message));
+        }
+    }
+
+    private void load_snippet_preview (ItemData item, int64 file_size) {
+        try {
+            uint8[] buf;
+            FileUtils.get_data (item.file_path, out buf);
+            string text = EncodingHelper.decode_to_utf8 (buf);
+            string snippet = extract_line_range (text, item.start_line, item.end_line);
+            apply_preview_with_highlight (snippet, item.file_path);
+        } catch (Error e) {
+            apply_preview_content_full (item, _("[读取错误: %s]").printf (e.message));
+        }
+    }
+
+    private void cancel_preview_loading () {
+        preview_fully_loaded = true;
+        if (preview_fis != null) {
+            try { preview_fis.close (); } catch (Error e) {}
+            preview_fis = null;
+        }
+        preview_leftover = new uint8[0];
+        preview_current_path = null;
+    }
+
+    private void start_lazy_preview (ItemData item, int64 file_size) {
+        apply_preview_with_highlight ("", item.file_path);
+
+        preview_file_size = file_size;
+        preview_loaded_bytes = 0;
+        preview_leftover = new uint8[0];
+        preview_fully_loaded = false;
+        preview_loading = false;
+        preview_current_path = item.file_path;
+        preview_auto_scroll = true;
+
+        try {
+            preview_fis = File.new_for_path (item.file_path).read ();
+            load_preview_chunk.begin ();
+        } catch (Error e) {
+            var buffer = preview_view.get_buffer () as GtkSource.Buffer;
+            buffer.set_text (_("[读取错误: %s]").printf (e.message), -1);
+        }
+    }
+
+    private async void load_preview_chunk () {
+        if (preview_loading || preview_fully_loaded || preview_fis == null) return;
+        preview_loading = true;
+
+        string? target_path = preview_current_path;
+        uint8[]? new_data = null;
+        bool read_done = false;
+
+        try {
+            new Thread<void*> ("preview-read", () => {
+                try {
+                    uint8[] buffer = new uint8[PREVIEW_CHUNK_SIZE];
+                    ssize_t n = preview_fis.read (buffer);
+                    if (n > 0) {
+                        new_data = buffer[0:n];
+                    }
+                } catch (Error e) {
+                    debug ("Preview read error: %s", e.message);
+                }
+                read_done = true;
+                Idle.add (() => {
+                    load_preview_chunk.callback ();
+                    return Source.REMOVE;
+                });
+                return null;
+            });
+            yield;
+        } catch (Error e) {
+            debug ("Failed to create preview-read thread: %s", e.message);
+            preview_loading = false;
+            return;
+        }
+
+        if (target_path != preview_current_path) return;
+
+        if (new_data == null || new_data.length == 0) {
+            preview_fully_loaded = true;
+            preview_loading = false;
+            if (preview_leftover.length > 0) {
+                append_to_preview (EncodingHelper.decode_to_utf8 (preview_leftover));
+                preview_leftover = new uint8[0];
+            }
+            return;
+        }
+
+        preview_loaded_bytes += new_data.length;
+
+        uint8[] combined = new uint8[preview_leftover.length + new_data.length];
+        Memory.copy (combined, preview_leftover, preview_leftover.length);
+        Memory.copy (combined[preview_leftover.length:combined.length], new_data, new_data.length);
+
+        int last_nl = -1;
+        for (int i = combined.length - 1; i >= 0; i--) {
+            if (combined[i] == 0x0A) { last_nl = i; break; }
+        }
+
+        uint8[] to_decode;
+        if (last_nl >= 0) {
+            to_decode = combined[0:last_nl + 1];
+            preview_leftover = combined[last_nl + 1:combined.length];
+        } else {
+            if (combined.length > 1048576) {
+                to_decode = combined;
+                preview_leftover = new uint8[0];
+            } else {
+                to_decode = new uint8[0];
+                preview_leftover = combined;
+            }
+        }
+
+        if (to_decode.length > 0) {
+            append_to_preview (EncodingHelper.decode_to_utf8 (to_decode));
+        }
+
+        if (preview_loaded_bytes >= preview_file_size) {
+            preview_fully_loaded = true;
+            if (preview_leftover.length > 0) {
+                append_to_preview (EncodingHelper.decode_to_utf8 (preview_leftover));
+                preview_leftover = new uint8[0];
+            }
+        }
+
+        preview_loading = false;
+    }
+
+    private void append_to_preview (string text) {
+        var buffer = preview_view.get_buffer ();
+        Gtk.TextIter end_iter;
+        buffer.get_end_iter (out end_iter);
+        buffer.insert (ref end_iter, text, -1);
+
+        if (preview_auto_scroll) {
+            var adj = preview_scrolled.get_vadjustment ();
+            adj.set_value (adj.get_upper () - adj.get_page_size ());
         }
     }
 
@@ -3445,23 +3595,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (path == null) return false;
         string lower = path.down ();
         return lower.has_suffix (".md") || lower.has_suffix (".markdown");
-    }
-
-    // 切换 preview_stack 内容: Markdown 文件或已被多模态 AI 预解析的
-    // 二进制文件用 MarkdownView 渲染 (基于 cmark-gfm, 支持标题/列表/代码块/表格等),
-    // 其余文件继续用 TextView 显示纯文本.
-    private void apply_preview_content (ItemData item, string text) {
-        bool use_markdown = item.item_type == "file"
-            && (is_markdown_path (item.file_path)
-                || (item.preprocess_status == PreprocessStatus.COMPLETED && item.preprocessed_content != null));
-
-        if (use_markdown) {
-            UIHelpers.clear_container (preview_markdown_box);
-            preview_markdown_box.append (new MarkdownView (text));
-            preview_stack.visible_child = preview_markdown_box;
-        } else {
-            apply_preview_with_highlight (text, item.file_path);
-        }
     }
 
     private void on_retry_preprocess (ItemData item) {
@@ -4323,26 +4456,36 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 </interface>""";
     }
 
-    public void on_settings () {
-        var settings_dialog = new SettingsDialog (this);
-        settings_dialog.restart_requested.connect (() => {
-            try {
-                string exec_path = FileUtils.read_link ("/proc/self/exe");
-                var app = (FileCollectorApp) this.application;
-                app.quit ();
-                Process.spawn_async (
-                    null,
-                    {exec_path},
-                    null,
-                    0,
-                    null,
-                    null
-                );
-            } catch (Error e) {
-                warning ("Failed to restart: %s", e.message);
-            }
-        });
-        settings_dialog.present ();
+    public void on_preferences () {
+        if (preferences_dialog_instance == null) {
+            preferences_dialog_instance = new PreferencesDialog (this);
+            preferences_dialog_instance.ai_settings_changed.connect (() => {
+                apply_ai_settings_to_panel ();
+                reevaluate_queue_against_allowed_exts ();
+            });
+            preferences_dialog_instance.context_settings_changed.connect (() => {
+                current_context_limit = ConfigManager.get_context_window_size ();
+                update_token_display ();
+            });
+            preferences_dialog_instance.restart_requested.connect (() => {
+                try {
+                    string exec_path = FileUtils.read_link ("/proc/self/exe");
+                    var app = (FileCollectorApp) this.application;
+                    app.quit ();
+                    Process.spawn_async (
+                        null,
+                        {exec_path},
+                        null,
+                        0,
+                        null,
+                        null
+                    );
+                } catch (Error e) {
+                    warning ("Failed to restart: %s", e.message);
+                }
+            });
+        }
+        preferences_dialog_instance.present ();
     }
 
     public void on_manage_phrases () {
@@ -4540,19 +4683,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var wd_path = work_dir.get_path () + "/";
         if (data.file_path.has_prefix (wd_path)) return data.file_path.substring (wd_path.length);
         return data.file_path;
-    }
-
-    private ContextSettingsDialog? ctx_settings_dialog = null;
-
-    public void on_context_window_settings () {
-        if (ctx_settings_dialog == null) {
-            ctx_settings_dialog = new ContextSettingsDialog (this);
-            ctx_settings_dialog.settings_changed.connect (() => {
-                current_context_limit = ConfigManager.get_context_window_size ();
-                update_token_display ();
-            });
-        }
-        ctx_settings_dialog.present ();
     }
 
     // ─── AI 助手集成 ───────────────────────────────────────────────────
@@ -4758,19 +4888,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             return;
         }
         ai_panel_instance.configure (s, ai_controller.execute_tool, ai_controller.get_system_snapshot);
-    }
-
-    public void on_ai_settings () {
-        if (ai_settings_dialog_instance == null) {
-            ai_settings_dialog_instance = new AISettingsDialog (this);
-        }
-        ai_settings_dialog_instance.settings_changed.connect (() => {
-            apply_ai_settings_to_panel ();
-            // 允许的扩展名列表变更后, 重新评估编排列表: 新允许的后缀需要触发转换,
-            // 移除的后缀需要清掉已有的预处理状态以避免误导.
-            reevaluate_queue_against_allowed_exts ();
-        });
-        ai_settings_dialog_instance.present ();
     }
 
     // 允许扩展名列表变化后, 重新评估编排列表中各项

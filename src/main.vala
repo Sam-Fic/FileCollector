@@ -45,14 +45,9 @@ public class FileCollectorApp : Adw.Application {
                 ((GLib.SimpleAction) templates_action).activate.connect (() => window.on_manage_templates ());
             }
 
-            var settings_action = lookup_action ("settings");
-            if (settings_action != null) {
-                ((GLib.SimpleAction) settings_action).activate.connect (() => window.on_settings ());
-            }
-
-            var ai_settings_action = lookup_action ("ai_settings");
-            if (ai_settings_action != null) {
-                ((GLib.SimpleAction) ai_settings_action).activate.connect (() => window.on_ai_settings ());
+            var preferences_action = lookup_action ("preferences");
+            if (preferences_action != null) {
+                ((GLib.SimpleAction) preferences_action).activate.connect (() => window.on_preferences ());
             }
 
             var clear_cache_action = lookup_action ("clear_cache");
@@ -63,11 +58,6 @@ public class FileCollectorApp : Adw.Application {
             var shortcuts_action = lookup_action ("shortcuts");
             if (shortcuts_action != null) {
                 ((GLib.SimpleAction) shortcuts_action).activate.connect (() => window.on_show_shortcuts ());
-            }
-
-            var ctx_settings_action = lookup_action ("context_window_settings");
-            if (ctx_settings_action != null) {
-                ((GLib.SimpleAction) ctx_settings_action).activate.connect (() => window.on_context_window_settings ());
             }
 
             var quit_action = lookup_action ("quit");
@@ -170,11 +160,9 @@ public class FileCollectorApp : Adw.Application {
         add_action (new GLib.SimpleAction ("about", null));
         add_action (new GLib.SimpleAction ("manage_phrases", null));
         add_action (new GLib.SimpleAction ("manage_templates", null));
-        add_action (new GLib.SimpleAction ("settings", null));
-        add_action (new GLib.SimpleAction ("ai_settings", null));
+        add_action (new GLib.SimpleAction ("preferences", null));
         add_action (new GLib.SimpleAction ("clear_cache", null));
         add_action (new GLib.SimpleAction ("shortcuts", null));
-        add_action (new GLib.SimpleAction ("context_window_settings", null));
         add_action (new GLib.SimpleAction ("quit", null));
 
         set_accels_for_action ("app.open_project", {"<Control>o"});
@@ -182,8 +170,7 @@ public class FileCollectorApp : Adw.Application {
         set_accels_for_action ("app.save_as_project", {"<Control><Shift>s"});
         set_accels_for_action ("app.about", {"F1"});
         set_accels_for_action ("app.shortcuts", {"<Control>slash"});
-        set_accels_for_action ("app.settings", {"<Control>comma"});
-        set_accels_for_action ("app.ai_settings", {"<Control><Shift>j"});
+        set_accels_for_action ("app.preferences", {"<Control>comma"});
         set_accels_for_action ("app.quit", {"<Control>q"});
 
         setup_app_icon_resource ();
