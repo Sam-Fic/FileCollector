@@ -45,6 +45,7 @@ data/window.ui
 # IDE/editor files
 .vscode/
 .trae/
+.mimocode/
 .idea/
 *.iml
 *.project
