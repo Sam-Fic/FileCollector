@@ -476,7 +476,6 @@ public class PreferencesDialog : GLib.Object {
         }
 
         ai_settings_changed ();
-        show_toast (_("AI 设置已保存"));
     }
 
     private ConfigManager.AISettings collect_sidebar_from_ui () {

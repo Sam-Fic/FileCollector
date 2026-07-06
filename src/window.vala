@@ -2062,7 +2062,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             }
             refresh_all_tree_states ();
             refresh_list ();
-            show_toast (_("已添加 %d 个改动文件到编排列表").printf (added));
         } catch (Error e) {
             show_error (_("Git 错误"), e.message);
         }
@@ -2084,7 +2083,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             string md_text = "# Git Working Tree Diff\n\n```diff\n%s\n```".printf (diff);
             items.insert (0, new ItemData ("text", null, md_text, false));
             refresh_list ();
-            show_toast (_("已将工作区 Diff 插入编排列表"));
         } catch (Error e) {
             show_error (_("Git 错误"), e.message);
         }
@@ -2116,7 +2114,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 items.insert (0, new ItemData ("text", null, md_text, false));
             }
             refresh_list ();
-            show_toast (_("已将 %d 个 Commit Diff 插入编排列表").printf (selected_commits.size));
         } catch (Error e) {
             show_error (_("Git 错误"), e.message);
         }
@@ -2270,7 +2267,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         btn_vlm_cancel.clicked.connect (() => {
             vlm_queue.cancel ();
-            show_toast (_("已取消所有预处理任务"));
         });
     }
 
@@ -3031,13 +3027,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                         added++;
                     }
                     refresh_list ();
-                }
-                if (added > 0 && skipped > 0) {
-                    show_toast (_("已添加 %d 个文件，跳过 %d 个重复文件").printf (added, skipped));
-                } else if (added > 0) {
-                    show_toast (_("已添加 %d 个文件").printf (added));
-                } else if (skipped > 0) {
-                    show_toast (_("所选文件已全部存在，跳过 %d 个重复文件").printf (skipped));
                 }
             } catch (Error e) {
                 if (e is GLib.IOError.CANCELLED) return;
@@ -3873,7 +3862,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
         refresh_list ();
         update_token_display ();
-        show_toast (_("已添加 %d 个行范围").printf (starts.size));
     }
 
     private void show_tree_context_menu (Gtk.Widget parent, DirectoryItem item, int gx, int gy) {
@@ -3989,7 +3977,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 show_toast (_("%s 已保存").printf (fmt_name));
             } catch (Error e) {
                 if (e is GLib.IOError.CANCELLED || e is Gtk.DialogError.DISMISSED) {
-                    show_toast (_("保存已取消"));
                     return;
                 }
                 show_error (_("保存失败"), e.message);
@@ -4756,7 +4743,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             }
             refresh_all_tree_states ();
             refresh_list ();
-            show_toast (_("已从搜索结果添加 %d 个文件").printf (added));
         });
         dialog.present (this);
     }
