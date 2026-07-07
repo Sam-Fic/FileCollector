@@ -23,6 +23,23 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="4.5.0" date="2026-07-07">
+      <description>
+        <p>新特性与修复：</p>
+        <ul>
+          <li>多格式导出：支持将收集内容导出为 txt / md / json / jsonl / ipynb 格式</li>
+          <li>ZIP 导出：新增将收集结果打包为 ZIP 压缩包的功能</li>
+          <li>Token 估算引擎：新增 Token 估算与环形进度指示器，直观查看内容体量</li>
+          <li>文件片段提取：支持提取文件中的指定行片段，并新增 AI add_file_snippet 工具</li>
+          <li>Git 增强：支持多选 Git 提交并批量导出 diff</li>
+          <li>文件树右键菜单：新增 "select lines" 动作以提取选中行</li>
+          <li>空状态引导：无内容时展示引导界面，提升初次使用体验</li>
+          <li>偏好设置：合并原有设置项为统一偏好设置页，并新增 AI 自动保存功能</li>
+          <li>界面优化：应用图标新增渐变配色，预览区改用 Stack 管理，统一弹窗为 Adw.Dialog</li>
+          <li>修复：修复多处右键菜单与列表操作崩溃、字符串拼接错误、工作目录缓存及多语言翻译重复等问题</li>
+        </ul>
+      </description>
+    </release>
     <release version="4.4.0" date="2026-06-28">
       <description>
         <p>重大更新 — 感谢 <a href="https://github.com/Decembered">@Decembered</a> 对本版本的贡献！</p>
