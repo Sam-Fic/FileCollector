@@ -15,7 +15,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned GtkSource.View preview_view;
     [GtkChild] private unowned Gtk.Button open_folder_btn;
     [GtkChild] private unowned Gtk.MenuButton menu_btn;
-    [GtkChild] private unowned Gtk.Button empty_about_btn;
     [GtkChild] private unowned Gtk.Button btn_undo;
     [GtkChild] private unowned Gtk.Button btn_redo;
     [GtkChild] private unowned Gtk.Button btn_generate;
@@ -1576,9 +1575,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 btn_global_search.visible = false;
                 btn_undo.visible = false;
                 btn_redo.visible = false;
-                menu_btn.visible = false;
-                ensure_about_btn ();
-                empty_about_btn.visible = true;
             }
         } else {
             // 恢复 ToolbarView 的 content
@@ -1594,16 +1590,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             btn_global_search.visible = true;
             btn_undo.visible = true;
             btn_redo.visible = true;
-            menu_btn.visible = true;
-            if (empty_about_btn != null) empty_about_btn.visible = false;
         }
-    }
-
-    private void ensure_about_btn () {
-        // empty_about_btn 已在 Blueprint 中定义, 此处仅确保连接信号
-        if (empty_about_btn.get_data<bool?> ("connected") != null) return;
-        empty_about_btn.clicked.connect (() => on_about ());
-        empty_about_btn.set_data<bool?> ("connected", true);
     }
 
     private bool git_data_available () {

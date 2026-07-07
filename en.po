@@ -658,10 +658,7 @@ msgstr "Processing..."
 
 #: src/window.vala:3376
 msgid "[AI 转换失败，点击工具栏的重试按钮可重新转换]"
-msgstr ""
-"[AI conversion failed, click the Retry button on the toolbar to retry]AI "
-"conversion failed\n"
-"Click to retry conversion"
+msgstr "[AI conversion failed, click the Retry button on the toolbar to retry]"
 
 #: src/window.vala:3379
 msgid "[正在检查缓存...]"
@@ -734,6 +731,8 @@ msgid ""
 "输入行范围，用逗号分隔，用连字符表示区间。\n"
 "例如：1-10,15,20-25"
 msgstr ""
+"Enter line ranges separated by commas, use hyphens for ranges.\n"
+"For example: 1-10,15,20-25"
 
 #: src/window.vala:3803
 msgid "行范围"
@@ -1300,7 +1299,6 @@ msgstr "Notice"
 msgid "语言设置已保存，重启应用后生效。是否现在重启？"
 msgstr ""
 "Language settings saved. Restart the application for changes to take effect. "
-"Restart now?Language setting saved. It will take effect after restart. "
 "Restart now?"
 
 #: src/widgets/settings_dialog.vala:76
@@ -1404,9 +1402,8 @@ msgstr "Confirm Revert"
 #: src/widgets/ai_panel.vala:902
 msgid "这将撤销此消息之后 AI 的所有回复以及对文件列表的修改。是否继续？"
 msgstr ""
-"This will undo all AI replies and file list changes after this message. "
-"Continue?This will revert all AI replies and file list changes after this "
-"message. Continue?"
+"This will revert all AI replies and file list changes after this message. "
+"Continue?"
 
 #: src/widgets/ai_panel.vala:905
 msgid "撤回"
@@ -1480,8 +1477,7 @@ msgstr "Enable AI Assistant"
 #: src/widgets/ai_settings_dialog.vala:103
 msgid "关闭后 AI 边栏会保留, 但不会发送任何请求"
 msgstr ""
-"When disabled, the AI sidebar remains visible but no requests will be "
-"sentWhen disabled, the AI sidebar remains visible but won't send any requests"
+"When disabled, the AI sidebar remains visible but won't send any requests"
 
 #: src/widgets/ai_settings_dialog.vala:111
 #: src/widgets/ai_settings_dialog.vala:170
@@ -1570,9 +1566,8 @@ msgstr "Scan Ignored Directories"
 #: src/widgets/ai_settings_dialog.vala:229
 msgid "AI 扫描工作目录时将跳过这些目录名，用英文逗号分隔。"
 msgstr ""
-"AI will skip these directory names when scanning the working directory, "
-"separated by commas.These directory names will be skipped when AI scans the "
-"working directory. Separate with commas."
+"These directory names will be skipped when AI scans the working directory. "
+"Separate with commas."
 
 #: src/widgets/ai_settings_dialog.vala:233
 msgid "忽略的目录名"
@@ -1590,10 +1585,8 @@ msgstr "HTTP Endpoint Security Risk"
 #: src/widgets/ai_settings_dialog.vala:249
 msgid "使用 HTTP (非 HTTPS) 端点时，API 密钥将在网络中明文传输，存在安全风险。"
 msgstr ""
-"When using HTTP (non-HTTPS) endpoints, API keys are transmitted in plain "
-"text over the network, posing a security risk.When using an HTTP (non-HTTPS) "
-"endpoint, the API key will be transmitted in plaintext over the network, "
-"which poses a security risk."
+"When using an HTTP (non-HTTPS) endpoint, the API key will be transmitted in "
+"plaintext over the network, which poses a security risk."
 
 #: src/widgets/ai_settings_dialog.vala:323
 msgid ""
@@ -1846,6 +1839,100 @@ msgid ""
 msgstr ""
 "\n"
 "…(Content too long, truncated)"
+
+#: src/utils/ui_helpers.vala:71
+msgid "[无法读取文件内容]\n"
+msgstr "[Failed to read file content]\n"
+
+#: src/utils/ui_helpers.vala:75
+msgid "### [自定义文本片段]\n"
+msgstr "### [Custom text snippet]\n"
+
+#: src/utils/encoding_helper.vala:12
+msgid "[检测到二进制文件: 跳过文本解码]"
+msgstr "[Binary file detected: text decoding skipped]"
+
+#: src/widgets/context_settings_dialog.vala:14
+msgid "上下文窗口设置"
+msgstr "Context Window Settings"
+
+#: src/widgets/context_settings_dialog.vala:32
+#: src/widgets/preferences_dialog.vala:270
+msgid "模型上下文限制"
+msgstr "Model Context Limit"
+
+#: src/widgets/context_settings_dialog.vala:37
+#: src/widgets/preferences_dialog.vala:275
+msgid "上下文窗口大小 (Tokens)"
+msgstr "Context Window Size (Tokens)"
+
+#: src/widgets/preferences_dialog.vala:266
+msgid "上下文窗口"
+msgstr "Context Window"
+
+#: src/widgets/preferences_dialog.vala:295
+msgid "切换语言后需要重启应用才能生效。"
+msgstr "Restart the application for language changes to take effect."
+
+#: src/widgets/preferences_dialog.vala:319
+msgid "应用语言设置"
+msgstr "Apply Language Settings"
+
+#: src/widgets/preferences_dialog.vala:320
+msgid "保存语言设置并重启应用"
+msgstr "Save language settings and restart application"
+
+#: src/widgets/preferences_dialog.vala:367
+msgid "外观"
+msgstr "Appearance"
+
+#: src/widgets/preferences_dialog.vala:371
+msgid "色彩主题"
+msgstr "Color Theme"
+
+#: src/widgets/preferences_dialog.vala:372
+msgid "选择应用的色彩主题。"
+msgstr "Select the application color theme."
+
+#: src/widgets/preferences_dialog.vala:376
+msgid "浅色"
+msgstr "Light"
+
+#: src/widgets/preferences_dialog.vala:376
+msgid "深色"
+msgstr "Dark"
+
+#: src/widgets/preferences_dialog.vala:380
+msgid "主题"
+msgstr "Theme"
+
+#: src/models/item_data.vala:6
+msgid "真正在调用 VLM 处理中"
+msgstr "VLM processing"
+
+#: src/window.vala:1530
+msgid "未选择工作目录"
+msgstr "No Working Directory Selected"
+
+#: src/window.vala:1531
+msgid "打开一个文件夹作为工作目录，即可开始收集与编排文件。"
+msgstr "Open a folder as working directory to start collecting and organizing files."
+
+#: src/window.vala:1607
+msgid "未检测到 Git 仓库"
+msgstr "No Git Repository Detected"
+
+#: src/window.vala:1608
+msgid "当前工作目录不是一个 Git 仓库，无法读取提交历史。请在该目录下执行 git init 进行初始化，或在包含版本库的工作目录中打开本应用。"
+msgstr "The current working directory is not a Git repository. Please run git init in this directory, or open this application in a directory containing a repository."
+
+#: src/window.vala:1610
+msgid "暂无提交记录"
+msgstr "No Commits Yet"
+
+#: src/window.vala:1611
+msgid "当前 Git 仓库中还没有任何提交。完成首次 git commit 后，提交历史将显示在此处。"
+msgstr "This Git repository has no commits yet. Commit history will appear here after the first git commit."
 
 #: src/widgets/context_menus.vala:61
 msgid "编辑文本"
@@ -2103,8 +2190,4 @@ msgstr "Select lines..."
 #~ msgid "无法读取目录: %s"
 #~ msgstr "Unable to read directory: "
 
-#~ msgid "[无法读取文件内容]\n"
-#~ msgstr "[Failed to read file: %s]\n"
 
-#~ msgid "### [自定义文本片段]\n"
-#~ msgstr "### [Custom text snippet]\n"
