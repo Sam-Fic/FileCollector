@@ -4390,10 +4390,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             var builder = new Gtk.Builder ();
             builder.set_translation_domain (Config.GETTEXT_PACKAGE);
             builder.add_from_string (build_shortcuts_ui (), -1);
-            var win = builder.get_object ("sw") as Gtk.ShortcutsWindow;
+            var win = builder.get_object ("sw") as Adw.ShortcutsDialog;
             if (win == null) return;
-            win.set_transient_for (this);
-            win.present ();
+            win.present (this);
         } catch (Error e) {
             warning ("Failed to show shortcuts: %s", e.message);
         }
@@ -4403,140 +4402,140 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         _("常用操作");
         _("列表操作");
         _("应用程序");
-        _("清空列表");
         _("生成到剪贴板");
         _("打开项目");
+        _("添加外部文件");
         _("切换 AI 面板");
+        _("上方插入文本");
+        _("下方插入文本");
+        _("生成合并文本");
+        _("语言设置");
+        _("键盘快捷键");
         _("关于");
         _("退出");
         return """<?xml version="1.0" encoding="UTF-8"?>
 <interface>
-  <object class="GtkShortcutsWindow" id="sw">
-    <property name="modal">true</property>
+  <object class="AdwShortcutsDialog" id="sw">
     <property name="title" translatable="yes">键盘快捷键</property>
     <child>
-      <object class="GtkShortcutsSection">
+      <object class="AdwShortcutsSection">
+        <property name="title" translatable="yes">常用操作</property>
         <child>
-          <object class="GtkShortcutsGroup">
-            <property name="title" translatable="yes">常用操作</property>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="title" translatable="yes">撤销</property>
-                <property name="accelerator">&lt;Control&gt;z</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="title" translatable="yes">重做</property>
-                <property name="accelerator">&lt;Control&gt;&lt;Shift&gt;z</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="title" translatable="yes">打开项目</property>
-                <property name="accelerator">&lt;Control&gt;o</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="title" translatable="yes">保存项目</property>
-                <property name="accelerator">&lt;Control&gt;s</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="title" translatable="yes">清空列表</property>
-                <property name="accelerator">&lt;Control&gt;n</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="title" translatable="yes">添加外部文件</property>
-                <property name="accelerator">&lt;Control&gt;e</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="title" translatable="yes">切换 AI 面板</property>
-                <property name="accelerator">&lt;Control&gt;j</property>
-              </object>
-            </child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">撤销</property>
+            <property name="action-name">win.undo</property>
           </object>
         </child>
         <child>
-          <object class="GtkShortcutsGroup">
-            <property name="title" translatable="yes">列表操作</property>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="title" translatable="yes">上方插入文本</property>
-                <property name="accelerator">&lt;Control&gt;i</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="title" translatable="yes">下方插入文本</property>
-                <property name="accelerator">&lt;Control&gt;&lt;Shift&gt;i</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="title" translatable="yes">上移</property>
-                <property name="accelerator">&lt;Control&gt;Up</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="title" translatable="yes">下移</property>
-                <property name="accelerator">&lt;Control&gt;Down</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="title" translatable="yes">删除</property>
-                <property name="accelerator">Delete</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="title" translatable="yes">生成合并文本</property>
-                <property name="accelerator">&lt;Control&gt;g</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="title" translatable="yes">生成到剪贴板</property>
-                <property name="accelerator">&lt;Control&gt;&lt;Shift&gt;c</property>
-              </object>
-            </child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">重做</property>
+            <property name="action-name">win.redo</property>
           </object>
         </child>
         <child>
-          <object class="GtkShortcutsGroup">
-            <property name="title" translatable="yes">应用程序</property>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="title" translatable="yes">语言设置</property>
-                <property name="accelerator">&lt;Control&gt;comma</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="title" translatable="yes">键盘快捷键</property>
-                <property name="accelerator">&lt;Control&gt;slash</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="title" translatable="yes">关于</property>
-                <property name="accelerator">F1</property>
-              </object>
-            </child>
-            <child>
-              <object class="GtkShortcutsShortcut">
-                <property name="title" translatable="yes">退出</property>
-                <property name="accelerator">&lt;Control&gt;q</property>
-              </object>
-            </child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">打开项目</property>
+            <property name="accelerator">&lt;Control&gt;o</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">保存项目</property>
+            <property name="accelerator">&lt;Control&gt;s</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">清空列表</property>
+            <property name="action-name">win.clear_items</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">添加外部文件</property>
+            <property name="action-name">win.add_external_files</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">切换 AI 面板</property>
+            <property name="action-name">win.toggle_ai_panel</property>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwShortcutsSection">
+        <property name="title" translatable="yes">列表操作</property>
+        <child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">上方插入文本</property>
+            <property name="action-name">win.insert_text</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">下方插入文本</property>
+            <property name="action-name">win.insert_text_no_header</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">上移</property>
+            <property name="action-name">win.move_up</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">下移</property>
+            <property name="action-name">win.move_down</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">删除</property>
+            <property name="action-name">win.delete_item</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">生成合并文本</property>
+            <property name="action-name">win.generate</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">生成到剪贴板</property>
+            <property name="action-name">win.generate_to_clipboard</property>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="AdwShortcutsSection">
+        <property name="title" translatable="yes">应用程序</property>
+        <child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">语言设置</property>
+            <property name="accelerator">&lt;Control&gt;comma</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">键盘快捷键</property>
+            <property name="accelerator">&lt;Control&gt;slash</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">关于</property>
+            <property name="accelerator">F1</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">退出</property>
+            <property name="accelerator">&lt;Control&gt;q</property>
           </object>
         </child>
       </object>
