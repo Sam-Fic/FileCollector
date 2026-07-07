@@ -14,6 +14,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.Box preview_info_box;
     [GtkChild] private unowned GtkSource.View preview_view;
     [GtkChild] private unowned Gtk.Button open_folder_btn;
+    [GtkChild] private unowned Gtk.MenuButton menu_btn;
+    [GtkChild] private unowned Gtk.Button empty_about_btn;
     [GtkChild] private unowned Gtk.Button btn_undo;
     [GtkChild] private unowned Gtk.Button btn_redo;
     [GtkChild] private unowned Gtk.Button btn_generate;
@@ -80,7 +82,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private Gee.ArrayList<ItemData> items { get { return app_state.items; } }
     private CheckStateModel check_model { get { return app_state.check_model; } }
     private Gee.ArrayList<string> common_phrases { get { return app_state.common_phrases; } }
-    private File? work_dir { get { return app_state.work_dir; } set { app_state.work_dir = value; } }
+    private File? work_dir { get { return app_state.work_dir; } set { app_state.work_dir = value; update_empty_state (); } }
     private bool use_absolute { get { return app_state.use_absolute; } set { app_state.use_absolute = value; } }
     private bool show_header { get { return app_state.show_header; } set { app_state.show_header = value; } }
     private string? project_file { get { return app_state.project_file; } set { app_state.project_file = value; } }
@@ -120,6 +122,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private ulong handler_path_rel;
     private ulong handler_header;
     private GLib.ListStore git_commit_store;
+
+    // 空状态引导
+    private Adw.StatusPage empty_page_widget;
+    private Adw.StatusPage git_empty_page_widget;
+    private Gtk.Widget? saved_toolbar_content = null;
 
     // 目录加载进度条
     private Gtk.Revealer dir_load_revealer;
@@ -192,6 +199,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         setup_ai_panel ();
         setup_pane_sizes ();
         setup_shortcuts ();
+        setup_empty_state ();
         search_entry.visible = false;
 
         current_context_limit = ConfigManager.get_context_window_size ();
@@ -1516,6 +1524,107 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
     }
 
+    private void setup_empty_state () {
+        // 创建空状态页面
+        empty_page_widget = new Adw.StatusPage ();
+        empty_page_widget.icon_name = "folder-open-symbolic";
+        empty_page_widget.title = _("未选择工作目录");
+        empty_page_widget.description = _("打开一个文件夹作为工作目录，即可开始收集与编排文件。");
+
+        var empty_btn = new Gtk.Button ();
+        empty_btn.set_label (_("打开工作目录"));
+        empty_btn.add_css_class ("suggested-action");
+        empty_btn.add_css_class ("pill");
+        empty_btn.halign = Gtk.Align.CENTER;
+        empty_btn.clicked.connect (() => on_open_folder_clicked.begin ());
+        empty_page_widget.child = empty_btn;
+
+        git_empty_page_widget = new Adw.StatusPage ();
+        git_empty_page_widget.icon_name = "xsi-git-symbolic";
+
+        update_empty_state ();
+    }
+
+    private void update_empty_state () {
+        // 获取 ToolbarView
+        var main_overlay = toast_overlay.child as Gtk.Overlay;
+        Adw.ToolbarView? toolbar_view = null;
+        if (main_overlay != null) {
+            toolbar_view = main_overlay.child as Adw.ToolbarView;
+        }
+
+        bool show_empty = (work_dir == null) || (is_git_mode && !git_data_available ());
+        bool no_workdir = (work_dir == null);
+
+        if (show_empty) {
+            // 替换 ToolbarView 的 content 为空状态页面
+            if (toolbar_view != null && saved_toolbar_content == null && toolbar_view.content != null) {
+                saved_toolbar_content = toolbar_view.content;
+                if (is_git_mode) {
+                    configure_git_empty_page ();
+                    toolbar_view.content = git_empty_page_widget;
+                } else {
+                    toolbar_view.content = empty_page_widget;
+                }
+            }
+
+            // 简化标题栏 (仅未设置工作目录时隐藏按钮, git 模式保留所有按钮方便返回)
+            if (no_workdir) {
+                btn_ai_toggle.visible = false;
+                open_folder_btn.visible = false;
+                btn_toggle_git.visible = false;
+                btn_global_search.visible = false;
+                btn_undo.visible = false;
+                btn_redo.visible = false;
+                menu_btn.visible = false;
+                ensure_about_btn ();
+                empty_about_btn.visible = true;
+            }
+        } else {
+            // 恢复 ToolbarView 的 content
+            if (toolbar_view != null && saved_toolbar_content != null) {
+                toolbar_view.content = saved_toolbar_content;
+                saved_toolbar_content = null;
+            }
+
+            // 恢复标题栏所有按钮
+            btn_ai_toggle.visible = true;
+            open_folder_btn.visible = true;
+            btn_toggle_git.visible = true;
+            btn_global_search.visible = true;
+            btn_undo.visible = true;
+            btn_redo.visible = true;
+            menu_btn.visible = true;
+            if (empty_about_btn != null) empty_about_btn.visible = false;
+        }
+    }
+
+    private void ensure_about_btn () {
+        // empty_about_btn 已在 Blueprint 中定义, 此处仅确保连接信号
+        if (empty_about_btn.get_data<bool?> ("connected") != null) return;
+        empty_about_btn.clicked.connect (() => on_about ());
+        empty_about_btn.set_data<bool?> ("connected", true);
+    }
+
+    private bool git_data_available () {
+        if (work_dir == null) return false;
+        if (!GitService.is_git_repo (work_dir.get_path ())) return false;
+        if (git_commits.size > 0) return true;
+        if (!git_all_loaded) return true;
+        return false;
+    }
+
+    private void configure_git_empty_page () {
+        if (work_dir == null) return;
+        if (!GitService.is_git_repo (work_dir.get_path ())) {
+            git_empty_page_widget.title = _("未检测到 Git 仓库");
+            git_empty_page_widget.description = _("当前工作目录不是一个 Git 仓库，无法读取提交历史。请在该目录下执行 git init 进行初始化，或在包含版本库的工作目录中打开本应用。");
+        } else {
+            git_empty_page_widget.title = _("暂无提交记录");
+            git_empty_page_widget.description = _("当前 Git 仓库中还没有任何提交。完成首次 git commit 后，提交历史将显示在此处。");
+        }
+    }
+
     // 统一应用 use_absolute 变更 (undo/redo 共用)
     private void apply_absolute_change (bool new_abs, bool new_hdr) {
         use_absolute = new_abs;
@@ -1810,8 +1919,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             btn_git_export_working_diff.sensitive = work_dir != null;
             btn_git_export_commit_diff.sensitive = false;
 
-            if (git_commits.size == 0 && work_dir != null) {
-                load_git_history_async ();
+            if (work_dir != null && GitService.is_git_repo (work_dir.get_path ())) {
+                if (git_commits.size == 0 && !git_all_loaded) {
+                    load_git_history_async ();
+                }
             }
         } else {
             left_stack.visible_child_name = "tree_page";
@@ -1820,6 +1931,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             btn_toggle_git.tooltip_text = _("切换到 Git 提交历史");
             lbl_left_title.label = _("资源管理器");
         }
+        update_empty_state ();
     }
 
     private void on_git_search_changed () {
@@ -1911,6 +2023,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 append_git_commits (result);
             }
             git_loading = false;
+            if (is_git_mode) update_empty_state ();
             if (thread != null) bg_threads.remove (thread);
             return Source.REMOVE;
         });
@@ -2519,6 +2632,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         refresh_list ();
         update_workdir_dependent_buttons ();
+        update_empty_state ();
 
         if (cli.operation_messages.size > 0) {
             var messages = new Gee.ArrayList<string> ();
@@ -4182,6 +4296,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         update_undo_redo_buttons ();
         update_workdir_dependent_buttons ();
         refresh_list ();
+        update_empty_state ();
         foreach (var it in items) {
             if (it.item_type == "text") it.update_token_stats ();
         }

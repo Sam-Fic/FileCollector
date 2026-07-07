@@ -49,6 +49,12 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
           subtitle: _("未设置工作目录");
         };
 
+        Button empty_about_btn {
+          icon-name: "help-about-symbolic";
+          tooltip-text: _("关于 FileCollector");
+          visible: false;
+        }
+
         [end]
         Gtk.MenuButton menu_btn {
           icon-name: "open-menu-symbolic";
