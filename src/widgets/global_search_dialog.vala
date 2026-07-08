@@ -15,6 +15,9 @@ public class GlobalSearchDialog : Adw.Dialog {
     private Gtk.Button btn_add_selected;
     private Gtk.Button btn_add_all;
     private Gtk.Spinner spinner;
+    private Gtk.Stack result_stack;
+    private Adw.StatusPage empty_page;
+    private Adw.StatusPage guide_page;
 
     private SearchService search_service;
     private GLib.Cancellable cancellable;
@@ -57,7 +60,7 @@ public class GlobalSearchDialog : Adw.Dialog {
         // 搜索栏
         var search_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         search_entry = new Gtk.SearchEntry ();
-        search_entry.placeholder_text = _("输入要搜索的代码内容… (按 Enter 搜索)");
+        search_entry.placeholder_text = _("输入要搜索的代码内容…");
         search_entry.hexpand = true;
         search_entry.activate.connect (trigger_search);
         search_box.append (search_entry);
@@ -87,7 +90,7 @@ public class GlobalSearchDialog : Adw.Dialog {
         status_box.append (lbl_status);
         box.append (status_box);
 
-        // 结果列表
+        // 结果列表 / 空状态
         result_list = new Gtk.ListBox ();
         result_list.set_selection_mode (Gtk.SelectionMode.NONE);
         result_list.add_css_class ("boxed-list");
@@ -96,7 +99,27 @@ public class GlobalSearchDialog : Adw.Dialog {
         var scroll = new Gtk.ScrolledWindow ();
         scroll.set_child (result_list);
         scroll.vexpand = true;
-        box.append (scroll);
+
+        empty_page = new Adw.StatusPage ();
+        empty_page.icon_name = "edit-find-symbolic";
+        empty_page.title = _("未找到匹配项");
+        empty_page.description = _("没有文件包含该关键词。请尝试其他关键词或调整搜索选项。");
+        empty_page.vexpand = true;
+
+        guide_page = new Adw.StatusPage ();
+        guide_page.icon_name = "edit-find-symbolic";
+        guide_page.title = _("全局内容搜索");
+        guide_page.description = _("输入关键词并按下 Enter 或点击搜索按钮，即可在整个工作目录中查找匹配的代码与文本。");
+        guide_page.vexpand = true;
+
+        result_stack = new Gtk.Stack ();
+        result_stack.transition_type = Gtk.StackTransitionType.CROSSFADE;
+        result_stack.add_named (scroll, "results");
+        result_stack.add_named (empty_page, "empty");
+        result_stack.add_named (guide_page, "guide");
+        result_stack.visible_child_name = "guide";
+        result_stack.vexpand = true;
+        box.append (result_stack);
 
         // 底部按钮区
         var btn_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
@@ -145,6 +168,8 @@ public class GlobalSearchDialog : Adw.Dialog {
         if (cancellable != null) cancellable.cancel ();
         cancellable = new GLib.Cancellable ();
 
+        result_stack.visible_child_name = "results";
+
         result_list.remove_all ();
         matched_files.clear ();
         selected_files.clear ();
@@ -189,6 +214,7 @@ public class GlobalSearchDialog : Adw.Dialog {
         btn_add_selected.sensitive = has;
         btn_add_all.sensitive = has;
         btn_toggle_select.sensitive = has;
+        result_stack.visible_child_name = has ? "results" : "empty";
         update_button_labels ();
     }
 
