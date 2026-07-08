@@ -39,7 +39,6 @@ public class AISettingsDialog : GLib.Object {
     private Gtk.Button btn_mm_reset_exts;
 
     // ── 共享 ──
-    private Adw.EntryRow edit_ignored_dirs;
     private Adw.ToastOverlay toast_overlay;
 
     private ConfigManager.AISettings sidebar_current;
@@ -221,23 +220,6 @@ public class AISettingsDialog : GLib.Object {
         mm_advanced.add (mm_test_row);
 
         // ═══════════════════════════════════════════════════════
-        // 扫描忽略目录
-        // ═══════════════════════════════════════════════════════
-        var ignored_group = new Adw.PreferencesGroup ();
-        ignored_group.set_title (_("扫描忽略目录"));
-        ignored_group.set_description (
-            _("这些目录不会出现在文件树中，也不会被自动收集。"));
-        prefs_page.add (ignored_group);
-
-        var ignored_row = new Adw.EntryRow ();
-        ignored_row.set_title (_("忽略的目录名"));
-        ignored_row.set_show_apply_button (false);
-        string[] current_ignored = ConfigManager.get_ignored_dirs ();
-        ignored_row.set_text (string.joinv (", ", current_ignored));
-        edit_ignored_dirs = ignored_row;
-        ignored_group.add (ignored_row);
-
-        // ═══════════════════════════════════════════════════════
         // 安全警告
         // ═══════════════════════════════════════════════════════
         var security_group = new Adw.PreferencesGroup ();
@@ -342,15 +324,6 @@ public class AISettingsDialog : GLib.Object {
         ConfigManager.save_ai_settings (sidebar_current);
         mm_current = mm;
         ConfigManager.save_multimodal_ai_settings (mm_current);
-
-        string raw_text = edit_ignored_dirs.get_text ();
-        string[] parts = raw_text.split (",");
-        var clean_list = new Gee.ArrayList<string> ();
-        foreach (unowned string p in parts) {
-            string trimmed = p.strip ();
-            if (trimmed.length > 0) clean_list.add (trimmed);
-        }
-        ConfigManager.save_ignored_dirs ((string[]) clean_list.to_array ());
 
         // 解析并保存允许的扩展名 (自动为缺少前导点的扩展名补上)
         string raw_exts = edit_mm_allowed_exts.get_text ();

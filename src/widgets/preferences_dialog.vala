@@ -201,21 +201,6 @@ public class PreferencesDialog : GLib.Object {
         mm_test_row.add_suffix (btn_mm_test);
         mm_advanced.add (mm_test_row);
 
-        // ── 扫描忽略目录 ──
-        var ignored_group = new PreferencesGroup ();
-        ignored_group.set_title (_("扫描忽略目录"));
-        ignored_group.set_description (
-            _("这些目录不会出现在文件树中，也不会被自动收集。"));
-        page.add (ignored_group);
-
-        var ignored_row = new EntryRow ();
-        ignored_row.set_title (_("忽略的目录名"));
-        ignored_row.set_show_apply_button (false);
-        string[] current_ignored = ConfigManager.get_ignored_dirs ();
-        ignored_row.set_text (string.joinv (", ", current_ignored));
-        edit_ignored_dirs = ignored_row;
-        ignored_group.add (ignored_row);
-
         // ── 安全警告 ──
         var security_group = new PreferencesGroup ();
         security_group.set_title (_("安全警告"));
@@ -263,7 +248,7 @@ public class PreferencesDialog : GLib.Object {
 
     private void build_context_page () {
         var page = new PreferencesPage ();
-        page.set_title (_("上下文窗口"));
+        page.set_title (_("扫描与上下文"));
         page.set_icon_name ("document-properties-symbolic");
 
         var group = new PreferencesGroup ();
@@ -281,6 +266,21 @@ public class PreferencesDialog : GLib.Object {
             ConfigManager.save_context_window_size (new_size);
             context_settings_changed ();
         });
+
+        // ── 扫描忽略目录 ──
+        var ignored_group = new PreferencesGroup ();
+        ignored_group.set_title (_("扫描忽略目录"));
+        ignored_group.set_description (
+            _("这些目录不会出现在文件树中，也不会被自动收集。"));
+        page.add (ignored_group);
+
+        var ignored_row = new EntryRow ();
+        ignored_row.set_title (_("忽略的目录名"));
+        ignored_row.set_show_apply_button (false);
+        string[] current_ignored = ConfigManager.get_ignored_dirs ();
+        ignored_row.set_text (string.joinv (", ", current_ignored));
+        edit_ignored_dirs = ignored_row;
+        ignored_group.add (ignored_row);
 
         dialog.add (page);
     }
