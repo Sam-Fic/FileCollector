@@ -1166,6 +1166,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (app_cancellable != null && app_cancellable.is_cancelled ()) return;
         out_dirs.add (dir_path);
         var dir = File.new_for_path (dir_path);
+        string[] ignored_dirs = ConfigManager.get_ignored_dirs ();
         try {
             var enumerator = dir.enumerate_children (
                 FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE + "," + FileAttribute.STANDARD_IS_SYMLINK,
@@ -1176,6 +1177,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 if (app_cancellable != null && app_cancellable.is_cancelled ()) return;
                 string child_name = info.get_name ();
                 if (child_name == ".filecollector_cache") continue;
+                if (child_name in ignored_dirs) continue;
                 var child = dir.get_child (child_name);
                 if (info.get_is_symlink () && info.get_file_type () == FileType.DIRECTORY) {
                     continue;

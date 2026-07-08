@@ -116,6 +116,7 @@ namespace UIHelpers {
         var files = new Gee.ArrayList<DirChildInfo> ();
         var dir = File.new_for_path (dir_path);
         if (!dir.query_exists ()) return new Gee.ArrayList<DirChildInfo> ();
+        string[] ignored_dirs = ConfigManager.get_ignored_dirs ();
         try {
             var enumerator = dir.enumerate_children (
                 FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE + "," + FileAttribute.STANDARD_IS_SYMLINK,
@@ -126,6 +127,7 @@ namespace UIHelpers {
                 if (cancellable != null && cancellable.is_cancelled ()) break;
                 string entry_name = info.get_name ();
                 if (entry_name == ".filecollector_cache") continue;
+                if (entry_name in ignored_dirs) continue;
                 if (info.get_is_symlink () && info.get_file_type () == FileType.DIRECTORY) {
                     continue;
                 }

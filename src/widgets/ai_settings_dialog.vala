@@ -226,7 +226,7 @@ public class AISettingsDialog : GLib.Object {
         var ignored_group = new Adw.PreferencesGroup ();
         ignored_group.set_title (_("扫描忽略目录"));
         ignored_group.set_description (
-            _("AI 扫描工作目录时将跳过这些目录名，用英文逗号分隔。"));
+            _("这些目录不会出现在文件树中，也不会被自动收集。"));
         prefs_page.add (ignored_group);
 
         var ignored_row = new Adw.EntryRow ();
