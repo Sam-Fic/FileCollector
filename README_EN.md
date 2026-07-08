@@ -412,4 +412,6 @@ Special thanks to [Decembered](https://github.com/Decembered) for contributions 
 
 The token estimation feature is inspired by the open-source project [tokenx](https://github.com/johannschopplich/tokenx).
 
+This project uses [cmark-gfm](https://github.com/github/cmark-gfm) (GitHub Flavored Markdown parser) to render Markdown in the AI chat bubbles and the reading guide.
+
 > Contributions and ideas are welcome!

@@ -412,4 +412,6 @@ FileCollector 内置了 Git 只读探查功能，方便开发者快速收集与�
 
 Token 估算功能参考了开源项目 [tokenx](https://github.com/johannschopplich/tokenx)。
 
+本项目使用 [cmark-gfm](https://github.com/github/cmark-gfm)（GitHub Flavored Markdown 解析器）实现 AI 聊天气泡与阅读指南的 Markdown 渲染。
+
 > 欢迎贡献想法或参与开发！
