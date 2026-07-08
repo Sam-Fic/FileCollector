@@ -46,6 +46,7 @@ data/window.ui
 .vscode/
 .trae/
 .mimocode/
+.kilo/
 .idea/
 *.iml
 *.project
