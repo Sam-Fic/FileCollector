@@ -470,6 +470,12 @@ popover.ctx-menu separator {
     box-shadow: none;
 }
 
+/* 折叠行展开箭头保持默认前景色, 不随展开态染成主题强调色 */
+.search-result-list image.expander-row-arrow,
+.search-result-list image.expander-row-arrow:checked {
+    color: @window_fg_color;
+}
+
 /* 操作按钮: 图标-only, 参考三点菜单按钮样式 */
 .normal-actions button {
     padding: 4px;
