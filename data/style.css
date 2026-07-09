@@ -237,15 +237,6 @@ popover.ctx-menu separator {
     min-width: 12px;
 }
 
-.ai-tool-icon {
-    font-weight: bold;
-    color: @accent_color;
-    background-color: alpha(@accent_color, 0.12);
-    border-radius: var(--radius-sm);
-    padding: 2px 5px;
-    min-width: 22px;
-}
-
 .ai-tool-name {
     font-weight: 600;
     color: @window_fg_color;
@@ -260,9 +251,7 @@ popover.ctx-menu separator {
 }
 
 .ai-tool-body {
-    background-color: alpha(@card_bg_color, 0.5);
-    border-top: 1px solid var(--border);
-    padding: 6px 8px;
+    padding: 0 8px 6px 8px;
 }
 
 .ai-tool-result {

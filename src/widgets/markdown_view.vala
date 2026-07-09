@@ -193,10 +193,9 @@ public class MarkdownView : Gtk.Box {
     }
 
     private Gtk.Widget build_thematic_break () {
-        // 用 Box + 背景色实现, 比 Gtk.Separator 在 libadwaita 下更可靠可见
-        var sep = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
+        // 改用原生 Gtk.Separator (水平), 配合 .md-hr 主题样式, 自带方向/无障碍语义
+        var sep = new Gtk.Separator (Gtk.Orientation.HORIZONTAL);
         sep.add_css_class ("md-hr");
-        sep.set_size_request (-1, 1);
         return sep;
     }
 

@@ -23,10 +23,8 @@ public class GlobalSearchDialog : Adw.Dialog {
     private GLib.Cancellable cancellable;
     private Gee.HashSet<string> matched_files;
     private Gee.HashSet<string> selected_files;
-    private Gee.HashMap<string, Gtk.Revealer> file_revealers;
     private Gee.HashMap<string, Gtk.Box> file_matches_boxes;
     private Gee.HashMap<string, Gtk.CheckButton> file_checks;
-    private Gee.HashMap<string, Gtk.Button> file_arrow_buttons;
 
     public signal void add_files_requested (string[] paths);
 
@@ -35,10 +33,8 @@ public class GlobalSearchDialog : Adw.Dialog {
         this.work_dir = dir;
         this.matched_files = new Gee.HashSet<string> ();
         this.selected_files = new Gee.HashSet<string> ();
-        this.file_revealers = new Gee.HashMap<string, Gtk.Revealer> ();
         this.file_matches_boxes = new Gee.HashMap<string, Gtk.Box> ();
         this.file_checks = new Gee.HashMap<string, Gtk.CheckButton> ();
-        this.file_arrow_buttons = new Gee.HashMap<string, Gtk.Button> ();
         build_ui ();
     }
 
@@ -173,10 +169,8 @@ public class GlobalSearchDialog : Adw.Dialog {
         result_list.remove_all ();
         matched_files.clear ();
         selected_files.clear ();
-        file_revealers.clear ();
         file_matches_boxes.clear ();
         file_checks.clear ();
-        file_arrow_buttons.clear ();
         btn_add_selected.sensitive = false;
         btn_add_all.sensitive = false;
         btn_toggle_select.sensitive = false;
@@ -232,7 +226,7 @@ public class GlobalSearchDialog : Adw.Dialog {
     }
 
     private void ensure_file_row (string file_path, string rel_path) {
-        if (file_revealers.has_key (file_path)) {
+        if (file_matches_boxes.has_key (file_path)) {
             return;
         }
 
@@ -241,51 +235,19 @@ public class GlobalSearchDialog : Adw.Dialog {
         check.set_data<string> ("file_path", file_path);
         check.active = (file_path in selected_files);
 
-        var arrow_btn = new Gtk.Button.from_icon_name ("pan-end-symbolic");
-        arrow_btn.add_css_class ("flat");
-        arrow_btn.valign = Gtk.Align.CENTER;
-        arrow_btn.tooltip_text = _("展开");
-
-        var filename_lbl = new Gtk.Label (rel_path);
-        filename_lbl.xalign = 0;
-        filename_lbl.hexpand = true;
-        filename_lbl.ellipsize = Pango.EllipsizeMode.START;
-        filename_lbl.add_css_class ("heading");
-
-        var file_hbox = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
-        file_hbox.margin_top = 8;
-        file_hbox.margin_bottom = 8;
-        file_hbox.margin_start = 8;
-        file_hbox.margin_end = 8;
-        file_hbox.append (arrow_btn);
-        file_hbox.append (check);
-        file_hbox.append (filename_lbl);
+        // 用原生 Adw.ExpanderRow 实现文件→匹配行折叠, 自带展开动画/键盘/焦点管理
+        var row = new Adw.ExpanderRow ();
+        row.set_title (rel_path);
+        row.expanded = false;
+        row.add_prefix (check);
 
         var matches_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
-        matches_box.margin_start = 52;
-        matches_box.margin_end = 8;
+        matches_box.margin_start = 12;
+        matches_box.margin_end = 12;
         matches_box.margin_bottom = 8;
-
-        var revealer = new Gtk.Revealer ();
-        revealer.set_child (matches_box);
-        revealer.reveal_child = false;
-
-        var vbox = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
-        vbox.append (file_hbox);
-        vbox.append (revealer);
-
-        var row = new Gtk.ListBoxRow ();
-        row.set_child (vbox);
-        row.activatable = false;
+        row.add_row (matches_box);
 
         result_list.append (row);
-
-        arrow_btn.clicked.connect (() => {
-            bool expanded = !revealer.reveal_child;
-            revealer.reveal_child = expanded;
-            arrow_btn.icon_name = expanded ? "pan-down-symbolic" : "pan-end-symbolic";
-            arrow_btn.tooltip_text = expanded ? _("收起") : _("展开");
-        });
 
         check.toggled.connect (() => {
             if (check.active) {
@@ -296,10 +258,8 @@ public class GlobalSearchDialog : Adw.Dialog {
             update_button_labels ();
         });
 
-        file_revealers[file_path] = revealer;
         file_matches_boxes[file_path] = matches_box;
         file_checks[file_path] = check;
-        file_arrow_buttons[file_path] = arrow_btn;
     }
 
     private void add_match_row (SearchResult res) {
