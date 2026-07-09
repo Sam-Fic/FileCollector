@@ -5,6 +5,14 @@
     --radius-lg: 12px;
     --radius-md: 8px;
     --radius-sm: 6px;
+
+    /* 描边分级: 颜色统一 @borders, 仅透明度区分轻重
+       border=基准(卡片/容器/输入框/气泡外描边);
+       border-divider=分节分隔线(右键菜单/Markdown 横线);
+       border-subtle=内部细分隔(表格行) */
+    --border:         alpha(@borders, 0.5);
+    --border-divider: alpha(@borders, 0.6);
+    --border-subtle:  alpha(@borders, 0.2);
 }
 
 .left-panel {
@@ -135,7 +143,7 @@ popover.ctx-menu modelbutton {
 /* 右键菜单 section 之间的分割线: 默认主题下 @borders 半透明几乎看不见,
    显式用不透明边框色画一条 1px 线, 并加上垂直 margin 让分组感更清晰 */
 popover.ctx-menu separator {
-    background-color: @borders;
+    background-color: var(--border-divider);
     min-height: 1px;
     margin: 4px 8px;
 }
@@ -191,20 +199,20 @@ popover.ctx-menu separator {
 
 .ai-bubble-assistant {
     background-color: alpha(@card_bg_color, 0.9);
-    border: 1px solid alpha(@borders, 0.6);
+    border: 1px solid var(--border);
     color: @window_fg_color;
 }
 
 .ai-bubble-system {
     background-color: alpha(@warning_bg_color, 0.4);
-    border: 1px solid alpha(@warning_color, 0.6);
+    border: 1px solid var(--border);
     color: @window_fg_color;
     font-size: 12px;
 }
 
 .ai-bubble-tool {
     background-color: alpha(@card_bg_color, 0.7);
-    border: 1px dashed alpha(@borders, 0.8);
+    border: 1px dashed var(--border);
     padding: 0;
 }
 
@@ -253,7 +261,7 @@ popover.ctx-menu separator {
 
 .ai-tool-body {
     background-color: alpha(@card_bg_color, 0.5);
-    border-top: 1px solid alpha(@borders, 0.5);
+    border-top: 1px solid var(--border);
     padding: 6px 8px;
 }
 
@@ -277,7 +285,7 @@ popover.ctx-menu separator {
 /* AI 输入框不要底部阴影, 但保留细外轮廓 */
 .ai-input-frame {
     background: @card_bg_color;
-    border: 1px solid alpha(@borders, 0.5);
+    border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     box-shadow: none;
 }
@@ -315,7 +323,7 @@ popover.ctx-menu separator {
 /* 通用文本输入框: 保留卡片背景与圆角, 但去掉阴影 */
 .text-input-frame {
     background: @card_bg_color;
-    border: 1px solid alpha(@borders, 0.5);
+    border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     box-shadow: none;
 }
@@ -346,7 +354,7 @@ popover.ctx-menu separator {
 /* AI 聊天区滚动到底部按钮: 与输入框同款描边 */
 .ai-scroll-bottom-btn {
     background: @card_bg_color;
-    border: 1px solid alpha(@borders, 0.5);
+    border: 1px solid var(--border);
     padding: 4px;
 }
 
@@ -367,7 +375,7 @@ popover.ctx-menu separator {
 }
 
 .md-code-block-frame {
-    border: 1px solid alpha(@borders, 0.5);
+    border: 1px solid var(--border);
     border-radius: var(--radius-md);
     background: alpha(black, 0.03);
 }
@@ -395,22 +403,22 @@ popover.ctx-menu separator {
     margin-top: 6px;
     margin-bottom: 6px;
     min-height: 1px;
-    background: alpha(@borders, 0.6);
+    background: var(--border-divider);
 }
 
 /* Markdown 表格 */
 .md-table {
-    border: 1px solid alpha(@borders, 0.5);
+    border: 1px solid var(--border);
     border-radius: var(--radius-sm);
 }
 
 .md-table-header {
     background: alpha(@theme_fg_color, 0.08);
-    border-bottom: 1px solid alpha(@borders, 0.5);
+    border-bottom: 1px solid var(--border);
 }
 
 .md-table-row {
-    border-bottom: 1px solid alpha(@borders, 0.2);
+    border-bottom: 1px solid var(--border-subtle);
 }
 
 .md-table-row:last-child {
@@ -451,7 +459,7 @@ popover.ctx-menu separator {
 }
 .vlm-progress-card {
     background: @card_bg_color;
-    border: 1px solid alpha(@borders, 0.5);
+    border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     box-shadow: 0 2px 8px alpha(black, 0.15);
 }
