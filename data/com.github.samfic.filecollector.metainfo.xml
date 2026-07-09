@@ -23,6 +23,22 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="4.6.0" date="2026-07-09">
+      <description>
+        <p>新特性与修复：</p>
+        <ul>
+          <li>目录忽略功能：扫描时支持按配置的忽略目录过滤，忽略设置移至上下文页面统一管理</li>
+          <li>全局搜索优化：搜索对话框新增空状态与引导页面，采用 Adw.ExpanderRow 重构展开交互</li>
+          <li>快捷键窗口：迁移至 Adw.ShortcutsDialog，并提升 libadwaita 依赖至 1.8</li>
+          <li>Flatpak 环境修复：新增 git_executable 探测逻辑，正确访问宿主机 git 命令</li>
+          <li>目录状态引擎：重构自底向上状态刷新与统计收集，引入基于目录维度的并发操作令牌机制</li>
+          <li>样式体系升级：引入 CSS 变量管理圆角与描边规范，提升 GTK 版本要求至 4.16</li>
+          <li>布局优化：简化面板布局结构、统一输入框样式、调整面板间距与分割条交互</li>
+          <li>AI 设置重构：整合 AI 设置至统一偏好设置界面，完善英文翻译与多语言支持</li>
+          <li>修复：修正搜索结果展开箭头颜色、按钮图标名称错误等多个样式与交互问题</li>
+        </ul>
+      </description>
+    </release>
     <release version="4.5.0" date="2026-07-07">
       <description>
         <p>新特性与修复：</p>
