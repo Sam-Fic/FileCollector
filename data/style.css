@@ -13,6 +13,14 @@
     --border:         alpha(@borders, 0.5);
     --border-divider: alpha(@borders, 0.6);
     --border-subtle:  alpha(@borders, 0.2);
+
+    /* 字号分级:
+       font-base  = 界面基准(正文/列表/文件树/右键菜单/AI 气泡);
+       font-sm    = 辅助/提示文字(如 AI 系统提示气泡);
+       font-title = 面板标题(资源管理器/输出编排列表/预览), 略大于基准以强化层级 */
+    --font-base:  14px;
+    --font-sm:    12px;
+    --font-title: 15px;
 }
 
 .left-panel {
@@ -78,7 +86,7 @@ paned > separator {
 }
 
 .file-tree {
-    font-size: 14px;
+    font-size: var(--font-base);
     background: transparent;
     border: none;
 }
@@ -121,20 +129,20 @@ paned > separator {
 .file-tree label {
     padding: 0;
     margin: 0;
-    font-size: 14px;
+    font-size: var(--font-base);
     line-height: 1.0;
 }
 
 /* 编排列表 (中栏 .card 下的 GtkListView) 文字字号: 与文件树保持一致 */
 .card listview,
 .card listview label {
-    font-size: 14px;
+    font-size: var(--font-base);
 }
 
 /* 右键菜单: 与文件树和编排列表字号保持一致, 全部统一 14px */
 popover.ctx-menu,
 popover.ctx-menu modelbutton {
-    font-size: 14px;
+    font-size: var(--font-base);
 }
 
 /* 右键菜单 section 之间的分割线: 默认主题下 @borders 半透明几乎看不见,
@@ -148,6 +156,8 @@ popover.ctx-menu separator {
 
 .panel-title {
     font-weight: bold;
+    font-size: var(--font-title);
+    letter-spacing: 0.2px;
     margin-top: 12px;
     margin-bottom: 12px;
     margin-left: 12px;
@@ -180,7 +190,7 @@ popover.ctx-menu separator {
     padding: 8px 10px;
     margin-top: 2px;
     margin-bottom: 2px;
-    font-size: 14px;
+    font-size: var(--font-base);
     line-height: 1.4;
 }
 
@@ -204,7 +214,7 @@ popover.ctx-menu separator {
     background-color: alpha(@warning_bg_color, 0.4);
     border: 1px solid var(--border);
     color: @window_fg_color;
-    font-size: 12px;
+    font-size: var(--font-sm);
 }
 
 .ai-bubble-tool {
@@ -214,7 +224,7 @@ popover.ctx-menu separator {
 }
 
 .ai-bubble-content {
-    font-size: 14px;
+    font-size: var(--font-base);
     line-height: 1.4;
 }
 
