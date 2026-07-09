@@ -59,10 +59,10 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
       content: Paned ai_paned {
        orientation: horizontal;
        margin-top: 0;
-       margin-bottom: 12;
-       margin-start: 12;
-       margin-end: 12;
-       position: 320;
+        margin-bottom: 12;
+        margin-start: 18;
+        margin-end: 18;
+        position: 320;
        shrink-start-child: false;
        shrink-end-child: false;
        css-classes: ["paned-no-handle"];
@@ -74,10 +74,10 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
            vexpand: true;
            width-request: 280;
            margin-top: 0;
-           margin-bottom: 6;
-           margin-start: 6;
-           margin-end: 6;
-           css-classes: ["ai-panel", "card"];
+            margin-bottom: 6;
+            margin-start: 0;
+            margin-end: 0;
+            css-classes: ["ai-panel", "card"];
         }
 
       Paned outer_paned {
@@ -97,10 +97,10 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
            vexpand: true;
            width-request: 200;
            margin-top: 0;
-           margin-bottom: 6;
-           margin-start: 6;
-           margin-end: 6;
-           css-classes: ["left-panel", "card"];
+            margin-bottom: 6;
+            margin-start: 0;
+            margin-end: 0;
+            css-classes: ["left-panel", "card"];
          Box {
            orientation: vertical;
            spacing: 0;
@@ -174,7 +174,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
         position: 500;
         shrink-start-child: false;
         shrink-end-child: false;
-        margin-start: 6;
+        margin-start: 0;
         css-classes: ["paned-no-handle"];
 
         // 中栏 - 输出编排
@@ -183,10 +183,10 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
            vexpand: true;
            width-request: 400;
            margin-top: 0;
-           margin-bottom: 6;
-           margin-start: 0;
-           margin-end: 6;
-           css-classes: ["middle-panel", "card"];
+            margin-bottom: 6;
+            margin-start: 0;
+            margin-end: 0;
+            css-classes: ["middle-panel", "card"];
           Box {
               orientation: vertical;
              spacing: 0;
@@ -387,10 +387,10 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
            vexpand: true;
            width-request: 200;
            margin-top: 0;
-           margin-bottom: 6;
-           margin-start: 6;
-           margin-end: 6;
-           css-classes: ["right-panel", "card"];
+            margin-bottom: 6;
+            margin-start: 0;
+            margin-end: 0;
+            css-classes: ["right-panel", "card"];
             Box {
                 orientation: vertical;
               spacing: 0;

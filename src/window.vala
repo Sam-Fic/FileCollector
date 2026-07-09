@@ -104,8 +104,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private bool ai_panel_visible = false;
     // 记录 AI 面板展开前的窗口宽度, 隐藏时恢复
     private int pre_ai_width = 0;
-    // 缓存 col-resize 光标, 避免 motion 事件每次都创建新对象
-    private Gdk.Cursor? col_resize_cursor = null;
 
     // 后台线程引用: 防止 Thread 对象被提前回收, 并在窗口关闭时 join 确保安全退出
     private Gee.ArrayList<GLib.Thread<void*>> bg_threads = new Gee.ArrayList<GLib.Thread<void*>> ();
@@ -2405,7 +2403,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         });
     }
 
-    private const int PANED_SEP = 6;
+    private const int PANED_SEP = 12;
 
     private bool _clamping_inner_from_outer = false;
     // 阻断 clamp_outer_paned_position 在修改 outer_paned.position 时
@@ -4786,26 +4784,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         btn_ai_toggle.clicked.connect (toggle_ai_panel);
         ai_paned.notify["position"].connect (clamp_ai_paned_position);
 
-        // ai_paned 的 separator 宽度为 0 (CSS), GTK 默认抓取区域会溢出到 end_child,
-        // 而 end_child (outer_paned) 不显示 col-resize 光标, 导致只有左半区域有光标.
-        // 用 EventControllerMotion 检测鼠标在 separator 附近时设置光标.
-        col_resize_cursor = new Gdk.Cursor.from_name ("col-resize", null);
-        var motion = new Gtk.EventControllerMotion ();
-        motion.motion.connect ((x, y) => {
-            // AI 边栏隐藏时不处理
-            if (!ai_sidebar.visible) return;
-            int pos = (int) ai_paned.position;
-            // 鼠标在 separator 附近 ±6px 范围内
-            if ((x >= pos - 6) && (x <= pos + 6)) {
-                ai_paned.set_cursor (col_resize_cursor);
-            } else {
-                ai_paned.set_cursor (null);
-            }
-        });
-        motion.leave.connect (() => {
-            ai_paned.set_cursor (null);
-        });
-        ai_paned.add_controller (motion);
+        // 分隔条已恢复原生尺寸与 col-resize 光标, 不再需要手动光标 hack
     }
 
     private void clamp_ai_paned_position () {

@@ -70,14 +70,11 @@ paned {
     background: transparent;
 }
 
-paned separator {
-    background: transparent;
-    min-width: 0;
-    min-height: 0;
-}
-
+paned separator,
 paned > separator {
     background: transparent;
+    min-width: 12px;
+    min-height: 12px;
 }
 
 .file-tree {
