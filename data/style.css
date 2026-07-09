@@ -1,3 +1,12 @@
+/* ─── 圆角规范 (GTK >= 4.16 才支持 CSS 变量) ───────────────
+   分级: lg=卡片/面板/容器/气泡/输入框; md=嵌套块(代码块);
+         sm=徽标/表格/chip; 0=直角(如工具头) */
+:root {
+    --radius-lg: 12px;
+    --radius-md: 8px;
+    --radius-sm: 6px;
+}
+
 .left-panel {
     min-width: 200px;
 }
@@ -14,11 +23,11 @@
     background: transparent;
     border: none;
     box-shadow: none;
-    border-radius: 9px;
+    border-radius: var(--radius-lg);
 }
 
 .panel-frame > box {
-    border-radius: 9px;
+    border-radius: var(--radius-lg);
 }
 
 .card scrolledwindow,
@@ -33,7 +42,7 @@
     background: transparent;
     background-color: transparent;
     border: none;
-    border-radius: 9px;
+    border-radius: var(--radius-lg);
 }
 
 .card textview,
@@ -42,7 +51,7 @@
 }
 
 .card listview row {
-    border-radius: 9px;
+    border-radius: var(--radius-lg);
 }
 
 .paned-no-handle {
@@ -158,11 +167,11 @@ popover.ctx-menu separator {
 }
 
 .ai-panel > box {
-    border-radius: 9px;
+    border-radius: var(--radius-lg);
 }
 
 .ai-bubble {
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     padding: 8px 10px;
     margin-top: 2px;
     margin-bottom: 2px;
@@ -224,7 +233,7 @@ popover.ctx-menu separator {
     font-weight: bold;
     color: @accent_color;
     background-color: alpha(@accent_color, 0.12);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     padding: 2px 5px;
     min-width: 22px;
 }
@@ -269,7 +278,7 @@ popover.ctx-menu separator {
 .ai-input-frame {
     background: @card_bg_color;
     border: 1px solid alpha(@borders, 0.5);
-    border-radius: 9px;
+    border-radius: var(--radius-lg);
     box-shadow: none;
 }
 
@@ -292,22 +301,22 @@ popover.ctx-menu separator {
 }
 
 .ai-input-frame .boxed-list > row:first-child {
-    border-radius: 9px 9px 0 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
 .ai-input-frame .boxed-list > row:last-child {
-    border-radius: 0 0 9px 9px;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
 .ai-input-frame .boxed-list > row:first-child:last-child {
-    border-radius: 9px;
+    border-radius: var(--radius-lg);
 }
 
 /* 通用文本输入框: 保留卡片背景与圆角, 但去掉阴影 */
 .text-input-frame {
     background: @card_bg_color;
     border: 1px solid alpha(@borders, 0.5);
-    border-radius: 9px;
+    border-radius: var(--radius-lg);
     box-shadow: none;
 }
 
@@ -359,7 +368,7 @@ popover.ctx-menu separator {
 
 .md-code-block-frame {
     border: 1px solid alpha(@borders, 0.5);
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     background: alpha(black, 0.03);
 }
 
@@ -392,7 +401,7 @@ popover.ctx-menu separator {
 /* Markdown 表格 */
 .md-table {
     border: 1px solid alpha(@borders, 0.5);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
 }
 
 .md-table-header {
@@ -443,13 +452,12 @@ popover.ctx-menu separator {
 .vlm-progress-card {
     background: @card_bg_color;
     border: 1px solid alpha(@borders, 0.5);
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     box-shadow: 0 2px 8px alpha(black, 0.15);
 }
 
 /* AI 撤回按钮 */
 .ai-revert-btn {
-    border-radius: 6px;
     padding: 0;
     min-width: 32px;
     min-height: 32px;
