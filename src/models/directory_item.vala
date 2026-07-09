@@ -56,85 +56,8 @@ public class CheckStateModel : GLib.Object {
         }
     }
 
-    public int compute_state (DirectoryItem item) {
-        if (!item.is_dir) {
-            return item.path in checked_files ? 2 : 0;
-        }
-        return compute_dir_state (item);
-    }
-
-    private int compute_dir_state (DirectoryItem item) {
-        bool is_loaded = (item.children.get_n_items () > 0);
-        bool in_checked_dirs = item.path in checked_dirs;
-        bool has_checked = has_checked_descendant (item.path);
-
-        if (is_loaded) {
-            var stats = new FileStats ();
-            collect_file_stats (item, stats);
-            bool has_unloaded;
-            bool all_unloaded_checked;
-            check_unloaded_subdirs (item, out has_unloaded, out all_unloaded_checked);
-            if (stats.total > 0) {
-                if (in_checked_dirs) {
-                    if (stats.checked_count < stats.total) return 1;
-                    return 2;
-                } else {
-                    if (stats.checked_count == 0) return has_checked ? 1 : 0;
-                    if (stats.checked_count == stats.total && (!has_unloaded || all_unloaded_checked)) return 2;
-                    return 1;
-                }
-            }
-        }
-
-        if (in_checked_dirs) return 2;
-        if (has_checked) return 1;
-        return 0;
-    }
-
-    private void check_unloaded_subdirs (DirectoryItem item, out bool has_unloaded, out bool all_in_checked_dirs) {
-        has_unloaded = false;
-        all_in_checked_dirs = true;
-        for (uint i = 0; i < item.children.get_n_items (); i++) {
-            var child = (DirectoryItem) item.children.get_item (i);
-            if (child.is_dir) {
-                if (!child.children_loaded) {
-                    has_unloaded = true;
-                    if (!(child.path in checked_dirs)) {
-                        all_in_checked_dirs = false;
-                    }
-                } else {
-                    bool child_has_unloaded;
-                    bool child_all_checked;
-                    check_unloaded_subdirs (child, out child_has_unloaded, out child_all_checked);
-                    if (child_has_unloaded) {
-                        has_unloaded = true;
-                        if (!child_all_checked) {
-                            all_in_checked_dirs = false;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     public bool has_checked_descendant (string dir_path) {
         return implicit_checked_dirs.has_key (dir_path);
-    }
-
-    private void collect_file_stats (DirectoryItem item, FileStats stats) {
-        if (!item.is_dir) {
-            stats.total++;
-            if (item.path in checked_files) stats.checked_count++;
-            return;
-        }
-        for (uint i = 0; i < item.children.get_n_items (); i++) {
-            collect_file_stats ((DirectoryItem) item.children.get_item (i), stats);
-        }
-    }
-
-    private class FileStats {
-        public int total = 0;
-        public int checked_count = 0;
     }
 
     private void add_to_implicit_dirs (string path) {
@@ -183,47 +106,6 @@ public class CheckStateModel : GLib.Object {
         remove_ancestors_from_checked_dirs (path);
         changed ();
         return !is_checked;
-    }
-
-    public void set_subtree_checked (DirectoryItem item, bool value) {
-        if (!item.is_dir) {
-            if (value) {
-                if (!(item.path in checked_files)) {
-                    checked_files.add (item.path);
-                    add_to_implicit_dirs (item.path);
-                }
-            } else {
-                if (item.path in checked_files) {
-                    checked_files.remove (item.path);
-                    remove_from_implicit_dirs (item.path);
-                }
-            }
-            return;
-        }
-        set_dir_checked (item.path, value);
-        set_subtree_files (item, value);
-        changed ();
-    }
-
-    private void set_subtree_files (DirectoryItem item, bool value) {
-        for (uint i = 0; i < item.children.get_n_items (); i++) {
-            var child = (DirectoryItem) item.children.get_item (i);
-            if (!child.is_dir) {
-                if (value) {
-                    if (!(child.path in checked_files)) {
-                        checked_files.add (child.path);
-                        add_to_implicit_dirs (child.path);
-                    }
-                } else {
-                    if (child.path in checked_files) {
-                        checked_files.remove (child.path);
-                        remove_from_implicit_dirs (child.path);
-                    }
-                }
-            } else {
-                set_subtree_files (child, value);
-            }
-        }
     }
 
     public void add_files (string[] paths) {
@@ -294,18 +176,6 @@ public class DirectoryItem : GLib.Object {
         this.path = path;
         this.is_dir = is_dir;
         this.children = new GLib.ListStore (typeof (DirectoryItem));
-    }
-
-    public void set_checked_recursive (bool value) {
-        _checked = value;
-        _inconsistent = false;
-        notify_property ("checked");
-        notify_property ("inconsistent");
-        state_changed ();
-        for (uint i = 0; i < children.get_n_items (); i++) {
-            var child = (DirectoryItem) children.get_item (i);
-            child.set_checked_recursive (value);
-        }
     }
 }
 

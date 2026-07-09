@@ -111,6 +111,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private GLib.Cancellable? app_cancellable = new GLib.Cancellable ();
     // 操作令牌: 目录勾选等分批任务递增, 旧令牌任务在 Idle 中自行放弃, 防止上下文切换后仍修改旧列表
     private uint current_operation_token = 0;
+    // 每个目录各自的最新令牌, 仅当同一目录有更新的操作时才放弃旧的 items 分批任务, 避免不同目录间的误取消
+    private Gee.HashMap<string, uint> dir_operation_tokens = new Gee.HashMap<string, uint> ();
     private uint ensure_path_token = 0;
 
     // Git 模式状态
@@ -1104,9 +1106,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // 目录勾选/取消勾选的后台收集结果处理 (主线程)
     // items 增删分批在 Idle 中执行, 避免数万文件一次性处理阻塞 UI
     private void apply_dir_check_result (bool new_checked, Gee.ArrayList<string> dir_paths, Gee.ArrayList<string> file_paths) {
-        current_operation_token++;
-        uint my_token = current_operation_token;
-
+        uint my_token = current_operation_token + 1;
+        current_operation_token = my_token;
+        string op_dir = dir_paths.size > 0 ? dir_paths.get (0) : "";
+        if (op_dir != "") {
+            dir_operation_tokens.set (op_dir, my_token);
+        }
         // check_model 操作: 同步执行 (数据结构操作, 相对快速)
         if (new_checked) {
             // 先加文件 (内部会移除祖先目录的 checked_dirs 标记)
@@ -1131,7 +1136,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         int chunk_size = 200;
         int idx = 0;
         Idle.add (() => {
-            if (window_closing || my_token != current_operation_token) return Source.REMOVE;
+            if (window_closing) return Source.REMOVE;
+            if (op_dir != "" && dir_operation_tokens.has_key (op_dir) && dir_operation_tokens.get (op_dir) != my_token) return Source.REMOVE;
             int count = 0;
             while (idx < file_paths.size && count < chunk_size) {
                 var p = file_paths.get (idx);
@@ -1152,7 +1158,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (idx < file_paths.size) {
                 return Source.CONTINUE;
             }
-            if (!window_closing && my_token == current_operation_token) {
+            if (!window_closing && (op_dir == "" || !dir_operation_tokens.has_key (op_dir) || dir_operation_tokens.get (op_dir) == my_token)) {
                 refresh_list ();
             }
             return Source.REMOVE;
@@ -1206,7 +1212,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
     }
 
-    // 自底向上刷新并收集统计信息, 消除原有的 refresh_subtree_states + compute_state + collect_file_stats 三重递归
+    // 自底向上刷新并收集统计信息, 取代原先分散的 refresh_subtree_states 递归 + 独立统计计算
     private SubtreeStats refresh_and_collect_stats (DirectoryItem item) {
         SubtreeStats stats = SubtreeStats ();
 
@@ -1285,8 +1291,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 item.checked = true;
                 item.inconsistent = false; // 全选态 (占位)
             } else if (has_checked) {
-                item.checked = false;
-                item.inconsistent = true; // 半选态 (占位)
+                // 若所有未加载后代均在 checked_dirs 中 (即均为完整勾选的子目录), 视为全选而非半选
+                if (stats.all_unloaded_in_checked_dirs) {
+                    item.checked = true;
+                    item.inconsistent = false;
+                } else {
+                    item.checked = false;
+                    item.inconsistent = true; // 半选态 (占位)
+                }
             } else {
                 item.checked = false;
                 item.inconsistent = false; // 彻底未勾选
