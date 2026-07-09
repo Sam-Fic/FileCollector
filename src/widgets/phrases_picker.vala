@@ -84,7 +84,7 @@ public class PhrasesPicker : GLib.Object {
     public void show_manage_window () {
         var dialog = new Adw.Dialog ();
         dialog.set_title (_("常用语管理"));
-        dialog.set_content_width (520);
+        dialog.set_content_width (400);
         dialog.set_content_height (400);
 
         var toolbar_view = new Adw.ToolbarView ();
