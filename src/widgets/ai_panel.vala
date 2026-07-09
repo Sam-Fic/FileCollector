@@ -9,8 +9,8 @@
  * API 调用走 GLib.Thread + Worker, 不阻塞主线程.
  * 工具调用由主窗口注入的 tool_executor 回调执行; 这里只负责消息展示和对话循环.
  *
- * UI 风格: 与现有 left/middle/right 三栏卡片 (panel-frame + card) 完全一致 —
- * Frame + Box styles="card" + panel-title 标题.
+ * UI 风格: 与现有 left/middle/right 三栏卡片 (css "card") 完全一致 —
+ * Box css="card" + panel-title 标题.
  */
 
 using GLib;

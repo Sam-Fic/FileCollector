@@ -67,18 +67,18 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
        shrink-end-child: false;
        css-classes: ["paned-no-handle"];
 
-       // AI 边栏 (最左, 可折叠)
-       Frame ai_sidebar {
-          visible: false;
-          hexpand: false;
-          vexpand: true;
-          width-request: 280;
-          margin-top: 0;
-          margin-bottom: 6;
-          margin-start: 6;
-          margin-end: 6;
-          css-classes: ["ai-panel", "panel-frame"];
-       }
+        // AI 边栏 (最左, 可折叠) - 直接以 card Box 作为面板, 去掉冗余 Frame
+        Box ai_sidebar {
+           visible: false;
+           hexpand: false;
+           vexpand: true;
+           width-request: 280;
+           margin-top: 0;
+           margin-bottom: 6;
+           margin-start: 6;
+           margin-end: 6;
+           css-classes: ["ai-panel", "card"];
+        }
 
       Paned outer_paned {
        orientation: horizontal;
@@ -92,7 +92,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
        css-classes: ["paned-no-handle"];
 
         // 左栏 - 目录树 / Git 历史
-        Frame {
+        Box {
            hexpand: true;
            vexpand: true;
            width-request: 200;
@@ -100,9 +100,8 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
            margin-bottom: 6;
            margin-start: 6;
            margin-end: 6;
-           css-classes: ["left-panel", "panel-frame"];
+           css-classes: ["left-panel", "card"];
          Box {
-           styles ["card"]
            orientation: vertical;
            spacing: 0;
            hexpand: true;
@@ -179,7 +178,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
         css-classes: ["paned-no-handle"];
 
         // 中栏 - 输出编排
-        Frame {
+        Box {
            hexpand: true;
            vexpand: true;
            width-request: 400;
@@ -187,10 +186,9 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
            margin-bottom: 6;
            margin-start: 0;
            margin-end: 6;
-           css-classes: ["middle-panel", "panel-frame"];
+           css-classes: ["middle-panel", "card"];
           Box {
-            styles ["card"]
-             orientation: vertical;
+              orientation: vertical;
              spacing: 0;
              hexpand: true;
              vexpand: true;
@@ -384,7 +382,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
         }
 
         // 右栏 - 预览
-        Frame {
+        Box {
            hexpand: true;
            vexpand: true;
            width-request: 200;
@@ -392,10 +390,9 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
            margin-bottom: 6;
            margin-start: 6;
            margin-end: 6;
-           css-classes: ["right-panel", "panel-frame"];
+           css-classes: ["right-panel", "card"];
             Box {
-              styles ["card"]
-              orientation: vertical;
+                orientation: vertical;
               spacing: 0;
               hexpand: true;
               vexpand: true;

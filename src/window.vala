@@ -35,7 +35,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.Paned inner_paned;
     [GtkChild] private unowned Gtk.Button btn_ai_toggle;
     [GtkChild] private unowned Gtk.Paned ai_paned;
-    [GtkChild] private unowned Gtk.Frame ai_sidebar;
+    [GtkChild] private unowned Gtk.Box ai_sidebar;
 
     [GtkChild] private unowned Gtk.Button btn_retry_preprocess;
     [GtkChild] private unowned Gtk.DrawingArea token_ring;
@@ -3176,7 +3176,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         content.set_margin_bottom (12);
 
         var frame = new Gtk.Frame (null);
-        frame.add_css_class ("text-input-frame");
+        frame.add_css_class ("ai-input-frame");
 
         var scrolled = new Gtk.ScrolledWindow ();
         scrolled.set_vexpand (true);
@@ -4638,7 +4638,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         content.set_margin_bottom (12);
 
         var frame = new Gtk.Frame (null);
-        frame.add_css_class ("text-input-frame");
+        frame.add_css_class ("ai-input-frame");
 
         var scrolled = new Gtk.ScrolledWindow ();
         scrolled.set_vexpand (true);
@@ -4866,12 +4866,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (ai_panel_instance == null) {
             ai_panel_instance = new AIPanel (this);
             var content = ai_panel_instance.build_widget ();
-            // Frame 内部包一个 card Box, 与现有三栏完全一致
-            var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
-            box.set_size_request (-1, -1);
-            box.add_css_class ("card");
-            box.append (content);
-            ai_sidebar.set_child (box);
+            // ai_sidebar 本身已是 card Box, 直接放入内容
+            ai_sidebar.append (content);
 
             ai_panel_instance.get_undo_token.connect (() => {
                 return undo_manager.get_stack_size ();
