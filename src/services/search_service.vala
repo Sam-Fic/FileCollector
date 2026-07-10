@@ -23,7 +23,7 @@ public class SearchService : GLib.Object {
             return;
         }
 
-        string[] ignored_dirs = ConfigManager.get_ignored_dirs ();
+        string[] ignored_dirs = sanitize_ignored_dirs (ConfigManager.get_ignored_dirs ());
         int scanned = 0;
         int matched = 0;
 
@@ -41,6 +41,22 @@ public class SearchService : GLib.Object {
                 return Source.REMOVE;
             });
         }
+    }
+
+    /**
+     * 净化忽略目录列表：剔除空串与空白项（空串会使 name in ignored_dirs 的比较
+     * 行为异常，导致整个子树被错误跳过），并去重。忽略目录只按 basename 比较，
+     * 故此处无需路径规范化。
+     */
+    private static string[] sanitize_ignored_dirs (string[] raw) {
+        var cleaned = new Gee.ArrayList<string> ();
+        foreach (var d in raw) {
+            if (d == null) continue;
+            string s = d.strip ();
+            if (s.length == 0) continue;
+            if (!cleaned.contains (s)) cleaned.add (s);
+        }
+        return cleaned.to_array ();
     }
 
     private void scan_directory (string root, string current_dir, string keyword, bool case_sensitive,
