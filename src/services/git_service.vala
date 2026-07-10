@@ -98,8 +98,4 @@ public class GitService : GLib.Object {
     public static string get_status (string work_dir) throws GLib.Error {
         return run_git (work_dir, { "status", "--porcelain=v1", "-uall" });
     }
-
-    public static string get_diff_for_range (string work_dir, string from_hash, string to_hash) throws GLib.Error {
-        return run_git (work_dir, { "diff", from_hash + ".." + to_hash });
-    }
 }
