@@ -92,7 +92,7 @@ git log v2.0.3..HEAD --stat --name-only
 AI 应直接执行以下命令，无需询问用户：
 
 ```bash
-git add meson.build data/com.github.samfic.filecollector.metainfo.xml
+git add meson.build data/io.github.sam_fic.filecollector.metainfo.xml
 git commit -m "release: vX.Y.Z"
 git tag vX.Y.Z
 git push && git push origin vX.Y.Z
@@ -103,7 +103,7 @@ git push && git push origin vX.Y.Z
 #### 方式 A：仅本地安装（快速验证）
 
 ```bash
-flatpak-builder build-dir com.github.samfic.filecollector.json --user --install --force-clean
+flatpak-builder build-dir io.github.sam_fic.filecollector.json --user --install --force-clean
 ```
 
 - `build-dir/` 是临时构建目录（已在 `.gitignore` 中忽略）
@@ -121,10 +121,10 @@ flatpak-builder build-dir com.github.samfic.filecollector.json --user --install 
 
 ```bash
 # 步骤 1：构建到本地仓库
-flatpak-builder --repo=flatpak-repo build-dir com.github.samfic.filecollector.json --force-clean
+flatpak-builder --repo=flatpak-repo build-dir io.github.sam_fic.filecollector.json --force-clean
 
 # 步骤 2：从本地仓库导出单文件 bundle
-flatpak build-bundle flatpak-repo filecollector-2.0.4.flatpak com.github.samfic.filecollector
+flatpak build-bundle flatpak-repo filecollector-2.0.4.flatpak io.github.sam_fic.filecollector
 ```
 
 > ⚠️ **常见错误**：`build-bundle` 的第一个参数必须是 **本地仓库目录**（即 `--repo=` 指定的目录），**不是**构建目录 `build-dir/`。如果传入 `build-dir/` 会报错：
@@ -144,10 +144,10 @@ flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flat
 
 # 安装并运行验证
 flatpak install --user --or-update -y filecollector-2.0.4.flatpak
-flatpak run com.github.samfic.filecollector
+flatpak run io.github.sam_fic.filecollector
 
 # 确认 metainfo 中的版本号正确
-flatpak info com.github.samfic.filecollector
+flatpak info io.github.sam_fic.filecollector
 ```
 
 > 💡 **交互式确认**：`flatpak install` 可能弹出确认提示 `[Y/n]`，在脚本中可添加 `--noninteractive` 标志：
@@ -163,11 +163,11 @@ flatpak info com.github.samfic.filecollector
 > ls -lh filecollector-*.flatpak
 >
 > # 验证 metainfo 中的版本号
-> flatpak info com.github.samfic.filecollector  # 安装后
+> flatpak info io.github.sam_fic.filecollector  # 安装后
 > ```
 >
 > ```bash
-> flatpak uninstall --user -y com.github.samfic.filecollector
+> flatpak uninstall --user -y io.github.sam_fic.filecollector
 > flatpak install --user filecollector-2.0.4.flatpak
 > ```
 
@@ -176,7 +176,7 @@ flatpak info com.github.samfic.filecollector
 构建完成后，从仓库导出单文件 bundle：
 
 ```bash
-flatpak build-bundle flatpak-repo filecollector-2.0.x.flatpak com.github.samfic.filecollector
+flatpak build-bundle flatpak-repo filecollector-2.0.x.flatpak io.github.sam_fic.filecollector
 ```
 
 ### 2.8 修改源码后重新构建
@@ -186,16 +186,16 @@ flatpak build-bundle flatpak-repo filecollector-2.0.x.flatpak com.github.samfic.
 ## 三、项目结构说明
 
 ```
-com.github.samfic.filecollector.json   ← Flatpak 构建清单（manifest）
+io.github.sam_fic.filecollector.json   ← Flatpak 构建清单（manifest）
 meson.build                             ← Meson 构建配置（**唯一版本源**）
 src/config.vala.in                      ← 版本号模板，meson 构建时从 meson.build 读取版本自动生成
 data/
-  com.github.samfic.filecollector.metainfo.xml  ← AppStream 元数据（版本记录在此）
+  io.github.sam_fic.filecollector.metainfo.xml  ← AppStream 元数据（版本记录在此）
 ```
 
 ### 构建清单结构
 
-`com.github.samfic.filecollector.json` 包含两个模块：
+`io.github.sam_fic.filecollector.json` 包含两个模块：
 
 1. **`blueprint-compiler`**：从 Git 源码构建 Blueprint 编译器（用于编译 `.blp` UI 文件）
 2. **`filecollector`**：主应用，`"type": "dir", "path": "."` 表示使用本地源码
@@ -210,7 +210,7 @@ data/
 
 如果需要升级运行时版本（例如 GNOME 51 发布后），需要同时更新：
 
-- `com.github.samfic.filecollector.json` 中的 `runtime-version`
+- `io.github.sam_fic.filecollector.json` 中的 `runtime-version`
 - CI/CD 中安装的运行时版本
 
 ### 4.2 权限（finish-args）
@@ -239,11 +239,11 @@ data/
 Run-time dependency xxx found: NO (tried pkgconfig and cmake)
 ```
 
-**解决**：在 `com.github.samfic.filecollector.json` 的 `modules` 中添加缺失依赖的构建步骤，或确保 runtime 已包含该依赖。
+**解决**：在 `io.github.sam_fic.filecollector.json` 的 `modules` 中添加缺失依赖的构建步骤，或确保 runtime 已包含该依赖。
 
 ### 5.2 构建失败：blueprint-compiler 版本不兼容
 
-**解决**：更新 `com.github.samfic.filecollector.json` 中 `blueprint-compiler` 的 `tag` 字段。
+**解决**：更新 `io.github.sam_fic.filecollector.json` 中 `blueprint-compiler` 的 `tag` 字段。
 
 ### 5.3 本地安装时交互式提示
 
@@ -263,13 +263,13 @@ flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flat
 
 ```bash
 # 失败后直接重试即可，部分下载会被缓存
-flatpak-builder --repo=flatpak-repo build-dir com.github.samfic.filecollector.json --force-clean
+flatpak-builder --repo=flatpak-repo build-dir io.github.sam_fic.filecollector.json --force-clean
 ```
 
 如果多次失败，可尝试手动预下载：
 
 ```bash
-flatpak-builder --repo=flatpak-repo build-dir com.github.samfic.filecollector.json 2>&1 | tee build.log
+flatpak-builder --repo=flatpak-repo build-dir io.github.sam_fic.filecollector.json 2>&1 | tee build.log
 ```
 
 ### 5.5 文件路径不被 Git 跟踪
@@ -285,7 +285,7 @@ flatpak-builder --repo=flatpak-repo build-dir com.github.samfic.filecollector.js
 find . -name "filecollector-*.flatpak" ! -name "filecollector-4.3.0.flatpak" -delete
 
 # 清理旧的 flatpak 安装（如有）
-flatpak uninstall --user -y com.github.samfic.filecollector  # 重新安装新版本
+flatpak uninstall --user -y io.github.sam_fic.filecollector  # 重新安装新版本
 ```
 
 ### 5.7 跨版本构建注意事项
@@ -303,16 +303,16 @@ flatpak uninstall --user -y com.github.samfic.filecollector  # 重新安装新�
 # 1. git log 查看上一版本到现在的提交，总结更新内容
 # 2. 编辑 meson.build 更新版本号
 # 3. 编辑 metainfo.xml 添加发布记录
-# 4. git add meson.build data/com.github.samfic.filecollector.metainfo.xml && git commit -m "release: vX.Y.Z" && git tag vX.Y.Z && git push && git push origin vX.Y.Z
-# 5. flatpak-builder --repo=flatpak-repo build-dir com.github.samfic.filecollector.json --force-clean
-# 6. flatpak build-bundle flatpak-repo filecollector-X.Y.Z.flatpak com.github.samfic.filecollector
+# 4. git add meson.build data/io.github.sam_fic.filecollector.metainfo.xml && git commit -m "release: vX.Y.Z" && git tag vX.Y.Z && git push && git push origin vX.Y.Z
+# 5. flatpak-builder --repo=flatpak-repo build-dir io.github.sam_fic.filecollector.json --force-clean
+# 6. flatpak build-bundle flatpak-repo filecollector-X.Y.Z.flatpak io.github.sam_fic.filecollector
 # 7. flatpak install --user --or-update -y filecollector-X.Y.Z.flatpak
 # 8. gh release create vX.Y.Z --title "FileCollector vX.Y.Z" --notes "..." filecollector-X.Y.Z.flatpak
 
 # ──────────────────────────────────────
 # 仅本地安装验证（快速开发测试）
 # ──────────────────────────────────────
-flatpak-builder build-dir com.github.samfic.filecollector.json --user --install --force-clean
+flatpak-builder build-dir io.github.sam_fic.filecollector.json --user --install --force-clean
 ```
 
 ---

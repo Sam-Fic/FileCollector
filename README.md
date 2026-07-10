@@ -1,7 +1,7 @@
 # FileCollector
 
 <div align="center">
-  <img src="data/com.github.samfic.filecollector.svg" alt="FileCollector" width="128" height="128">
+  <img src="data/io.github.sam_fic.filecollector.svg" alt="FileCollector" width="128" height="128">
 </div>
 
 [中文版](README.md) · [English Version](README_EN.md)
@@ -54,7 +54,7 @@ flatpak install --user <下载的.flatpak文件>
 运行：
 
 ```bash
-flatpak run com.github.samfic.filecollector
+flatpak run io.github.sam_fic.filecollector
 ```
 
 ## 自行构建
@@ -103,8 +103,8 @@ filecollector --gui    # 强制启动图形界面（无其他 CLI 参数时第�
 ### Flatpak 构建
 
 ```bash
-flatpak-builder build-dir com.github.samfic.filecollector.json --user --install --force-clean
-flatpak run com.github.samfic.filecollector
+flatpak-builder build-dir io.github.sam_fic.filecollector.json --user --install --force-clean
+flatpak run io.github.sam_fic.filecollector
 ```
 
 也可以将 [BUILD_FLATPAK.md](BUILD_FLATPAK.md) 直接交给编程工具或 AI Agent，利用现有成熟流程完成规范化打包。
@@ -114,9 +114,9 @@ flatpak run com.github.samfic.filecollector
 ```
 .
 ├── data/                                  # 应用程序数据文件
-│   ├── com.github.samfic.filecollector.desktop
-│   ├── com.github.samfic.filecollector.metainfo.xml
-│   ├── com.github.samfic.filecollector.svg
+│   ├── io.github.sam_fic.filecollector.desktop
+│   ├── io.github.sam_fic.filecollector.metainfo.xml
+│   ├── io.github.sam_fic.filecollector.svg
 │   ├── filecollector.gresource.xml
 │   └── style.css
 ├── screenshots/                           # 截图文件
@@ -171,7 +171,7 @@ flatpak run com.github.samfic.filecollector
 ├── LINGUAS                                # 支持的语言列表
 ├── BUILD_FLATPAK.md                       # Flatpak 构建指南（供 AI 助手参考）
 ├── meson.build                            # Meson 构建配置
-└── com.github.samfic.filecollector.json   # Flatpak 构建清单
+└── io.github.sam_fic.filecollector.json   # Flatpak 构建清单
 ```
 
 ## 键盘快捷键

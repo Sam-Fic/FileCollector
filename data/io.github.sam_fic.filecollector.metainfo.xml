@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>com.github.samfic.filecollector</id>
+  <id>io.github.sam_fic.filecollector</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
   <name>FileCollector</name>
@@ -16,9 +16,9 @@
       <li>支持项目文件的保存与加载</li>
     </ul>
   </description>
-  <launchable type="desktop-id">com.github.samfic.filecollector.desktop</launchable>
+  <launchable type="desktop-id">io.github.sam_fic.filecollector.desktop</launchable>
   <url type="homepage">https://github.com/Sam-Fic/filecollector-gnome</url>
-  <developer id="com.github.samfic">
+  <developer id="io.github.sam_fic">
     <name>Sam-Fic</name>
   </developer>
   <content_rating type="oars-1.1" />

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
-  <gresource prefix="/com/github/samfic/filecollector">
+  <gresource prefix="/io/github/sam_fic/filecollector">
     <file preprocess="xml-stripblanks">window.ui</file>
     <file>style.css</file>
-    <file alias="icons/com.github.samfic.filecollector.svg">com.github.samfic.filecollector.svg</file>
-    <file alias="icons/scalable/apps/com.github.samfic.filecollector.svg">com.github.samfic.filecollector.svg</file>
+    <file alias="icons/io.github.sam_fic.filecollector.svg">io.github.sam_fic.filecollector.svg</file>
+    <file alias="icons/scalable/apps/io.github.sam_fic.filecollector.svg">io.github.sam_fic.filecollector.svg</file>
   </gresource>
 </gresources>

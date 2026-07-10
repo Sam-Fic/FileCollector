@@ -154,14 +154,14 @@ executable('filecollector',
   install: true
 )
 
-install_data('data/com.github.samfic.filecollector.desktop',
+install_data('data/io.github.sam_fic.filecollector.desktop',
   install_dir: join_paths(get_option('datadir'), 'applications')
 )
 
-install_data('data/com.github.samfic.filecollector.metainfo.xml',
+install_data('data/io.github.sam_fic.filecollector.metainfo.xml',
   install_dir: join_paths(get_option('datadir'), 'metainfo')
 )
 
-install_data('data/com.github.samfic.filecollector.svg',
+install_data('data/io.github.sam_fic.filecollector.svg',
   install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', 'scalable', 'apps')
 )

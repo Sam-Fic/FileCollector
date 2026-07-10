@@ -4,7 +4,7 @@ using Adw;
 using Json;
 using Gee;
 
-[GtkTemplate (ui = "/com/github/samfic/filecollector/window.ui")]
+[GtkTemplate (ui = "/io/github/sam_fic/filecollector/window.ui")]
 public class FileCollectorWindow : Adw.ApplicationWindow {
 
     [GtkChild] private unowned Gtk.ScrolledWindow dir_scrolled;
@@ -487,7 +487,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void load_css () {
         var provider = new Gtk.CssProvider ();
         try {
-            provider.load_from_resource ("/com/github/samfic/filecollector/style.css");
+            provider.load_from_resource ("/io/github/sam_fic/filecollector/style.css");
             Gtk.StyleContext.add_provider_for_display (Gdk.Display.get_default (), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
         } catch (Error e) {
             warning ("Failed to load CSS: %s", e.message);
@@ -4393,7 +4393,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var about = new Adw.AboutDialog ();
         about.application_name = _("FileCollector");
         about.version = Config.VERSION;
-        about.application_icon = "com.github.samfic.filecollector";
+        about.application_icon = "io.github.sam_fic.filecollector";
         about.comments = _("文件收集与编排工具");
         about.developers = { "Sam-Fic" };
         about.website = "https://github.com/Sam-Fic/filecollector-gnome";

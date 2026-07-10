@@ -33,7 +33,7 @@ public class ConfigManager : GLib.Object {
 
     private static Secret.Schema get_api_key_schema () {
         if (api_key_schema == null) {
-            api_key_schema = new Secret.Schema ("com.github.samfic.filecollector.api_key",
+            api_key_schema = new Secret.Schema ("io.github.sam_fic.filecollector.api_key",
                 Secret.SchemaFlags.NONE,
                 "type", Secret.SchemaAttributeType.STRING);
         }
@@ -277,7 +277,7 @@ public class ConfigManager : GLib.Object {
 
     private static Secret.Schema get_mm_api_key_schema () {
         if (mm_api_key_schema == null) {
-            mm_api_key_schema = new Secret.Schema ("com.github.samfic.filecollector.mm_api_key",
+            mm_api_key_schema = new Secret.Schema ("io.github.sam_fic.filecollector.mm_api_key",
                 Secret.SchemaFlags.NONE,
                 "type", Secret.SchemaAttributeType.STRING);
         }

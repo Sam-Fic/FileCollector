@@ -1,5 +1,5 @@
 {
-  "app-id": "com.github.samfic.filecollector",
+  "app-id": "io.github.sam_fic.filecollector",
   "runtime": "org.gnome.Platform",
   "runtime-version": "50",
   "sdk": "org.gnome.Sdk",

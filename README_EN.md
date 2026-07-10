@@ -1,7 +1,7 @@
 # FileCollector
 
 <div align="center">
-  <img src="data/com.github.samfic.filecollector.svg" alt="FileCollector" width="128" height="128">
+  <img src="data/io.github.sam_fic.filecollector.svg" alt="FileCollector" width="128" height="128">
 </div>
 
 [中文版](README.md) · [English Version](README_EN.md)
@@ -54,7 +54,7 @@ flatpak install --user <the-downloaded.flatpak-file>
 Then run:
 
 ```bash
-flatpak run com.github.samfic.filecollector
+flatpak run io.github.sam_fic.filecollector
 ```
 
 ## Build from Source
@@ -103,8 +103,8 @@ filecollector --gui    # Force GUI mode (same as the first command when no other
 ### Flatpak Build
 
 ```bash
-flatpak-builder build-dir com.github.samfic.filecollector.json --user --install --force-clean
-flatpak run com.github.samfic.filecollector
+flatpak-builder build-dir io.github.sam_fic.filecollector.json --user --install --force-clean
+flatpak run io.github.sam_fic.filecollector
 ```
 
 You can also hand [BUILD_FLATPAK.md](BUILD_FLATPAK.md) directly to programming tools or AI Agents to leverage the existing mature workflow for standardized packaging.
@@ -114,9 +114,9 @@ You can also hand [BUILD_FLATPAK.md](BUILD_FLATPAK.md) directly to programming t
 ```
 .
 ├── data/                                  # Application data files
-│   ├── com.github.samfic.filecollector.desktop
-│   ├── com.github.samfic.filecollector.metainfo.xml
-│   ├── com.github.samfic.filecollector.svg
+│   ├── io.github.sam_fic.filecollector.desktop
+│   ├── io.github.sam_fic.filecollector.metainfo.xml
+│   ├── io.github.sam_fic.filecollector.svg
 │   ├── filecollector.gresource.xml
 │   └── style.css
 ├── screenshots/                           # Screenshots
@@ -171,7 +171,7 @@ You can also hand [BUILD_FLATPAK.md](BUILD_FLATPAK.md) directly to programming t
 ├── LINGUAS                                # List of supported languages
 ├── BUILD_FLATPAK.md                       # Flatpak build guide (for AI assistants)
 ├── meson.build                            # Meson build configuration
-└── com.github.samfic.filecollector.json   # Flatpak build manifest
+└── io.github.sam_fic.filecollector.json   # Flatpak build manifest
 ```
 
 ### Keyboard Shortcuts

@@ -5,7 +5,7 @@ public class FileCollectorApp : Adw.Application {
 
     public FileCollectorApp () {
         Object (
-            application_id: "com.github.samfic.filecollector",
+            application_id: "io.github.sam_fic.filecollector",
             flags: ApplicationFlags.HANDLES_COMMAND_LINE
         );
     }
@@ -182,12 +182,12 @@ public class FileCollectorApp : Adw.Application {
 
         var icon_theme = Gtk.IconTheme.get_for_display (display);
         var paths = icon_theme.resource_path ?? new string[] {};
-        if (paths.length > 0 && paths[0] == "/com/github/samfic/filecollector/icons") {
+        if (paths.length > 0 && paths[0] == "/io/github/sam_fic/filecollector/icons") {
             return;
         }
 
         var new_paths = new string[paths.length + 1];
-        new_paths[0] = "/com/github/samfic/filecollector/icons";
+        new_paths[0] = "/io/github/sam_fic/filecollector/icons";
         for (int i = 0; i < paths.length; i++) {
             new_paths[i + 1] = paths[i];
         }
