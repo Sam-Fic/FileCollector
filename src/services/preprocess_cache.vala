@@ -158,6 +158,6 @@ public class PreprocessCache : GLib.Object {
         node.set_object (manifest);
         gen.set_root (node);
         gen.pretty = true;
-        gen.to_file (manifest_path);
+        ConfigManager.atomic_write_json (gen, manifest_path);
     }
 }

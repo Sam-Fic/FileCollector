@@ -174,7 +174,7 @@ public class ConfigManager : GLib.Object {
             generator.pretty = true;
 
             var file = get_phrases_file ();
-            generator.to_file (file);
+            atomic_write_json (generator, file);
         } catch (Error e) {
             warning ("Failed to save common phrases: %s", e.message);
         }
@@ -406,7 +406,7 @@ public class ConfigManager : GLib.Object {
         var gen = new Json.Generator ();
         gen.set_root (AI.SchemaHelper.obj_to_node (root));
         gen.pretty = true;
-        gen.to_file (get_settings_file ());
+        atomic_write_json (gen, get_settings_file ());
     }
 
     public static AISettings load_ai_settings () {
@@ -613,11 +613,31 @@ public class ConfigManager : GLib.Object {
             var generator = new Json.Generator ();
             generator.set_root (builder.get_root ());
             generator.pretty = true;
-            generator.to_file (get_templates_file ());
+            atomic_write_json (generator, get_templates_file ());
         } catch (Error e) {
             warning ("Failed to save templates: %s", e.message);
         } finally {
             config_mutex.unlock ();
         }
+    }
+
+    /**
+     * 原子写入 JSON 文件：先写临时文件再 rename 替换目标。
+     * 写入中途崩溃（断电/被杀）只会留下临时文件，原文件保持完整，
+     * 下次加载不会损坏。
+     */
+    public static void atomic_write_json (Json.Generator generator, string target_path) throws Error {
+        var target = File.new_for_path (target_path);
+        var dir = target.get_parent ();
+        // 临时文件与目标同目录，确保 rename 是同一文件系统上的原子操作。
+        var tmp = File.new_for_path (
+            Path.build_filename (dir != null ? dir.get_path () : ".", "." + target.get_basename () + ".tmp")
+        );
+
+        var stream = tmp.replace (null, false, FileCreateFlags.NONE);
+        generator.to_stream (stream, null);
+        stream.close ();
+
+        tmp.move (target, FileCopyFlags.OVERWRITE);
     }
 }

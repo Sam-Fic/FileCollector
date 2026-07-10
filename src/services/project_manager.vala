@@ -182,11 +182,10 @@ public class ProjectManager : GLib.Object {
         generator.pretty = true;
 
         try {
-            var file_stream = File.new_for_path (file_path).replace (null, false, FileCreateFlags.NONE);
-            generator.to_stream (file_stream, null);
+            ConfigManager.atomic_write_json (generator, file_path);
         } catch (Error e) {
-            var str = generator.to_data (null);
-            FileUtils.set_contents (file_path, str);
+            warning ("Failed to save project file %s: %s", file_path, e.message);
+            throw e;
         }
     }
 }
