@@ -41,17 +41,33 @@ public class FileGenerator : GLib.Object {
 
                 if (data.is_snippet ()) {
                     try {
-                        uint8[] raw_bytes;
-                        FileUtils.get_data (data.file_path, out raw_bytes);
-                        string content = EncodingHelper.decode_to_utf8 (raw_bytes);
-                        string[] lines = content.split ("\n");
-                        int s = int.max (0, data.start_line - 1);
-                        int e = int.min (lines.length, data.end_line);
-                        var sb = new StringBuilder ();
-                        for (int j = s; j < e; j++) {
-                            sb.append (lines[j]).append ("\n");
+                        // 逐行流式读取：只读所需行区间，避免大文件整读 OOM。
+                        FileInputStream? fis = null;
+                        DataInputStream? dis_in = null;
+                        try {
+                            fis = f.read ();
+                            dis_in = new DataInputStream (fis);
+                            dis_in.set_newline_type (DataStreamNewlineType.ANY);
+                            // 1-based 行号：需要跳过的行数与需要读取的行数。
+                            int skip = int.max (0, data.start_line - 1);
+                            int want = (data.end_line <= data.start_line)
+                                ? 1
+                                : (data.end_line - data.start_line + 1);
+                            for (int ln = 1; ln <= skip; ln++) {
+                                if (dis_in.read_line () == null) break;
+                            }
+                            var sb = new StringBuilder ();
+                            for (int ln = 0; ln < want; ln++) {
+                                string? line = dis_in.read_line ();
+                                if (line == null) break;
+                                sb.append (line).append ("\n");
+                            }
+                            dis.put_string (sb.str);
+                        } finally {
+                            if (dis_in != null) {
+                                try { dis_in.close (); } catch (Error e) { debug ("Close failed: %s", e.message); }
+                            }
                         }
-                        dis.put_string (sb.str);
                     } catch (Error e) {
                         dis.put_string (_("[读取片段失败: %s]\n").printf (e.message));
                     }
