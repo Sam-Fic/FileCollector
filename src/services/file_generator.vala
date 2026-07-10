@@ -48,11 +48,21 @@ public class FileGenerator : GLib.Object {
                             fis = f.read ();
                             dis_in = new DataInputStream (fis);
                             dis_in.set_newline_type (DataStreamNewlineType.ANY);
+
+                            // 规范化行区间：行号从 1 起算，且 start 必须 <= end。
+                            // 用户可能填反（start > end）或编辑后行数变动，此处
+                            // 自动纠正顺序，避免静默丢失内容。
+                            int start = int.max (1, data.start_line);
+                            int end = int.max (1, data.end_line);
+                            bool swapped = false;
+                            if (start > end) {
+                                int t = start; start = end; end = t;
+                                swapped = true;
+                            }
+
                             // 1-based 行号：需要跳过的行数与需要读取的行数。
-                            int skip = int.max (0, data.start_line - 1);
-                            int want = (data.end_line <= data.start_line)
-                                ? 1
-                                : (data.end_line - data.start_line + 1);
+                            int skip = start - 1;
+                            int want = end - start + 1;
                             for (int ln = 1; ln <= skip; ln++) {
                                 if (dis_in.read_line () == null) break;
                             }
@@ -61,6 +71,9 @@ public class FileGenerator : GLib.Object {
                                 string? line = dis_in.read_line ();
                                 if (line == null) break;
                                 sb.append (line).append ("\n");
+                            }
+                            if (swapped) {
+                                dis.put_string (_("[提示: 起始行(%d)大于结束行(%d)，已自动交换]\n").printf (data.start_line, data.end_line));
                             }
                             dis.put_string (sb.str);
                         } finally {

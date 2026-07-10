@@ -814,7 +814,10 @@ public class AIController : GLib.Object {
         int sl = (int) o.get_int_member ("start_line");
         int el = (int) o.get_int_member ("end_line");
 
-        if (path == "" || sl <= 0 || el < sl) return "参数无效";
+        if (path == "" || sl <= 0 || el <= 0) return "参数无效";
+        // 起始/结束填反时自动纠正顺序，并在返回信息中说明。
+        bool swapped = false;
+        if (sl > el) { int t = sl; sl = el; el = t; swapped = true; }
 
         string? resolved = resolve_ai_path (path);
         if (resolved == null || !is_path_in_work_dir (resolved)) return "路径无效或越界";
@@ -830,7 +833,8 @@ public class AIController : GLib.Object {
         preprocess_item_requested (resolved);
         refresh_list_requested ();
 
-        return "已添加片段: %s [L%d-L%d]".printf (GLib.Path.get_basename (resolved), sl, el);
+        return (swapped ? _("已自动交换起始/结束行。") : "") +
+            "已添加片段: %s [L%d-L%d]".printf (GLib.Path.get_basename (resolved), sl, el);
     }
 
     // ─── 静态辅助方法 ────────────────────────────────────────────────

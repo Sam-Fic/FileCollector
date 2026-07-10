@@ -3942,7 +3942,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 string[] bounds = trimmed.split ("-", 2);
                 int start = int.parse (bounds[0].strip ());
                 int end = int.parse (bounds[1].strip ());
-                if (start > 0 && end > 0 && start <= end) {
+                if (start > 0 && end > 0) {
+                    // 起始/结束填反时自动纠正顺序并提示，避免直接拒绝导致内容丢失。
+                    if (start > end) {
+                        int t = start; start = end; end = t;
+                        show_toast (_("行范围 %s 起始行大于结束行，已自动交换").printf (trimmed));
+                    }
                     starts.add (start);
                     ends.add (end);
                 } else {
