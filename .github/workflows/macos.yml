@@ -1,0 +1,54 @@
+name: 🍎 macOS
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (homebrew)
+        run: |
+          brew install gtk4 libadwaita json-glib libsoup gtksourceview5 libgee \
+                     cmark-gfm blueprint-compiler meson ninja gettext libsecret \
+                     pkg-config
+          echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig:$(brew --prefix)/share/pkgconfig" >> "$GITHUB_ENV"
+          echo "LDFLAGS=-L$(brew --prefix)/lib" >> "$GITHUB_ENV"
+          echo "CPPFLAGS=-I$(brew --prefix)/include" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: |
+          meson setup build
+          meson compile -C build
+
+      - name: Stage portable .app
+        run: |
+          APP=FileCollector.app
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          cp build/filecollector "$APP/Contents/MacOS/FileCollector"
+          python3 tools/fix_rpaths.py "$APP/Contents/MacOS/FileCollector" "$APP/Contents/MacOS"
+          cp -r data "$APP/Contents/Resources/" 2>/dev/null || true
+          cp -r locale "$APP/Contents/Resources/" 2>/dev/null || true
+          cat > "$APP/Contents/Info.plist" <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>CFBundleName</key><string>FileCollector</string>
+            <key>CFBundleExecutable</key><string>FileCollector</string>
+            <key>CFBundleIdentifier</key><string>io.github.sam_fic.filecollector</string>
+            <key>CFBundleVersion</key><string>4.6.0</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+          </dict></plist>
+          EOF
+          zip -r filecollector-macos-arm64.zip "$APP"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: filecollector-macos-arm64
+          path: filecollector-macos-arm64.zip
+          if-no-files-found: error

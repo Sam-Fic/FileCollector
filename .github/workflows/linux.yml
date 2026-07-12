@@ -1,0 +1,32 @@
+name: 🐧 Linux
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build valac libgtk-4-dev libadwaita-1-dev \
+            libjson-glib-dev libsoup-3.0-dev libgee-0.8-dev libgtksourceview-5-dev \
+            libcmark-gfm-dev libcmark-gfm-extensions-dev blueprint-compiler gettext \
+            libsecret-1-dev
+
+      - name: Build
+        run: |
+          meson setup build
+          meson compile -C build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: filecollector-linux-x86_64
+          path: build/filecollector
+          if-no-files-found: error

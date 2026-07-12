@@ -1,0 +1,168 @@
+name: 🚀 Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: 🏁 Windows
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-meson
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-gtk4
+            mingw-w64-x86_64-libadwaita
+            mingw-w64-x86_64-json-glib
+            mingw-w64-x86_64-libsoup3
+            mingw-w64-x86_64-libgee
+            mingw-w64-x86_64-gtksourceview5
+            mingw-w64-x86_64-cmark-gfm
+            mingw-w64-x86_64-blueprint-compiler
+            mingw-w64-x86_64-gettext
+            mingw-w64-x86_64-libsecret
+
+      - name: Build
+        run: |
+          meson setup build
+          meson compile -C build
+
+      - name: Stage portable package
+        run: |
+          mkdir -p staging/bin
+          cp build/filecollector.exe staging/bin/
+          python3 tools/collect_dlls.py staging/bin/filecollector.exe staging/bin
+          mkdir -p staging/share
+          cp -r data staging/share/ 2>/dev/null || true
+          cp -r locale staging/ 2>/dev/null || true
+          cd staging && zip -r ../filecollector-windows-x64.zip .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: filecollector-windows-x64
+          path: filecollector-windows-x64.zip
+          if-no-files-found: error
+
+  macos:
+    name: 🍎 macOS
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (homebrew)
+        run: |
+          brew install gtk4 libadwaita json-glib libsoup gtksourceview5 libgee \
+                     cmark-gfm blueprint-compiler meson ninja gettext libsecret \
+                     pkg-config
+          echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig:$(brew --prefix)/share/pkgconfig" >> "$GITHUB_ENV"
+          echo "LDFLAGS=-L$(brew --prefix)/lib" >> "$GITHUB_ENV"
+          echo "CPPFLAGS=-I$(brew --prefix)/include" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: |
+          meson setup build
+          meson compile -C build
+
+      - name: Stage portable .app
+        run: |
+          APP=FileCollector.app
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          cp build/filecollector "$APP/Contents/MacOS/FileCollector"
+          python3 tools/fix_rpaths.py "$APP/Contents/MacOS/FileCollector" "$APP/Contents/MacOS"
+          cp -r data "$APP/Contents/Resources/" 2>/dev/null || true
+          cp -r locale "$APP/Contents/Resources/" 2>/dev/null || true
+          cat > "$APP/Contents/Info.plist" <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>CFBundleName</key><string>FileCollector</string>
+            <key>CFBundleExecutable</key><string>FileCollector</string>
+            <key>CFBundleIdentifier</key><string>io.github.sam_fic.filecollector</string>
+            <key>CFBundleVersion</key><string>4.6.0</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+          </dict></plist>
+          EOF
+          zip -r filecollector-macos-arm64.zip "$APP"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: filecollector-macos-arm64
+          path: filecollector-macos-arm64.zip
+          if-no-files-found: error
+
+  linux:
+    name: 🐧 Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build valac libgtk-4-dev libadwaita-1-dev \
+            libjson-glib-dev libsoup-3.0-dev libgee-0.8-dev libgtksourceview-5-dev \
+            libcmark-gfm-dev libcmark-gfm-extensions-dev blueprint-compiler gettext \
+            libsecret-1-dev
+
+      - name: Build
+        run: |
+          meson setup build
+          meson compile -C build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: filecollector-linux-x86_64
+          path: build/filecollector
+          if-no-files-found: error
+
+  release:
+    name: 🚀 Publish to GitHub Release
+    needs: [windows, macos, linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/filecollector-windows-x64.zip
+            artifacts/filecollector-macos-arm64.zip
+            artifacts/filecollector-linux-x86_64
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
