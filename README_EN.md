@@ -124,13 +124,16 @@ export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:$(brew --prefix)/share/pk
 ### Build & Install
 
 ```bash
-mkdir -p build && cd build
-meson setup ..
-meson compile
-sudo meson install
+meson setup build
+meson compile -C build
+sudo meson install -C build
 ```
 
-> **Tip**: If you have built before, re-run `meson compile` inside the `build/` directory for incremental compilation of the binary. If you modified translation files under `po/` or `_()` strings in UI, also re-run `sudo meson install` to deploy the updated `.mo` file to the system path.
+> **Tip**:
+>
+> - Always pass `-C build` to specify the build directory explicitly (e.g. `meson compile -C build`). On this machine (meson with Python 3.14), running `cd build` and then a bare `meson compile` makes meson's own argument parser crash (`os.path.realpath` raises `FileNotFoundError`); using `-C build` avoids it.
+> - If you have built before, re-run `meson compile -C build` for incremental compilation of the binary. If you modified translation files under `po/` or `_()` strings in UI, also re-run `sudo meson install -C build` to deploy the updated `.mo` file to the system path.
+> - `src/win32_dpapi_shim.c` (the Windows DPAPI wrapper) is a Windows-only file: it is only added to `sources` in `meson.build` on Windows builds. It does not exist on Linux/macOS, so never reference it unconditionally in `sources`.
 
 ### Run
 

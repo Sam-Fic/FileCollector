@@ -124,13 +124,16 @@ export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:$(brew --prefix)/share/pk
 ### 构建与安装
 
 ```bash
-mkdir -p build && cd build
-meson setup ..
-meson compile
-sudo meson install
+meson setup build
+meson compile -C build
+sudo meson install -C build
 ```
 
-> **提示**：如果之前已经构建过，修改源码后只需在 `build/` 目录下重新运行 `meson compile` 即可增量编译二进制。若修改了 `po/` 下的翻译文件或 UI 中的 `_()` 字符串，则需要重新运行 `sudo meson install` 以更新翻译文件到系统路径。
+> **提示**：
+>
+> - 请始终用 `-C build` 显式指定构建目录（如 `meson compile -C build`）。在本机（meson 与 Python 3.14 组合）下，`cd build` 后再直接运行 `meson compile` 会让 meson 自身的参数解析器崩溃（`os.path.realpath` 抛 `FileNotFoundError`），用 `-C build` 可规避。
+> - 如果之前已经构建过，修改源码后只需重新运行 `meson compile -C build` 即可增量编译二进制。若修改了 `po/` 下的翻译文件或 UI 中的 `_()` 字符串，则需要重新运行 `sudo meson install -C build` 以更新翻译文件到系统路径。
+> - `src/win32_dpapi_shim.c`（Windows DPAPI 封装）是 Windows 专用文件，仅在 Windows 构建时由 `meson.build` 加入 `sources`；在 Linux/macOS 上不存在，请勿在 `sources` 中无条件引用它。
 
 ### 运行
 
