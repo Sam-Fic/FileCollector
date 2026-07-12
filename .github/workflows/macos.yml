@@ -15,7 +15,7 @@ jobs:
         run: |
           brew install gtk4 libadwaita json-glib libsoup gtksourceview5 libgee \
                      cmark-gfm blueprint-compiler meson ninja gettext libsecret \
-                     pkg-config
+                     pkg-config vala
           echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig:$(brew --prefix)/share/pkgconfig" >> "$GITHUB_ENV"
           echo "LDFLAGS=-L$(brew --prefix)/lib" >> "$GITHUB_ENV"
           echo "CPPFLAGS=-I$(brew --prefix)/include" >> "$GITHUB_ENV"
