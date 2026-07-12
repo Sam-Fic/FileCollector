@@ -4396,7 +4396,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         about.application_icon = "io.github.sam_fic.filecollector";
         about.comments = _("文件收集与编排工具");
         about.developers = { "Sam-Fic" };
-        about.website = "https://github.com/Sam-Fic/filecollector-gnome";
+        about.website = "https://github.com/Sam-Fic/filecollector";
         about.license_type = Gtk.License.MIT_X11;
 
         about.present (this);
@@ -4573,21 +4573,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 update_token_display ();
             });
             preferences_dialog_instance.restart_requested.connect (() => {
-                try {
-                    string exec_path = FileUtils.read_link ("/proc/self/exe");
-                    var app = (FileCollectorApp) this.application;
-                    app.quit ();
-                    Process.spawn_async (
-                        null,
-                        {exec_path},
-                        null,
-                        0,
-                        null,
-                        null
-                    );
-                } catch (Error e) {
-                    warning ("Failed to restart: %s", e.message);
-                }
+                var app = (FileCollectorApp) this.application;
+                app.quit ();
+                Platform.restart_app ();
             });
         }
         preferences_dialog_instance.present ();

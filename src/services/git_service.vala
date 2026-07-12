@@ -9,15 +9,9 @@ public class GitService : GLib.Object {
     // Flatpak 运行时 (org.gnome.Platform) 不含 git, 但宿主机 git 可通过
     // /run/host/usr/bin/git 访问 (前提是 --filesystem=host)。在沙箱内直接
     // 调用 "git" 会因 PATH 中找不到而失败, 导致误报 "不是 Git 仓库"。
+    // 平台差异由 Platform.get_git_executable() 统一处理。
     private static string git_executable () {
-        if (_git_executable != null) return _git_executable;
-        if (FileUtils.test ("/.flatpak-info", FileTest.EXISTS) &&
-            FileUtils.test ("/run/host/usr/bin/git", FileTest.EXISTS)) {
-            _git_executable = "/run/host/usr/bin/git";
-        } else {
-            _git_executable = "git";
-        }
-        return _git_executable;
+        return Platform.get_git_executable ();
     }
 
     public static bool is_git_repo (string work_dir) {

@@ -13,11 +13,8 @@ public class PreviewSyntaxManager : GLib.Object {
         lang_manager = LanguageManager.get_default ();
         scheme_manager = new StyleSchemeManager ();
 
-        // 注册应用自带主题目录
-        string app_data_dir = "/usr/share/filecollector";
-        if (!FileUtils.test (app_data_dir, FileTest.EXISTS)) {
-            app_data_dir = GLib.Path.build_filename (Environment.get_current_dir (), "data");
-        }
+        // 注册应用自带主题目录 (平台差异由 Platform.get_data_dir() 处理)
+        string app_data_dir = Platform.get_data_dir ();
         string theme_dir = GLib.Path.build_filename (app_data_dir, "gtksourceview-5", "styles");
         if (FileUtils.test (theme_dir, FileTest.EXISTS)) {
             string[] search_paths = scheme_manager.get_search_path ();

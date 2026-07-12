@@ -27,56 +27,17 @@ public class ConfigManager : GLib.Object {
         public double timeout;
     }
 
-    // ─── libsecret Schema (延迟初始化) ──────────────────────────────────
-
-    private static Secret.Schema? api_key_schema = null;
-
-    private static Secret.Schema get_api_key_schema () {
-        if (api_key_schema == null) {
-            api_key_schema = new Secret.Schema ("io.github.sam_fic.filecollector.api_key",
-                Secret.SchemaFlags.NONE,
-                "type", Secret.SchemaAttributeType.STRING);
-        }
-        return api_key_schema;
-    }
-
-    // ─── 密钥存储 (libsecret) ──────────────────────────────────────────
+    // ─── 密钥存储 (跨平台: Linux libsecret / Win DPAPI / macOS Keychain) ──
+    // 由 SecretStore 命名空间统一处理平台差异, 见 src/services/secret_store.vala
 
     // 将 API Key 存入系统密钥环; key 为空时清除密钥环中的条目
     private static bool store_api_key_to_keyring (string api_key) {
-        if (api_key.length > 0) {
-            try {
-                return Secret.password_store_sync (
-                    get_api_key_schema (),
-                    Secret.COLLECTION_DEFAULT,
-                    "FileCollector AI API Key",
-                    api_key,
-                    null,
-                    "type", "api_key", null);
-            } catch (Error e) {
-                warning ("Failed to store API key in keyring: %s", e.message);
-                return false;
-            }
-        } else {
-            try {
-                Secret.password_clear_sync (get_api_key_schema (), null,
-                    "type", "api_key", null);
-            } catch (Error e) {
-                warning ("Failed to clear API key from keyring: %s", e.message);
-            }
-            return true;
-        }
+        return SecretStore.store_api_key (api_key);
     }
 
     // 从系统密钥环读取 API Key; 失败或不存在时返回 null
     private static string? load_api_key_from_keyring () {
-        try {
-            return Secret.password_lookup_sync (get_api_key_schema (), null,
-                "type", "api_key", null);
-        } catch (Error e) {
-            warning ("Failed to lookup API key from keyring: %s", e.message);
-            return null;
-        }
+        return SecretStore.load_api_key ();
     }
 
     // ─── 配置目录 / 文件路径 ───────────────────────────────────────────
@@ -273,50 +234,12 @@ public class ConfigManager : GLib.Object {
         public double timeout;
     }
 
-    private static Secret.Schema? mm_api_key_schema = null;
-
-    private static Secret.Schema get_mm_api_key_schema () {
-        if (mm_api_key_schema == null) {
-            mm_api_key_schema = new Secret.Schema ("io.github.sam_fic.filecollector.mm_api_key",
-                Secret.SchemaFlags.NONE,
-                "type", Secret.SchemaAttributeType.STRING);
-        }
-        return mm_api_key_schema;
-    }
-
     private static bool store_mm_api_key_to_keyring (string api_key) {
-        if (api_key.length > 0) {
-            try {
-                return Secret.password_store_sync (
-                    get_mm_api_key_schema (),
-                    Secret.COLLECTION_DEFAULT,
-                    "FileCollector Multimodal AI API Key",
-                    api_key,
-                    null,
-                    "type", "mm_api_key", null);
-            } catch (Error e) {
-                warning ("Failed to store mm API key in keyring: %s", e.message);
-                return false;
-            }
-        } else {
-            try {
-                Secret.password_clear_sync (get_mm_api_key_schema (), null,
-                    "type", "mm_api_key", null);
-            } catch (Error e) {
-                warning ("Failed to clear mm API key from keyring: %s", e.message);
-            }
-            return true;
-        }
+        return SecretStore.store_multimodal_api_key (api_key);
     }
 
     private static string? load_mm_api_key_from_keyring () {
-        try {
-            return Secret.password_lookup_sync (get_mm_api_key_schema (), null,
-                "type", "mm_api_key", null);
-        } catch (Error e) {
-            warning ("Failed to lookup mm API key from keyring: %s", e.message);
-            return null;
-        }
+        return SecretStore.load_multimodal_api_key ();
     }
 
     public static MultimodalAISettings load_multimodal_ai_settings () {

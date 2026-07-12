@@ -10,14 +10,40 @@ dependency('libadwaita-1', version: '>= 1.8')
 dependency('json-glib-1.0')
 dependency('libsoup-3.0')
 dependency('gee-0.8')
-dependency('libsecret-1')
 dependency('gtksourceview-5')
+
+# libsecret 仅 Linux 需要 (Win/macOS 由 SecretStore 用平台原生 API 替代)
+if host_machine.system() == 'linux'
+  dependency('libsecret-1')
+endif
 
 # cmark-gfm (GitHub Flavored Markdown) — 用于 AI 聊天气泡的 Markdown 渲染 (含表格)
 # 不用 dependency() 避免 meson 自动注入错误的 --pkg 名
 cc = meson.get_compiler('c')
 cmark_dep = cc.find_library('cmark-gfm', required: true)
 cmark_ext_dep = cc.find_library('cmark-gfm-extensions', required: true)
+cmark_header = cc.has_header('cmark-gfm.h', required: true)
+cmark_ext_header = cc.has_header('cmark-gfm-core-extensions.h', required: true)
+
+# ─── 平台分支 ──────────────────────────────────────────────────────────
+# 给 Vala 传递平台宏, 并决定额外链接库:
+#   - Linux   : libsecret-1 (密钥环走 libsecret)
+#   - Windows : advapi32    (DPAPI, CryptProtectData)
+#   - macOS   : -framework Security (SecKeychain)
+if host_machine.system() == 'windows'
+  platform_vala_args = ['-D', 'WINDOWS']
+  platform_link_args = ['-ladvapi32']
+  libsecret_dep = dependency('libsecret-1', required: false)
+elif host_machine.system() == 'darwin'
+  platform_vala_args = ['-D', 'MACOS']
+  platform_link_args = ['-framework', 'Security']
+  libsecret_dep = dependency('libsecret-1', required: false)
+else
+  # Linux (及其他类 Unix)
+  platform_vala_args = ['-D', 'LINUX', '--pkg', 'libsecret-1']
+  platform_link_args = []
+  libsecret_dep = dependency('libsecret-1')
+endif
 cmark_header = cc.has_header('cmark-gfm.h', required: true)
 cmark_ext_header = cc.has_header('cmark-gfm-core-extensions.h', required: true)
 
@@ -69,6 +95,8 @@ sources = files(
   'src/main.vala',
   'src/cli.vala',
   'src/window.vala',
+  'src/utils/platform.vala',
+  'src/services/secret_store.vala',
   'src/models/item_data.vala',
   'src/models/app_state.vala',
   'src/models/directory_item.vala',
@@ -138,19 +166,19 @@ executable('filecollector',
     dependency('json-glib-1.0'),
     dependency('libsoup-3.0'),
     dependency('gee-0.8'),
-    dependency('libsecret-1'),
     dependency('gtksourceview-5'),
     cmark_dep,
     cmark_ext_dep,
+    libsecret_dep,
     meson.get_compiler('c').find_library('m', required: false)
   ],
+  link_args: platform_link_args,
   vala_args: [
     '--header', 'filecollector_types.h',
     '--includedir', meson.current_build_dir (),
     '--vapidir', join_paths(meson.current_source_dir(), 'src', 'vapi'),
     '--pkg', 'cmark',
-    '--pkg', 'libsecret-1'
-  ],
+  ] + platform_vala_args,
   install: true
 )
 
