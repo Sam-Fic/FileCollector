@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: filecollector\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-12\n"
+"POT-Creation-Date: 2026-07-12 22:00+0800\n"
 "PO-Revision-Date: 2026-07-12 00:00+0800\n"
 "Last-Translator: Sam-Fic\n"
 "Language-Team: Chinese (China)\n"
@@ -12,693 +12,657 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:151
+#: src/cli.vala:151
 msgid "Absolute paths enabled"
 msgstr "已启用绝对路径"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:154
+#: src/cli.vala:154
 msgid "Header info enabled"
 msgstr "已启用头部信息"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:170
+#: src/cli.vala:170
 #, c-format
 msgid "Error: Unknown argument: %s\n"
 msgstr "错误: 未知参数: %s\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:171
+#: src/cli.vala:171
 msgid "Use --help to see usage information\n"
 msgstr "使用 --help 查看帮助信息\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:195
+#: src/cli.vala:195
 #, c-format
 msgid "Project saved to: %s\n"
 msgstr "项目已保存到: %s\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:196
+#: src/cli.vala:196
 #, c-format
 msgid "Project saved to: %s"
 msgstr "项目已保存到: %s"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:198
+#: src/cli.vala:198
 #, c-format
 msgid "Failed to save project: %s\n"
 msgstr "保存项目失败: %s\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:199
+#: src/cli.vala:199
 #, c-format
 msgid "Failed to save project: %s"
 msgstr "保存项目失败: %s"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:206
+#: src/cli.vala:206
 msgid "Error: Queue is empty, cannot export\n"
 msgstr "错误: 编排列表为空，无法导出\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:207
+#: src/cli.vala:207
 msgid "Export failed: Queue is empty"
 msgstr "导出失败: 编排列表为空"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:212
+#: src/cli.vala:212
 #, c-format
 msgid "Merged text exported to: %s\n"
 msgstr "合并文本已导出到: %s\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:213
+#: src/cli.vala:213
 #, c-format
 msgid "Merged text exported to: %s"
 msgstr "合并文本已导出到: %s"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:215
+#: src/cli.vala:215
 #, c-format
 msgid "Export failed: %s\n"
 msgstr "导出失败: %s\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:216
+#: src/cli.vala:216
 #, c-format
 msgid "Export failed: %s"
 msgstr "导出失败: %s"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:226
+#: src/cli.vala:226
 #, c-format
 msgid "Error: Argument '%s' requires a value\n"
 msgstr "错误: 参数 '%s' 缺少必要的值\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:230
+#: src/cli.vala:230
 #, c-format
-msgid "FileCollector %s  CLI Mode\n"
-msgstr "FileCollector %s  CLI Mode\n"
+msgid "FileCollector %s — CLI Mode\n"
+msgstr "FileCollector %s — 命令行模式\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:232
+#: src/cli.vala:232
 msgid "Usage: filecollector [options...] [--gui]"
 msgstr "用法: filecollector [选项...] [--gui]"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:235
+#: src/cli.vala:235
 msgid "Working Directory:"
 msgstr "工作目录:"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:236
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:2127
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:2184
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4811
+#: src/cli.vala:236 src/window.vala:2127 src/window.vala:2184
+#: src/window.vala:4811
 msgid "Set working directory"
 msgstr "请先设置工作目录"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:238
+#: src/cli.vala:238
 msgid "File Selection:"
 msgstr "文件选择:"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:239
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/global_search_dialog.vala:138
+#: src/cli.vala:239 src/widgets/global_search_dialog.vala:138
 msgid "Add file to queue (can be used multiple times)"
 msgstr "添加选中文件到编排列表"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:240
+#: src/cli.vala:240
 msgid "Add custom text (can be used multiple times)"
 msgstr "添加自定义文字 (可多次使用)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:242
+#: src/cli.vala:242
 msgid "Queue Management:"
 msgstr "编排调整:"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:243
+#: src/cli.vala:243
 msgid "Move item at index FROM to index TO"
 msgstr "将索引 FROM 处的项目移动到索引 TO"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:244
+#: src/cli.vala:244
 msgid "Remove item at INDEX"
 msgstr "删除索引 INDEX 处的项目"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:245
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:534
+#: src/cli.vala:245 src/controllers/ai_controller.vala:534
 msgid "Clear the queue"
 msgstr "AI 清空了编排列表"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:246
+#: src/cli.vala:246
 msgid "List current queue items"
 msgstr "列出当前编排列表"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:248
+#: src/cli.vala:248
 msgid "Export Settings:"
 msgstr "导出设置:"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:249
+#: src/cli.vala:249
 msgid "Export merged text to PATH"
 msgstr "导出合并文本到 PATH"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:250
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:329
+#: src/cli.vala:250 src/window.blp:329
 msgid "Use Absolute Paths"
 msgstr "使用绝对路径"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:251
+#: src/cli.vala:251
 msgid "Add header (working directory path)"
 msgstr "添加头部信息 (工作目录路径)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:253
+#: src/cli.vala:253
 msgid "Project Files:"
 msgstr "项目文件:"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:254
+#: src/cli.vala:254
 msgid "Load state from project file"
 msgstr "从项目文件加载状态"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:255
+#: src/cli.vala:255
 msgid "Save current state to project file"
 msgstr "将当前状态保存到项目文件"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:257
+#: src/cli.vala:257
 msgid "GUI Mode:"
 msgstr "GUI 模式:"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:258
+#: src/cli.vala:258
 msgid "Initialize with CLI args then open the GUI"
 msgstr "使用其他 CLI 参数初始化后打开图形界面"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:260
+#: src/cli.vala:260
 msgid "Other:"
 msgstr "其他:"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:261
+#: src/cli.vala:261
 msgid "Show this help message"
 msgstr "显示此帮助信息"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:263
+#: src/cli.vala:263
 msgid "Examples:"
 msgstr "示例:"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:265
+#: src/cli.vala:265
 msgid "Build and export:"
 msgstr "构建并导出:"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:269
+#: src/cli.vala:269
 msgid "Configuration Files"
 msgstr "配置文件"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:274
+#: src/cli.vala:274
 msgid "Export from project file:"
 msgstr "从项目文件导出:"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:277
+#: src/cli.vala:277
 msgid "Build and save project:"
 msgstr "构建并保存项目:"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:282
+#: src/cli.vala:282
 msgid "View the queue:"
 msgstr "查看编排列表:"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:285
+#: src/cli.vala:285
 msgid "Load project then open GUI for adjustments:"
 msgstr "加载项目后打开 GUI 手动调整:"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:288
+#: src/cli.vala:288
 msgid "Initialize state via CLI then open GUI:"
 msgstr "用 CLI 参数初始化状态后打开 GUI:"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:296
+#: src/cli.vala:296
 #, c-format
 msgid "Error: Directory does not exist: %s\n"
 msgstr "错误: 目录不存在: %s\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:300
+#: src/cli.vala:300
 #, c-format
-msgid " Working directory set: %s\n"
-msgstr " Working directory set: %s\n"
+msgid "✓ Working directory set: %s\n"
+msgstr "✓ 工作目录已切换到: %s\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:301
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:288
+#: src/cli.vala:301 src/controllers/ai_controller.vala:288
 #, c-format
 msgid "Working directory set: %s"
 msgstr "工作目录已切换到: %s"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:308
+#: src/cli.vala:308
 #, c-format
 msgid "Error: File does not exist: %s\n"
 msgstr "错误: 文件不存在: %s\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:315
+#: src/cli.vala:315
 #, c-format
-msgid " File added [%d]: %s\n"
-msgstr " File added [%d]: %s\n"
+msgid "✓ File added [%d]: %s\n"
+msgstr "✓ 已添加文件 [%d]: %s\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:316
+#: src/cli.vala:316
 #, c-format
 msgid "File added: %s"
 msgstr "已添加文件: %s"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:331
+#: src/cli.vala:331
 #, c-format
-msgid "   %s: %s\n"
-msgstr "   %s: %s\n"
+msgid "  ↳ %s: %s\n"
+msgstr "  ↳ %s：%s\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:332
+#: src/cli.vala:332
 msgid "Reused from cache"
 msgstr "已从缓存复用"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:332
+#: src/cli.vala:332
 msgid "VLM conversion called"
 msgstr "已调用 VLM 转换"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:335
+#: src/cli.vala:335
 #, c-format
-msgid "   Preprocessing %s failed: %s\n"
-msgstr "   Preprocessing %s failed: %s\n"
+msgid "  ⚠ Preprocessing %s failed: %s\n"
+msgstr "  ⚠ 预处理 %s 失败: %s\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:345
+#: src/cli.vala:345
 #, c-format
-msgid " Text added [%d]: %s\n"
-msgstr " Text added [%d]: %s\n"
+msgid "✓ Text added [%d]: %s\n"
+msgstr "✓ 已添加文字 [%d]: %s\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:348
+#: src/cli.vala:348
 #, c-format
 msgid "Text added: %s"
 msgstr "已添加文字: %s"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:353
+#: src/cli.vala:353
 msgid "Error: Queue is empty\n"
 msgstr "错误: 编排列表为空\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:357
+#: src/cli.vala:357
 #, c-format
 msgid "Error: Source index %d out of range (0-%d)\n"
 msgstr "错误: 源索引 %d 超出范围 (0-%d)\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:361
+#: src/cli.vala:361
 #, c-format
 msgid "Error: Target index %d out of range (0-%d)\n"
 msgstr "错误: 目标索引 %d 超出范围 (0-%d)\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:367
+#: src/cli.vala:367
 #, c-format
-msgid " Item moved from index %d to %d\n"
-msgstr " Item moved from index %d to %d\n"
+msgid "✓ Item moved from index %d to %d\n"
+msgstr "✓ 已将项目从第 %d 项移动到第 %d 项\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:368
+#: src/cli.vala:368
 #, c-format
-msgid "Item moved %d  %d"
-msgstr "Item moved %d  %d"
+msgid "Item moved %d → %d"
+msgstr "项目已移动 %d → %d"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:374
+#: src/cli.vala:374
 #, c-format
 msgid "Error: Index %d out of range (0-%d)\n"
 msgstr "错误: 索引 %d 超出范围 (0-%d)\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:382
+#: src/cli.vala:382
 #, c-format
-msgid " Item at index %d deleted\n"
-msgstr " Item at index %d deleted\n"
+msgid "✓ Item at index %d deleted\n"
+msgstr "✓ 已删除第 %d 项\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:383
+#: src/cli.vala:383
 #, c-format
 msgid "Item %d deleted"
 msgstr "已删除项目 %d"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:391
-msgid " Queue cleared\n"
-msgstr " Queue cleared\n"
+#: src/cli.vala:391
+msgid "✓ Queue cleared\n"
+msgstr "✓ 已清空编排列表\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:392
+#: src/cli.vala:392
 msgid "Queue cleared"
 msgstr "已清空编排列表"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:397
+#: src/cli.vala:397
 msgid "Queue is empty\n"
 msgstr "编排列表为空\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:403
+#: src/cli.vala:403
 #, c-format
 msgid "Current queue (%d items):\n"
 msgstr "当前编排列表 (%d 项):\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:408
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:587
-#: /home/sam/Desktop/filecollector-gnome/src/models/app_state.vala:33
+#: src/cli.vala:408 src/controllers/ai_controller.vala:587
+#: src/models/app_state.vala:33
 msgid "File"
 msgstr "文件"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:412
+#: src/cli.vala:412
 msgid "Text"
 msgstr "文字"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:416
+#: src/cli.vala:416
 #, c-format
 msgid "Settings: Absolute paths=%s  Header=%s\n"
 msgstr "配置: 绝对路径=%s  头部=%s\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:419
+#: src/cli.vala:419
 #, c-format
 msgid "Working directory: %s\n"
 msgstr "工作目录: %s\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:426
+#: src/cli.vala:426
 #, c-format
 msgid "Error: Project file does not exist: %s\n"
 msgstr "错误: 项目文件不存在: %s\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:515
+#: src/cli.vala:516
 #, c-format
-msgid " Loaded from project file: %s (%d items)\n"
-msgstr " Loaded from project file: %s (%d items)\n"
+msgid "✓ Loaded from project file: %s (%d items)\n"
+msgstr "✓ 已加载项目文件: %s (%d 项)\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:516
+#: src/cli.vala:517
 #, c-format
 msgid "Project loaded: %s (%d items)"
 msgstr "已加载项目: %s (%d 项)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/cli.vala:519
+#: src/cli.vala:520
 #, c-format
 msgid "Failed to load project: %s\n"
 msgstr "加载项目失败: %s\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:297
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:37
+#: src/window.vala:297 src/window.blp:37
 msgid "Undo"
 msgstr "撤销"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:302
+#: src/window.vala:302
 msgid "AI operation undone"
 msgstr "已撤销 AI 的操作"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:330
+#: src/window.vala:330
 msgid "Confirm Close"
 msgstr "确认关闭"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:331
+#: src/window.vala:331
 msgid ""
 "There is unsaved content in the current orchestration list.\n"
 "After closing, recovery will not be prompted on next launch. Close anyway?"
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:333
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3166
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3385
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3730
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3891
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4625
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:903
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:82
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:308
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_settings_dialog.vala:22
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/phrases_picker.vala:42
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/phrases_picker.vala:99
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/phrases_picker.vala:257
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/settings_dialog.vala:25
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/templates_manager.vala:110
+#: src/window.vala:333 src/window.vala:3166 src/window.vala:3385
+#: src/window.vala:3730 src/window.vala:3891 src/window.vala:4625
+#: src/widgets/ai_panel.vala:903 src/widgets/ai_settings_dialog.vala:82
+#: src/widgets/ai_settings_dialog.vala:308
+#: src/widgets/context_settings_dialog.vala:22
+#: src/widgets/phrases_picker.vala:42 src/widgets/phrases_picker.vala:99
+#: src/widgets/phrases_picker.vala:257 src/widgets/settings_dialog.vala:25
+#: src/widgets/templates_manager.vala:110
 msgid "Cancel"
 msgstr "取消"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:334
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/templates_manager.vala:30
+#: src/window.vala:334 src/widgets/templates_manager.vala:30
 msgid "Close"
 msgstr "关闭"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:431
+#: src/window.vala:431
 msgid "Unsaved Session Found"
 msgstr "发现未保存的会话"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:432
+#: src/window.vala:432
 msgid "There are unsaved changes from the last session. Restore?"
 msgstr "上次运行存在未保存的更改。是否恢复？"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:434
+#: src/window.vala:434
 msgid "Discard"
 msgstr "丢弃"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:435
+#: src/window.vala:435
 msgid "Restore"
 msgstr "恢复"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:463
+#: src/window.vala:463
 msgid "Folder does not exist"
 msgstr "文件夹不存在"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:475
+#: src/window.vala:475
 msgid "Session restored successfully"
 msgstr "已恢复未保存的会话"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:478
+#: src/window.vala:478
 msgid "Restore failed: "
 msgstr "恢复失败: "
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:679
+#: src/window.vala:679
 #, c-format
-msgid " %s (missing)"
-msgstr " %s (missing)"
+msgid "⚠ %s (missing)"
+msgstr "⚠ %s (缺失)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:695
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3460
+#: src/window.vala:695 src/window.vala:3460
 msgid "Pending"
 msgstr "等待处理"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:699
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3481
+#: src/window.vala:699 src/window.vala:3481
 msgid "[Checking cache...]"
 msgstr "[正在检查缓存...]"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:702
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3456
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3475
+#: src/window.vala:702 src/window.vala:3456 src/window.vala:3475
 msgid "Processing..."
 msgstr "[正在处理中，请稍候...]"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:705
+#: src/window.vala:705
 msgid "Cached"
 msgstr "已缓存"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:705
+#: src/window.vala:705
 msgid "Converted"
 msgstr "已转换"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:709
+#: src/window.vala:709
 msgid " [Conversion failed]"
 msgstr " [转换失败]"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:714
+#: src/window.vala:714
 msgid "External file"
 msgstr "来自外部文件"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:1542
+#: src/window.vala:1542
 msgid "No Working Directory Selected"
 msgstr "未选择工作目录"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:1543
+#: src/window.vala:1543
 msgid ""
 "Open a folder as the working directory to start collecting and orchestrating "
 "files."
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:1546
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:20
+#: src/window.vala:1546 src/window.blp:20
 msgid "Open Working Directory"
 msgstr "打开工作目录"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:1619
+#: src/window.vala:1619
 msgid "No Git Repository Detected"
 msgstr "未检测到 Git 仓库"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:1620
+#: src/window.vala:1620
 msgid ""
 "The current working directory is not a Git repository, so commit history "
 "cannot be read. Run git init there, or open the app in a working directory "
 "that contains a repository."
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:1622
+#: src/window.vala:1622
 msgid "No Commits Yet"
 msgstr "暂无提交记录"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:1623
+#: src/window.vala:1623
 msgid ""
 "The current Git repository has no commits yet. The commit history will "
 "appear here after the first git commit."
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:1831
+#: src/window.vala:1831
 msgid "Copy Short Hash"
 msgstr "复制短哈希"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:1832
+#: src/window.vala:1832
 msgid "Copy Full Hash"
 msgstr "复制完整哈希"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:1833
+#: src/window.vala:1833
 msgid "Copy Commit Message"
 msgstr "复制提交信息"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:1914
+#: src/window.vala:1914
 msgid "Switch to file tree"
 msgstr "切换到文件树"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:1915
+#: src/window.vala:1915
 msgid "Git Commit History"
 msgstr "Git 提交历史"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:1930
+#: src/window.vala:1930
 msgid "Switch to Git commit history"
 msgstr "切换到 Git 提交历史"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:1931
+#: src/window.vala:1931
 msgid "File Browser"
 msgstr "资源管理器"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:2017
+#: src/window.vala:2017
 #, c-format
 msgid "Failed to load Git log: %s"
 msgstr "Git 日志加载失败: %s"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:2064
+#: src/window.vala:2064
 msgid "Loading Diff..."
 msgstr "正在加载 Diff..."
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:2134
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:2191
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:683
+#: src/window.vala:2134 src/window.vala:2191
+#: src/controllers/ai_controller.vala:683
 msgid "No uncommitted changes in working tree"
 msgstr "当前工作区没有未提交的改动。"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:2156
+#: src/window.vala:2156
 msgid "No files to add"
 msgstr "没有可添加的文件"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:2178
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:2199
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:2230
+#: src/window.vala:2178 src/window.vala:2199 src/window.vala:2230
 msgid "Git Error"
 msgstr "Git 错误"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:2309
+#: src/window.vala:2309
 msgid "Preprocessing 0/0 files..."
 msgstr "正在预处理 0/0 个文件..."
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:2316
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:2372
+#: src/window.vala:2316 src/window.vala:2372
 msgid "Pause"
 msgstr "暂停"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:2321
+#: src/window.vala:2321
 msgid "Cancel All"
 msgstr "取消全部"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:2376
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:306
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:309
+#: src/window.vala:2376 src/widgets/ai_settings_dialog.vala:306
+#: src/widgets/ai_settings_dialog.vala:309
 msgid "Continue Saving"
 msgstr "继续保存"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:2386
+#: src/window.vala:2386
 #, c-format
 msgid "Preprocessing %d/%d files..."
 msgstr "正在预处理 %d/%d 个文件..."
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:2668
+#: src/window.vala:2668
 msgid "Select Working Folder"
 msgstr "选择工作文件夹"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:2767
+#: src/window.vala:2767
 #, c-format
 msgid "Loading %d items..."
 msgstr "正在加载 %d 个项目..."
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:2796
+#: src/window.vala:2796
 #, c-format
 msgid "Loaded %d / %d"
 msgstr "已加载 %d / %d"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3015
+#: src/window.vala:3015
 #, c-format
 msgid "%d items selected"
 msgstr "已选择 %d 个项目"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3108
+#: src/window.vala:3108
 msgid "Select External Files"
 msgstr "选择外部文件"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3156
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_menus.vala:61
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/phrases_picker.vala:166
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/phrases_picker.vala:204
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/templates_manager.vala:73
+#: src/window.vala:3156 src/widgets/context_menus.vala:61
+#: src/widgets/phrases_picker.vala:166 src/widgets/phrases_picker.vala:204
+#: src/widgets/templates_manager.vala:73
 msgid "Edit Text"
 msgstr "编辑"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3156
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:432
+#: src/window.vala:3156 src/controllers/ai_controller.vala:432
 msgid "Insert Custom Text"
 msgstr "AI 插入了自定义文本"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3170
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4599
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4629
+#: src/window.vala:3170 src/window.vala:4599 src/window.vala:4629
 msgid "OK"
 msgstr "确定"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3179
+#: src/window.vala:3179
 msgid "Common Phrases"
 msgstr "常用语"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3382
+#: src/window.vala:3382
 msgid "Confirm Clear"
 msgstr "确认清空"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3383
+#: src/window.vala:3383
 #, c-format
 msgid "Are you sure you want to clear all %d items from the queue?"
 msgstr "确定要清空编排列表中的所有 %d 个项目吗？"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3386
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3731
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:266
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:304
+#: src/window.vala:3386 src/window.vala:3731 src/window.blp:266
+#: src/window.blp:304
 msgid "Clear"
 msgstr "清空"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3448
+#: src/window.vala:3448
 msgid ""
 "Local cache loaded\n"
 "Click to force re-invoke VLM conversion"
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3449
+#: src/window.vala:3449
 msgid ""
 "AI conversion complete\n"
 "Click to force re-invoke VLM conversion"
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3453
+#: src/window.vala:3453
 msgid ""
 "AI conversion failed\n"
 "Click to retry conversion"
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3478
+#: src/window.vala:3478
 msgid ""
 "[AI conversion failed; click the retry button on the toolbar to reconvert]"
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3484
+#: src/window.vala:3484
 msgid "[Preparing AI conversion...]"
 msgstr "[正在准备 AI 转换...]"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3487
+#: src/window.vala:3487
 msgid "[Binary file, preview unavailable]"
 msgstr "[二进制文件，预览不可用]"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3504
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3536
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3548
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3578
+#: src/window.vala:3504 src/window.vala:3536 src/window.vala:3548
+#: src/window.vala:3578
 #, c-format
 msgid "[Read error: %s]"
 msgstr "[读取错误: %s]"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3722
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:219
+#: src/window.vala:3722 src/controllers/ai_controller.vala:219
 msgid "No working directory set yet"
 msgstr "无法解析路径 (未设置工作目录)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3727
+#: src/window.vala:3727
 msgid "Confirm Cache Deletion?"
 msgstr "确认清除缓存？"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3728
+#: src/window.vala:3728
 msgid ""
 "This will delete the .filecollector_cache hidden folder under the working "
 "directory.\n"
@@ -706,729 +670,699 @@ msgid ""
 "tokens."
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3758
+#: src/window.vala:3758
 msgid "Workspace cache cleared"
 msgstr "工作区缓存已清除"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3868
+#: src/window.vala:3868
 msgid "File too large to copy content"
 msgstr "文件过大，无法复制内容"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3873
+#: src/window.vala:3873
 msgid "File content copied"
 msgstr "文件内容已复制"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3875
+#: src/window.vala:3875
 msgid "Failed to read file"
 msgstr "读取文件失败"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3883
+#: src/window.vala:3883
 msgid "Select Lines"
 msgstr "选择行"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3895
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/phrases_picker.vala:46
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/phrases_picker.vala:123
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/phrases_picker.vala:261
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/templates_manager.vala:34
+#: src/window.vala:3895 src/widgets/phrases_picker.vala:46
+#: src/widgets/phrases_picker.vala:123 src/widgets/phrases_picker.vala:261
+#: src/widgets/templates_manager.vala:34
 msgid "Add"
 msgstr "添加"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3901
+#: src/window.vala:3901
 msgid ""
 "Enter line ranges, comma-separated, hyphen for intervals.\n"
 "Example: 1-10,15,20-25"
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3905
+#: src/window.vala:3905
 msgid "Line Range"
 msgstr "行范围"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3949
+#: src/window.vala:3949
 #, c-format
 msgid "Line range %s: start line > end line, auto-swapped"
 msgstr "行范围 %s 起始行大于结束行，已自动交换"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3954
+#: src/window.vala:3954
 #, c-format
 msgid "Invalid line range: %s"
 msgstr "无效的行范围: %s"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3963
+#: src/window.vala:3963
 #, c-format
 msgid "Invalid line number: %s"
 msgstr "无效的行号: %s"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:3970
+#: src/window.vala:3970
 msgid "No valid line range entered"
 msgstr "未输入有效的行范围"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4024
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4107
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4123
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4172
+#: src/window.vala:4024 src/window.vala:4107 src/window.vala:4123
+#: src/window.vala:4172
 msgid "The queue is empty. Please check some files or add text content first"
 msgstr "编排列表为空，请先添加文件"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4029
+#: src/window.vala:4029
 msgid "Export Merged Text"
 msgstr "导出合并文本"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4032
+#: src/window.vala:4032
 msgid "Text File (*.txt)"
 msgstr "文本文件 (*.txt)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4036
+#: src/window.vala:4036
 msgid "Markdown (*.md)"
 msgstr "Markdown (*.md)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4040
+#: src/window.vala:4040
 msgid "JSON (*.json)"
 msgstr "JSON (*.json)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4044
+#: src/window.vala:4044
 msgid "JSONL (*.jsonl)"
 msgstr "JSONL (*.jsonl)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4048
+#: src/window.vala:4048
 msgid "Jupyter Notebook (*.ipynb)"
 msgstr "Jupyter Notebook (*.ipynb)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4052
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4133
+#: src/window.vala:4052 src/window.vala:4133
 msgid "All Files (*)"
 msgstr "所有文件 (*)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4078
+#: src/window.vala:4078
 msgid "Markdown"
 msgstr "Markdown"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4081
+#: src/window.vala:4081
 msgid "JSONL"
 msgstr "JSONL"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4084
+#: src/window.vala:4084
 msgid "JSON"
 msgstr "JSON"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4087
+#: src/window.vala:4087
 msgid "Jupyter Notebook"
 msgstr "Jupyter Notebook"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4093
+#: src/window.vala:4093
 msgid "Merged Text"
 msgstr "合并文本"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4095
+#: src/window.vala:4095
 #, c-format
 msgid "%s saved"
 msgstr "%s 已保存"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4100
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4318
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4343
+#: src/window.vala:4100 src/window.vala:4318 src/window.vala:4343
 msgid "Save Failed"
 msgstr "保存失败"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4113
+#: src/window.vala:4113
 msgid "Merged Text Copied to Clipboard"
 msgstr "合并文本已复制到剪贴板"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4115
+#: src/window.vala:4115
 msgid "Copy Failed"
 msgstr "复制失败"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4128
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:479
+#: src/window.vala:4128 src/window.blp:479
 msgid "Export as ZIP"
 msgstr "导出为 ZIP"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4130
+#: src/window.vala:4130
 msgid "ZIP Archive (*.zip)"
 msgstr "ZIP 压缩包 (*.zip)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4157
+#: src/window.vala:4157
 #, c-format
 msgid "ZIP exported: %s"
 msgstr "已导出 ZIP: %s"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4160
+#: src/window.vala:4160
 msgid "Export Cancelled"
 msgstr "导出已取消"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4163
+#: src/window.vala:4163
 msgid "ZIP Export Failed"
 msgstr "ZIP 导出失败"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4178
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:877
-msgid "Please configure the API in Settings  AI Settings first."
-msgstr "Please configure the API in Settings  AI Settings first."
+#: src/window.vala:4178 src/widgets/ai_panel.vala:877
+msgid "Please configure the API in Settings → AI Settings first."
+msgstr "请先在「设置 → AI 设置」中配置 API。"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4187
+#: src/window.vala:4187
 msgid "Generating reading guide with AI..."
 msgstr "正在让 AI 生成阅读指南..."
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4213
+#: src/window.vala:4213
 msgid "AI reading guide generation failed"
 msgstr "AI 生成阅读指南失败"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4218
+#: src/window.vala:4218
 msgid "AI reading guide inserted at top of list"
 msgstr "AI 阅读指南已插入编排列表顶部"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4226
+#: src/window.vala:4226
 msgid "Failed to start AI generation thread"
 msgstr "无法启动 AI 生成线程"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4247
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4423
+#: src/window.vala:4247 src/window.vala:4423
 msgid "Open Project"
 msgstr "打开项目"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4249
+#: src/window.vala:4249
 msgid "Project File (*.fcol, *.fcol.json, *.project.json)"
 msgstr "项目文件 (*.fcol, *.fcol.json, *.project.json)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4265
+#: src/window.vala:4265
 msgid "Open Failed"
 msgstr "打开失败"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4313
+#: src/window.vala:4313
 msgid "Project file updated"
 msgstr "项目文件已更新"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4324
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:461
+#: src/window.vala:4324 src/window.blp:461
 msgid "Save Project"
 msgstr "保存项目"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4326
+#: src/window.vala:4326
 msgid "Project File (*.fcol)"
 msgstr "项目文件 (*.fcol)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4340
+#: src/window.vala:4340
 msgid "Project file saved"
 msgstr "项目文件已保存"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4362
+#: src/window.vala:4362
 msgid "No Working Directory Set"
 msgstr "未设置工作目录"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4364
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4394
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:48
+#: src/window.vala:4364 src/window.vala:4394 src/window.blp:48
 msgid "FileCollector"
 msgstr "FileCollector"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4397
+#: src/window.vala:4397
 msgid "File Collection & Organization Tool"
 msgstr "文件收集与编排工具"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4419
+#: src/window.vala:4419
 msgid "Common Operations"
 msgstr "常用操作"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4420
+#: src/window.vala:4420
 msgid "List Operations"
 msgstr "列表操作"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4421
+#: src/window.vala:4421
 msgid "Application"
 msgstr "应用程序"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4422
+#: src/window.vala:4422
 msgid "Generate to Clipboard"
 msgstr "生成到剪贴板"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4424
+#: src/window.vala:4424
 msgid "Add External Files"
 msgstr "添加外部文件"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4425
+#: src/window.vala:4425
 msgid "Toggle AI Panel"
 msgstr "切换 AI 面板"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4426
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:234
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_menus.vala:66
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/templates_manager.vala:135
+#: src/window.vala:4426 src/window.blp:234 src/widgets/context_menus.vala:66
+#: src/widgets/templates_manager.vala:135
 msgid "Insert Text Above"
 msgstr "上方插入文本"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4427
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:239
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_menus.vala:71
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/templates_manager.vala:138
+#: src/window.vala:4427 src/window.blp:239 src/widgets/context_menus.vala:71
+#: src/widgets/templates_manager.vala:138
 msgid "Insert Text Below"
 msgstr "下方插入文本"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4428
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:364
+#: src/window.vala:4428 src/window.blp:364
 msgid "Generate Merged Text"
 msgstr "生成合并文本"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4429
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:319
+#: src/window.vala:4429 src/widgets/preferences_dialog.vala:360
 msgid "Apply Language Settings"
 msgstr "应用语言设置"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4430
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:471
+#: src/window.vala:4430 src/window.blp:471
 msgid "Keyboard Shortcuts..."
 msgstr "键盘快捷键..."
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4431
+#: src/window.vala:4431
 msgid "About"
 msgstr "关于"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4432
+#: src/window.vala:4432
 msgid "Quit"
 msgstr "退出"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4612
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4620
+#: src/window.vala:4612 src/window.vala:4620
 msgid "Edit Common Phrase"
 msgstr "编辑常用语"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.vala:4730
+#: src/window.vala:4730
 #, c-format
 msgid "Estimated context: %d / %d Tokens (%.1f%%)"
 msgstr "预估上下文: %d / %d Tokens (%.1f%%)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:8
+#: src/window.blp:8
 msgid "FileCollector - File Collection & Orchestration Tool"
 msgstr "FileCollector - 文件收集与编排工具"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:15
+#: src/window.blp:15
 msgid "Show / Hide AI Assistant (Ctrl+J)"
 msgstr "显示 / 隐藏 AI 助手 (Ctrl+J)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:25
+#: src/window.blp:25
 msgid "Switch to Git Commit History"
 msgstr "切换到 Git 提交历史"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:31
+#: src/window.blp:31
 msgid "Global Content Search (Ctrl+Shift+F)"
 msgstr "全局内容搜索 (Ctrl+Shift+F)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:43
+#: src/window.blp:43
 msgid "Redo"
 msgstr "重做"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:49
+#: src/window.blp:49
 msgid "No working directory set"
 msgstr "未设置工作目录"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:112
+#: src/window.blp:112
 msgid "Explorer"
 msgstr "资源管理器"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:131
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/global_search_dialog.vala:70
-msgid "Search"
-msgstr "Search"
+#: src/window.blp:131 src/widgets/global_search_dialog.vala:70
+msgid "Search…"
+msgstr "搜索…"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:152
-msgid "Search commit messages"
-msgstr "Search commit messages"
+#: src/window.blp:152
+msgid "Search commit messages…"
+msgstr "搜索提交信息…"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:198
+#: src/window.blp:198
 msgid "Output Orchestration List"
 msgstr "输出编排列表"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:229
+#: src/window.blp:229
 msgid "Add External File"
 msgstr "添加外部文件"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:244
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_menus.vala:83
+#: src/window.blp:244 src/widgets/context_menus.vala:83
 msgid "Move Up"
 msgstr "上移"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:249
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_menus.vala:89
+#: src/window.blp:249 src/widgets/context_menus.vala:89
 msgid "Move Down"
 msgstr "下移"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:254
+#: src/window.blp:254
 msgid "AI Reading Guide"
 msgstr "AI 生成阅读指南"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:260
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:297
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_menus.vala:181
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/phrases_picker.vala:177
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/phrases_picker.vala:216
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/templates_manager.vala:82
+#: src/window.blp:260 src/window.blp:297 src/widgets/context_menus.vala:181
+#: src/widgets/phrases_picker.vala:177 src/widgets/phrases_picker.vala:216
+#: src/widgets/templates_manager.vala:82
 msgid "Delete"
 msgstr "删除"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:279
+#: src/window.blp:279
 msgid "Add All Changed Files"
 msgstr "一键添加所有改动文件"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:284
+#: src/window.blp:284
 msgid "Export Workspace Diff"
 msgstr "导出工作区 Diff"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:290
+#: src/window.blp:290
 msgid "Export Selected Commit Diff"
 msgstr "导出选中 Commit Diff"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:324
+#: src/window.blp:324
 msgid "Use Relative Paths"
 msgstr "使用相对路径"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:336
+#: src/window.blp:336
 msgid "Annotate working directory info at file header"
 msgstr "在文件头部标注工作目录信息"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:359
+#: src/window.blp:359
 msgid "Estimated context: 0 / 128000 Tokens"
 msgstr "预估上下文: 0 / 128000 Tokens"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:376
+#: src/window.blp:376
 msgid "More Actions"
 msgstr "更多操作"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:401
+#: src/window.blp:401
 msgid "Preview"
 msgstr "预览"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:446
+#: src/window.blp:446
 msgid "Re-run AI Conversion"
 msgstr "重新进行 AI 转换"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:460
+#: src/window.blp:460
 msgid "Open Project..."
 msgstr "打开项目..."
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:462
+#: src/window.blp:462
 msgid "Save Project As..."
 msgstr "项目另存为..."
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:465
+#: src/window.blp:465
 msgid "Manage Phrases..."
 msgstr "常用语管理..."
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:466
+#: src/window.blp:466
 msgid "Manage Scene Templates..."
 msgstr "场景模板管理..."
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:467
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:63
+#: src/window.blp:467 src/widgets/preferences_dialog.vala:63
 msgid "Preferences..."
 msgstr "偏好设置..."
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:468
+#: src/window.blp:468
 msgid "Clear Workspace Cache"
 msgstr "清除工作区缓存"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:472
+#: src/window.blp:472
 msgid "About FileCollector"
 msgstr "关于 FileCollector"
 
-#: /home/sam/Desktop/filecollector-gnome/src/window.blp:478
+#: src/window.blp:478
 msgid "Copy Merged Text to Clipboard"
 msgstr "生成合并文本到剪贴板"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:97
+#: src/controllers/ai_controller.vala:97
 msgid "Unknown tool: "
 msgstr "未知工具: "
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:104
+#: src/controllers/ai_controller.vala:104
 msgid "Working directory not set"
 msgstr "工作目录未设置"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:105
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:657
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:701
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:735
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:811
+#: src/controllers/ai_controller.vala:105
+#: src/controllers/ai_controller.vala:657
+#: src/controllers/ai_controller.vala:701
+#: src/controllers/ai_controller.vala:735
+#: src/controllers/ai_controller.vala:811
 msgid "Invalid parameters"
 msgstr "参数错误"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:161
+#: src/controllers/ai_controller.vala:161
 msgid "Unable to read directory: "
 msgstr "读取目录失败: "
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:210
+#: src/controllers/ai_controller.vala:210
 msgid "Missing path"
 msgstr "缺少 path"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:220
+#: src/controllers/ai_controller.vala:220
 msgid "Access denied: path outside work directory"
 msgstr "拒绝访问: 路径超出工作目录范围"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:223
+#: src/controllers/ai_controller.vala:223
 msgid "File does not exist: "
 msgstr "文件不存在: "
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:230
+#: src/controllers/ai_controller.vala:230
 msgid "Failed to read file info: "
 msgstr "读取文件信息失败: "
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:240
+#: src/controllers/ai_controller.vala:240
 msgid "Read failed: "
 msgstr "读取失败: "
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:284
+#: src/controllers/ai_controller.vala:284
 msgid "Access denied: work directory must be within project or home directory"
 msgstr "拒绝访问: 工作目录必须在当前项目目录或用户主目录内"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:286
+#: src/controllers/ai_controller.vala:286
 msgid "Directory does not exist: "
 msgstr "目录不存在: "
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:294
+#: src/controllers/ai_controller.vala:294
 msgid "Missing paths"
 msgstr "缺少 paths"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:296
+#: src/controllers/ai_controller.vala:296
 msgid "paths must be an array"
 msgstr "paths 必须是数组"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:317
+#: src/controllers/ai_controller.vala:317
 msgid "$p (cannot resolve path)"
 msgstr "$p (无法解析路径)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:321
+#: src/controllers/ai_controller.vala:321
 msgid "$p (path outside work directory)"
 msgstr "$p (路径超出工作目录)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:326
+#: src/controllers/ai_controller.vala:326
 msgid "$p (file does not exist)"
 msgstr "$p (文件不存在)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:334
+#: src/controllers/ai_controller.vala:334
 msgid "$p (already in list)"
 msgstr "$p (已在列表中)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:348
+#: src/controllers/ai_controller.vala:348
 #, c-format
 msgid "AI added %d files"
 msgstr "AI 添加了 %d 个文件"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:350
+#: src/controllers/ai_controller.vala:350
 #, c-format
 msgid ", skipped %d"
 msgstr "，跳过 %d 个"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:356
+#: src/controllers/ai_controller.vala:356
 #, c-format
 msgid ""
 "\n"
 "Skipped %d:\n"
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:390
+#: src/controllers/ai_controller.vala:390
 #, c-format
 msgid "AI removed %d files"
 msgstr "AI 移除了 %d 个文件"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:399
+#: src/controllers/ai_controller.vala:399
 msgid "Missing text / content"
 msgstr "缺少 text / content"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:438
+#: src/controllers/ai_controller.vala:438
 msgid "Missing index"
 msgstr "缺少 index"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:462
+#: src/controllers/ai_controller.vala:462
 msgid "Missing from_index / to_index"
 msgstr "缺少 from_index / to_index"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:480
+#: src/controllers/ai_controller.vala:480
 msgid "Missing value"
 msgstr "缺少 value"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:575
+#: src/controllers/ai_controller.vala:575
 msgid "Invalid mode: "
 msgstr "无效 mode: "
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:598
+#: src/controllers/ai_controller.vala:598
 msgid "Unknown meta tool: "
 msgstr "未知 meta 工具: "
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:683
+#: src/controllers/ai_controller.vala:683
 msgid "No staged changes."
 msgstr "当前没有已暂存的改动。"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:696
+#: src/controllers/ai_controller.vala:696
 #, c-format
 msgid "Git Diff injected into list (%d lines)."
 msgstr "已成功将 Git Diff 注入编排列表 (%d 行)。"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:709
+#: src/controllers/ai_controller.vala:709
 msgid "Commit diff not found or commit does not exist."
 msgstr "未找到该 Commit 的 Diff 或 Commit 不存在。"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:730
+#: src/controllers/ai_controller.vala:730
 #, c-format
 msgid "Commit %s Diff injected into list (%d lines)."
 msgstr "已成功将 Commit %s 的 Diff 注入编排列表 (%d 行)。"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:779
+#: src/controllers/ai_controller.vala:779
 #, c-format
 msgid "No new commits from %s to %s."
 msgstr "从 %s 到 %s 没有新的提交。"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:807
+#: src/controllers/ai_controller.vala:807
 #, c-format
 msgid "Successfully injected %d commit(s) Diff into list (%d lines)."
 msgstr "已成功将 %d 个 Commit 的 Diff 注入编排列表 (%d 行)。"
 
-#: /home/sam/Desktop/filecollector-gnome/src/controllers/ai_controller.vala:836
+#: src/controllers/ai_controller.vala:836
 msgid "Start/end lines auto-swapped."
 msgstr "已自动交换起始/结束行。"
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/ai_client.vala:426
-msgid "API Base URL not configured. Please fill it in Settings  AI Settings."
-msgstr "API Base URL not configured. Please fill it in Settings  AI Settings."
+#: src/services/ai_client.vala:426
+msgid "API Base URL not configured. Please fill it in Settings → AI Settings."
+msgstr "API Base URL 未配置。请在「设置 → AI 设置」中填写。"
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/ai_client.vala:428
-msgid "API Key not configured. Please fill it in Settings  AI Settings."
-msgstr "API Key not configured. Please fill it in Settings  AI Settings."
+#: src/services/ai_client.vala:428
+msgid "API Key not configured. Please fill it in Settings → AI Settings."
+msgstr "API Key 未配置。请在「设置 → AI 设置」中填写。"
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/ai_client.vala:430
-msgid "Model Name not configured. Please fill it in Settings  AI Settings."
-msgstr "Model Name not configured. Please fill it in Settings  AI Settings."
+#: src/services/ai_client.vala:430
+msgid "Model Name not configured. Please fill it in Settings → AI Settings."
+msgstr "模型名称未配置。请在「设置 → AI 设置」中填写。"
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/ai_client.vala:467
+#: src/services/ai_client.vala:467
 msgid "Network error: "
 msgstr "网络错误: "
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/ai_client.vala:483
+#: src/services/ai_client.vala:483
 #, c-format
 msgid "HTTP %u %s: %s"
 msgstr "HTTP %u %s: %s"
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/ai_client.vala:487
+#: src/services/ai_client.vala:487
 msgid "Empty response"
 msgstr "响应为空"
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/ai_client.vala:508
+#: src/services/ai_client.vala:508
 msgid "AI request was cancelled by user"
 msgstr "AI 请求已被用户主动取消"
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/ai_client.vala:512
+#: src/services/ai_client.vala:512
 #, c-format
 msgid "API returned error status code: %u"
 msgstr "API 返回错误状态码: %u"
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/ai_client.vala:523
+#: src/services/ai_client.vala:523
 msgid "Response is not valid JSON: "
 msgstr "响应不是合法 JSON: "
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/ai_client.vala:527
-#: /home/sam/Desktop/filecollector-gnome/src/services/ai_client.vala:530
+#: src/services/ai_client.vala:527 src/services/ai_client.vala:530
 msgid "Response top-level is not an object"
 msgstr "响应顶层不是对象"
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/file_generator.vala:16
+#: src/services/file_generator.vala:16
 #, c-format
 msgid ""
 "# Working directory absolute path: %s\n"
 "\n"
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/file_generator.vala:26
+#: src/services/file_generator.vala:26
 #, c-format
 msgid "[Missing file: %s]\n"
 msgstr "[缺失文件: %s]\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/file_generator.vala:76
+#: src/services/file_generator.vala:76
 #, c-format
 msgid "[Hint: start line (%d) > end line (%d), auto-swapped]\n"
 msgstr "[提示: 起始行(%d)大于结束行(%d)，已自动交换]\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/file_generator.vala:85
+#: src/services/file_generator.vala:85
 #, c-format
 msgid "[Failed to read snippet: %s]\n"
 msgstr "[读取片段失败: %s]\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/file_generator.vala:103
+#: src/services/file_generator.vala:103
 #, c-format
 msgid "[Unable to get file info: %s]\n"
 msgstr "[无法获取文件信息: %s]\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/file_generator.vala:107
+#: src/services/file_generator.vala:107
 #, c-format
 msgid "[File too large (%s), content reading skipped]\n"
 msgstr "[文件过大 (%s), 已跳过内容读取]\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/file_generator.vala:133
+#: src/services/file_generator.vala:133
 msgid "[Binary file detected: text content reading skipped]\n"
 msgstr "[检测到二进制文件: 已跳过文本内容读取]\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/file_generator.vala:149
+#: src/services/file_generator.vala:149
 #, c-format
 msgid "[Failed to read file: %s]\n"
 msgstr "[读取文件失败: %s]\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/multi_format_exporter.vala:265
+#: src/services/multi_format_exporter.vala:265
 #, c-format
 msgid "[Missing file: %s]"
 msgstr "[缺失文件: %s]"
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/multi_format_exporter.vala:283
+#: src/services/multi_format_exporter.vala:283
 #, c-format
 msgid "[Unable to get file info: %s]"
 msgstr "[无法获取文件信息: %s]"
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/multi_format_exporter.vala:289
+#: src/services/multi_format_exporter.vala:289
 #, c-format
 msgid "[File too large (%s), content reading skipped]"
 msgstr "[文件过大 (%s), 已跳过内容读取]"
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/multi_format_exporter.vala:313
+#: src/services/multi_format_exporter.vala:313
 msgid "[Binary file detected: text content reading skipped]"
 msgstr "[检测到二进制文件: 已跳过文本内容读取]"
 
-#: /home/sam/Desktop/filecollector-gnome/src/services/multi_format_exporter.vala:334
+#: src/services/multi_format_exporter.vala:334
 #, c-format
 msgid "[Failed to read file: %s]"
 msgstr "[读取文件失败: %s]"
 
-#: /home/sam/Desktop/filecollector-gnome/src/utils/encoding_helper.vala:12
+#: src/utils/encoding_helper.vala:12
 msgid "[Binary file detected: text decoding skipped]"
 msgstr "[检测到二进制文件: 跳过文本解码]"
 
-#: /home/sam/Desktop/filecollector-gnome/src/utils/ui_helpers.vala:71
+#: src/utils/ui_helpers.vala:71
 msgid "[Failed to read file content]\n"
 msgstr "[无法读取文件内容]\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/utils/ui_helpers.vala:75
+#: src/utils/ui_helpers.vala:75
 msgid "### [Custom text snippet]\n"
 msgstr "### [自定义文本片段]\n"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:96
+#: src/widgets/ai_panel.vala:96
 msgid "AI Assistant"
 msgstr "AI 助手"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:131
+#: src/widgets/ai_panel.vala:131
 msgid "Scroll to Bottom"
 msgstr "滚动到底部"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:206
+#: src/widgets/ai_panel.vala:206
 msgid "Enter a command, Enter for new line, Ctrl+Enter to send"
 msgstr "输入指令, Enter 换行, Ctrl+Enter 发送"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:312
+#: src/widgets/ai_panel.vala:312
 msgid "Clear Chat"
 msgstr "清空对话"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:325
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:1377
+#: src/widgets/ai_panel.vala:325 src/widgets/ai_panel.vala:1377
 msgid "Send"
 msgstr "发送"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:386
+#: src/widgets/ai_panel.vala:386
 msgid "No model configured"
 msgstr "未配置模型"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:404
+#: src/widgets/ai_panel.vala:404
 msgid ""
 "Hello, I am the AI orchestration assistant. Tell me which files you want to "
 "collect and I will help you organize them.\n"
@@ -1436,102 +1370,100 @@ msgid ""
 "description at the beginning.\""
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:596
+#: src/widgets/ai_panel.vala:596
 msgid "Revert this message and all subsequent AI replies and operations"
 msgstr "撤回此消息及后续所有 AI 回复与操作"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:750
+#: src/widgets/ai_panel.vala:750
 msgid "Stopped"
 msgstr "已停止"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:847
+#: src/widgets/ai_panel.vala:847
 #, c-format
 msgid "Template not found: %s"
 msgstr "未找到模板: %s"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:852
+#: src/widgets/ai_panel.vala:852
 #, c-format
 msgid ""
 "[Apply template: %s]\n"
 "%s"
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:875
-msgid "Please enable the AI assistant in Settings  AI Settings first."
-msgstr "Please enable the AI assistant in Settings  AI Settings first."
+#: src/widgets/ai_panel.vala:875
+msgid "Please enable the AI assistant in Settings → AI Settings first."
+msgstr "请先在「设置 → AI 设置」中启用 AI 助手。"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:900
+#: src/widgets/ai_panel.vala:900
 msgid "Confirm Revert"
 msgstr "确认撤回"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:901
+#: src/widgets/ai_panel.vala:901
 msgid ""
 "This will undo all AI replies after this message and modifications to the "
 "file list. Continue?"
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:904
+#: src/widgets/ai_panel.vala:904
 msgid "Revert"
 msgstr "撤回"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:1129
+#: src/widgets/ai_panel.vala:1129
 msgid "Client not configured"
 msgstr "客户端未配置"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:1220
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:1233
+#: src/widgets/ai_panel.vala:1220 src/widgets/ai_panel.vala:1233
 msgid "Tool executor not configured"
 msgstr "未配置工具执行器"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:1223
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:1238
+#: src/widgets/ai_panel.vala:1223 src/widgets/ai_panel.vala:1238
 #, c-format
 msgid "Execution error: %s"
 msgstr "执行出错: %s"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:1272
+#: src/widgets/ai_panel.vala:1272
 #, c-format
 msgid "Call failed: %s"
 msgstr "调用失败: %s"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:1371
+#: src/widgets/ai_panel.vala:1371
 msgid "Stop"
 msgstr "停止"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:1375
+#: src/widgets/ai_panel.vala:1375
 msgid "Thinking..."
 msgstr "正在思考..."
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:1390
+#: src/widgets/ai_panel.vala:1390
 msgid "Disabled"
 msgstr "未启用"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:1394
+#: src/widgets/ai_panel.vala:1394
 msgid "Not configured"
 msgstr "未配置"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_panel.vala:1398
+#: src/widgets/ai_panel.vala:1398
 msgid "Ready"
 msgstr "就绪"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:72
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:76
+#: src/widgets/ai_settings_dialog.vala:72
+#: src/widgets/preferences_dialog.vala:75
 msgid "AI Settings"
 msgstr "AI 设置"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:86
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_settings_dialog.vala:26
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/templates_manager.vala:114
+#: src/widgets/ai_settings_dialog.vala:86
+#: src/widgets/context_settings_dialog.vala:26
+#: src/widgets/templates_manager.vala:114
 msgid "Save"
 msgstr "保存"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:96
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:81
+#: src/widgets/ai_settings_dialog.vala:96
+#: src/widgets/preferences_dialog.vala:80
 msgid "AI Assistant (Sidebar)"
 msgstr "AI 助手 (侧边栏)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:97
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:82
+#: src/widgets/ai_settings_dialog.vala:97
+#: src/widgets/preferences_dialog.vala:81
 msgid ""
 "Configure an OpenAI-compatible API to orchestrate files with natural "
 "language in the AI sidebar.\n"
@@ -1539,448 +1471,432 @@ msgid ""
 "Ollama)."
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:101
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:86
+#: src/widgets/ai_settings_dialog.vala:101
+#: src/widgets/preferences_dialog.vala:85
 msgid "Enable AI Assistant"
 msgstr "启用 AI 助手"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:102
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:87
+#: src/widgets/ai_settings_dialog.vala:102
+#: src/widgets/preferences_dialog.vala:86
 msgid "After closing, the AI sidebar is kept but no requests are sent"
 msgstr "关闭后 AI 边栏会保留, 但不会发送任何请求"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:110
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:169
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:95
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:152
+#: src/widgets/ai_settings_dialog.vala:110
+#: src/widgets/ai_settings_dialog.vala:169
+#: src/widgets/preferences_dialog.vala:94
+#: src/widgets/preferences_dialog.vala:151
 msgid "API Base URL"
 msgstr "API 基础地址"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:116
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:175
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:101
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:158
+#: src/widgets/ai_settings_dialog.vala:116
+#: src/widgets/ai_settings_dialog.vala:175
+#: src/widgets/preferences_dialog.vala:100
+#: src/widgets/preferences_dialog.vala:157
 msgid "API Key"
 msgstr "API 密钥"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:121
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:180
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:106
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:163
+#: src/widgets/ai_settings_dialog.vala:121
+#: src/widgets/ai_settings_dialog.vala:180
+#: src/widgets/preferences_dialog.vala:105
+#: src/widgets/preferences_dialog.vala:162
 msgid "Model Name"
 msgstr "模型名称"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:127
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:186
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:112
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:169
+#: src/widgets/ai_settings_dialog.vala:127
+#: src/widgets/ai_settings_dialog.vala:186
+#: src/widgets/preferences_dialog.vala:111
+#: src/widgets/preferences_dialog.vala:168
 msgid "Request Timeout (seconds)"
 msgstr "请求超时 (秒)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:132
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:191
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:117
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:174
+#: src/widgets/ai_settings_dialog.vala:132
+#: src/widgets/ai_settings_dialog.vala:191
+#: src/widgets/preferences_dialog.vala:116
+#: src/widgets/preferences_dialog.vala:173
 msgid "Advanced"
 msgstr "高级"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:136
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:208
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:121
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:190
+#: src/widgets/ai_settings_dialog.vala:136
+#: src/widgets/ai_settings_dialog.vala:208
+#: src/widgets/preferences_dialog.vala:120
+#: src/widgets/preferences_dialog.vala:189
 msgid "Custom System Prompt (Optional)"
 msgstr "自定义系统提示词 (可选)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:142
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:214
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:127
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:196
+#: src/widgets/ai_settings_dialog.vala:142
+#: src/widgets/ai_settings_dialog.vala:214
+#: src/widgets/preferences_dialog.vala:126
+#: src/widgets/preferences_dialog.vala:195
 msgid "Test Connection"
 msgstr "测试连接"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:143
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:128
+#: src/widgets/ai_settings_dialog.vala:143
+#: src/widgets/preferences_dialog.vala:127
 msgid "Verify sidebar AI configuration"
 msgstr "验证侧边栏 AI 配置是否可用"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:144
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:216
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:129
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:198
+#: src/widgets/ai_settings_dialog.vala:144
+#: src/widgets/ai_settings_dialog.vala:216
+#: src/widgets/preferences_dialog.vala:128
+#: src/widgets/preferences_dialog.vala:197
 msgid "Test"
 msgstr "测试"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:154
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:137
+#: src/widgets/ai_settings_dialog.vala:154
+#: src/widgets/preferences_dialog.vala:136
 msgid "Vision-Language Model (VLM) (Binary File Preprocessing)"
 msgstr "视觉语言大模型 (VLM) (二进制文件预处理)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:156
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:139
+#: src/widgets/ai_settings_dialog.vala:156
+#: src/widgets/preferences_dialog.vala:138
 msgid ""
 "Configure the Vision Language Model (VLM) API to convert PDF, Word, PPT, "
 "images, etc. into Markdown."
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:160
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:143
+#: src/widgets/ai_settings_dialog.vala:160
+#: src/widgets/preferences_dialog.vala:142
 msgid "Enable VLM"
 msgstr "启用 VLM"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:161
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:144
+#: src/widgets/ai_settings_dialog.vala:161
+#: src/widgets/preferences_dialog.vala:143
 msgid "Binary files will not be auto-converted when disabled"
 msgstr "关闭后二进制文件将不会自动转换"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:196
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:178
+#: src/widgets/ai_settings_dialog.vala:196
+#: src/widgets/preferences_dialog.vala:177
 msgid "Allowed binary extensions (comma-separated, e.g. .pdf, .docx)"
 msgstr "允许转换的二进制扩展名 (逗号分隔, 如 .pdf, .docx)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:201
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:183
+#: src/widgets/ai_settings_dialog.vala:201
+#: src/widgets/preferences_dialog.vala:182
 msgid "Default"
 msgstr "默认"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:203
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:185
+#: src/widgets/ai_settings_dialog.vala:203
+#: src/widgets/preferences_dialog.vala:184
 msgid "Reset to default extension list"
 msgstr "恢复为默认扩展名列表"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:215
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:197
+#: src/widgets/ai_settings_dialog.vala:215
+#: src/widgets/preferences_dialog.vala:196
 msgid "Verify VLM (Vision-Language Model) configuration"
 msgstr "验证视觉语言大模型 (VLM) 配置是否可用"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:226
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:303
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:206
+#: src/widgets/ai_settings_dialog.vala:226
+#: src/widgets/ai_settings_dialog.vala:303
+#: src/widgets/preferences_dialog.vala:205
 msgid "Security Warning"
 msgstr "安全警告"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:230
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:210
+#: src/widgets/ai_settings_dialog.vala:230
+#: src/widgets/preferences_dialog.vala:209
 msgid "HTTP Endpoint Security Risk"
 msgstr "HTTP 端点安全风险"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:231
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:211
+#: src/widgets/ai_settings_dialog.vala:231
+#: src/widgets/preferences_dialog.vala:210
 msgid ""
 "Using an HTTP (non-HTTPS) endpoint transmits the API key in plaintext over "
 "the network, posing a security risk."
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:305
+#: src/widgets/ai_settings_dialog.vala:305
 msgid ""
 "This will send the API key in plaintext during transmission, risking "
 "interception by third parties.\n"
 "\n"
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:304
+#: src/widgets/ai_settings_dialog.vala:304
 msgid ""
 "You are configuring an HTTP (non-HTTPS) endpoint.\n"
 "\n"
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:391
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:522
+#: src/widgets/ai_settings_dialog.vala:391
+#: src/widgets/preferences_dialog.vala:515
 msgid "Please fill in the API Base URL, Key, and Model Name first."
 msgstr "请先填写 API 基础地址、密钥和模型名称。"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:397
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:528
+#: src/widgets/ai_settings_dialog.vala:397
+#: src/widgets/preferences_dialog.vala:521
 msgid "Testing..."
 msgstr "正在测试..."
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:461
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:592
-msgid " Connected successfully"
-msgstr " Connected successfully"
+#: src/widgets/ai_settings_dialog.vala:461
+#: src/widgets/preferences_dialog.vala:585
+msgid "✓ Connected successfully"
+msgstr "✓ 连接成功"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:473
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:604
+#: src/widgets/ai_settings_dialog.vala:473
+#: src/widgets/preferences_dialog.vala:597
 #, c-format
-msgid " Failed: HTTP %u %s"
-msgstr " Failed: HTTP %u %s"
+msgid "✗ Failed: HTTP %u %s"
+msgstr "✗ 失败: HTTP %u %s"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/ai_settings_dialog.vala:478
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:609
+#: src/widgets/ai_settings_dialog.vala:478
+#: src/widgets/preferences_dialog.vala:602
 #, c-format
-msgid " Failed: %s"
-msgstr " Failed: %s"
+msgid "✗ Failed: %s"
+msgstr "✗ 失败: %s"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_menus.vala:120
+#: src/widgets/context_menus.vala:120
 #, c-format
 msgid "Retry AI Conversion (%d items)"
 msgstr "重新进行 AI 转换 (%d 项)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_menus.vala:120
+#: src/widgets/context_menus.vala:120
 msgid "Re-run AI conversion"
 msgstr "重新进行 AI 转换"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_menus.vala:136
+#: src/widgets/context_menus.vala:136
 #, c-format
 msgid "Switch absolute/relative path (%d items)"
 msgstr "切换绝对/相对路径 (%d 项)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_menus.vala:136
+#: src/widgets/context_menus.vala:136
 msgid "Switch absolute/relative path"
 msgstr "切换绝对/相对路径"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_menus.vala:143
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_menus.vala:206
+#: src/widgets/context_menus.vala:143 src/widgets/context_menus.vala:206
 msgid "Copy Path"
 msgstr "复制路径"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_menus.vala:148
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_menus.vala:211
+#: src/widgets/context_menus.vala:148 src/widgets/context_menus.vala:211
 msgid "Show in File Manager"
 msgstr "在文件管理器中显示"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_menus.vala:181
+#: src/widgets/context_menus.vala:181
 #, c-format
 msgid "Delete (%d items)"
 msgstr "删除 (%d 项)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_menus.vala:225
+#: src/widgets/context_menus.vala:225
 msgid "Copy File Content"
 msgstr "复制文件内容"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_menus.vala:230
+#: src/widgets/context_menus.vala:230
 msgid "Select lines..."
 msgstr "选择行..."
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_settings_dialog.vala:14
+#: src/widgets/context_settings_dialog.vala:14
 msgid "Context Window Settings"
 msgstr "上下文窗口设置"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_settings_dialog.vala:32
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:255
+#: src/widgets/context_settings_dialog.vala:32
+#: src/widgets/preferences_dialog.vala:254
 msgid "Model Context Limit"
 msgstr "模型上下文限制"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_settings_dialog.vala:33
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:256
+#: src/widgets/context_settings_dialog.vala:33
+#: src/widgets/preferences_dialog.vala:255
 msgid ""
 "Set the target LLM's maximum token window, used for progress bar warnings."
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/context_settings_dialog.vala:37
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:260
+#: src/widgets/context_settings_dialog.vala:37
+#: src/widgets/preferences_dialog.vala:259
 msgid "Context Window Size (Tokens)"
 msgstr "上下文窗口大小 (Tokens)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/global_search_dialog.vala:42
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/global_search_dialog.vala:107
+#: src/widgets/global_search_dialog.vala:42
+#: src/widgets/global_search_dialog.vala:107
 msgid "Global Content Search"
 msgstr "全局内容搜索"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/global_search_dialog.vala:59
+#: src/widgets/global_search_dialog.vala:59
 msgid "Search code content... (press Enter to search)"
 msgstr "输入要搜索的代码内容…"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/global_search_dialog.vala:66
+#: src/widgets/global_search_dialog.vala:66
 msgid "Case Sensitive"
 msgstr "区分大小写"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/global_search_dialog.vala:101
+#: src/widgets/global_search_dialog.vala:101
 msgid "No matches found"
 msgstr "未找到匹配项"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/global_search_dialog.vala:102
+#: src/widgets/global_search_dialog.vala:102
 msgid ""
 "No files contain this keyword. Try another keyword or adjust search options."
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/global_search_dialog.vala:108
+#: src/widgets/global_search_dialog.vala:108
 msgid ""
 "Enter a keyword and press Enter or click search to find matching code and "
 "text across the working directory."
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/global_search_dialog.vala:124
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/global_search_dialog.vala:217
+#: src/widgets/global_search_dialog.vala:124
+#: src/widgets/global_search_dialog.vala:217
 msgid "Select All"
 msgstr "全选"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/global_search_dialog.vala:144
+#: src/widgets/global_search_dialog.vala:144
 msgid "Add All"
 msgstr "添加全部"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/global_search_dialog.vala:181
+#: src/widgets/global_search_dialog.vala:181
 msgid "Scanning file tree..."
 msgstr "正在扫描文件树..."
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/global_search_dialog.vala:198
+#: src/widgets/global_search_dialog.vala:198
 #, c-format
 msgid "Scanned %d files, found %d matches..."
 msgstr "已扫描 %d 个文件，找到 %d 个匹配项..."
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/global_search_dialog.vala:204
+#: src/widgets/global_search_dialog.vala:204
 #, c-format
 msgid "Search complete: scanned %d files, found %d matches (%d unique files)"
 msgstr "搜索完成：扫描 %d 个文件，找到 %d 个匹配项（涉及 %d 个独立文件）"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/global_search_dialog.vala:217
+#: src/widgets/global_search_dialog.vala:217
 msgid "Deselect All"
 msgstr "全不选"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/global_search_dialog.vala:218
+#: src/widgets/global_search_dialog.vala:218
 #, c-format
 msgid "Add Selected Files to List (%d)"
 msgstr "添加选中文件到编排列表 (%d)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/global_search_dialog.vala:219
+#: src/widgets/global_search_dialog.vala:219
 #, c-format
 msgid "Add All (%d)"
 msgstr "添加全部 (%d)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/markdown_view.vala:20
+#: src/widgets/markdown_view.vala:20
 msgid ""
 "\n"
 "...(content too long, truncated)"
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/phrases_picker.vala:29
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/phrases_picker.vala:37
+#: src/widgets/phrases_picker.vala:29 src/widgets/phrases_picker.vala:37
 msgid "Select Common Phrase"
 msgstr "选择常用语"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/phrases_picker.vala:86
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/phrases_picker.vala:94
+#: src/widgets/phrases_picker.vala:86 src/widgets/phrases_picker.vala:94
 msgid "Manage Common Phrases"
 msgstr "常用语管理"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/phrases_picker.vala:146
+#: src/widgets/phrases_picker.vala:146
 msgid "No Common Phrases Yet"
 msgstr "暂无常用语"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/phrases_picker.vala:244
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/phrases_picker.vala:252
+#: src/widgets/phrases_picker.vala:244 src/widgets/phrases_picker.vala:252
 msgid "Add Common Phrase"
 msgstr "添加常用语"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:251
+#: src/widgets/preferences_dialog.vala:250
 msgid "Scanning & Context"
 msgstr "扫描与上下文"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:272
+#: src/widgets/preferences_dialog.vala:271
 msgid "Scan Ignored Directories"
 msgstr "扫描忽略目录"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:274
+#: src/widgets/preferences_dialog.vala:273
 msgid ""
 "These directories will not appear in the file tree and will not be collected "
 "automatically."
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:278
+#: src/widgets/preferences_dialog.vala:277
 msgid "Ignored Directory Names"
 msgstr "忽略的目录名"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:290
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:294
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:304
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/settings_dialog.vala:38
-msgid "Interface Language"
-msgstr "界面语言"
-
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:295
-msgid "Restart the application for language changes to take effect."
-msgstr "切换语言后需要重启应用才能生效。"
-
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:300
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:376
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/settings_dialog.vala:34
-msgid "Follow System"
-msgstr "跟随系统"
-
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:300
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/settings_dialog.vala:34
-msgid "Chinese"
-msgstr "中文"
-
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:300
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/settings_dialog.vala:34
-msgid "English"
-msgstr "English"
-
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:320
-msgid "Save language settings and restart application"
-msgstr "保存语言设置并重启应用"
-
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:321
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/settings_dialog.vala:29
-msgid "Apply"
-msgstr "应用"
-
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:345
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/settings_dialog.vala:73
-msgid "Notice"
-msgstr "提示"
-
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:346
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/settings_dialog.vala:74
-msgid "Language setting saved; takes effect after restart. Restart now?"
-msgstr "语言设置已保存，重启应用后生效。是否现在重启？"
-
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:348
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/settings_dialog.vala:76
-msgid "Later"
-msgstr "稍后"
-
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:349
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/settings_dialog.vala:77
-msgid "Restart Now"
-msgstr "立即重启"
-
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:367
+#: src/widgets/preferences_dialog.vala:289
 msgid "Appearance"
 msgstr "外观"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:371
+#: src/widgets/preferences_dialog.vala:294
 msgid "Color Theme"
 msgstr "色彩主题"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:372
+#: src/widgets/preferences_dialog.vala:295
 msgid "Select the application color theme."
 msgstr "选择应用的色彩主题。"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:376
+#: src/widgets/preferences_dialog.vala:299
+#: src/widgets/preferences_dialog.vala:341 src/widgets/settings_dialog.vala:34
+msgid "Follow System"
+msgstr "跟随系统"
+
+#: src/widgets/preferences_dialog.vala:299
 msgid "Light"
 msgstr "浅色"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:376
+#: src/widgets/preferences_dialog.vala:299
 msgid "Dark"
 msgstr "深色"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/preferences_dialog.vala:380
+#: src/widgets/preferences_dialog.vala:303
 msgid "Theme"
 msgstr "主题"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/settings_dialog.vala:17
+#: src/widgets/preferences_dialog.vala:335
+#: src/widgets/preferences_dialog.vala:345 src/widgets/settings_dialog.vala:38
+msgid "Interface Language"
+msgstr "界面语言"
+
+#: src/widgets/preferences_dialog.vala:336
+msgid "Restart the application for language changes to take effect."
+msgstr "切换语言后需要重启应用才能生效。"
+
+#: src/widgets/preferences_dialog.vala:341 src/widgets/settings_dialog.vala:34
+msgid "Chinese"
+msgstr "中文"
+
+#: src/widgets/preferences_dialog.vala:341 src/widgets/settings_dialog.vala:34
+msgid "English"
+msgstr "English"
+
+#: src/widgets/preferences_dialog.vala:361
+msgid "Save language settings and restart application"
+msgstr "保存语言设置并重启应用"
+
+#: src/widgets/preferences_dialog.vala:362 src/widgets/settings_dialog.vala:29
+msgid "Apply"
+msgstr "应用"
+
+#: src/widgets/preferences_dialog.vala:386 src/widgets/settings_dialog.vala:73
+msgid "Notice"
+msgstr "提示"
+
+#: src/widgets/preferences_dialog.vala:387 src/widgets/settings_dialog.vala:74
+msgid "Language setting saved; takes effect after restart. Restart now?"
+msgstr "语言设置已保存，重启应用后生效。是否现在重启？"
+
+#: src/widgets/preferences_dialog.vala:389 src/widgets/settings_dialog.vala:76
+msgid "Later"
+msgstr "稍后"
+
+#: src/widgets/preferences_dialog.vala:390 src/widgets/settings_dialog.vala:77
+msgid "Restart Now"
+msgstr "立即重启"
+
+#: src/widgets/settings_dialog.vala:17
 msgid "Set Interface Language"
 msgstr "设置界面语言"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/templates_manager.vala:18
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/templates_manager.vala:26
+#: src/widgets/templates_manager.vala:18 src/widgets/templates_manager.vala:26
 msgid "Prompt Templates"
 msgstr "场景模板管理"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/templates_manager.vala:101
+#: src/widgets/templates_manager.vala:101
 msgid "Add Template"
 msgstr "添加模板"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/templates_manager.vala:101
+#: src/widgets/templates_manager.vala:101
 msgid "Edit Template"
 msgstr "编辑模板"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/templates_manager.vala:119
+#: src/widgets/templates_manager.vala:119
 msgid "Template Fields"
 msgstr "模板字段"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/templates_manager.vala:121
+#: src/widgets/templates_manager.vala:121
 msgid ""
 "Type \"/\" + command ID in the AI assistant input box to trigger this "
 "template.\n"
@@ -1989,18 +1905,18 @@ msgid ""
 "sent to the AI as a user message."
 msgstr ""
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/templates_manager.vala:126
+#: src/widgets/templates_manager.vala:126
 msgid "Command ID (e.g. bug)"
 msgstr "指令 ID (如 bug)"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/templates_manager.vala:129
+#: src/widgets/templates_manager.vala:129
 msgid "Display Name"
 msgstr "显示名称"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/templates_manager.vala:132
+#: src/widgets/templates_manager.vala:132
 msgid "Description"
 msgstr "描述"
 
-#: /home/sam/Desktop/filecollector-gnome/src/widgets/templates_manager.vala:141
+#: src/widgets/templates_manager.vala:141
 msgid "AI Prompt"
 msgstr "AI 驱动提示词"
