@@ -30,10 +30,18 @@ jobs:
             mingw-w64-x86_64-libsoup3
             mingw-w64-x86_64-libgee
             mingw-w64-x86_64-gtksourceview5
-            mingw-w64-x86_64-cmark-gfm
             mingw-w64-x86_64-blueprint-compiler
             mingw-w64-x86_64-gettext
             mingw-w64-x86_64-libsecret
+
+      - name: Build cmark-gfm from source
+        run: |
+          git clone --depth 1 https://github.com/github/cmark-gfm.git /tmp/cmark-gfm
+          cmake -S /tmp/cmark-gfm -B /tmp/cmark-gfm-build \
+            -G "MSYS Makefiles" -DCMAKE_INSTALL_PREFIX=/usr/local \
+            -DCMARK_TESTS=OFF -DCMARK_STATIC=ON
+          cmake --build /tmp/cmark-gfm-build
+          cmake --install /tmp/cmark-gfm-build
 
       - name: Build
         run: |
