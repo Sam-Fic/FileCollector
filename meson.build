@@ -104,7 +104,6 @@ config = configure_file(
 
 sources = files(
   'src/main.vala',
-  'src/win32_dpapi_shim.c',
   'src/cli.vala',
   'src/window.vala',
   'src/utils/platform.vala',
@@ -151,6 +150,11 @@ sources = files(
   'src/widgets/phrases_picker.vala',
   'src/widgets/templates_manager.vala'
 )
+
+# win32_dpapi_shim.c 仅 Windows 构建需要 (DPAPI 封装), 其它平台不存在该文件。
+if host_machine.system() == 'windows'
+  sources += files('src/win32_dpapi_shim.c')
+endif
 
 # 国际化
 # 源语言为英文 (代码中 _() 的 msgid), 翻译文件在 po/ 目录。
