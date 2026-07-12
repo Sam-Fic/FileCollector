@@ -36,8 +36,9 @@ jobs:
 
       - name: Build cmark-gfm from source
         run: |
-          git clone --depth 1 https://github.com/github/cmark-gfm.git /tmp/cmark-gfm
-          cmake -S /tmp/cmark-gfm -B /tmp/cmark-gfm-build \
+          curl -L -o /tmp/cmark-gfm.tar.gz https://github.com/github/cmark-gfm/archive/refs/tags/0.29.0.gfm.13.tar.gz
+          tar -xzf /tmp/cmark-gfm.tar.gz -C /tmp
+          cmake -S /tmp/cmark-gfm-0.29.0.gfm.13 -B /tmp/cmark-gfm-build \
             -G "MSYS Makefiles" -DCMAKE_INSTALL_PREFIX=/usr/local \
             -DCMARK_TESTS=OFF -DCMARK_STATIC=ON
           cmake --build /tmp/cmark-gfm-build

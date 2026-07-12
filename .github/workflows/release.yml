@@ -41,8 +41,9 @@ jobs:
 
       - name: Build cmark-gfm from source
         run: |
-          git clone --depth 1 https://github.com/github/cmark-gfm.git /tmp/cmark-gfm
-          cmake -S /tmp/cmark-gfm -B /tmp/cmark-gfm-build \
+          curl -L -o /tmp/cmark-gfm.tar.gz https://github.com/github/cmark-gfm/archive/refs/tags/0.29.0.gfm.13.tar.gz
+          tar -xzf /tmp/cmark-gfm.tar.gz -C /tmp
+          cmake -S /tmp/cmark-gfm-0.29.0.gfm.13 -B /tmp/cmark-gfm-build \
             -G "MSYS Makefiles" -DCMAKE_INSTALL_PREFIX=/usr/local \
             -DCMARK_TESTS=OFF -DCMARK_STATIC=ON
           cmake --build /tmp/cmark-gfm-build
@@ -126,6 +127,10 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo apt-get update
+          # libadwaita 1.8 / gtk4 4.16 backport (Ubuntu 24.04 官方源仅有 1.5 / 4.14)
+          sudo apt-get install -y software-properties-common
+          sudo add-apt-repository -y ppa:savoury1/gtk4
           sudo apt-get update
           sudo apt-get install -y meson ninja-build valac libgtk-4-dev libadwaita-1-dev \
             libjson-glib-dev libsoup-3.0-dev libgee-0.8-dev libgtksourceview-5-dev \
