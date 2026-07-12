@@ -65,7 +65,6 @@ public class PreferencesDialog : GLib.Object {
 
         build_ai_page ();
         build_context_page ();
-        build_language_page ();
         build_appearance_page ();
 
         dialog.present (parent_window);
@@ -285,11 +284,53 @@ public class PreferencesDialog : GLib.Object {
         dialog.add (page);
     }
 
-    private void build_language_page () {
+    private void build_appearance_page () {
         var page = new PreferencesPage ();
-        page.set_title (_("Interface Language"));
-        page.set_icon_name ("preferences-desktop-locale-symbolic");
+        page.set_title (_("Appearance"));
+        page.set_icon_name ("preferences-color-symbolic");
 
+        // ── 颜色主题 ──
+        var theme_group = new PreferencesGroup ();
+        theme_group.set_title (_("Color Theme"));
+        theme_group.set_description (_("Select the application color theme."));
+        page.add (theme_group);
+
+        var scheme_model = new StringList (new string[] {
+            _("Follow System"), _("Light"), _("Dark")
+        });
+
+        combo_color_scheme = new ComboRow ();
+        combo_color_scheme.set_title (_("Theme"));
+        combo_color_scheme.set_model (scheme_model);
+
+        string current_scheme = ConfigManager.load_color_scheme ();
+        if (current_scheme == "default") {
+            combo_color_scheme.set_selected (0);
+        } else if (current_scheme == "light") {
+            combo_color_scheme.set_selected (1);
+        } else if (current_scheme == "dark") {
+            combo_color_scheme.set_selected (2);
+        }
+        theme_group.add (combo_color_scheme);
+
+        combo_color_scheme.notify["selected"].connect (() => {
+            string scheme;
+            Adw.ColorScheme adw_scheme;
+            if (combo_color_scheme.selected == 0) {
+                scheme = "default";
+                adw_scheme = Adw.ColorScheme.DEFAULT;
+            } else if (combo_color_scheme.selected == 1) {
+                scheme = "light";
+                adw_scheme = Adw.ColorScheme.FORCE_LIGHT;
+            } else {
+                scheme = "dark";
+                adw_scheme = Adw.ColorScheme.FORCE_DARK;
+            }
+            Adw.StyleManager.get_default ().set_color_scheme (adw_scheme);
+            ConfigManager.save_color_scheme (scheme);
+        });
+
+        // ── 界面语言 ──
         var lang_group = new PreferencesGroup ();
         lang_group.set_title (_("Interface Language"));
         lang_group.set_description (_("Restart the application for language changes to take effect."));
@@ -360,54 +401,6 @@ public class PreferencesDialog : GLib.Object {
                 restart_dialog.present (parent_window);
             }
         });
-    }
-
-    private void build_appearance_page () {
-        var page = new PreferencesPage ();
-        page.set_title (_("Appearance"));
-        page.set_icon_name ("preferences-color-symbolic");
-
-        var group = new PreferencesGroup ();
-        group.set_title (_("Color Theme"));
-        group.set_description (_("Select the application color theme."));
-        page.add (group);
-
-        var scheme_model = new StringList (new string[] {
-            _("Follow System"), _("Light"), _("Dark")
-        });
-
-        combo_color_scheme = new ComboRow ();
-        combo_color_scheme.set_title (_("Theme"));
-        combo_color_scheme.set_model (scheme_model);
-
-        string current_scheme = ConfigManager.load_color_scheme ();
-        if (current_scheme == "default") {
-            combo_color_scheme.set_selected (0);
-        } else if (current_scheme == "light") {
-            combo_color_scheme.set_selected (1);
-        } else if (current_scheme == "dark") {
-            combo_color_scheme.set_selected (2);
-        }
-        group.add (combo_color_scheme);
-
-        combo_color_scheme.notify["selected"].connect (() => {
-            string scheme;
-            Adw.ColorScheme adw_scheme;
-            if (combo_color_scheme.selected == 0) {
-                scheme = "default";
-                adw_scheme = Adw.ColorScheme.DEFAULT;
-            } else if (combo_color_scheme.selected == 1) {
-                scheme = "light";
-                adw_scheme = Adw.ColorScheme.FORCE_LIGHT;
-            } else {
-                scheme = "dark";
-                adw_scheme = Adw.ColorScheme.FORCE_DARK;
-            }
-            Adw.StyleManager.get_default ().set_color_scheme (adw_scheme);
-            ConfigManager.save_color_scheme (scheme);
-        });
-
-        dialog.add (page);
     }
 
     // ── AI 设置辅助方法 ──
