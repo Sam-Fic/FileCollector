@@ -56,8 +56,14 @@ gettext_package = meson.project_name ()
 locale_dir = join_paths (get_option ('prefix'), get_option ('localedir'))
 
 # 开发构建：优先使用源码树 locale/ 目录，避免 /usr/share/locale 找不到 .mo
+# 用 Python 做跨平台目录存在性检查, 避免依赖 Unix 的 `test` 命令
+# (在 PowerShell / cmd 下 `test` 不存在会导致 configure 失败)。
 src_locale = join_paths (meson.project_source_root (), 'locale')
-if run_command('test', '-d', src_locale, check: false).returncode() == 0
+py = find_program ('python3', 'python', required: false)
+if py.found () and run_command (
+    py, '-c', 'import os, sys; sys.exit(0 if os.path.isdir(sys.argv[1]) else 1)',
+    src_locale, check: false
+).returncode () == 0
     locale_dir = src_locale
 endif
 
