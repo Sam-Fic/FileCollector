@@ -17,7 +17,7 @@
     </ul>
   </description>
   <launchable type="desktop-id">io.github.sam_fic.filecollector.desktop</launchable>
-  <url type="homepage">https://github.com/Sam-Fic/filecollector-gnome</url>
+  <url type="homepage">https://github.com/Sam-Fic/filecollector</url>
   <developer id="io.github.sam_fic">
     <name>Sam-Fic</name>
   </developer>
