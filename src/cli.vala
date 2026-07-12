@@ -452,7 +452,7 @@ public class CliController : GLib.Object {
             checked_paths.clear ();
             checked_dirs.clear ();
 
-            var checked_arr = root.get_array_member ("checked_files");
+            var checked_arr = root.has_member ("checked_files") ? root.get_array_member ("checked_files") : null;
             if (checked_arr != null) {
                 for (int i = 0; i < checked_arr.get_length (); i++) {
                     var p = checked_arr.get_string_element (i);
@@ -460,17 +460,18 @@ public class CliController : GLib.Object {
                 }
             }
 
-            var checked_dirs_arr = root.get_array_member ("checked_dirs");
+            var checked_dirs_arr = root.has_member ("checked_dirs") ? root.get_array_member ("checked_dirs") : null;
             if (checked_dirs_arr != null) {
                 for (int i = 0; i < checked_dirs_arr.get_length (); i++) {
                     checked_dirs.add (checked_dirs_arr.get_string_element (i));
                 }
             }
 
-            var items_arr = root.get_array_member ("items");
+            var items_arr = root.has_member ("items") ? root.get_array_member ("items") : null;
             if (items_arr != null) {
                 for (int i = 0; i < items_arr.get_length (); i++) {
                     var obj = items_arr.get_object_element (i);
+                    if (obj == null) continue;
                     var type = obj.get_string_member ("type");
                     if (type == "file") {
                         var p = obj.get_string_member ("path");
@@ -505,7 +506,7 @@ public class CliController : GLib.Object {
             }
 
             common_phrases.clear ();
-            var phrases_arr = root.get_array_member ("common_phrases");
+            var phrases_arr = root.has_member ("common_phrases") ? root.get_array_member ("common_phrases") : null;
             if (phrases_arr != null) {
                 for (int i = 0; i < phrases_arr.get_length (); i++) {
                     common_phrases.add (phrases_arr.get_string_element (i));

@@ -255,7 +255,7 @@ public class ConfigManager : GLib.Object {
         try {
             var root = load_settings_root_unlocked ();
             if (root == null) return defaults;
-            var ai = root.get_object_member ("multimodal_ai");
+            var ai = root.has_member ("multimodal_ai") ? root.get_object_member ("multimodal_ai") : null;
             if (ai == null) return defaults;
             defaults.enabled = ai.get_boolean_member_with_default ("enabled", false);
             defaults.base_url = ai.get_string_member_with_default ("base_url", defaults.base_url);
@@ -345,7 +345,7 @@ public class ConfigManager : GLib.Object {
         try {
             var root = load_settings_root_unlocked ();
             if (root == null) return defaults;
-            var ai = root.get_object_member ("ai");
+            var ai = root.has_member ("ai") ? root.get_object_member ("ai") : null;
             if (ai == null) return defaults;
             defaults.enabled = ai.get_boolean_member_with_default ("enabled", false);
             defaults.base_url = ai.get_string_member_with_default ("base_url", DEFAULT_AI_BASE_URL);
@@ -495,10 +495,15 @@ public class ConfigManager : GLib.Object {
             FileUtils.get_contents (file, out content, out len);
             var parser = new Json.Parser ();
             parser.load_from_data (content);
-            var root = parser.get_root ().get_array ();
+            var root_node = parser.get_root ();
+            if (root_node == null || root_node.get_node_type () != Json.NodeType.ARRAY) {
+                return get_default_templates ();
+            }
+            var root = root_node.get_array ();
             var list = new Gee.ArrayList<PromptTemplate> ();
             for (int i = 0; i < root.get_length (); i++) {
                 var obj = root.get_object_element (i);
+                if (obj == null) continue;
                 list.add (new PromptTemplate (
                     obj.get_string_member_with_default ("id", ""),
                     obj.get_string_member_with_default ("name", ""),
