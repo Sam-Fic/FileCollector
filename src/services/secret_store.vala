@@ -151,8 +151,9 @@ namespace SecretStore {
             (uint32) slot.length, slot,
             &len, &data, &item);
         if (rc != 0 || data == null) return null;
-        var buf = (uint8[]) (data[0:len]);
-        string result = (string) buf;
+        unowned uint8[] view = (uint8[]) ((uint8*) data);
+        view.length = (int) len;
+        string result = (string) view;
         SecKeychainItemFreeContent (null, data);
         if (item != null) {
             SecKeychainItemDelete (item);

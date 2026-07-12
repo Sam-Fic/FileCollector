@@ -34,7 +34,7 @@ namespace Platform {
 #elif MACOS
         uint8[] buf = new uint8[4096];
         uint32 size = (uint32) buf.length;
-        if (_NSGetExecutablePath (buf, &size) == 0) {
+        if (_NSGetExecutablePath (buf, ref size) == 0) {
             return (string) buf;
         }
         return ".";
