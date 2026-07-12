@@ -29,13 +29,13 @@ For the usage process and tips of the graphical interface, please refer to the [
 - **Project Management**: Open and save projects
 - **Phrase Management**: Manage and organize common phrases
 - **Internationalization**: Supports Chinese and English UI, automatically follows system language
-- **Modern UI**: Designed following GNOME Human Interface Guidelines
+- **Modern UI**: Designed following GNOME Human Interface Guidelines (based on libadwaita, also runs on Windows / macOS)
 - **Git History Integration**: One-click collection of changed files, export Diff code blocks, quickly build Git context for AI
 - **Global Content Search**: `Ctrl+Shift+F` opens a search dialog with async background scanning, encoding auto-detection, result highlighting, and one-click addition of matched files to the orchestration list
 - **Scene-based Prompt Templates**: Built-in templates for Bug analysis, API documentation, and code refactoring. Use `/t <id>` slash commands to insert structured placeholders and drive AI execution in one step
 - **AI Reading Guide Generation**: One-click AI analysis of the orchestration list to generate a structured table of contents and reading guide
 
-> **Tip**: If you are on a non-GNOME platform (such as Windows or macOS), please check out the [Flet version repository](https://github.com/Sam-Fic/filecollector). This version supports Windows, macOS, and Linux, and is built with Flet.
+> **Tip**: This repository now supports Windows and macOS (Apple Silicon) with portable packages built automatically by GitHub Actions — see [Cross-platform Builds & Releases (GitHub Actions)](#cross-platform-builds--releases-github-actions). For an alternative Flet-based cross-platform implementation, see the [Flet version repository](https://github.com/Sam-Fic/filecollector-flet).
 
 ## Why Use This Tool?
 
@@ -45,7 +45,7 @@ For the usage process and tips of the graphical interface, please refer to the [
 
 ## Pre-built Flatpak (Recommended)
 
-Pre-built Flatpak packages are available in the [Releases](https://github.com/Sam-Fic/filecollector-gnome/releases) section. If you prefer not to build from source, you can directly download and install the `.flatpak` files.
+Pre-built Flatpak packages are available in the [Releases](https://github.com/Sam-Fic/filecollector/releases) section. If you prefer not to build from source, you can directly download and install the `.flatpak` files.
 
 ```bash
 flatpak install --user <the-downloaded.flatpak-file>
@@ -56,6 +56,35 @@ Then run:
 ```bash
 flatpak run io.github.sam_fic.filecollector
 ```
+
+## Cross-platform Builds & Releases (GitHub Actions)
+
+Built on GTK4 + libadwaita — both of which are cross-platform — this tool is not
+Linux-only. **Windows and macOS (Apple Silicon) portable packages are produced
+automatically by GitHub Actions.**
+
+- **Triggers**: Pushing a `v*` tag (e.g. `v4.6.0`) or a manual `workflow_dispatch`
+  builds for three platforms:
+  - `windows-latest` (msys2 / mingw64) → self-contained `filecollector-windows-x64.zip`
+  - `macos-14` (Apple Silicon, arm64) → `FileCollector.app` portable package `filecollector-macos-arm64.zip`
+  - `ubuntu-latest` → Linux binary build check
+- **Artifacts**: On a `v*` tag, all three packages are attached to the
+  [Releases](https://github.com/Sam-Fic/filecollector/releases) page.
+  Regular commits and PRs only run build validation; artifacts can be downloaded
+  from the Actions run history.
+- **Platform differences handled**:
+  - **API Key storage**: Linux keeps libsecret (system keyring); Windows uses Win32
+    DPAPI (encrypted on disk); macOS uses the Security framework Keychain. Unified
+    in `src/services/secret_store.vala`.
+  - **Paths & process detection**: Linux-specific assumptions such as
+    `/proc/self/exe`, `/usr/share/filecollector`, and Flatpak-internal git are now
+    consolidated in `src/utils/platform.vala` with sensible fallbacks elsewhere.
+  - **Data dir / themes / locale**: Portable packages bundle `data/` and `locale/`
+    so they work out of the box.
+
+> Note: macOS is currently provided for Apple Silicon (arm64) only. Intel Mac users
+> can add a `macos-13` job by reference to the workflow. Windows/macOS packages are
+> portable zips without a system-level installer.
 
 ## Build from Source
 
@@ -72,6 +101,32 @@ sudo apt install meson valac libgtk-4-dev libadwaita-1-dev libjson-glib-dev libs
 ```bash
 sudo dnf install meson vala gtk4-devel libadwaita-devel json-glib-devel libsoup3-devel libgee-devel libsecret-devel cmark-gfm-devel gtksourceview5-devel blueprint-compiler gettext
 ```
+
+#### Windows (MSYS2 / mingw64)
+
+Install the toolchain and the full GTK4 stack via the MSYS2 mingw64 terminal (run inside the `mingw64` shell):
+
+```bash
+pacman -S --needed mingw-w64-x86_64-meson mingw-w64-x86_64-ninja mingw-w64-x86_64-gcc \
+  mingw-w64-x86_64-pkgconf mingw-w64-x86_64-gtk4 mingw-w64-x86_64-libadwaita \
+  mingw-w64-x86_64-json-glib mingw-w64-x86_64-libsoup3 mingw-w64-x86_64-libgee \
+  mingw-w64-x86_64-gtksourceview5 mingw-w64-x86_64-cmark-gfm \
+  mingw-w64-x86_64-blueprint-compiler mingw-w64-x86_64-gettext mingw-w64-x86_64-libsecret
+```
+
+> Run `meson` and `ninja` inside the **mingw64** environment (`msys2 {0}`), otherwise GTK4 and friends won't be found. Alternatively, let [GitHub Actions](.github/workflows/windows.yml) produce the Windows portable package for you.
+
+#### macOS (Apple Silicon)
+
+Install with Homebrew (Apple Silicon / arm64 only):
+
+```bash
+brew install gtk4 libadwaita json-glib libsoup gtksourceview5 libgee \
+  cmark-gfm blueprint-compiler meson ninja gettext libsecret pkg-config
+export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:$(brew --prefix)/share/pkgconfig"
+```
+
+> If `meson setup` complains about a missing `libadwaita-1.pc`, make sure `PKG_CONFIG_PATH` is set as shown above. You can also refer to [GitHub Actions](.github/workflows/macos.yml) to produce the macOS portable package.
 
 > **Optional runtime dependencies** (only needed for binary file pre-conversion): LibreOffice (`libreoffice`) for converting documents to PDF; `poppler-utils` provides `pdftoppm` for rendering PDFs to images. These are not required if you don't use the VLM pre-conversion feature.
 

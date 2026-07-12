@@ -29,13 +29,13 @@ FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排
 - **项目管理**：打开和保存项目
 - **短语管理**：管理和组织常用短语
 - **国际化**：支持中文和英文界面，跟随系统语言自动切换
-- **现代化界面**：采用 GNOME Human Interface Guidelines 设计
+- **现代化界面**：采用 GNOME Human Interface Guidelines 设计（基于 libadwaita，Windows / macOS 同样可用）
 - **Git 提交历史集成**：一键收集工作区改动文件、导出 Diff 代码块，快速为 AI 构建 Git 上下文
 - **全局内容搜索**：`Ctrl+Shift+F` 弹出搜索对话框，支持后台异步扫描、编码自动识别、结果高亮，一键将命中文件添加到编排列表
 - **场景化编排模板**：内置 Bug 分析、API 文档生成、代码重构等模板，通过 `/t <id>` 斜杠指令一键插入结构化占位符并驱动 AI 执行
 - **AI 生成阅读指南**：一键让 AI 分析编排列表中的文件，生成结构化的目录与阅读指南
 
-> **提示**：如果您使用的是非 GNOME 平台（如 Windows 或 macOS），请移步 [Flet 版本仓库](https://github.com/Sam-Fic/filecollector)。该版本跨平台支持 Windows、macOS 和 Linux，基于 Flet 构建。
+> **提示**：本仓库现已支持 Windows 与 macOS（Apple Silicon），由 GitHub Actions 自动构建便携包，详见 [跨平台构建与发布（GitHub Actions）](#跨平台构建与发布github-actions)。如您偏好基于 Flet 的另一种跨平台实现，仍可参考 [Flet 版本仓库](https://github.com/Sam-Fic/filecollector-flet)。
 
 ## 为什么使用此工具？
 
@@ -45,7 +45,7 @@ FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排
 
 ## 预编译 Flatpak 包（推荐）
 
-预编译好的 Flatpak 包发布在 [Releases](https://github.com/Sam-Fic/filecollector-gnome/releases) 页面。如果您不想自行编译，可直接下载 `.flatpak` 文件安装使用。
+预编译好的 Flatpak 包发布在 [Releases](https://github.com/Sam-Fic/filecollector/releases) 页面。如果您不想自行编译，可直接下载 `.flatpak` 文件安装使用。
 
 ```bash
 flatpak install --user <下载的.flatpak文件>
@@ -56,6 +56,22 @@ flatpak install --user <下载的.flatpak文件>
 ```bash
 flatpak run io.github.sam_fic.filecollector
 ```
+
+## 跨平台构建与发布（GitHub Actions）
+
+本工具基于 GTK4 + libadwaita 开发，框架本身跨平台，因此除 Linux（Flatpak）外，**Windows 与 macOS（Apple Silicon）也由 GitHub Actions 自动构建并产出便携包**。
+
+- **触发方式**：推送 `v*` 标签（如 `v4.6.0`）或手动 `workflow_dispatch` 时，CI 会为三个平台分别构建：
+  - `windows-latest`（msys2 / mingw64）→ 自包含 `filecollector-windows-x64.zip`
+  - `macos-14`（Apple Silicon, arm64）→ `FileCollector.app` 便携包 `filecollector-macos-arm64.zip`
+  - `ubuntu-latest` → Linux 二进制校验
+- **产物获取**：打 `v*` 标签后，三个便携包会自动挂载到 [Releases](https://github.com/Sam-Fic/filecollector/releases) 页面；普通提交与 PR 仅做构建验证，产物可在 Actions 运行记录中下载。
+- **平台差异处理**：
+  - **API Key 密钥存储**：Linux 仍使用 libsecret（系统密钥环）；Windows 改用 Win32 DPAPI 加密落盘；macOS 改用 Security 框架 Keychain。代码统一收敛在 `src/services/secret_store.vala`。
+  - **路径与进程探测**：`/proc/self/exe`、`/usr/share/filecollector`、Flatpak 内 git 等 Linux 专属假设已收敛到 `src/utils/platform.vala`，非 Linux 平台有合理回退。
+  - **数据目录/主题/语言包**：便携包内已附带 `data/` 与 `locale/`，开箱即用。
+
+> 注：当前 macOS 仅提供 Apple Silicon（arm64）构建；Intel Mac 用户可自行参考 workflow 增加 `macos-13` job。Windows/macOS 包为便携压缩包，不含系统级安装器。
 
 ## 自行构建
 
@@ -72,6 +88,32 @@ sudo apt install meson valac libgtk-4-dev libadwaita-1-dev libjson-glib-dev libs
 ```bash
 sudo dnf install meson vala gtk4-devel libadwaita-devel json-glib-devel libsoup3-devel libgee-devel libsecret-devel cmark-gfm-devel gtksourceview5-devel blueprint-compiler gettext
 ```
+
+#### Windows (MSYS2 / mingw64)
+
+通过 MSYS2 的 mingw64 终端安装工具链与 GTK4 全家桶（推荐在 `mingw64` shell 内操作）：
+
+```bash
+pacman -S --needed mingw-w64-x86_64-meson mingw-w64-x86_64-ninja mingw-w64-x86_64-gcc \
+  mingw-w64-x86_64-pkgconf mingw-w64-x86_64-gtk4 mingw-w64-x86_64-libadwaita \
+  mingw-w64-x86_64-json-glib mingw-w64-x86_64-libsoup3 mingw-w64-x86_64-libgee \
+  mingw-w64-x86_64-gtksourceview5 mingw-w64-x86_64-cmark-gfm \
+  mingw-w64-x86_64-blueprint-compiler mingw-w64-x86_64-gettext mingw-w64-x86_64-libsecret
+```
+
+> 注意：必须在 **mingw64** 环境（`msys2 {0}`）中执行 `meson` 与 `ninja`，否则会找不到 GTK4 等依赖。也可用 [GitHub Actions](.github/workflows/windows.yml) 直接产出 Windows 便携包。
+
+#### macOS (Apple Silicon)
+
+使用 Homebrew 安装（仅支持 Apple Silicon / arm64）：
+
+```bash
+brew install gtk4 libadwaita json-glib libsoup gtksourceview5 libgee \
+  cmark-gfm blueprint-compiler meson ninja gettext libsecret pkg-config
+export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:$(brew --prefix)/share/pkgconfig"
+```
+
+> 若 `meson setup` 报找不到 `libadwaita-1.pc`，请确认已设置上述 `PKG_CONFIG_PATH`。也可直接参考 [GitHub Actions](.github/workflows/macos.yml) 产出 macOS 便携包。
 
 > **可选运行时依赖**（仅二进制文件预转换功能需要）：LibreOffice（`libreoffice`）用于将文档转为 PDF；`poppler-utils` 提供 `pdftoppm` 用于 PDF 渲染为图片。如不使用 VLM 预转换功能可不安装。
 
