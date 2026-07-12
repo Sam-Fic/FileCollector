@@ -57,35 +57,6 @@ Then run:
 flatpak run io.github.sam_fic.filecollector
 ```
 
-## Cross-platform Builds & Releases (GitHub Actions)
-
-Built on GTK4 + libadwaita — both of which are cross-platform — this tool is not
-Linux-only. **Windows and macOS (Apple Silicon) portable packages are produced
-automatically by GitHub Actions.**
-
-- **Triggers**: Pushing a `v*` tag (e.g. `v4.6.0`) or a manual `workflow_dispatch`
-  builds for three platforms:
-  - `windows-latest` (msys2 / mingw64) → self-contained `filecollector-windows-x64.zip`
-  - `macos-14` (Apple Silicon, arm64) → `FileCollector.app` portable package `filecollector-macos-arm64.zip`
-  - `ubuntu-latest` → Linux binary build check
-- **Artifacts**: On a `v*` tag, all three packages are attached to the
-  [Releases](https://github.com/Sam-Fic/filecollector/releases) page.
-  Regular commits and PRs only run build validation; artifacts can be downloaded
-  from the Actions run history.
-- **Platform differences handled**:
-  - **API Key storage**: Linux keeps libsecret (system keyring); Windows uses Win32
-    DPAPI (encrypted on disk); macOS uses the Security framework Keychain. Unified
-    in `src/services/secret_store.vala`.
-  - **Paths & process detection**: Linux-specific assumptions such as
-    `/proc/self/exe`, `/usr/share/filecollector`, and Flatpak-internal git are now
-    consolidated in `src/utils/platform.vala` with sensible fallbacks elsewhere.
-  - **Data dir / themes / locale**: Portable packages bundle `data/` and `locale/`
-    so they work out of the box.
-
-> Note: macOS is currently provided for Apple Silicon (arm64) only. Intel Mac users
-> can add a `macos-13` job by reference to the workflow. Windows/macOS packages are
-> portable zips without a system-level installer.
-
 ## Build from Source
 
 ### Install Dependencies
@@ -104,17 +75,37 @@ sudo dnf install meson vala gtk4-devel libadwaita-devel json-glib-devel libsoup3
 
 #### Windows (MSYS2 / mingw64)
 
-Install the toolchain and the full GTK4 stack via the MSYS2 mingw64 terminal (run inside the `mingw64` shell):
+Install the toolchain and the full GTK4 stack via the MSYS2 mingw64 terminal (**must** run inside the `mingw64` shell, not the default `MSYS` shell):
 
 ```bash
 pacman -S --needed mingw-w64-x86_64-meson mingw-w64-x86_64-ninja mingw-w64-x86_64-gcc \
-  mingw-w64-x86_64-pkgconf mingw-w64-x86_64-gtk4 mingw-w64-x86_64-libadwaita \
+  mingw-w64-x86_64-pkgconf mingw-w64-x86_64-vala mingw-w64-x86_64-cmake \
+  mingw-w64-x86_64-gtk4 mingw-w64-x86_64-libadwaita \
   mingw-w64-x86_64-json-glib mingw-w64-x86_64-libsoup3 mingw-w64-x86_64-libgee \
-  mingw-w64-x86_64-gtksourceview5 mingw-w64-x86_64-cmark-gfm \
+  mingw-w64-x86_64-gtksourceview5 \
   mingw-w64-x86_64-blueprint-compiler mingw-w64-x86_64-gettext mingw-w64-x86_64-libsecret
 ```
 
-> Run `meson` and `ninja` inside the **mingw64** environment (`msys2 {0}`), otherwise GTK4 and friends won't be found. Alternatively, let [GitHub Actions](.github/workflows/windows.yml) produce the Windows portable package for you.
+> Note: `cmark-gfm` (GitHub Flavored Markdown rendering, used by the AI chat bubbles) has **no prebuilt MSYS2 package** and must be built from source — see "Build cmark-gfm from source" below.
+
+**Build cmark-gfm from source**
+
+```bash
+git clone --depth 1 --branch 0.29.0.gfm.13 https://github.com/github/cmark-gfm.git
+cd cmark-gfm
+cmake -G Ninja -B build -S . \
+  -DCMAKE_INSTALL_PREFIX=$MINGW_PREFIX \
+  -DCMARK_SHARED=ON -DCMARK_STATIC=OFF -DCMARK_TESTS=OFF \
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+cmake --build build
+cmake --install build
+```
+
+> `$MINGW_PREFIX` is typically `C:/msys64/mingw64` inside the mingw64 shell. After installing, `pkg-config --exists cmark-gfm` should return exit code 0.
+
+> Run `meson` and `ninja` inside the **mingw64** environment, otherwise GTK4 and friends won't be found.
+
+> If `blueprint-compiler` fails on `.blp` with `UnicodeDecodeError: 'gbk' codec can't decode`, Python is reading files with the system GBK encoding. Run `export PYTHONUTF8=1` in the mingw64 shell before `meson compile`.
 
 #### macOS (Apple Silicon)
 
@@ -154,6 +145,16 @@ filecollector --gui    # Force GUI mode (same as the first command when no other
 > - The application automatically uses Chinese or English UI based on your system language. To temporarily switch languages, use the `LANGUAGE` environment variable, e.g. `LANGUAGE=en filecollector` to force English display. This works for both GUI and CLI modes.
 > - For CLI mode usage, see the [CLI Mode](#cli-mode) section below.
 > - **GUI vs CLI behavior**: When any CLI arguments (`--work-dir`, `--select-file`, `--load`, etc.) are detected, the app runs in CLI mode without opening the GUI. **Exception**: Adding `--gui` forces GUI mode — CLI arguments are used only to initialize the interface state, then you can use the GUI for manual adjustments, if the GUI is running, CLI operations will be reflected in the GUI. This is useful when switching from MCP automation to human review.
+
+**Windows run notes**: In the mingw64 shell, after `meson compile` the binary is at `builddir/filecollector.exe` (the build dir you passed to `meson setup`). Run it directly — no `meson install` needed:
+
+```bash
+export PYTHONUTF8=1
+./builddir/filecollector.exe          # Launch GUI
+./builddir/filecollector.exe --help   # Show CLI help
+```
+
+> At runtime the GTK / cmark-gfm DLLs must be findable — make sure mingw64's `bin` directory is on `PATH` (the mingw64 shell adds it automatically). If double-clicking `filecollector.exe` reports a missing DLL, launch it from the mingw64 shell, or add `C:/msys64/mingw64/bin` to the system `PATH`.
 
 ### Flatpak Build
 
@@ -358,7 +359,7 @@ FileCollector includes a built-in **sidebar AI assistant** that lets you drive t
 - **Real-time Feedback**: Every tool call (set working directory, add files, read files, reorder items, etc.) is displayed as an expandable tool card in real time, making results immediately clear.
 - **Live GUI Sync**: When the AI modifies the orchestration list, the center panel updates the preview immediately, and you can take over to fine-tune at any time.
 - **Slash Command Autocomplete**: Type `/t` or `/template` in the AI input to get an auto-complete template list with keyboard ↑↓ navigation, Enter to confirm, Esc to dismiss, or mouse click to apply.
-- **AI Local Bypass Injection**: `add_git_diff` and `add_git_commit_diff` tools execute Git commands locally and inject diffs directly into the list, completely bypassing the LLM context to save tokens and avoid API limits.
+- **AI Local Bypass Injection**: `add_git_diff` and `add_git_commit_diff` tools execute Git commands locally and inject diffs directly into the list, completely bypassing the LLM context.
 
 ### Supported Tools (Function Calling)
 

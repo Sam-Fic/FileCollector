@@ -57,22 +57,6 @@ flatpak install --user <下载的.flatpak文件>
 flatpak run io.github.sam_fic.filecollector
 ```
 
-## 跨平台构建与发布（GitHub Actions）
-
-本工具基于 GTK4 + libadwaita 开发，框架本身跨平台，因此除 Linux（Flatpak）外，**Windows 与 macOS（Apple Silicon）也由 GitHub Actions 自动构建并产出便携包**。
-
-- **触发方式**：推送 `v*` 标签（如 `v4.6.0`）或手动 `workflow_dispatch` 时，CI 会为三个平台分别构建：
-  - `windows-latest`（msys2 / mingw64）→ 自包含 `filecollector-windows-x64.zip`
-  - `macos-14`（Apple Silicon, arm64）→ `FileCollector.app` 便携包 `filecollector-macos-arm64.zip`
-  - `ubuntu-latest` → Linux 二进制校验
-- **产物获取**：打 `v*` 标签后，三个便携包会自动挂载到 [Releases](https://github.com/Sam-Fic/filecollector/releases) 页面；普通提交与 PR 仅做构建验证，产物可在 Actions 运行记录中下载。
-- **平台差异处理**：
-  - **API Key 密钥存储**：Linux 仍使用 libsecret（系统密钥环）；Windows 改用 Win32 DPAPI 加密落盘；macOS 改用 Security 框架 Keychain。代码统一收敛在 `src/services/secret_store.vala`。
-  - **路径与进程探测**：`/proc/self/exe`、`/usr/share/filecollector`、Flatpak 内 git 等 Linux 专属假设已收敛到 `src/utils/platform.vala`，非 Linux 平台有合理回退。
-  - **数据目录/主题/语言包**：便携包内已附带 `data/` 与 `locale/`，开箱即用。
-
-> 注：当前 macOS 仅提供 Apple Silicon（arm64）构建；Intel Mac 用户可自行参考 workflow 增加 `macos-13` job。Windows/macOS 包为便携压缩包，不含系统级安装器。
-
 ## 自行构建
 
 ### 安装依赖
@@ -91,17 +75,37 @@ sudo dnf install meson vala gtk4-devel libadwaita-devel json-glib-devel libsoup3
 
 #### Windows (MSYS2 / mingw64)
 
-通过 MSYS2 的 mingw64 终端安装工具链与 GTK4 全家桶（推荐在 `mingw64` shell 内操作）：
+通过 MSYS2 的 mingw64 终端安装工具链与 GTK4 全家桶（**必须**在 `mingw64` shell 内操作，不要用默认的 `MSYS` shell）：
 
 ```bash
 pacman -S --needed mingw-w64-x86_64-meson mingw-w64-x86_64-ninja mingw-w64-x86_64-gcc \
-  mingw-w64-x86_64-pkgconf mingw-w64-x86_64-gtk4 mingw-w64-x86_64-libadwaita \
+  mingw-w64-x86_64-pkgconf mingw-w64-x86_64-vala mingw-w64-x86_64-cmake \
+  mingw-w64-x86_64-gtk4 mingw-w64-x86_64-libadwaita \
   mingw-w64-x86_64-json-glib mingw-w64-x86_64-libsoup3 mingw-w64-x86_64-libgee \
-  mingw-w64-x86_64-gtksourceview5 mingw-w64-x86_64-cmark-gfm \
+  mingw-w64-x86_64-gtksourceview5 \
   mingw-w64-x86_64-blueprint-compiler mingw-w64-x86_64-gettext mingw-w64-x86_64-libsecret
 ```
 
-> 注意：必须在 **mingw64** 环境（`msys2 {0}`）中执行 `meson` 与 `ninja`，否则会找不到 GTK4 等依赖。也可用 [GitHub Actions](.github/workflows/windows.yml) 直接产出 Windows 便携包。
+> 注意：`cmark-gfm`（GitHub Flavored Markdown 渲染，用于 AI 聊天气泡）在 MSYS2 里**没有现成包**，需要自行从源码编译，见下方「编译 cmark-gfm」。
+
+**编译 cmark-gfm（从源码）**
+
+```bash
+git clone --depth 1 --branch 0.29.0.gfm.13 https://github.com/github/cmark-gfm.git
+cd cmark-gfm
+cmake -G Ninja -B build -S . \
+  -DCMAKE_INSTALL_PREFIX=$MINGW_PREFIX \
+  -DCMARK_SHARED=ON -DCMARK_STATIC=OFF -DCMARK_TESTS=OFF \
+  -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+cmake --build build
+cmake --install build
+```
+
+> `$MINGW_PREFIX` 在 mingw64 shell 里通常就是 `C:/msys64/mingw64`。装好后 `pkg-config --exists cmark-gfm` 应返回 0（退出码 0）。
+
+> 注意：必须在 **mingw64** 环境中执行 `meson` 与 `ninja`，否则会找不到 GTK4 等依赖。
+
+> 若 `blueprint-compiler` 编译 `.blp` 时报 `UnicodeDecodeError: 'gbk' codec can't decode`，说明 Python 默认用系统 GBK 编码读取文件。在 mingw64 shell 里先执行 `export PYTHONUTF8=1` 再 `meson compile` 即可。
 
 #### macOS (Apple Silicon)
 
@@ -141,6 +145,16 @@ filecollector --gui    # 强制启动图形界面（无其他 CLI 参数时第�
 > - 程序默认跟随系统语言显示中文或英文界面。如需临时切换语言，可使用环境变量，例如 `LANGUAGE=en filecollector` 强制显示英文。该环境变量同时对图形界面和 CLI 命令行模式生效。
 > - 如需使用 CLI 命令行模式，请参见下方的 [CLI 命令行模式](#cli-命令行模式) 章节。
 > - **GUI 与 CLI 的行为规则**：当检测到任何 CLI 参数（`--work-dir`、`--select-file`、`--load` 等）时，程序默认进入命令行模式，不会弹出图形界面。**例外**：添加 `--gui` 参数可强制打开图形界面，CLI 参数仅用于初始化界面状态（工作目录、勾选文件等），初始化完成后可接续使用 GUI 供人工微调，GUI 若在运行中，CLI 的操作会反映在 GUI 上。这在 MCP 自动化流程与人工审查切换时非常有用。
+
+**Windows 运行说明**：在 mingw64 shell 里，`meson compile` 后产物位于 `builddir/filecollector.exe`（即 `meson setup builddir` 时的构建目录）。直接运行即可，无需 `meson install`：
+
+```bash
+export PYTHONUTF8=1
+./builddir/filecollector.exe          # 启动图形界面
+./builddir/filecollector.exe --help   # 查看 CLI 命令行帮助
+```
+
+> 运行时需要能找到 GTK / cmark-gfm 等 DLL，请确保 mingw64 的 `bin` 目录在 `PATH` 中（启动 mingw64 shell 时已自动加入）。若双击 `filecollector.exe` 提示缺少 DLL，请在 mingw64 shell 中启动，或把 `C:/msys64/mingw64/bin` 加入系统 `PATH`。
 
 ### Flatpak 构建
 
@@ -345,7 +359,7 @@ FileCollector 内置 **侧边栏 AI 助手**，无需编程工具或 MCP 服务�
 - **即时反馈**：每一步工具调用（设置工作目录、添加文件、读取文件、调整顺序等）都以可展开的工具卡片实时展示，结果一目了然。
 - **与 GUI 实时同步**：AI 改动编排列表后，中间面板立刻更新预览，用户可随时接管微调。
 - **斜杠指令自动补全**：在 AI 输入框中输入 `/t` 或 `/template`，自动弹出模板列表，支持键盘 ↑↓ 导航、Enter 确认、Esc 取消，鼠标点击直接应用。
-- **AI 本地旁路注入**：`add_git_diff` 和 `add_git_commit_diff` 工具在本地执行 Git 命令并直接注入队列，Diff 内容完全不经过 LLM 上下文，节省大量 Token 并突破 API 限制。
+- **AI 本地旁路注入**：`add_git_diff` 和 `add_git_commit_diff` 工具在本地执行 Git 命令并直接注入队列，Diff 内容不经过 LLM 上下文。
 
 ### 支持的工具（Function Calling）
 
