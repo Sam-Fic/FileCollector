@@ -28,7 +28,7 @@ FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排
 - **渐进式体验**：CLI 处理与 GUI 微调无缝衔接，AI 后台自动探索编排后，可随时用图形界面人工接管调整
 - **项目管理**：打开和保存项目
 - **短语管理**：管理和组织常用短语
-- **国际化**：支持中文和英文界面，跟随系统语言自动切换
+- **国际化**：源码默认英文，跟随系统语言自动切换；当前提供简体中文翻译（位于 `po/zh_CN.po`）
 - **现代化界面**：采用 GNOME Human Interface Guidelines 设计（基于 libadwaita，Windows / macOS 同样可用）
 - **Git 提交历史集成**：一键收集工作区改动文件、导出 Diff 代码块，快速为 AI 构建 Git 上下文
 - **全局内容搜索**：`Ctrl+Shift+F` 弹出搜索对话框，支持后台异步扫描、编码自动识别、结果高亮，一键将命中文件添加到编排列表
@@ -126,7 +126,7 @@ meson compile
 sudo meson install
 ```
 
-> **提示**：如果之前已经构建过，修改源码后只需在 `build/` 目录下重新运行 `meson compile` 即可增量编译二进制。若修改了翻译文件（`en.po` 或 UI 中的 `_()` 字符串），则需要重新运行 `sudo meson install` 以更新翻译文件到系统路径。
+> **提示**：如果之前已经构建过，修改源码后只需在 `build/` 目录下重新运行 `meson compile` 即可增量编译二进制。若修改了 `po/` 下的翻译文件或 UI 中的 `_()` 字符串，则需要重新运行 `sudo meson install` 以更新翻译文件到系统路径。
 
 ### 运行
 
@@ -208,9 +208,12 @@ flatpak run io.github.sam_fic.filecollector
 │   ├── images/                            # 文档图片
 │   ├── USAGE.md                           # 中文使用说明
 │   └── USAGE_EN.md                        # 英文使用说明
-├── en.po                                  # 英文界面翻译文件
-├── POTFILES                               # 可翻译源文件列表（供 gettext 使用）
-├── LINGUAS                                # 支持的语言列表
+├── po/                                     # gettext 翻译目录
+│   ├── filecollector.pot                   # 模板（xgettext 生成，未纳入版本库）
+│   ├── zh_CN.po                            # 简体中文翻译
+│   ├── POTFILES                            # 可翻译源文件列表（供 gettext 使用）
+│   ├── LINGUAS                             # 支持的语言列表
+│   └── meson.build                         # i18n 构建配置
 ├── BUILD_FLATPAK.md                       # Flatpak 构建指南（供 AI 助手参考）
 ├── meson.build                            # Meson 构建配置
 └── io.github.sam_fic.filecollector.json   # Flatpak 构建清单
