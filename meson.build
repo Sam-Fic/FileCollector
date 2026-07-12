@@ -141,19 +141,10 @@ sources = files(
 )
 
 # 国际化
-# 注意: 必须强制 xgettext 用 Vala 语言解析所有输入 (含 window.blp)。
-# 否则 xgettext 遇到不识别的 .blp 扩展名会报错并漏提 Vala 字符串,
-# 导致 update-po 把 preferences_dialog 等文件的翻译全部标记为废弃 (#~)。
-i18n = import ('i18n')
-i18n.gettext (gettext_package,
-  preset: 'glib',
-  languages: ['en'],
-  args: [
-    '--from-code=UTF-8',
-    '--language=Vala',
-    '--add-comments=TRANSLATORS'
-  ]
-)
+# 源语言为英文 (代码中 _() 的 msgid), 翻译文件在 po/ 目录。
+# 注意: 必须强制 xgettext 用 Vala 语言解析所有输入 (含 window.blp),
+# 否则 xgettext 遇到不识别的 .blp 扩展名会漏提字符串。
+subdir ('po')
 
 executable('filecollector',
   sources,
