@@ -24,11 +24,17 @@ namespace Platform {
         uint16[] buf = new uint16[32768];
         uint32 n = GetModuleFileNameW (null, buf, (uint32) buf.length);
         if (n > 0) {
-            // UTF-16LE -> UTF-8
-            string? s = null;
-            // 用 GLib 转换: 先把 uint16[] 当 unowned 字符串处理
-            var u16 = (unowned string) (buf[0:n]);
-            return u16;
+            // UTF-16LE -> UTF-8 (BMP 安全; 可执行路径通常不含代理对)
+            var sb = new StringBuilder ();
+            for (uint32 i = 0; i < n; i++) {
+                unichar c = buf[i];
+                if (c < 0x80) {
+                    sb.append_c ((char) c);
+                } else {
+                    sb.append (c.to_string ());
+                }
+            }
+            return sb.str;
         }
         return ".";
 #elif MACOS
@@ -49,7 +55,7 @@ namespace Platform {
 
 #if WINDOWS
     [CCode (cheader_filename = "windows.h", cname = "GetModuleFileNameW")]
-    private extern static uint32 GetModuleFileNameW (void* hModule, uint16[] lpFilename, uint32 nSize);
+    private extern static uint32 GetModuleFileNameW (void* hModule, [CCode (array_length = false)] uint16[] lpFilename, uint32 nSize);
 #endif
 
 #if MACOS

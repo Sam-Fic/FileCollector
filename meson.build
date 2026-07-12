@@ -32,7 +32,12 @@ cmark_ext_header = cc.has_header('cmark-gfm-core-extensions.h', required: true)
 #   - macOS   : -framework Security (SecKeychain)
 if host_machine.system() == 'windows'
   platform_vala_args = ['-D', 'WINDOWS']
-  platform_link_args = ['-ladvapi32']
+  platform_link_args = ['-ladvapi32', '-lcrypt32']
+  # 定义 Windows 目标版本, 并强制先包含 windows.h,
+  # 否则 Vala 生成的 #include <dpapi.h> 早于 windows.h, 导致
+  # WINAPI_FAMILY_PARTITION / _WIN32_WINNT_WIN10 等宏未定义而编译失败。
+  add_project_arguments('-D_WIN32_WINNT=0x0A00', '-DWINVER=0x0A00',
+    '-include', 'windows.h', '-include', 'dpapi.h', language: 'c')
   libsecret_dep = dependency('libsecret-1', required: false)
 elif host_machine.system() == 'darwin'
   platform_vala_args = ['-D', 'MACOS']
@@ -93,6 +98,7 @@ config = configure_file(
 
 sources = files(
   'src/main.vala',
+  'src/win32_dpapi_shim.c',
   'src/cli.vala',
   'src/window.vala',
   'src/utils/platform.vala',

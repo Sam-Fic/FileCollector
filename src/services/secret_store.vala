@@ -21,25 +21,27 @@ namespace SecretStore {
 #if WINDOWS
     // ─── Windows: DPAPI ────────────────────────────────────────────────
     // 通过 CCode 直接声明 Win32 API, 不引入额外依赖。
-    [CCode (cheader_filename = "windows.h")]
+    // Vala 生成 secret_store_* wrapper, 内部调用下面这些唯一命名的 C 函数,
+    // 真实实现见 src/win32_dpapi_shim.c (封装 CryptProtectData/LocalFree)。
+    [CCode (cname = "fc_CryptProtectData")]
     private extern static uint CryptProtectData (
         void* pDataIn, string? szDataDescr,
         void* pOptionalEntropy, void* pReserved,
         void* pPromptStruct, uint dwFlags, void* pDataOut);
 
-    [CCode (cheader_filename = "windows.h")]
+    [CCode (cname = "fc_CryptUnprotectData")]
     private extern static uint CryptUnprotectData (
         void* pDataIn, void* ppszDataDescr,
         void* pOptionalEntropy, void* pReserved,
         void* pPromptStruct, uint dwFlags, void* pDataOut);
 
-    [CCode (cheader_filename = "windows.h", cname = "DATA_BLOB")]
+    [CCode (cname = "FC_DATA_BLOB", has_type_id = false)]
     private struct DATA_BLOB {
         public uint cbData;
         public void* pbData;
     }
 
-    [CCode (cheader_filename = "windows.h")]
+    [CCode (cname = "fc_LocalFree")]
     private extern static void LocalFree (void* hMem);
 
     private static string secret_file (string slot) {
@@ -61,8 +63,9 @@ namespace SecretStore {
         if (CryptProtectData (&in_blob, "filecollector", null, null, null, 0, &out_blob) == 0)
             return false;
         try {
-            FileUtils.set_data (secret_file (slot),
-                (uint8[]) (out_blob.pbData[0:out_blob.cbData]));
+            uint8[] enc = new uint8[out_blob.cbData];
+            Memory.copy (enc, out_blob.pbData, out_blob.cbData);
+            FileUtils.set_data (secret_file (slot), enc);
             return true;
         } catch (Error e) {
             warning ("SecretStore: write failed: %s", e.message);
@@ -82,7 +85,8 @@ namespace SecretStore {
             DATA_BLOB out_blob = DATA_BLOB ();
             if (CryptUnprotectData (&in_blob, null, null, null, null, 0, &out_blob) == 0)
                 return null;
-            var buf = (uint8[]) (out_blob.pbData[0:out_blob.cbData]);
+            uint8[] buf = new uint8[out_blob.cbData];
+            Memory.copy (buf, out_blob.pbData, out_blob.cbData);
             string result = (string) buf;
             LocalFree (out_blob.pbData);
             return result;

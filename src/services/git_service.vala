@@ -18,11 +18,11 @@ public class GitService : GLib.Object {
         try {
             string[] argv = { git_executable (), "rev-parse", "--is-inside-work-tree" };
             int status;
-            string stdout;
+            string out_str;
             Process.spawn_sync (work_dir, argv, null,
                 SpawnFlags.SEARCH_PATH | SpawnFlags.STDERR_TO_DEV_NULL,
-                null, out stdout, null, out status);
-            return status == 0 && stdout.strip () == "true";
+                null, out out_str, null, out status);
+            return status == 0 && out_str.strip () == "true";
         } catch (SpawnError e) {
             return false;
         }
@@ -40,16 +40,16 @@ public class GitService : GLib.Object {
         launcher.setenv ("GIT_TERMINAL_PROMPT", "0", true);
 
         var proc = launcher.spawnv (argv);
-        string stdout, stderr;
-        proc.communicate_utf8 (null, null, out stdout, out stderr);
+        string out_str, err_str;
+        proc.communicate_utf8 (null, null, out out_str, out err_str);
 
         if (!proc.get_successful ()) {
-            if (stderr.contains ("not a git repository")) {
+            if (err_str.contains ("not a git repository")) {
                 throw new IOError.NOT_SUPPORTED ("Not a git repository: " + work_dir);
             }
-            throw new IOError.FAILED ("Git error: " + stderr.strip ());
+            throw new IOError.FAILED ("Git error: " + err_str.strip ());
         }
-        return stdout;
+        return out_str;
     }
 
     public static ArrayList<GitCommit> get_log (string work_dir, int max_count = 50) throws GLib.Error {
