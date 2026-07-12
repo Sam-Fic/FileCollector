@@ -93,7 +93,7 @@ public class AIPanel : GLib.Object {
         root_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
 
         // ── 标题 ──
-        var title = new Gtk.Label (_("AI 助手"));
+        var title = new Gtk.Label (_("AI Assistant"));
         title.halign = Gtk.Align.CENTER;
         title.add_css_class ("panel-title");
         root_box.append (title);
@@ -128,7 +128,7 @@ public class AIPanel : GLib.Object {
         btn_scroll_bottom = new Gtk.Button.from_icon_name ("go-down-symbolic");
         btn_scroll_bottom.add_css_class ("circular");
         btn_scroll_bottom.add_css_class ("ai-scroll-bottom-btn");
-        btn_scroll_bottom.set_tooltip_text (_("滚动到底部"));
+        btn_scroll_bottom.set_tooltip_text (_("Scroll to Bottom"));
         btn_scroll_bottom.set_halign (Gtk.Align.END);
         btn_scroll_bottom.set_valign (Gtk.Align.END);
         // 12 (scroll 内缩) + 8 (原视觉边距) = 20, 与内缩后的滚动区右下角对齐
@@ -203,7 +203,7 @@ public class AIPanel : GLib.Object {
         // GTK4 中 Gtk.TextView 没有 set_placeholder_text; 用 overlay 自行实现
         var input_overlay = new Gtk.Overlay ();
         input_overlay.set_child (input_view);
-        var placeholder_lbl = new Gtk.Label (_("输入指令, Enter 换行, Ctrl+Enter 发送"));
+        var placeholder_lbl = new Gtk.Label (_("Enter a command, Enter for new line, Ctrl+Enter to send"));
         placeholder_lbl.add_css_class ("dim-label");
         placeholder_lbl.add_css_class ("ai-placeholder");
         placeholder_lbl.set_wrap (true);
@@ -309,7 +309,7 @@ public class AIPanel : GLib.Object {
         // 按钮行
         var btn_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         btn_clear = new Gtk.Button.from_icon_name ("user-trash-symbolic");
-        btn_clear.set_tooltip_text (_("清空对话"));
+        btn_clear.set_tooltip_text (_("Clear Chat"));
         btn_clear.set_size_request (-1, -1);
         btn_clear.clicked.connect (on_clear_chat);
         btn_row.append (btn_clear);
@@ -322,7 +322,7 @@ public class AIPanel : GLib.Object {
         send_box.halign = Gtk.Align.CENTER;
         send_icon = new Gtk.Image.from_icon_name ("mail-send-symbolic");
         send_box.append (send_icon);
-        lbl_send = new Gtk.Label (_("发送"));
+        lbl_send = new Gtk.Label (_("Send"));
         send_box.append (lbl_send);
 
         btn_send = new Gtk.Button ();
@@ -383,7 +383,7 @@ public class AIPanel : GLib.Object {
         model_str = model_str.strip ();
         double timeout_v = s.timeout > 0 ? s.timeout : 60.0;
 
-        lbl_model.set_text (model_str.length > 0 ? model_str : _("未配置模型"));
+        lbl_model.set_text (model_str.length > 0 ? model_str : _("No model configured"));
         bool has_config = base_url_str.length > 0 && api_key_str.length > 0 && model_str.length > 0;
 
         bool was_enabled = this.ai_enabled;
@@ -401,8 +401,7 @@ public class AIPanel : GLib.Object {
         update_status ();
         if (ai.enabled && was_first) {
             pending_welcome = false;
-            render_assistant (_("你好, 我是 AI 编排助手。告诉我你想收集哪些文件, 我来帮你编排。\n"
-                + "例如: \"把 src 目录下所有 Python 文件加进去, 然后在开头插入一段任务说明。\""));
+            render_assistant (_("Hello, I am the AI orchestration assistant. Tell me which files you want to collect and I will help you organize them.\nFor example: \"Add all Python files under src, then insert a task description at the beginning.\""));
         }
     }
 
@@ -594,7 +593,7 @@ public class AIPanel : GLib.Object {
                 var revert_btn = new Gtk.Button.from_icon_name ("edit-undo-symbolic");
                 revert_btn.add_css_class ("flat");
                 revert_btn.add_css_class ("ai-revert-btn");
-                revert_btn.set_tooltip_text (_("撤回此消息及后续所有 AI 回复与操作"));
+                revert_btn.set_tooltip_text (_("Revert this message and all subsequent AI replies and operations"));
                 revert_btn.valign = Gtk.Align.CENTER;
                 revert_btn.halign = Gtk.Align.END;
                 revert_btn.margin_start = 8;
@@ -748,7 +747,7 @@ public class AIPanel : GLib.Object {
         if (request_cancellable != null) {
             request_cancellable.cancel ();
         }
-        lbl_status.set_text (_("已停止"));
+        lbl_status.set_text (_("Stopped"));
         set_busy (false);
     }
 
@@ -845,12 +844,12 @@ public class AIPanel : GLib.Object {
         }
 
         if (tpl == null) {
-            render_system (_("未找到模板: %s").printf (id));
+            render_system (_("Template not found: %s").printf (id));
             return;
         }
 
         template_triggered (tpl.header_text, tpl.footer_text);
-        send_user_message (_("[应用模板: %s]\n%s").printf (tpl.name, tpl.ai_prompt));
+        send_user_message (_("[Apply template: %s]\n%s").printf (tpl.name, tpl.ai_prompt));
     }
 
     private void on_send () {
@@ -873,9 +872,9 @@ public class AIPanel : GLib.Object {
 
         if (client == null) {
             if (!ai_enabled) {
-                render_system (_("请先在 设置 → AI 设置 中启用 AI 助手。"));
+                render_system (_("Please enable the AI assistant in Settings → AI Settings first."));
             } else {
-                render_system (_("请先在 设置 → AI 设置 中配置 API。"));
+                render_system (_("Please configure the API in Settings → AI Settings first."));
             }
             return;
         }
@@ -898,11 +897,11 @@ public class AIPanel : GLib.Object {
         if (token < 0) return;
 
         var dialog = new Adw.AlertDialog (
-            _("确认撤回"),
-            _("这将撤销此消息之后 AI 的所有回复以及对文件列表的修改。是否继续？")
+            _("Confirm Revert"),
+            _("This will undo all AI replies after this message and modifications to the file list. Continue?")
         );
-        dialog.add_response ("cancel", _("取消"));
-        dialog.add_response ("revert", _("撤回"));
+        dialog.add_response ("cancel", _("Cancel"));
+        dialog.add_response ("revert", _("Revert"));
         dialog.set_response_appearance ("revert", Adw.ResponseAppearance.DESTRUCTIVE);
         dialog.set_default_response ("cancel");
 
@@ -1127,7 +1126,7 @@ public class AIPanel : GLib.Object {
     private async void run_worker (Gee.ArrayList<Json.Node> msgs) {
         AIClient local = client;
         if (local == null) {
-            on_api_failed (_("客户端未配置"));
+            on_api_failed (_("Client not configured"));
             return;
         }
         try {
@@ -1218,10 +1217,10 @@ public class AIPanel : GLib.Object {
         if (stop_requested) return "";
         if (GLib.MainContext.default ().is_owner ()) {
             try {
-                if (tool_executor == null) return _("未配置工具执行器");
+                if (tool_executor == null) return _("Tool executor not configured");
                 return tool_executor (name, parse_args (args_json));
             } catch (Error e) {
-                return _("执行出错: %s").printf (e.message);
+                return _("Execution error: %s").printf (e.message);
             }
         }
         string result = "";
@@ -1231,12 +1230,12 @@ public class AIPanel : GLib.Object {
             } else {
                 try {
                     if (tool_executor == null) {
-                        result = _("未配置工具执行器");
+                        result = _("Tool executor not configured");
                     } else {
                         result = tool_executor (name, parse_args (args_json));
                     }
                 } catch (Error e) {
-                    result = _("执行出错: %s").printf (e.message);
+                    result = _("Execution error: %s").printf (e.message);
                 }
             }
             execute_tool_async.callback ();
@@ -1270,7 +1269,7 @@ public class AIPanel : GLib.Object {
     private void on_api_failed (string err) {
         GLib.Idle.add (() => {
             set_busy (false);
-            render_system (_("调用失败: %s").printf (err));
+            render_system (_("Call failed: %s").printf (err));
             return GLib.Source.REMOVE;
         });
     }
@@ -1369,13 +1368,13 @@ public class AIPanel : GLib.Object {
     private void set_busy (bool b) {
         busy = b;
         if (b) {
-            lbl_send.set_text (_("停止"));
+            lbl_send.set_text (_("Stop"));
             send_icon.icon_name = "media-playback-stop-symbolic";
             btn_send.remove_css_class ("suggested-action");
             btn_send.add_css_class ("destructive-action");
-            lbl_status.set_text (_("正在思考..."));
+            lbl_status.set_text (_("Thinking..."));
         } else {
-            lbl_send.set_text (_("发送"));
+            lbl_send.set_text (_("Send"));
             send_icon.icon_name = "mail-send-symbolic";
             btn_send.remove_css_class ("destructive-action");
             btn_send.add_css_class ("suggested-action");
@@ -1388,15 +1387,15 @@ public class AIPanel : GLib.Object {
 
     private void update_status () {
         if (!ai_enabled) {
-            lbl_status.set_text (_("未启用"));
+            lbl_status.set_text (_("Disabled"));
             lbl_status.remove_css_class ("ai-status-ok");
             lbl_status.add_css_class ("ai-status-warn");
         } else if (client == null) {
-            lbl_status.set_text (_("未配置"));
+            lbl_status.set_text (_("Not configured"));
             lbl_status.remove_css_class ("ai-status-ok");
             lbl_status.add_css_class ("ai-status-warn");
         } else {
-            lbl_status.set_text (_("就绪"));
+            lbl_status.set_text (_("Ready"));
             lbl_status.remove_css_class ("ai-status-warn");
             lbl_status.add_css_class ("ai-status-ok");
         }

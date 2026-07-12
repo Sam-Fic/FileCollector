@@ -39,7 +39,7 @@ public class GlobalSearchDialog : Adw.Dialog {
     }
 
     private void build_ui () {
-        set_title (_("全局内容搜索"));
+        set_title (_("Global Content Search"));
         set_content_width (650);
         set_content_height (550);
 
@@ -56,18 +56,18 @@ public class GlobalSearchDialog : Adw.Dialog {
         // 搜索栏
         var search_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         search_entry = new Gtk.SearchEntry ();
-        search_entry.placeholder_text = _("输入要搜索的代码内容…");
+        search_entry.placeholder_text = _("Search code content... (press Enter to search)");
         search_entry.hexpand = true;
         search_entry.activate.connect (trigger_search);
         search_box.append (search_entry);
 
         btn_case_sensitive = new Gtk.ToggleButton ();
         btn_case_sensitive.icon_name = "xsi-text-case-symbolic";
-        btn_case_sensitive.tooltip_text = _("区分大小写");
+        btn_case_sensitive.tooltip_text = _("Case Sensitive");
         search_box.append (btn_case_sensitive);
 
         var btn_search = new Gtk.Button.from_icon_name ("edit-find-symbolic");
-        btn_search.tooltip_text = _("搜索");
+        btn_search.tooltip_text = _("Search…");
         btn_search.clicked.connect (trigger_search);
         search_box.append (btn_search);
 
@@ -98,14 +98,14 @@ public class GlobalSearchDialog : Adw.Dialog {
 
         empty_page = new Adw.StatusPage ();
         empty_page.icon_name = "edit-find-symbolic";
-        empty_page.title = _("未找到匹配项");
-        empty_page.description = _("没有文件包含该关键词。请尝试其他关键词或调整搜索选项。");
+        empty_page.title = _("No matches found");
+        empty_page.description = _("No files contain this keyword. Try another keyword or adjust search options.");
         empty_page.vexpand = true;
 
         guide_page = new Adw.StatusPage ();
         guide_page.icon_name = "edit-find-symbolic";
-        guide_page.title = _("全局内容搜索");
-        guide_page.description = _("输入关键词并按下 Enter 或点击搜索按钮，即可在整个工作目录中查找匹配的代码与文本。");
+        guide_page.title = _("Global Content Search");
+        guide_page.description = _("Enter a keyword and press Enter or click search to find matching code and text across the working directory.");
         guide_page.vexpand = true;
 
         result_stack = new Gtk.Stack ();
@@ -121,7 +121,7 @@ public class GlobalSearchDialog : Adw.Dialog {
         var btn_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         btn_box.halign = Gtk.Align.CENTER;
 
-        btn_toggle_select = new Gtk.Button.with_label (_("全选"));
+        btn_toggle_select = new Gtk.Button.with_label (_("Select All"));
         btn_toggle_select.sensitive = false;
         btn_toggle_select.clicked.connect (() => {
             bool all_selected = matched_files.size > 0 && selected_files.size >= matched_files.size;
@@ -135,13 +135,13 @@ public class GlobalSearchDialog : Adw.Dialog {
         });
         btn_box.append (btn_toggle_select);
 
-        btn_add_selected = new Gtk.Button.with_label (_("添加选中文件到编排列表"));
+        btn_add_selected = new Gtk.Button.with_label (_("Add file to queue (can be used multiple times)"));
         btn_add_selected.add_css_class ("suggested-action");
         btn_add_selected.sensitive = false;
         btn_add_selected.clicked.connect (on_add_selected_clicked);
         btn_box.append (btn_add_selected);
 
-        btn_add_all = new Gtk.Button.with_label (_("添加全部"));
+        btn_add_all = new Gtk.Button.with_label (_("Add All"));
         btn_add_all.sensitive = false;
         btn_add_all.clicked.connect (on_add_all_clicked);
         btn_box.append (btn_add_all);
@@ -178,7 +178,7 @@ public class GlobalSearchDialog : Adw.Dialog {
         spinner.visible = true;
         spinner.spinning = true;
         status_box.visible = true;
-        lbl_status.label = _("正在扫描文件树...");
+        lbl_status.label = _("Scanning file tree...");
 
         search_service = new SearchService ();
         search_service.result_found.connect (on_result_found);
@@ -195,13 +195,13 @@ public class GlobalSearchDialog : Adw.Dialog {
     }
 
     private void on_progress (int scanned, int matched) {
-        lbl_status.label = _("已扫描 %d 个文件，找到 %d 个匹配项...").printf (scanned, matched);
+        lbl_status.label = _("Scanned %d files, found %d matches...").printf (scanned, matched);
     }
 
     private void on_finished (int total_scanned, int total_matched) {
         spinner.spinning = false;
         spinner.visible = false;
-        lbl_status.label = _("搜索完成：扫描 %d 个文件，找到 %d 个匹配项（涉及 %d 个独立文件）").printf (
+        lbl_status.label = _("Search complete: scanned %d files, found %d matches (%d unique files)").printf (
             total_scanned, total_matched, matched_files.size);
 
         bool has = matched_files.size > 0;
@@ -214,9 +214,9 @@ public class GlobalSearchDialog : Adw.Dialog {
 
     private void update_button_labels () {
         bool all_selected = matched_files.size > 0 && selected_files.size >= matched_files.size;
-        btn_toggle_select.label = all_selected ? _("全不选") : _("全选");
-        btn_add_selected.label = _("添加选中文件到编排列表 (%d)").printf (selected_files.size);
-        btn_add_all.label = _("添加全部 (%d)").printf (matched_files.size);
+        btn_toggle_select.label = all_selected ? _("Deselect All") : _("Select All");
+        btn_add_selected.label = _("Add Selected Files to List (%d)").printf (selected_files.size);
+        btn_add_all.label = _("Add All (%d)").printf (matched_files.size);
     }
 
     private void sync_checkboxes () {

@@ -262,7 +262,7 @@ public class MultiFormatExporter : GLib.Object {
             var f = File.new_for_path (data.file_path);
             if (!f.query_exists () || data.is_missing) {
                 ri.kind = ItemKind.MISSING;
-                ri.error_message = _("[缺失文件: %s]").printf (data.file_path);
+                ri.error_message = _("[Missing file: %s]").printf (data.file_path);
                 result.add (ri);
                 continue;
             }
@@ -280,13 +280,13 @@ public class MultiFormatExporter : GLib.Object {
                 file_size = info.get_size ();
             } catch (Error e) {
                 ri.kind = ItemKind.READ_ERROR;
-                ri.error_message = _("[无法获取文件信息: %s]").printf (e.message);
+                ri.error_message = _("[Unable to get file info: %s]").printf (e.message);
                 result.add (ri);
                 continue;
             }
             if (file_size > MAX_FILE_CONTENT_SIZE) {
                 ri.kind = ItemKind.TOO_LARGE;
-                ri.error_message = _("[文件过大 (%s), 已跳过内容读取]").printf (UIHelpers.format_size (file_size));
+                ri.error_message = _("[File too large (%s), content reading skipped]").printf (UIHelpers.format_size (file_size));
                 result.add (ri);
                 continue;
             }
@@ -310,7 +310,7 @@ public class MultiFormatExporter : GLib.Object {
                 }
                 if (is_binary) {
                     ri.kind = ItemKind.BINARY;
-                    ri.error_message = _("[检测到二进制文件: 已跳过文本内容读取]");
+                    ri.error_message = _("[Binary file detected: text content reading skipped]");
                     result.add (ri);
                     continue;
                 }
@@ -331,7 +331,7 @@ public class MultiFormatExporter : GLib.Object {
                 result.add (ri);
             } catch (Error e) {
                 ri.kind = ItemKind.READ_ERROR;
-                ri.error_message = _("[读取文件失败: %s]").printf (e.message);
+                ri.error_message = _("[Failed to read file: %s]").printf (e.message);
                 result.add (ri);
             } finally {
                 if (fis != null) {

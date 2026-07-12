@@ -11,7 +11,7 @@ public class ContextSettingsDialog : GLib.Object {
 
     public void present () {
         dialog = new Adw.Dialog ();
-        dialog.set_title (_("上下文窗口设置"));
+        dialog.set_title (_("Context Window Settings"));
         dialog.set_content_width (400);
 
         var toolbar_view = new Adw.ToolbarView ();
@@ -19,22 +19,22 @@ public class ContextSettingsDialog : GLib.Object {
         header_bar.set_show_end_title_buttons (false);
         toolbar_view.add_top_bar (header_bar);
 
-        var cancel_btn = new Gtk.Button.with_label (_("取消"));
+        var cancel_btn = new Gtk.Button.with_label (_("Cancel"));
         header_bar.pack_start (cancel_btn);
         cancel_btn.clicked.connect (() => dialog.close ());
 
-        var save_btn = new Gtk.Button.with_label (_("保存"));
+        var save_btn = new Gtk.Button.with_label (_("Save"));
         save_btn.add_css_class ("suggested-action");
         header_bar.pack_end (save_btn);
 
         var page = new Adw.PreferencesPage ();
         var group = new Adw.PreferencesGroup ();
-        group.set_title (_("模型上下文限制"));
-        group.set_description (_("设置目标 LLM 的最大 Token 窗口，用于进度条预警。"));
+        group.set_title (_("Model Context Limit"));
+        group.set_description (_("Set the target LLM's maximum token window, used for progress bar warnings."));
         page.add (group);
 
         spin_context_size = new Adw.SpinRow.with_range (1000, 2000000, 1000);
-        spin_context_size.set_title (_("上下文窗口大小 (Tokens)"));
+        spin_context_size.set_title (_("Context Window Size (Tokens)"));
         spin_context_size.set_value (ConfigManager.get_context_window_size ());
         group.add (spin_context_size);
 

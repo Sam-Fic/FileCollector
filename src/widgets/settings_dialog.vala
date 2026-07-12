@@ -14,7 +14,7 @@ public class SettingsDialog : GLib.Object {
         var current_lang = ConfigManager.load_settings_language ();
 
         var dialog = new Adw.Dialog ();
-        dialog.set_title (_("设置界面语言"));
+        dialog.set_title (_("Set Interface Language"));
         dialog.set_content_width (380);
 
         var toolbar_view = new Adw.ToolbarView ();
@@ -22,20 +22,20 @@ public class SettingsDialog : GLib.Object {
         header.set_show_end_title_buttons (false);
         toolbar_view.add_top_bar (header);
 
-        var cancel_btn = new Gtk.Button.with_label (_("取消"));
+        var cancel_btn = new Gtk.Button.with_label (_("Cancel"));
         header.pack_start (cancel_btn);
         cancel_btn.clicked.connect (() => dialog.close ());
 
-        var apply_btn = new Gtk.Button.with_label (_("应用"));
+        var apply_btn = new Gtk.Button.with_label (_("Apply"));
         apply_btn.add_css_class ("suggested-action");
         header.pack_end (apply_btn);
 
         var lang_model = new Gtk.StringList (new string[] {
-            _("跟随系统"), _("中文"), _("English")
+            _("Follow System"), _("Chinese"), _("English")
         });
 
         var combo = new Adw.ComboRow ();
-        combo.set_title (_("界面语言"));
+        combo.set_title (_("Interface Language"));
         combo.set_model (lang_model);
 
         if (current_lang == "" || current_lang == "system") {
@@ -70,11 +70,11 @@ public class SettingsDialog : GLib.Object {
             dialog.close ();
 
             var restart_dialog = new Adw.AlertDialog (
-                _("提示"),
-                _("语言设置已保存，重启应用后生效。是否现在重启？")
+                _("Notice"),
+                _("Language setting saved; takes effect after restart. Restart now?")
             );
-            restart_dialog.add_response ("later", _("稍后"));
-            restart_dialog.add_response ("restart", _("立即重启"));
+            restart_dialog.add_response ("later", _("Later"));
+            restart_dialog.add_response ("restart", _("Restart Now"));
             restart_dialog.set_default_response ("restart");
             restart_dialog.set_close_response ("later");
 

@@ -94,15 +94,15 @@ public class AIController : GLib.Object {
             case "add_git_diff_range": return tool_add_git_diff_range (args);
             case "add_file_snippet": return tool_add_file_snippet (args);
             default:
-                return _("未知工具: ") + name;
+                return _("Unknown tool: ") + name;
         }
     }
 
     // ─── 工具实现 ────────────────────────────────────────────────────
 
     private string tool_list_files (Json.Node args) throws GLib.Error {
-        if (app_state.work_dir == null) return _("工作目录未设置");
-        if (args.get_node_type () != Json.NodeType.OBJECT) return _("参数错误");
+        if (app_state.work_dir == null) return _("Working directory not set");
+        if (args.get_node_type () != Json.NodeType.OBJECT) return _("Invalid parameters");
         var o = args.get_object ();
 
         string pattern = o.has_member ("pattern") ? o.get_string_member ("pattern") : "";
@@ -158,7 +158,7 @@ public class AIController : GLib.Object {
                 list_files_recursive (app_state.work_dir.get_path (), app_state.work_dir.get_path (), 0, (int) max_depth,
                     matcher, sb, ref count, ref total, (int) max_results, ignored_dirs);
             } catch (Error e) {
-                return _("读取目录失败: ") + e.message;
+                return _("Unable to read directory: ") + e.message;
             }
             sb.append ("\n# total ").append (total.to_string ())
               .append (" matched, listed ").append (count.to_string ());
@@ -207,7 +207,7 @@ public class AIController : GLib.Object {
         if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
         var o = args.get_object ();
         string path = o.has_member ("path") ? o.get_string_member ("path") : "";
-        if (path == "") return _("缺少 path");
+        if (path == "") return _("Missing path");
         int64 max_bytes = o.has_member ("max_bytes") ? o.get_int_member ("max_bytes") : 102400;
         int64 start_line = o.has_member ("start_line") ? o.get_int_member ("start_line") : 1;
         int64 max_lines = o.has_member ("max_lines") ? o.get_int_member ("max_lines") : 500;
@@ -216,18 +216,18 @@ public class AIController : GLib.Object {
         if (max_lines <= 0) max_lines = 500;
 
         string? resolved = resolve_ai_path (path);
-        if (resolved == null) return _("无法解析路径 (未设置工作目录)");
-        if (!is_path_in_work_dir (resolved)) return _("拒绝访问: 路径超出工作目录范围");
+        if (resolved == null) return _("No working directory set yet");
+        if (!is_path_in_work_dir (resolved)) return _("Access denied: path outside work directory");
         string abs = resolved;
         var file = File.new_for_path (abs);
-        if (!file.query_exists ()) return _("文件不存在: ") + abs;
+        if (!file.query_exists ()) return _("File does not exist: ") + abs;
 
         int64 file_size = 0;
         try {
             var info = file.query_info (FileAttribute.STANDARD_SIZE, FileQueryInfoFlags.NONE);
             file_size = info.get_size ();
         } catch (Error e) {
-            return _("读取文件信息失败: ") + e.message;
+            return _("Failed to read file info: ") + e.message;
         }
 
         uint8[] raw = new uint8[max_bytes];
@@ -237,7 +237,7 @@ public class AIController : GLib.Object {
             fis = file.read ();
             bytes_read = fis.read (raw);
         } catch (Error e) {
-            return _("读取失败: ") + e.message;
+            return _("Read failed: ") + e.message;
         } finally {
             if (fis != null) {
                 try { fis.close (); } catch (Error e) { debug ("Close failed: %s", e.message); }
@@ -281,19 +281,19 @@ public class AIController : GLib.Object {
         string? resolved = resolve_ai_path (path);
         if (resolved == null) return "无法解析路径 (未设置工作目录)";
         if (!is_path_allowed_for_work_dir (resolved))
-            return _("拒绝访问: 工作目录必须在当前项目目录或用户主目录内");
+            return _("Access denied: work directory must be within project or home directory");
         var file = File.new_for_path (resolved);
-        if (!file.query_exists ()) return _("目录不存在: ") + resolved;
+        if (!file.query_exists ()) return _("Directory does not exist: ") + resolved;
         work_dir_change_requested (resolved);
-        return _("工作目录已切换到: ") + resolved;
+        return _("Working directory set: %s") + resolved;
     }
 
     private string tool_add_files (Json.Node args) throws GLib.Error {
         if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
         var o = args.get_object ();
-        if (!o.has_member ("paths")) return _("缺少 paths");
+        if (!o.has_member ("paths")) return _("Missing paths");
         var paths_arr = o.get_array_member ("paths");
-        if (paths_arr == null) return _("paths 必须是数组");
+        if (paths_arr == null) return _("paths must be an array");
 
         string? after = o.has_member ("after_path") ? o.get_string_member ("after_path") : null;
         int added = 0;
@@ -314,16 +314,16 @@ public class AIController : GLib.Object {
             string p = paths_arr.get_string_element (i);
             string? resolved = resolve_ai_path (p);
             if (resolved == null) {
-                skipped.add (@_("$p (无法解析路径)"));
+                skipped.add (@_("$p (cannot resolve path)"));
                 continue;
             }
             if (!is_path_in_work_dir (resolved)) {
-                skipped.add (@_("$p (路径超出工作目录)"));
+                skipped.add (@_("$p (path outside work directory)"));
                 continue;
             }
             string abs = resolved;
             if (!FileUtils.test (abs, FileTest.EXISTS)) {
-                skipped.add (@_("$p (文件不存在)"));
+                skipped.add (@_("$p (file does not exist)"));
                 continue;
             }
             bool exists = false;
@@ -331,7 +331,7 @@ public class AIController : GLib.Object {
                 if (app_state.items.get (j).file_path == abs) { exists = true; break; }
             }
             if (exists) {
-                skipped.add (@_("$p (已在列表中)"));
+                skipped.add (@_("$p (already in list)"));
                 continue;
             }
             app_state.add_file (abs, insert_at + added);
@@ -345,15 +345,15 @@ public class AIController : GLib.Object {
             added++;
         }
         refresh_list_requested ();
-        string summary = _("AI 添加了 %d 个文件").printf (added);
+        string summary = _("AI added %d files").printf (added);
         if (skipped.size > 0) {
-            summary += _("，跳过 %d 个").printf (skipped.size);
+            summary += _(", skipped %d").printf (skipped.size);
         }
         ai_batch_operation_completed (summary);
         var sb = new StringBuilder ();
         sb.append ("已添加 %d 个文件 (请求 %d)".printf (added, total));
         if (skipped.size > 0) {
-            sb.append (_("\n跳过 %d 个:\n").printf (skipped.size));
+            sb.append (_("\nSkipped %d:\n").printf (skipped.size));
             foreach (var s in skipped) {
                 sb.append ("  - ").append (s).append ("\n");
             }
@@ -387,7 +387,7 @@ public class AIController : GLib.Object {
             }
         }
         refresh_list_requested ();
-        ai_batch_operation_completed (_("AI 移除了 %d 个文件").printf (result));
+        ai_batch_operation_completed (_("AI removed %d files").printf (result));
         return "已移除 %d 个文件 (请求 %d)".printf (result, total);
     }
 
@@ -396,7 +396,7 @@ public class AIController : GLib.Object {
         var o = args.get_object ();
         string text = o.has_member ("text") ? o.get_string_member ("text") :
                       (o.has_member ("content") ? o.get_string_member ("content") : "");
-        if (text == "") return _("缺少 text / content");
+        if (text == "") return _("Missing text / content");
         string? after = o.has_member ("after_path") ? o.get_string_member ("after_path") : null;
         string? before = o.has_member ("before_path") ? o.get_string_member ("before_path") : null;
         int insert_at = app_state.items.size;
@@ -429,13 +429,13 @@ public class AIController : GLib.Object {
         inserted.add (new_item);
         undo_delta_requested (new UndoDelta.for_insert (insert_at, inserted));
         refresh_list_requested ();
-        ai_batch_operation_completed (_("AI 插入了自定义文本"));
+        ai_batch_operation_completed (_("Insert Custom Text"));
         return "已插入文本 (位置 %d)".printf (insert_at);
     }
 
     private string tool_remove_item (Json.Node args) throws GLib.Error {
         if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
-        if (!args.get_object ().has_member ("index")) return _("缺少 index");
+        if (!args.get_object ().has_member ("index")) return _("Missing index");
         int idx = (int) args.get_object ().get_int_member ("index");
         if (idx < 0 || idx >= app_state.items.size) {
             return "索引越界: %d (列表共 %d 项)".printf (idx, app_state.items.size);
@@ -459,7 +459,7 @@ public class AIController : GLib.Object {
     private string tool_move_item (Json.Node args) throws GLib.Error {
         if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
         var o = args.get_object ();
-        if (!o.has_member ("from_index") || !o.has_member ("to_index")) return _("缺少 from_index / to_index");
+        if (!o.has_member ("from_index") || !o.has_member ("to_index")) return _("Missing from_index / to_index");
         int from = (int) o.get_int_member ("from_index");
         int to = (int) o.get_int_member ("to_index");
         if (from < 0 || from >= app_state.items.size) {
@@ -477,7 +477,7 @@ public class AIController : GLib.Object {
     private string tool_set_use_absolute (Json.Node args) throws GLib.Error {
         if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
         var o = args.get_object ();
-        if (!o.has_member ("value")) return _("缺少 value");
+        if (!o.has_member ("value")) return _("Missing value");
         bool val = o.get_boolean_member ("value");
         bool old_abs = app_state.use_absolute;
         bool old_hdr = app_state.show_header;
@@ -531,7 +531,7 @@ public class AIController : GLib.Object {
 
     private string tool_clear_all (Json.Node args) throws GLib.Error {
         clear_items_requested ();
-        ai_batch_operation_completed (_("AI 清空了编排列表"));
+        ai_batch_operation_completed (_("Clear the queue"));
         return "已清空编排列表";
     }
 
@@ -572,7 +572,7 @@ public class AIController : GLib.Object {
                 if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
                 string m = args.get_object ().get_string_member_with_default ("mode", "default");
                 if (m != "default" && m != "directory" && m != "single") {
-                    return _("无效 mode: ") + m;
+                    return _("Invalid mode: ") + m;
                 }
                 app_state.ai_mode = m;
                 return "mode=" + m;
@@ -584,7 +584,7 @@ public class AIController : GLib.Object {
             }
             case "set_file_label": {
                 if (args.get_node_type () != Json.NodeType.OBJECT) return "参数错误";
-                app_state.ai_file_label = args.get_object ().get_string_member_with_default ("label", _("文件"));
+                app_state.ai_file_label = args.get_object ().get_string_member_with_default ("label", _("File"));
                 return "label=" + app_state.ai_file_label;
             }
             case "set_max_files": {
@@ -595,7 +595,7 @@ public class AIController : GLib.Object {
                 return "max_files=" + app_state.ai_max_files.to_string ();
             }
         }
-        return _("未知 meta 工具: ") + name;
+        return _("Unknown meta tool: ") + name;
     }
 
     // ─── Git 工具实现 ────────────────────────────────────────────────
@@ -654,7 +654,7 @@ public class AIController : GLib.Object {
 
     private string tool_get_git_commit_diff (Json.Node args) throws GLib.Error {
         if (app_state.work_dir == null) return "Error: Work directory not set.";
-        if (args.get_node_type () != Json.NodeType.OBJECT) return _("参数错误");
+        if (args.get_node_type () != Json.NodeType.OBJECT) return _("Invalid parameters");
         var o = args.get_object ();
         if (!o.has_member ("commit_hash")) return "Missing commit_hash";
         string hash = o.get_string_member ("commit_hash");
@@ -680,7 +680,7 @@ public class AIController : GLib.Object {
             : GitService.get_working_tree_diff (app_state.work_dir.get_path ());
 
         if (diff.strip ().length == 0) {
-            return staged ? _("当前没有已暂存的改动。") : _("当前工作区没有未提交的改动。");
+            return staged ? _("No staged changes.") : _("No uncommitted changes in working tree");
         }
 
         string md_text = "# Git %s Diff\n\n```diff\n%s\n```".printf (staged ? "Staged" : "Working Tree", diff);
@@ -693,12 +693,12 @@ public class AIController : GLib.Object {
         refresh_list_requested ();
 
         int lines = diff.split ("\n").length;
-        return _("已成功将 Git Diff 注入编排列表 (%d 行)。").printf (lines);
+        return _("Git Diff injected into list (%d lines).").printf (lines);
     }
 
     private string tool_add_git_commit_diff (Json.Node args) throws GLib.Error {
         if (app_state.work_dir == null) return "Error: Work directory not set.";
-        if (args.get_node_type () != Json.NodeType.OBJECT) return _("参数错误");
+        if (args.get_node_type () != Json.NodeType.OBJECT) return _("Invalid parameters");
         var o = args.get_object ();
         if (!o.has_member ("commit_hash")) return "Missing commit_hash";
         string hash = o.get_string_member ("commit_hash");
@@ -706,7 +706,7 @@ public class AIController : GLib.Object {
 
         string diff = GitService.get_commit_diff (app_state.work_dir.get_path (), hash);
         if (diff.strip ().length == 0) {
-            return _("未找到该 Commit 的 Diff 或 Commit 不存在。");
+            return _("Commit diff not found or commit does not exist.");
         }
 
         string info = "";
@@ -727,12 +727,12 @@ public class AIController : GLib.Object {
         refresh_list_requested ();
 
         int lines = diff.split ("\n").length;
-        return _("已成功将 Commit %s 的 Diff 注入编排列表 (%d 行)。").printf (hash.substring (0, 7), lines);
+        return _("Commit %s Diff injected into list (%d lines).").printf (hash.substring (0, 7), lines);
     }
 
     private string tool_add_git_diff_range (Json.Node args) throws GLib.Error {
         if (app_state.work_dir == null) return "Error: Work directory not set.";
-        if (args.get_node_type () != Json.NodeType.OBJECT) return _("参数错误");
+        if (args.get_node_type () != Json.NodeType.OBJECT) return _("Invalid parameters");
         var o = args.get_object ();
         if (!o.has_member ("from_hash")) return "Missing from_hash";
         string from_hash = o.get_string_member ("from_hash");
@@ -776,7 +776,7 @@ public class AIController : GLib.Object {
         }
 
         if (commit_hashes.size == 0) {
-            return _("从 %s 到 %s 没有新的提交。").printf (from_hash, to_hash);
+            return _("No new commits from %s to %s.").printf (from_hash, to_hash);
         }
 
         // Reverse to chronological order (oldest first), then add each as separate item
@@ -804,11 +804,11 @@ public class AIController : GLib.Object {
             refresh_list_requested ();
         }
 
-        return _("已成功将 %d 个 Commit 的 Diff 注入编排列表 (%d 行)。").printf (inserted.size, total_lines);
+        return _("Successfully injected %d commit(s) Diff into list (%d lines).").printf (inserted.size, total_lines);
     }
 
     private string tool_add_file_snippet (Json.Node args) throws GLib.Error {
-        if (args.get_node_type () != Json.NodeType.OBJECT) return _("参数错误");
+        if (args.get_node_type () != Json.NodeType.OBJECT) return _("Invalid parameters");
         var o = args.get_object ();
         string path = o.get_string_member_with_default ("path", "");
         int sl = (int) o.get_int_member ("start_line");
@@ -833,7 +833,7 @@ public class AIController : GLib.Object {
         preprocess_item_requested (resolved);
         refresh_list_requested ();
 
-        return (swapped ? _("已自动交换起始/结束行。") : "") +
+        return (swapped ? _("Start/end lines auto-swapped.") : "") +
             "已添加片段: %s [L%d-L%d]".printf (GLib.Path.get_basename (resolved), sl, el);
     }
 

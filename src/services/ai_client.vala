@@ -423,11 +423,11 @@ public class AIClient : GLib.Object {
             GLib.Cancellable? cancellable = null)
             throws AIClientError {
         if (base_url == "")
-            throw new AIClientError.CONFIG (_("API 基础地址未配置, 请在 设置 → AI 设置 中填写。"));
+            throw new AIClientError.CONFIG (_("API Base URL not configured. Please fill it in Settings → AI Settings."));
         if (api_key == "")
-            throw new AIClientError.CONFIG (_("API 密钥未配置, 请在 设置 → AI 设置 中填写。"));
+            throw new AIClientError.CONFIG (_("API Key not configured. Please fill it in Settings → AI Settings."));
         if (model == "")
-            throw new AIClientError.CONFIG (_("模型名称未配置, 请在 设置 → AI 设置 中填写。"));
+            throw new AIClientError.CONFIG (_("Model Name not configured. Please fill it in Settings → AI Settings."));
 
         var payload = new Json.Object ();
         payload.set_string_member ("model", model);
@@ -464,7 +464,7 @@ public class AIClient : GLib.Object {
             // 同步发送 (libsoup-3 的 sync API); worker 线程中执行, 不阻塞主线程.
             resp_bytes = session.send_and_read (msg, cancellable);
         } catch (Error e) {
-            throw new AIClientError.NETWORK (_("网络错误: ") + e.message);
+            throw new AIClientError.NETWORK (_("Network error: ") + e.message);
         }
 
         uint status = msg.status_code;
@@ -484,7 +484,7 @@ public class AIClient : GLib.Object {
         }
 
         if (resp_bytes == null || resp_bytes.length == 0) {
-            throw new AIClientError.PROTOCOL (_("响应为空"));
+            throw new AIClientError.PROTOCOL (_("Empty response"));
         }
 
         return parse_response_bytes (resp_bytes.get_data ());
@@ -505,11 +505,11 @@ public class AIClient : GLib.Object {
         var bytes = yield session.send_and_read_async (msg, GLib.Priority.DEFAULT, cancellable);
 
         if (cancellable != null && cancellable.is_cancelled ()) {
-            throw new GLib.IOError.CANCELLED (_("AI 请求已被用户主动取消"));
+            throw new GLib.IOError.CANCELLED (_("AI request was cancelled by user"));
         }
 
         if (msg.status_code != 200) {
-            throw new GLib.IOError.FAILED (_("API 返回错误状态码: %u").printf (msg.status_code));
+            throw new GLib.IOError.FAILED (_("API returned error status code: %u").printf (msg.status_code));
         }
 
         return (string) bytes.get_data ();
@@ -520,14 +520,14 @@ public class AIClient : GLib.Object {
         try {
             parser.load_from_data ((string) raw, (long) raw.length);
         } catch (Error e) {
-            throw new AIClientError.PROTOCOL (_("响应不是合法 JSON: ") + e.message);
+            throw new AIClientError.PROTOCOL (_("Response is not valid JSON: ") + e.message);
         }
         var root = parser.get_root ();
         if (root == null || root.get_node_type () != Json.NodeType.OBJECT)
-            throw new AIClientError.PROTOCOL (_("响应顶层不是对象"));
+            throw new AIClientError.PROTOCOL (_("Response top-level is not an object"));
         var obj = root.get_object ();
         if (obj == null)
-            throw new AIClientError.PROTOCOL (_("响应顶层不是对象"));
+            throw new AIClientError.PROTOCOL (_("Response top-level is not an object"));
 
         var choices = obj.has_member ("choices") ? obj.get_array_member ("choices") : null;
         if (choices == null || choices.get_length () == 0) {

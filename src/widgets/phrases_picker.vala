@@ -26,7 +26,7 @@ public class PhrasesPicker : GLib.Object {
     public void show_picker (bool above) {
         current_list_box = null;
         var dialog = new Adw.Dialog ();
-        dialog.set_title (_("选择常用语"));
+        dialog.set_title (_("Select Common Phrase"));
         dialog.set_content_width (400);
         dialog.set_content_height (400);
 
@@ -34,16 +34,16 @@ public class PhrasesPicker : GLib.Object {
         dialog.set_child (toolbar_view);
 
         var header_bar = new Adw.HeaderBar ();
-        header_bar.set_title_widget (new Adw.WindowTitle (_("选择常用语"), ""));
+        header_bar.set_title_widget (new Adw.WindowTitle (_("Select Common Phrase"), ""));
         header_bar.set_show_end_title_buttons (false);
         toolbar_view.add_top_bar (header_bar);
 
         var cancel_btn = new Gtk.Button ();
-        cancel_btn.set_label (_("取消"));
+        cancel_btn.set_label (_("Cancel"));
         header_bar.pack_start (cancel_btn);
 
         var add_btn = new Gtk.Button ();
-        add_btn.set_label (_("添加"));
+        add_btn.set_label (_("Add"));
         header_bar.pack_end (add_btn);
 
         var btn_size_group = new Gtk.SizeGroup (Gtk.SizeGroupMode.HORIZONTAL);
@@ -83,7 +83,7 @@ public class PhrasesPicker : GLib.Object {
 
     public void show_manage_window () {
         var dialog = new Adw.Dialog ();
-        dialog.set_title (_("常用语管理"));
+        dialog.set_title (_("Manage Common Phrases"));
         dialog.set_content_width (400);
         dialog.set_content_height (400);
 
@@ -91,12 +91,12 @@ public class PhrasesPicker : GLib.Object {
         dialog.set_child (toolbar_view);
 
         var header_bar = new Adw.HeaderBar ();
-        header_bar.set_title_widget (new Adw.WindowTitle (_("常用语管理"), ""));
+        header_bar.set_title_widget (new Adw.WindowTitle (_("Manage Common Phrases"), ""));
         header_bar.set_show_end_title_buttons (false);
         toolbar_view.add_top_bar (header_bar);
 
         var cancel_btn = new Gtk.Button ();
-        cancel_btn.set_label (_("取消"));
+        cancel_btn.set_label (_("Cancel"));
         header_bar.pack_start (cancel_btn);
 
         var box = new Gtk.Box (Gtk.Orientation.VERTICAL, 12);
@@ -120,7 +120,7 @@ public class PhrasesPicker : GLib.Object {
         refresh_phrases_list (current_list_box);
 
         var add_btn = new Gtk.Button ();
-        add_btn.set_label (_("添加"));
+        add_btn.set_label (_("Add"));
         add_btn.add_css_class ("suggested-action");
         header_bar.pack_end (add_btn);
 
@@ -143,7 +143,7 @@ public class PhrasesPicker : GLib.Object {
         list_box.remove_all ();
 
         if (common_phrases.size == 0) {
-            var empty_label = new Gtk.Label (_("暂无常用语"));
+            var empty_label = new Gtk.Label (_("No Common Phrases Yet"));
             empty_label.set_halign (Gtk.Align.CENTER);
             list_box.append (empty_label);
         } else {
@@ -163,7 +163,7 @@ public class PhrasesPicker : GLib.Object {
                 var edit_btn = new Gtk.Button.from_icon_name ("document-edit-symbolic");
                 edit_btn.add_css_class ("flat");
                 edit_btn.valign = Gtk.Align.CENTER;
-                edit_btn.tooltip_text = _("编辑");
+                edit_btn.tooltip_text = _("Edit Text");
                 edit_btn.clicked.connect (() => {
                     edit_phrase_requested (common_phrases.get (phrase_index), phrase_index);
                 });
@@ -174,7 +174,7 @@ public class PhrasesPicker : GLib.Object {
                 delete_btn.add_css_class ("destructive-action");
                 delete_btn.add_css_class ("flat");
                 delete_btn.set_valign (Gtk.Align.CENTER);
-                delete_btn.set_tooltip_text (_("删除"));
+                delete_btn.set_tooltip_text (_("Delete"));
                 string captured_phrase = phrase;
                 delete_btn.clicked.connect (() => {
                     int idx = common_phrases.index_of (captured_phrase);
@@ -201,7 +201,7 @@ public class PhrasesPicker : GLib.Object {
             var edit_btn = new Gtk.Button.from_icon_name ("document-edit-symbolic");
             edit_btn.add_css_class ("flat");
             edit_btn.valign = Gtk.Align.CENTER;
-            edit_btn.tooltip_text = _("编辑");
+            edit_btn.tooltip_text = _("Edit Text");
             int edit_index = i;
             edit_btn.clicked.connect (() => {
                 edit_phrase_requested (common_phrases.get (edit_index), edit_index);
@@ -213,7 +213,7 @@ public class PhrasesPicker : GLib.Object {
             delete_btn.add_css_class ("destructive-action");
             delete_btn.add_css_class ("flat");
             delete_btn.set_valign (Gtk.Align.CENTER);
-            delete_btn.set_tooltip_text (_("删除"));
+            delete_btn.set_tooltip_text (_("Delete"));
             string captured_phrase = phrase;
             delete_btn.clicked.connect (() => {
                 int idx = common_phrases.index_of (captured_phrase);
@@ -241,7 +241,7 @@ public class PhrasesPicker : GLib.Object {
 
     private void show_add_phrase_dialog (bool above, Gtk.ListBox? list_box = null, Adw.Dialog? picker_dialog = null, bool is_manage = false) {
         var dialog = new Adw.Dialog ();
-        dialog.set_title (_("添加常用语"));
+        dialog.set_title (_("Add Common Phrase"));
         dialog.set_content_width (450);
         dialog.set_content_height (350);
 
@@ -249,16 +249,16 @@ public class PhrasesPicker : GLib.Object {
         dialog.set_child (toolbar_view);
 
         var header_bar = new Adw.HeaderBar ();
-        header_bar.set_title_widget (new Adw.WindowTitle (_("添加常用语"), ""));
+        header_bar.set_title_widget (new Adw.WindowTitle (_("Add Common Phrase"), ""));
         header_bar.set_show_end_title_buttons (false);
         toolbar_view.add_top_bar (header_bar);
 
         var cancel_btn = new Gtk.Button ();
-        cancel_btn.set_label (_("取消"));
+        cancel_btn.set_label (_("Cancel"));
         header_bar.pack_start (cancel_btn);
 
         var ok_btn = new Gtk.Button ();
-        ok_btn.set_label (_("添加"));
+        ok_btn.set_label (_("Add"));
         ok_btn.add_css_class ("suggested-action");
         header_bar.pack_end (ok_btn);
 

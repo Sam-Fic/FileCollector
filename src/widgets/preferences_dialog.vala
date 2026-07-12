@@ -60,7 +60,7 @@ public class PreferencesDialog : GLib.Object {
 
     public void present () {
         dialog = new Adw.PreferencesDialog ();
-        dialog.set_title (_("偏好设置"));
+        dialog.set_title (_("Preferences..."));
         dialog.search_enabled = true;
 
         build_ai_page ();
@@ -73,18 +73,18 @@ public class PreferencesDialog : GLib.Object {
 
     private void build_ai_page () {
         var page = new PreferencesPage ();
-        page.set_title (_("AI 设置"));
+        page.set_title (_("AI Settings"));
         page.set_icon_name ("applications-engineering-symbolic");
 
         // ── 侧边栏 AI 助手 ──
         var sidebar_group = new PreferencesGroup ();
-        sidebar_group.set_title (_("AI 助手 (侧边栏)"));
-        sidebar_group.set_description (_("配置 OpenAI 兼容 API，即可在 AI 边栏使用自然语言编排文件。\n支持 OpenAI、Azure OpenAI 及任何兼容端点（例如本地 Ollama）。"));
+        sidebar_group.set_title (_("AI Assistant (Sidebar)"));
+        sidebar_group.set_description (_("Configure an OpenAI-compatible API to orchestrate files with natural language in the AI sidebar.\nSupports OpenAI, Azure OpenAI, and any compatible endpoint (e.g. local Ollama)."));
         page.add (sidebar_group);
 
         var sb_enabled_row = new ActionRow ();
-        sb_enabled_row.set_title (_("启用 AI 助手"));
-        sb_enabled_row.set_subtitle (_("关闭后 AI 边栏会保留, 但不会发送任何请求"));
+        sb_enabled_row.set_title (_("Enable AI Assistant"));
+        sb_enabled_row.set_subtitle (_("After closing, the AI sidebar is kept but no requests are sent"));
         chk_sidebar_enabled = new Switch ();
         chk_sidebar_enabled.valign = Align.CENTER;
         sb_enabled_row.add_suffix (chk_sidebar_enabled);
@@ -92,41 +92,41 @@ public class PreferencesDialog : GLib.Object {
         sidebar_group.add (sb_enabled_row);
 
         var sb_url_row = new EntryRow ();
-        sb_url_row.set_title (_("API 基础地址"));
+        sb_url_row.set_title (_("API Base URL"));
         sb_url_row.set_show_apply_button (false);
         edit_sidebar_base_url = sb_url_row;
         sidebar_group.add (sb_url_row);
 
         var sb_key_row = new PasswordEntryRow ();
-        sb_key_row.set_title (_("API 密钥"));
+        sb_key_row.set_title (_("API Key"));
         edit_sidebar_api_key = sb_key_row;
         sidebar_group.add (sb_key_row);
 
         var sb_model_row = new EntryRow ();
-        sb_model_row.set_title (_("模型名称"));
+        sb_model_row.set_title (_("Model Name"));
         sb_model_row.set_show_apply_button (false);
         edit_sidebar_model = sb_model_row;
         sidebar_group.add (sb_model_row);
 
         var sb_timeout_row = new SpinRow.with_range (5.0, 600.0, 5.0);
-        sb_timeout_row.set_title (_("请求超时 (秒)"));
+        sb_timeout_row.set_title (_("Request Timeout (seconds)"));
         spin_sidebar_timeout = sb_timeout_row;
         sidebar_group.add (sb_timeout_row);
 
         var sb_advanced = new PreferencesGroup ();
-        sb_advanced.set_title (_("高级"));
+        sb_advanced.set_title (_("Advanced"));
         page.add (sb_advanced);
 
         var sb_prompt_row = new EntryRow ();
-        sb_prompt_row.set_title (_("自定义系统提示词 (可选)"));
+        sb_prompt_row.set_title (_("Custom System Prompt (Optional)"));
         sb_prompt_row.set_show_apply_button (false);
         edit_sidebar_prompt = sb_prompt_row;
         sb_advanced.add (sb_prompt_row);
 
         var sb_test_row = new ActionRow ();
-        sb_test_row.set_title (_("测试连接"));
-        sb_test_row.set_subtitle (_("验证侧边栏 AI 配置是否可用"));
-        btn_sidebar_test = new Button.with_label (_("测试"));
+        sb_test_row.set_title (_("Test Connection"));
+        sb_test_row.set_subtitle (_("Verify sidebar AI configuration"));
+        btn_sidebar_test = new Button.with_label (_("Test"));
         btn_sidebar_test.valign = Align.CENTER;
         btn_sidebar_test.add_css_class ("suggested-action");
         sb_test_row.add_suffix (btn_sidebar_test);
@@ -134,14 +134,14 @@ public class PreferencesDialog : GLib.Object {
 
         // ── 视觉语言大模型 ──
         var mm_group = new PreferencesGroup ();
-        mm_group.set_title (_("视觉语言大模型 (VLM) (二进制文件预处理)"));
+        mm_group.set_title (_("Vision-Language Model (VLM) (Binary File Preprocessing)"));
         mm_group.set_description (
-            _("配置视觉语言大模型 (VLM) API，用于将 PDF、Word、PPT、图片等文件转换为 Markdown。"));
+            _("Configure the Vision Language Model (VLM) API to convert PDF, Word, PPT, images, etc. into Markdown."));
         page.add (mm_group);
 
         var mm_enabled_row = new ActionRow ();
-        mm_enabled_row.set_title (_("启用 VLM"));
-        mm_enabled_row.set_subtitle (_("关闭后二进制文件将不会自动转换"));
+        mm_enabled_row.set_title (_("Enable VLM"));
+        mm_enabled_row.set_subtitle (_("Binary files will not be auto-converted when disabled"));
         chk_mm_enabled = new Switch ();
         chk_mm_enabled.valign = Align.CENTER;
         mm_enabled_row.add_suffix (chk_mm_enabled);
@@ -149,53 +149,53 @@ public class PreferencesDialog : GLib.Object {
         mm_group.add (mm_enabled_row);
 
         var mm_url_row = new EntryRow ();
-        mm_url_row.set_title (_("API 基础地址"));
+        mm_url_row.set_title (_("API Base URL"));
         mm_url_row.set_show_apply_button (false);
         edit_mm_base_url = mm_url_row;
         mm_group.add (mm_url_row);
 
         var mm_key_row = new PasswordEntryRow ();
-        mm_key_row.set_title (_("API 密钥"));
+        mm_key_row.set_title (_("API Key"));
         edit_mm_api_key = mm_key_row;
         mm_group.add (mm_key_row);
 
         var mm_model_row = new EntryRow ();
-        mm_model_row.set_title (_("模型名称"));
+        mm_model_row.set_title (_("Model Name"));
         mm_model_row.set_show_apply_button (false);
         edit_mm_model = mm_model_row;
         mm_group.add (mm_model_row);
 
         var mm_timeout_row = new SpinRow.with_range (5.0, 600.0, 5.0);
-        mm_timeout_row.set_title (_("请求超时 (秒)"));
+        mm_timeout_row.set_title (_("Request Timeout (seconds)"));
         spin_mm_timeout = mm_timeout_row;
         mm_group.add (mm_timeout_row);
 
         var mm_advanced = new PreferencesGroup ();
-        mm_advanced.set_title (_("高级"));
+        mm_advanced.set_title (_("Advanced"));
         page.add (mm_advanced);
 
         var mm_exts_input_row = new EntryRow ();
-        mm_exts_input_row.set_title (_("允许转换的二进制扩展名 (逗号分隔, 如 .pdf, .docx)"));
+        mm_exts_input_row.set_title (_("Allowed binary extensions (comma-separated, e.g. .pdf, .docx)"));
         mm_exts_input_row.set_show_apply_button (false);
         edit_mm_allowed_exts = mm_exts_input_row;
         mm_exts_input_row.set_hexpand (true);
 
-        btn_mm_reset_exts = new Button.with_label (_("默认"));
+        btn_mm_reset_exts = new Button.with_label (_("Default"));
         btn_mm_reset_exts.valign = Align.CENTER;
-        btn_mm_reset_exts.set_tooltip_text (_("恢复为默认扩展名列表"));
+        btn_mm_reset_exts.set_tooltip_text (_("Reset to default extension list"));
         mm_exts_input_row.add_suffix (btn_mm_reset_exts);
         mm_advanced.add (mm_exts_input_row);
 
         var mm_prompt_row = new EntryRow ();
-        mm_prompt_row.set_title (_("自定义系统提示词 (可选)"));
+        mm_prompt_row.set_title (_("Custom System Prompt (Optional)"));
         mm_prompt_row.set_show_apply_button (false);
         edit_mm_prompt = mm_prompt_row;
         mm_advanced.add (mm_prompt_row);
 
         var mm_test_row = new ActionRow ();
-        mm_test_row.set_title (_("测试连接"));
-        mm_test_row.set_subtitle (_("验证视觉语言大模型 (VLM) 配置是否可用"));
-        btn_mm_test = new Button.with_label (_("测试"));
+        mm_test_row.set_title (_("Test Connection"));
+        mm_test_row.set_subtitle (_("Verify VLM (Vision-Language Model) configuration"));
+        btn_mm_test = new Button.with_label (_("Test"));
         btn_mm_test.valign = Align.CENTER;
         btn_mm_test.add_css_class ("suggested-action");
         mm_test_row.add_suffix (btn_mm_test);
@@ -203,12 +203,12 @@ public class PreferencesDialog : GLib.Object {
 
         // ── 安全警告 ──
         var security_group = new PreferencesGroup ();
-        security_group.set_title (_("安全警告"));
+        security_group.set_title (_("Security Warning"));
         page.add (security_group);
 
         var security_row = new ActionRow ();
-        security_row.set_title (_("HTTP 端点安全风险"));
-        security_row.set_subtitle (_("使用 HTTP (非 HTTPS) 端点时，API 密钥将在网络中明文传输，存在安全风险。"));
+        security_row.set_title (_("HTTP Endpoint Security Risk"));
+        security_row.set_subtitle (_("Using an HTTP (non-HTTPS) endpoint transmits the API key in plaintext over the network, posing a security risk."));
 
         var warning_icon = new Image.from_icon_name ("dialog-warning-symbolic");
         warning_icon.add_css_class ("warning");
@@ -248,16 +248,16 @@ public class PreferencesDialog : GLib.Object {
 
     private void build_context_page () {
         var page = new PreferencesPage ();
-        page.set_title (_("扫描与上下文"));
+        page.set_title (_("Scanning & Context"));
         page.set_icon_name ("document-properties-symbolic");
 
         var group = new PreferencesGroup ();
-        group.set_title (_("模型上下文限制"));
-        group.set_description (_("设置目标 LLM 的最大 Token 窗口，用于进度条预警。"));
+        group.set_title (_("Model Context Limit"));
+        group.set_description (_("Set the target LLM's maximum token window, used for progress bar warnings."));
         page.add (group);
 
         spin_context_size = new SpinRow.with_range (1000, 2000000, 1000);
-        spin_context_size.set_title (_("上下文窗口大小 (Tokens)"));
+        spin_context_size.set_title (_("Context Window Size (Tokens)"));
         spin_context_size.set_value (ConfigManager.get_context_window_size ());
         group.add (spin_context_size);
 
@@ -269,13 +269,13 @@ public class PreferencesDialog : GLib.Object {
 
         // ── 扫描忽略目录 ──
         var ignored_group = new PreferencesGroup ();
-        ignored_group.set_title (_("扫描忽略目录"));
+        ignored_group.set_title (_("Scan Ignored Directories"));
         ignored_group.set_description (
-            _("这些目录不会出现在文件树中，也不会被自动收集。"));
+            _("These directories will not appear in the file tree and will not be collected automatically."));
         page.add (ignored_group);
 
         var ignored_row = new EntryRow ();
-        ignored_row.set_title (_("忽略的目录名"));
+        ignored_row.set_title (_("Ignored Directory Names"));
         ignored_row.set_show_apply_button (false);
         string[] current_ignored = ConfigManager.get_ignored_dirs ();
         ignored_row.set_text (string.joinv (", ", current_ignored));
@@ -287,21 +287,21 @@ public class PreferencesDialog : GLib.Object {
 
     private void build_language_page () {
         var page = new PreferencesPage ();
-        page.set_title (_("语言"));
+        page.set_title (_("Interface Language"));
         page.set_icon_name ("preferences-desktop-locale-symbolic");
 
         var lang_group = new PreferencesGroup ();
-        lang_group.set_title (_("界面语言"));
-        lang_group.set_description (_("切换语言后需要重启应用才能生效。"));
+        lang_group.set_title (_("Interface Language"));
+        lang_group.set_description (_("Restart the application for language changes to take effect."));
         page.add (lang_group);
 
         current_language = ConfigManager.load_settings_language ();
         var lang_model = new StringList (new string[] {
-            _("跟随系统"), _("中文"), _("English")
+            _("Follow System"), _("Chinese"), _("English")
         });
 
         combo_language = new ComboRow ();
-        combo_language.set_title (_("语言"));
+        combo_language.set_title (_("Interface Language"));
         combo_language.set_model (lang_model);
 
         if (current_language == "" || current_language == "system") {
@@ -316,9 +316,9 @@ public class PreferencesDialog : GLib.Object {
         // 应用按钮
         var action_group = new PreferencesGroup ();
         var apply_row = new ActionRow ();
-        apply_row.set_title (_("应用语言设置"));
-        apply_row.set_subtitle (_("保存语言设置并重启应用"));
-        var apply_btn = new Button.with_label (_("应用"));
+        apply_row.set_title (_("Apply Language Settings"));
+        apply_row.set_subtitle (_("Save language settings and restart application"));
+        var apply_btn = new Button.with_label (_("Apply"));
         apply_btn.add_css_class ("suggested-action");
         apply_btn.valign = Align.CENTER;
         apply_row.add_suffix (apply_btn);
@@ -342,11 +342,11 @@ public class PreferencesDialog : GLib.Object {
             current_language = new_lang;
 
             var restart_dialog = new Adw.AlertDialog (
-                _("提示"),
-                _("语言设置已保存，重启应用后生效。是否现在重启？")
+                _("Notice"),
+                _("Language setting saved; takes effect after restart. Restart now?")
             );
-            restart_dialog.add_response ("later", _("稍后"));
-            restart_dialog.add_response ("restart", _("立即重启"));
+            restart_dialog.add_response ("later", _("Later"));
+            restart_dialog.add_response ("restart", _("Restart Now"));
             restart_dialog.set_default_response ("restart");
             restart_dialog.set_close_response ("later");
 
@@ -364,20 +364,20 @@ public class PreferencesDialog : GLib.Object {
 
     private void build_appearance_page () {
         var page = new PreferencesPage ();
-        page.set_title (_("外观"));
+        page.set_title (_("Appearance"));
         page.set_icon_name ("preferences-color-symbolic");
 
         var group = new PreferencesGroup ();
-        group.set_title (_("色彩主题"));
-        group.set_description (_("选择应用的色彩主题。"));
+        group.set_title (_("Color Theme"));
+        group.set_description (_("Select the application color theme."));
         page.add (group);
 
         var scheme_model = new StringList (new string[] {
-            _("跟随系统"), _("浅色"), _("深色")
+            _("Follow System"), _("Light"), _("Dark")
         });
 
         combo_color_scheme = new ComboRow ();
-        combo_color_scheme.set_title (_("主题"));
+        combo_color_scheme.set_title (_("Theme"));
         combo_color_scheme.set_model (scheme_model);
 
         string current_scheme = ConfigManager.load_color_scheme ();
@@ -519,13 +519,13 @@ public class PreferencesDialog : GLib.Object {
         }
 
         if (base_url == "" || api_key == "" || model == "") {
-            show_toast (_("请先填写 API 基础地址、密钥和模型名称。"));
+            show_toast (_("Please fill in the API Base URL, Key, and Model Name first."));
             return;
         }
 
         var active_btn = testing_sidebar ? btn_sidebar_test : btn_mm_test;
         active_btn.set_sensitive (false);
-        show_toast (_("正在测试..."));
+        show_toast (_("Testing..."));
 
         if (test_cancellable != null) { test_cancellable.cancel (); }
         if (test_session != null) { test_session.abort (); }
@@ -589,7 +589,7 @@ public class PreferencesDialog : GLib.Object {
             var bytes = session.send_and_read_async.end (res);
             uint status = msg.status_code;
             if (status >= 200 && status < 300) {
-                show_toast (_("✓ 连接成功"));
+                show_toast (_("✓ Connected successfully"));
             } else {
                 string detail = "";
                 if (bytes != null && bytes.length > 0) {
@@ -601,12 +601,12 @@ public class PreferencesDialog : GLib.Object {
                     if (detail.length > 200) detail = detail.substring (0, 200) + "…";
                 }
                 string phrase = Soup.status_get_phrase (status);
-                string msg_str = _("✗ 失败: HTTP %u %s").printf (status, phrase)
+                string msg_str = _("✗ Failed: HTTP %u %s").printf (status, phrase)
                     + (detail.length > 0 ? " — " + detail : "");
                 show_toast (msg_str);
             }
         } catch (Error e) {
-            show_toast (_("✗ 失败: %s").printf (e.message));
+            show_toast (_("✗ Failed: %s").printf (e.message));
         }
         test_session = null;
     }

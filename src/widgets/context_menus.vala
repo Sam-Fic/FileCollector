@@ -58,17 +58,17 @@ public class ContextMenus : GLib.Object {
             act_edit.set_enabled (item.item_type == "text");
             act_edit.activate.connect (() => { on_edit_text (); });
             action_group.add_action (act_edit);
-            section_edit.append (_("编辑文本"), "ctx.ctx_edit");
+            section_edit.append (_("Edit Text"), "ctx.ctx_edit");
 
             var act_insert_above = new GLib.SimpleAction ("ctx_insert_above", null);
             act_insert_above.activate.connect (() => { on_insert_above (); });
             action_group.add_action (act_insert_above);
-            section_edit.append (_("在上方插入文本"), "ctx.ctx_insert_above");
+            section_edit.append (_("Insert Text Above"), "ctx.ctx_insert_above");
 
             var act_insert_below = new GLib.SimpleAction ("ctx_insert_below", null);
             act_insert_below.activate.connect (() => { on_insert_below (); });
             action_group.add_action (act_insert_below);
-            section_edit.append (_("在下方插入文本"), "ctx.ctx_insert_below");
+            section_edit.append (_("Insert Text Below"), "ctx.ctx_insert_below");
 
             menu_model.append_section (null, section_edit);
         }
@@ -80,13 +80,13 @@ public class ContextMenus : GLib.Object {
             act_move_up.set_enabled (index > 0);
             act_move_up.activate.connect (() => { on_move_up (); });
             action_group.add_action (act_move_up);
-            section_order.append (_("上移"), "ctx.ctx_move_up");
+            section_order.append (_("Move Up"), "ctx.ctx_move_up");
 
             var act_move_down = new GLib.SimpleAction ("ctx_move_down", null);
             act_move_down.set_enabled (index < items.size - 1);
             act_move_down.activate.connect (() => { on_move_down (); });
             action_group.add_action (act_move_down);
-            section_order.append (_("下移"), "ctx.ctx_move_down");
+            section_order.append (_("Move Down"), "ctx.ctx_move_down");
 
             menu_model.append_section (null, section_order);
         }
@@ -117,7 +117,7 @@ public class ContextMenus : GLib.Object {
                 }
             });
             action_group.add_action (act_retry);
-            section_file.append (count > 1 ? _("重新进行 AI 转换 (%d 项)").printf (count) : _("重新进行 AI 转换"), "ctx.ctx_retry_ai");
+            section_file.append (count > 1 ? _("Retry AI Conversion (%d items)").printf (count) : _("Re-run AI conversion"), "ctx.ctx_retry_ai");
         }
 
         if (has_external) {
@@ -133,19 +133,19 @@ public class ContextMenus : GLib.Object {
                 on_refresh_list ();
             });
             action_group.add_action (act_toggle_abs);
-            section_file.append (count > 1 ? _("切换绝对/相对路径 (%d 项)").printf (count) : _("切换绝对/相对路径"), "ctx.ctx_toggle_absolute");
+            section_file.append (count > 1 ? _("Switch absolute/relative path (%d items)").printf (count) : _("Switch absolute/relative path"), "ctx.ctx_toggle_absolute");
         }
 
         if (single && item.item_type == "file" && item.file_path != null) {
             var act_copy_path = new GLib.SimpleAction ("ctx_copy_path", null);
             act_copy_path.activate.connect (() => { on_copy_path (); });
             action_group.add_action (act_copy_path);
-            section_file.append (_("复制路径"), "ctx.ctx_copy_path");
+            section_file.append (_("Copy Path"), "ctx.ctx_copy_path");
 
             var act_show_folder = new GLib.SimpleAction ("ctx_show_folder", null);
             act_show_folder.activate.connect (() => { on_show_folder (); });
             action_group.add_action (act_show_folder);
-            section_file.append (_("在文件管理器中显示"), "ctx.ctx_show_folder");
+            section_file.append (_("Show in File Manager"), "ctx.ctx_show_folder");
         }
 
         if (section_file.get_n_items () > 0) {
@@ -178,7 +178,7 @@ public class ContextMenus : GLib.Object {
             });
         });
         action_group.add_action (act_delete);
-        section_delete.append (count > 1 ? _("删除 (%d 项)").printf (count) : _("删除"), "ctx.ctx_delete");
+        section_delete.append (count > 1 ? _("Delete (%d items)").printf (count) : _("Delete"), "ctx.ctx_delete");
         menu_model.append_section (null, section_delete);
 
         show_popover (parent, menu_model, action_group, "ctx", gx, gy);
@@ -203,12 +203,12 @@ public class ContextMenus : GLib.Object {
         var act_copy_path = new GLib.SimpleAction ("tree_copy_path", null);
         act_copy_path.activate.connect (() => { on_copy_path (); });
         action_group.add_action (act_copy_path);
-        menu_model.append (_("复制路径"), "tree.tree_copy_path");
+        menu_model.append (_("Copy Path"), "tree.tree_copy_path");
 
         var act_show_folder = new GLib.SimpleAction ("tree_show_folder", null);
         act_show_folder.activate.connect (() => { on_show_folder (); });
         action_group.add_action (act_show_folder);
-        menu_model.append (_("在文件管理器中显示"), "tree.tree_show_folder");
+        menu_model.append (_("Show in File Manager"), "tree.tree_show_folder");
 
         if (!item.is_dir) {
             var act_copy_content = new GLib.SimpleAction ("tree_copy_content", null);
@@ -222,12 +222,12 @@ public class ContextMenus : GLib.Object {
             act_copy_content.set_enabled (is_likely_text);
             act_copy_content.activate.connect (() => { on_copy_content (); });
             action_group.add_action (act_copy_content);
-            menu_model.append (_("复制文件内容"), "tree.tree_copy_content");
+            menu_model.append (_("Copy File Content"), "tree.tree_copy_content");
 
             var act_select_lines = new GLib.SimpleAction ("tree_select_lines", null);
             act_select_lines.activate.connect (() => { on_select_lines (); });
             action_group.add_action (act_select_lines);
-            menu_model.append (_("选择行..."), "tree.tree_select_lines");
+            menu_model.append (_("Select lines..."), "tree.tree_select_lines");
         }
 
         show_popover (parent, menu_model, action_group, "tree", gx, gy);

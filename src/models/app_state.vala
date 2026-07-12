@@ -30,7 +30,7 @@ public class AppState : GLib.Object {
         common_phrases = new Gee.ArrayList<string> ();
         ai_mode = "default";
         ai_file_extension = "";
-        ai_file_label = _("文件");
+        ai_file_label = _("File");
         ai_max_files = 50;
     }
 

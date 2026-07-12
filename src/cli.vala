@@ -148,10 +148,10 @@ public class CliController : GLib.Object {
                 clear_items ();
             } else if (arg == "--absolute") {
                 use_absolute = true;
-                operation_messages.add (_("已启用绝对路径"));
+                operation_messages.add (_("Absolute paths enabled"));
             } else if (arg == "--header") {
                 show_header = true;
-                operation_messages.add (_("已启用头部信息"));
+                operation_messages.add (_("Header info enabled"));
             } else if (arg == "--export") {
                 i++;
                 if (i >= args.length) { show_missing_arg (arg); return false; }
@@ -167,8 +167,8 @@ public class CliController : GLib.Object {
             } else if (arg == "--list-items") {
                 list_items ();
             } else {
-                stderr.printf (_("错误: 未知参数: %s\n"), arg);
-                stderr.printf (_("使用 --help 查看帮助信息\n"));
+                stderr.printf (_("Error: Unknown argument: %s\n"), arg);
+                stderr.printf (_("Use --help to see usage information\n"));
                 return false;
             }
 
@@ -192,28 +192,28 @@ public class CliController : GLib.Object {
                     save_path, work_dir, use_absolute, show_header,
                     items, checked_paths, checked_dirs, common_phrases
                 );
-                stdout.printf (_("项目已保存到: %s\n"), save_path);
-                operation_messages.add (_("项目已保存到: %s").printf (save_path));
+                stdout.printf (_("Project saved to: %s\n"), save_path);
+                operation_messages.add (_("Project saved to: %s").printf (save_path));
             } catch (Error e) {
-                stderr.printf (_("保存项目失败: %s\n"), e.message);
-                operation_messages.add (_("保存项目失败: %s").printf (e.message));
+                stderr.printf (_("Failed to save project: %s\n"), e.message);
+                operation_messages.add (_("Failed to save project: %s").printf (e.message));
                 success = false;
             }
         }
 
         if (export_path != null) {
             if (items.size == 0) {
-                stderr.printf (_("错误: 编排列表为空，无法导出\n"));
-                operation_messages.add (_("导出失败: 编排列表为空"));
+                stderr.printf (_("Error: Queue is empty, cannot export\n"));
+                operation_messages.add (_("Export failed: Queue is empty"));
                 success = false;
             } else {
                 try {
                     FileGenerator.generate_file (export_path, items, use_absolute, show_header, work_dir);
-                    stdout.printf (_("合并文本已导出到: %s\n"), export_path);
-                    operation_messages.add (_("合并文本已导出到: %s").printf (export_path));
+                    stdout.printf (_("Merged text exported to: %s\n"), export_path);
+                    operation_messages.add (_("Merged text exported to: %s").printf (export_path));
                 } catch (Error e) {
-                    stderr.printf (_("导出失败: %s\n"), e.message);
-                    operation_messages.add (_("导出失败: %s").printf (e.message));
+                    stderr.printf (_("Export failed: %s\n"), e.message);
+                    operation_messages.add (_("Export failed: %s").printf (e.message));
                     success = false;
                 }
             }
@@ -223,69 +223,69 @@ public class CliController : GLib.Object {
     }
 
     private static void show_missing_arg (string arg) {
-        stderr.printf (_("错误: 参数 '%s' 缺少必要的值\n"), arg);
+        stderr.printf (_("Error: Argument '%s' requires a value\n"), arg);
     }
 
     private void print_help () {
-        stdout.printf (_("FileCollector %s — CLI 命令行模式\n"), Config.VERSION);
+        stdout.printf (_("FileCollector %s — CLI Mode\n"), Config.VERSION);
         stdout.printf ("\n");
-        stdout.printf (_("用法: filecollector [选项...] [--gui]"));
+        stdout.printf (_("Usage: filecollector [options...] [--gui]"));
         stdout.printf ("\n");
         stdout.printf ("\n");
-        stdout.printf (_("工作目录:")); stdout.printf ("\n");
-        stdout.printf ("  --work-dir DIR           "); stdout.printf (_("设置工作目录")); stdout.printf ("\n");
+        stdout.printf (_("Working Directory:")); stdout.printf ("\n");
+        stdout.printf ("  --work-dir DIR           "); stdout.printf (_("Set working directory")); stdout.printf ("\n");
         stdout.printf ("\n");
-        stdout.printf (_("文件选择:")); stdout.printf ("\n");
-        stdout.printf ("  --select-file PATH       "); stdout.printf (_("添加文件到编排列表 (可多次使用)")); stdout.printf ("\n");
-        stdout.printf ("  --add-text \"TEXT\"        "); stdout.printf (_("添加自定义文字 (可多次使用)")); stdout.printf ("\n");
+        stdout.printf (_("File Selection:")); stdout.printf ("\n");
+        stdout.printf ("  --select-file PATH       "); stdout.printf (_("Add file to queue (can be used multiple times)")); stdout.printf ("\n");
+        stdout.printf ("  --add-text \"TEXT\"        "); stdout.printf (_("Add custom text (can be used multiple times)")); stdout.printf ("\n");
         stdout.printf ("\n");
-        stdout.printf (_("编排调整:")); stdout.printf ("\n");
-        stdout.printf ("  --move FROM TO           "); stdout.printf (_("将索引 FROM 处的项目移动到索引 TO")); stdout.printf ("\n");
-        stdout.printf ("  --remove INDEX           "); stdout.printf (_("删除索引 INDEX 处的项目")); stdout.printf ("\n");
-        stdout.printf ("  --clear                  "); stdout.printf (_("清空编排列表")); stdout.printf ("\n");
-        stdout.printf ("  --list-items             "); stdout.printf (_("列出当前编排列表")); stdout.printf ("\n");
+        stdout.printf (_("Queue Management:")); stdout.printf ("\n");
+        stdout.printf ("  --move FROM TO           "); stdout.printf (_("Move item at index FROM to index TO")); stdout.printf ("\n");
+        stdout.printf ("  --remove INDEX           "); stdout.printf (_("Remove item at INDEX")); stdout.printf ("\n");
+        stdout.printf ("  --clear                  "); stdout.printf (_("Clear the queue")); stdout.printf ("\n");
+        stdout.printf ("  --list-items             "); stdout.printf (_("List current queue items")); stdout.printf ("\n");
         stdout.printf ("\n");
-        stdout.printf (_("导出设置:")); stdout.printf ("\n");
-        stdout.printf ("  --export PATH            "); stdout.printf (_("导出合并文本到 PATH")); stdout.printf ("\n");
-        stdout.printf ("  --absolute               "); stdout.printf (_("使用绝对路径")); stdout.printf ("\n");
-        stdout.printf ("  --header                 "); stdout.printf (_("添加头部信息 (工作目录路径)")); stdout.printf ("\n");
+        stdout.printf (_("Export Settings:")); stdout.printf ("\n");
+        stdout.printf ("  --export PATH            "); stdout.printf (_("Export merged text to PATH")); stdout.printf ("\n");
+        stdout.printf ("  --absolute               "); stdout.printf (_("Use Absolute Paths")); stdout.printf ("\n");
+        stdout.printf ("  --header                 "); stdout.printf (_("Add header (working directory path)")); stdout.printf ("\n");
         stdout.printf ("\n");
-        stdout.printf (_("项目文件:")); stdout.printf ("\n");
-        stdout.printf ("  --load FILE              "); stdout.printf (_("从项目文件加载状态")); stdout.printf ("\n");
-        stdout.printf ("  --save FILE              "); stdout.printf (_("将当前状态保存到项目文件")); stdout.printf ("\n");
+        stdout.printf (_("Project Files:")); stdout.printf ("\n");
+        stdout.printf ("  --load FILE              "); stdout.printf (_("Load state from project file")); stdout.printf ("\n");
+        stdout.printf ("  --save FILE              "); stdout.printf (_("Save current state to project file")); stdout.printf ("\n");
         stdout.printf ("\n");
-        stdout.printf (_("GUI 模式:")); stdout.printf ("\n");
-        stdout.printf ("  --gui                    "); stdout.printf (_("使用其他 CLI 参数初始化后打开图形界面")); stdout.printf ("\n");
+        stdout.printf (_("GUI Mode:")); stdout.printf ("\n");
+        stdout.printf ("  --gui                    "); stdout.printf (_("Initialize with CLI args then open the GUI")); stdout.printf ("\n");
         stdout.printf ("\n");
-        stdout.printf (_("其他:")); stdout.printf ("\n");
-        stdout.printf ("  --help, -h               "); stdout.printf (_("显示此帮助信息")); stdout.printf ("\n");
+        stdout.printf (_("Other:")); stdout.printf ("\n");
+        stdout.printf ("  --help, -h               "); stdout.printf (_("Show this help message")); stdout.printf ("\n");
         stdout.printf ("\n");
-        stdout.printf (_("示例:"));
+        stdout.printf (_("Examples:"));
         stdout.printf ("\n");
-        stdout.printf ("  1. "); stdout.printf (_("构建并导出:")); stdout.printf ("\n");
+        stdout.printf ("  1. "); stdout.printf (_("Build and export:")); stdout.printf ("\n");
         stdout.printf ("     filecollector --work-dir ./project \\\n");
         stdout.printf ("         --select-file src/main.vala \\\n");
         stdout.printf ("         --select-file src/utils/helper.vala \\\n");
-        stdout.printf ("         --add-text \"=== "); stdout.printf (_("配置文件")); stdout.printf (" ===\" \\\n");
+        stdout.printf ("         --add-text \"=== "); stdout.printf (_("Configuration Files")); stdout.printf (" ===\" \\\n");
         stdout.printf ("         --select-file config.ini \\\n");
         stdout.printf ("         --move 3 2 \\\n");
         stdout.printf ("         --export output.txt\n");
         stdout.printf ("\n");
-        stdout.printf ("  2. "); stdout.printf (_("从项目文件导出:")); stdout.printf ("\n");
+        stdout.printf ("  2. "); stdout.printf (_("Export from project file:")); stdout.printf ("\n");
         stdout.printf ("     filecollector --load my.project.fcol --export output.txt\n");
         stdout.printf ("\n");
-        stdout.printf ("  3. "); stdout.printf (_("构建并保存项目:")); stdout.printf ("\n");
+        stdout.printf ("  3. "); stdout.printf (_("Build and save project:")); stdout.printf ("\n");
         stdout.printf ("     filecollector --work-dir ./project \\\n");
         stdout.printf ("         --select-file a.txt --select-file b.txt \\\n");
         stdout.printf ("         --save my.project.fcol\n");
         stdout.printf ("\n");
-        stdout.printf ("  4. "); stdout.printf (_("查看编排列表:")); stdout.printf ("\n");
+        stdout.printf ("  4. "); stdout.printf (_("View the queue:")); stdout.printf ("\n");
         stdout.printf ("     filecollector --load my.project.fcol --list-items\n");
         stdout.printf ("\n");
-        stdout.printf ("  5. "); stdout.printf (_("加载项目后打开 GUI 手动调整:")); stdout.printf ("\n");
+        stdout.printf ("  5. "); stdout.printf (_("Load project then open GUI for adjustments:")); stdout.printf ("\n");
         stdout.printf ("     filecollector --load my.project.fcol --gui\n");
         stdout.printf ("\n");
-        stdout.printf ("  6. "); stdout.printf (_("用 CLI 参数初始化状态后打开 GUI:")); stdout.printf ("\n");
+        stdout.printf ("  6. "); stdout.printf (_("Initialize state via CLI then open GUI:")); stdout.printf ("\n");
         stdout.printf ("     filecollector --work-dir ./project --select-file src/main.vala --gui\n");
         stdout.printf ("\n");
     }
@@ -293,27 +293,27 @@ public class CliController : GLib.Object {
     private bool apply_work_dir (string path) {
         var dir = File.new_for_path (path);
         if (!dir.query_exists ()) {
-            stderr.printf (_("错误: 目录不存在: %s\n"), path);
+            stderr.printf (_("Error: Directory does not exist: %s\n"), path);
             return false;
         }
         work_dir = dir;
-        stdout.printf (_("✓ 工作目录已设置: %s\n"), path);
-        operation_messages.add (_("工作目录已设置: %s").printf (path));
+        stdout.printf (_("✓ Working directory set: %s\n"), path);
+        operation_messages.add (_("Working directory set: %s").printf (path));
         return true;
     }
 
     private bool add_file (string path) {
         var file = File.new_for_path (path);
         if (!file.query_exists ()) {
-            stderr.printf (_("错误: 文件不存在: %s\n"), path);
+            stderr.printf (_("Error: File does not exist: %s\n"), path);
             return false;
         }
         var abs_path = file.get_path ();
         var item = new ItemData ("file", abs_path, null, false);
         items.add (item);
         checked_paths.add (abs_path);
-        stdout.printf (_("✓ 已添加文件 [%d]: %s\n"), (int)items.size, abs_path);
-        operation_messages.add (_("已添加文件: %s").printf (file.get_basename ()));
+        stdout.printf (_("✓ File added [%d]: %s\n"), (int)items.size, abs_path);
+        operation_messages.add (_("File added: %s").printf (file.get_basename ()));
 
         // 二进制文件: 同步触发预处理 (CLI 没有异步线程, 直接 block 调 VLM)
         // 命中缓存则直接复用, miss 则调 VLM 写入缓存, 并把 Markdown 挂到 item 上,
@@ -329,10 +329,10 @@ public class CliController : GLib.Object {
                 item.preprocess_status = PreprocessStatus.COMPLETED;
                 item.from_cache = from_cache;
                 stdout.printf (_("  ↳ %s: %s\n"),
-                    from_cache ? _("已从缓存复用") : _("已调用 VLM 转换"),
+                    from_cache ? _("Reused from cache") : _("VLM conversion called"),
                     file.get_basename ());
             } catch (Error e) {
-                stderr.printf (_("  ⚠ 预处理 %s 失败: %s\n"),
+                stderr.printf (_("  ⚠ Preprocessing %s failed: %s\n"),
                     file.get_basename (), e.message);
                 item.preprocess_status = PreprocessStatus.FAILED;
             }
@@ -342,36 +342,36 @@ public class CliController : GLib.Object {
 
     private void add_text (string text) {
         items.add (new ItemData ("text", null, text, false));
-        stdout.printf (_("✓ 已添加文字 [%d]: %s\n"), (int)items.size, text);
+        stdout.printf (_("✓ Text added [%d]: %s\n"), (int)items.size, text);
         var preview = text;
         if (preview.length > 30) preview = preview.substring (0, 30) + "...";
-        operation_messages.add (_("已添加文字: %s").printf (preview));
+        operation_messages.add (_("Text added: %s").printf (preview));
     }
 
     private bool move_item (int from, int to) {
         if (items.size == 0) {
-            stderr.printf (_("错误: 编排列表为空\n"));
+            stderr.printf (_("Error: Queue is empty\n"));
             return false;
         }
         if (from < 0 || from >= items.size) {
-            stderr.printf (_("错误: 源索引 %d 超出范围 (0-%d)\n"), from, items.size - 1);
+            stderr.printf (_("Error: Source index %d out of range (0-%d)\n"), from, items.size - 1);
             return false;
         }
         if (to < 0 || to >= items.size) {
-            stderr.printf (_("错误: 目标索引 %d 超出范围 (0-%d)\n"), to, items.size - 1);
+            stderr.printf (_("Error: Target index %d out of range (0-%d)\n"), to, items.size - 1);
             return false;
         }
         if (from == to) return true;
         var tmp = items.remove_at (from);
         items.insert (to, tmp);
-        stdout.printf (_("✓ 已将项目从索引 %d 移动到 %d\n"), from, to);
-        operation_messages.add (_("已移动项目 %d → %d").printf (from, to));
+        stdout.printf (_("✓ Item moved from index %d to %d\n"), from, to);
+        operation_messages.add (_("Item moved %d → %d").printf (from, to));
         return true;
     }
 
     private bool remove_item (int index) {
         if (index < 0 || index >= items.size) {
-            stderr.printf (_("错误: 索引 %d 超出范围 (0-%d)\n"), index, items.size - 1);
+            stderr.printf (_("Error: Index %d out of range (0-%d)\n"), index, items.size - 1);
             return false;
         }
         var data = items.get (index);
@@ -379,8 +379,8 @@ public class CliController : GLib.Object {
             checked_paths.remove (data.file_path);
         }
         items.remove_at (index);
-        stdout.printf (_("✓ 已删除索引 %d 处的项目\n"), index);
-        operation_messages.add (_("已删除项目 %d").printf (index));
+        stdout.printf (_("✓ Item at index %d deleted\n"), index);
+        operation_messages.add (_("Item %d deleted").printf (index));
         return true;
     }
 
@@ -388,42 +388,42 @@ public class CliController : GLib.Object {
         items.clear ();
         checked_paths.clear ();
         checked_dirs.clear ();
-        stdout.printf (_("✓ 已清空编排列表\n"));
-        operation_messages.add (_("已清空编排列表"));
+        stdout.printf (_("✓ Queue cleared\n"));
+        operation_messages.add (_("Queue cleared"));
     }
 
     private void list_items () {
         if (items.size == 0) {
-            stdout.printf (_("编排列表为空\n"));
+            stdout.printf (_("Queue is empty\n"));
             return;
         }
         var dashes = new StringBuilder ();
         for (int j = 0; j < 60; j++) dashes.append_c('-');
         var dash_str = dashes.str;
-        stdout.printf (_("当前编排列表 (%d 项):\n"), items.size);
+        stdout.printf (_("Current queue (%d items):\n"), items.size);
         stdout.printf ("%s\n", dash_str);
         for (int i = 0; i < items.size; i++) {
             var data = items.get (i);
             if (data.item_type == "file") {
-                stdout.printf ("  %d. [%s] %s\n", i, _("文件"), data.file_path);
+                stdout.printf ("  %d. [%s] %s\n", i, _("File"), data.file_path);
             } else {
                 var preview = data.content;
                 if (preview.length > 60) preview = preview.substring (0, 60) + "...";
-                stdout.printf ("  %d. [%s] %s\n", i, _("文字"), preview);
+                stdout.printf ("  %d. [%s] %s\n", i, _("Text"), preview);
             }
         }
         stdout.printf ("%s\n", dash_str);
-        stdout.printf (_("配置: 绝对路径=%s  头部=%s\n"),
+        stdout.printf (_("Settings: Absolute paths=%s  Header=%s\n"),
                        use_absolute.to_string (), show_header.to_string ());
         if (work_dir != null) {
-            stdout.printf (_("工作目录: %s\n"), work_dir.get_path ());
+            stdout.printf (_("Working directory: %s\n"), work_dir.get_path ());
         }
     }
 
     private bool load_project (string path) {
         var file = File.new_for_path (path);
         if (!file.query_exists ()) {
-            stderr.printf (_("错误: 项目文件不存在: %s\n"), path);
+            stderr.printf (_("Error: Project file does not exist: %s\n"), path);
             return false;
         }
 
@@ -512,11 +512,11 @@ public class CliController : GLib.Object {
                 }
             }
 
-            stdout.printf (_("✓ 已从项目文件加载: %s (共 %d 项)\n"), path, items.size);
-            operation_messages.add (_("已加载项目: %s (%d 项)").printf (File.new_for_path (path).get_basename (), items.size));
+            stdout.printf (_("✓ Loaded from project file: %s (%d items)\n"), path, items.size);
+            operation_messages.add (_("Project loaded: %s (%d items)").printf (File.new_for_path (path).get_basename (), items.size));
             return true;
         } catch (Error e) {
-            stderr.printf (_("加载项目失败: %s\n"), e.message);
+            stderr.printf (_("Failed to load project: %s\n"), e.message);
             return false;
         }
     }

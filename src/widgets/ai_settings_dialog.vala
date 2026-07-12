@@ -69,7 +69,7 @@ public class AISettingsDialog : GLib.Object {
         window.set_transient_for (parent_window);
         window.set_modal (true);
         window.set_default_size (520, 700);
-        window.set_title (_("AI 设置"));
+        window.set_title (_("AI Settings"));
 
         var toolbar_view = new Adw.ToolbarView ();
         window.set_content (toolbar_view);
@@ -79,11 +79,11 @@ public class AISettingsDialog : GLib.Object {
         toolbar_view.add_top_bar (header);
 
         var cancel_btn = new Gtk.Button ();
-        cancel_btn.set_label (_("取消"));
+        cancel_btn.set_label (_("Cancel"));
         header.pack_start (cancel_btn);
 
         var ok_btn = new Gtk.Button ();
-        ok_btn.set_label (_("保存"));
+        ok_btn.set_label (_("Save"));
         ok_btn.add_css_class ("suggested-action");
         header.pack_end (ok_btn);
 
@@ -93,13 +93,13 @@ public class AISettingsDialog : GLib.Object {
         // Section 1: 侧边栏 AI 助手
         // ═══════════════════════════════════════════════════════
         var sidebar_group = new Adw.PreferencesGroup ();
-        sidebar_group.set_title (_("AI 助手 (侧边栏)"));
-        sidebar_group.set_description (_("配置 OpenAI 兼容 API，即可在 AI 边栏使用自然语言编排文件。\n支持 OpenAI、Azure OpenAI 及任何兼容端点（例如本地 Ollama）。"));
+        sidebar_group.set_title (_("AI Assistant (Sidebar)"));
+        sidebar_group.set_description (_("Configure an OpenAI-compatible API to orchestrate files with natural language in the AI sidebar.\nSupports OpenAI, Azure OpenAI, and any compatible endpoint (e.g. local Ollama)."));
         prefs_page.add (sidebar_group);
 
         var sb_enabled_row = new Adw.ActionRow ();
-        sb_enabled_row.set_title (_("启用 AI 助手"));
-        sb_enabled_row.set_subtitle (_("关闭后 AI 边栏会保留, 但不会发送任何请求"));
+        sb_enabled_row.set_title (_("Enable AI Assistant"));
+        sb_enabled_row.set_subtitle (_("After closing, the AI sidebar is kept but no requests are sent"));
         chk_sidebar_enabled = new Gtk.Switch ();
         chk_sidebar_enabled.valign = Gtk.Align.CENTER;
         sb_enabled_row.add_suffix (chk_sidebar_enabled);
@@ -107,41 +107,41 @@ public class AISettingsDialog : GLib.Object {
         sidebar_group.add (sb_enabled_row);
 
         var sb_url_row = new Adw.EntryRow ();
-        sb_url_row.set_title (_("API 基础地址"));
+        sb_url_row.set_title (_("API Base URL"));
         sb_url_row.set_show_apply_button (false);
         edit_sidebar_base_url = sb_url_row;
         sidebar_group.add (sb_url_row);
 
         var sb_key_row = new Adw.PasswordEntryRow ();
-        sb_key_row.set_title (_("API 密钥"));
+        sb_key_row.set_title (_("API Key"));
         edit_sidebar_api_key = sb_key_row;
         sidebar_group.add (sb_key_row);
 
         var sb_model_row = new Adw.EntryRow ();
-        sb_model_row.set_title (_("模型名称"));
+        sb_model_row.set_title (_("Model Name"));
         sb_model_row.set_show_apply_button (false);
         edit_sidebar_model = sb_model_row;
         sidebar_group.add (sb_model_row);
 
         var sb_timeout_row = new Adw.SpinRow.with_range (5.0, 600.0, 5.0);
-        sb_timeout_row.set_title (_("请求超时 (秒)"));
+        sb_timeout_row.set_title (_("Request Timeout (seconds)"));
         spin_sidebar_timeout = sb_timeout_row;
         sidebar_group.add (sb_timeout_row);
 
         var sb_advanced = new Adw.PreferencesGroup ();
-        sb_advanced.set_title (_("高级"));
+        sb_advanced.set_title (_("Advanced"));
         prefs_page.add (sb_advanced);
 
         var sb_prompt_row = new Adw.EntryRow ();
-        sb_prompt_row.set_title (_("自定义系统提示词 (可选)"));
+        sb_prompt_row.set_title (_("Custom System Prompt (Optional)"));
         sb_prompt_row.set_show_apply_button (false);
         edit_sidebar_prompt = sb_prompt_row;
         sb_advanced.add (sb_prompt_row);
 
         var sb_test_row = new Adw.ActionRow ();
-        sb_test_row.set_title (_("测试连接"));
-        sb_test_row.set_subtitle (_("验证侧边栏 AI 配置是否可用"));
-        btn_sidebar_test = new Gtk.Button.with_label (_("测试"));
+        sb_test_row.set_title (_("Test Connection"));
+        sb_test_row.set_subtitle (_("Verify sidebar AI configuration"));
+        btn_sidebar_test = new Gtk.Button.with_label (_("Test"));
         btn_sidebar_test.valign = Gtk.Align.CENTER;
         btn_sidebar_test.add_css_class ("suggested-action");
         sb_test_row.add_suffix (btn_sidebar_test);
@@ -151,14 +151,14 @@ public class AISettingsDialog : GLib.Object {
         // Section 2: 多模态 AI
         // ═══════════════════════════════════════════════════════
         var mm_group = new Adw.PreferencesGroup ();
-        mm_group.set_title (_("视觉语言大模型 (VLM) (二进制文件预处理)"));
+        mm_group.set_title (_("Vision-Language Model (VLM) (Binary File Preprocessing)"));
         mm_group.set_description (
-            _("配置视觉语言大模型 (VLM) API，用于将 PDF、Word、PPT、图片等文件转换为 Markdown。"));
+            _("Configure the Vision Language Model (VLM) API to convert PDF, Word, PPT, images, etc. into Markdown."));
         prefs_page.add (mm_group);
 
         var mm_enabled_row = new Adw.ActionRow ();
-        mm_enabled_row.set_title (_("启用 VLM"));
-        mm_enabled_row.set_subtitle (_("关闭后二进制文件将不会自动转换"));
+        mm_enabled_row.set_title (_("Enable VLM"));
+        mm_enabled_row.set_subtitle (_("Binary files will not be auto-converted when disabled"));
         chk_mm_enabled = new Gtk.Switch ();
         chk_mm_enabled.valign = Gtk.Align.CENTER;
         mm_enabled_row.add_suffix (chk_mm_enabled);
@@ -166,54 +166,54 @@ public class AISettingsDialog : GLib.Object {
         mm_group.add (mm_enabled_row);
 
         var mm_url_row = new Adw.EntryRow ();
-        mm_url_row.set_title (_("API 基础地址"));
+        mm_url_row.set_title (_("API Base URL"));
         mm_url_row.set_show_apply_button (false);
         edit_mm_base_url = mm_url_row;
         mm_group.add (mm_url_row);
 
         var mm_key_row = new Adw.PasswordEntryRow ();
-        mm_key_row.set_title (_("API 密钥"));
+        mm_key_row.set_title (_("API Key"));
         edit_mm_api_key = mm_key_row;
         mm_group.add (mm_key_row);
 
         var mm_model_row = new Adw.EntryRow ();
-        mm_model_row.set_title (_("模型名称"));
+        mm_model_row.set_title (_("Model Name"));
         mm_model_row.set_show_apply_button (false);
         edit_mm_model = mm_model_row;
         mm_group.add (mm_model_row);
 
         var mm_timeout_row = new Adw.SpinRow.with_range (5.0, 600.0, 5.0);
-        mm_timeout_row.set_title (_("请求超时 (秒)"));
+        mm_timeout_row.set_title (_("Request Timeout (seconds)"));
         spin_mm_timeout = mm_timeout_row;
         mm_group.add (mm_timeout_row);
 
         var mm_advanced = new Adw.PreferencesGroup ();
-        mm_advanced.set_title (_("高级"));
+        mm_advanced.set_title (_("Advanced"));
         prefs_page.add (mm_advanced);
 
         // 允许被 AI 转换的二进制文件扩展名 (以英文逗号分隔, 不含点或含点皆可, 如 ".pdf, png")
         var mm_exts_input_row = new Adw.EntryRow ();
-        mm_exts_input_row.set_title (_("允许转换的二进制扩展名 (逗号分隔, 如 .pdf, .docx)"));
+        mm_exts_input_row.set_title (_("Allowed binary extensions (comma-separated, e.g. .pdf, .docx)"));
         mm_exts_input_row.set_show_apply_button (false);
         edit_mm_allowed_exts = mm_exts_input_row;
         mm_exts_input_row.set_hexpand (true);
 
-        btn_mm_reset_exts = new Gtk.Button.with_label (_("默认"));
+        btn_mm_reset_exts = new Gtk.Button.with_label (_("Default"));
         btn_mm_reset_exts.valign = Gtk.Align.CENTER;
-        btn_mm_reset_exts.set_tooltip_text (_("恢复为默认扩展名列表"));
+        btn_mm_reset_exts.set_tooltip_text (_("Reset to default extension list"));
         mm_exts_input_row.add_suffix (btn_mm_reset_exts);
         mm_advanced.add (mm_exts_input_row);
 
         var mm_prompt_row = new Adw.EntryRow ();
-        mm_prompt_row.set_title (_("自定义系统提示词 (可选)"));
+        mm_prompt_row.set_title (_("Custom System Prompt (Optional)"));
         mm_prompt_row.set_show_apply_button (false);
         edit_mm_prompt = mm_prompt_row;
         mm_advanced.add (mm_prompt_row);
 
         var mm_test_row = new Adw.ActionRow ();
-        mm_test_row.set_title (_("测试连接"));
-        mm_test_row.set_subtitle (_("验证视觉语言大模型 (VLM) 配置是否可用"));
-        btn_mm_test = new Gtk.Button.with_label (_("测试"));
+        mm_test_row.set_title (_("Test Connection"));
+        mm_test_row.set_subtitle (_("Verify VLM (Vision-Language Model) configuration"));
+        btn_mm_test = new Gtk.Button.with_label (_("Test"));
         btn_mm_test.valign = Gtk.Align.CENTER;
         btn_mm_test.add_css_class ("suggested-action");
         mm_test_row.add_suffix (btn_mm_test);
@@ -223,12 +223,12 @@ public class AISettingsDialog : GLib.Object {
         // 安全警告
         // ═══════════════════════════════════════════════════════
         var security_group = new Adw.PreferencesGroup ();
-        security_group.set_title (_("安全警告"));
+        security_group.set_title (_("Security Warning"));
         prefs_page.add (security_group);
 
         var security_row = new Adw.ActionRow ();
-        security_row.set_title (_("HTTP 端点安全风险"));
-        security_row.set_subtitle (_("使用 HTTP (非 HTTPS) 端点时，API 密钥将在网络中明文传输，存在安全风险。"));
+        security_row.set_title (_("HTTP Endpoint Security Risk"));
+        security_row.set_subtitle (_("Using an HTTP (non-HTTPS) endpoint transmits the API key in plaintext over the network, posing a security risk."));
 
         var warning_icon = new Gtk.Image.from_icon_name ("dialog-warning-symbolic");
         warning_icon.add_css_class ("warning");
@@ -300,13 +300,13 @@ public class AISettingsDialog : GLib.Object {
 
     private void show_http_warning_dialog (ConfigManager.AISettings sb, ConfigManager.MultimodalAISettings mm) {
         var warning_dialog = new Adw.AlertDialog (
-            _("安全警告"),
-            _("您正在配置 HTTP (非 HTTPS) 端点。\n\n"
-              + _("这将导致 API 密钥在传输过程中以明文形式发送，存在被第三方截获的风险。\n\n")
-              + _("是否仍要继续保存？"))
+            _("Security Warning"),
+            _("You are configuring an HTTP (non-HTTPS) endpoint.\n\n"
+              + _("This will send the API key in plaintext during transmission, risking interception by third parties.\n\n")
+              + _("Continue Saving"))
         );
-        warning_dialog.add_response ("cancel", _("取消"));
-        warning_dialog.add_response ("continue", _("继续保存"));
+        warning_dialog.add_response ("cancel", _("Cancel"));
+        warning_dialog.add_response ("continue", _("Continue Saving"));
         warning_dialog.set_response_appearance ("continue", Adw.ResponseAppearance.DESTRUCTIVE);
         warning_dialog.set_default_response ("cancel");
         warning_dialog.set_close_response ("cancel");
@@ -388,13 +388,13 @@ public class AISettingsDialog : GLib.Object {
         }
 
         if (base_url == "" || api_key == "" || model == "") {
-            show_toast (_("请先填写 API 基础地址、密钥和模型名称。"));
+            show_toast (_("Please fill in the API Base URL, Key, and Model Name first."));
             return;
         }
 
         var active_btn = testing_sidebar ? btn_sidebar_test : btn_mm_test;
         active_btn.set_sensitive (false);
-        show_toast (_("正在测试..."));
+        show_toast (_("Testing..."));
 
         if (test_cancellable != null) { test_cancellable.cancel (); }
         if (test_session != null) { test_session.abort (); }
@@ -458,7 +458,7 @@ public class AISettingsDialog : GLib.Object {
             var bytes = session.send_and_read_async.end (res);
             uint status = msg.status_code;
             if (status >= 200 && status < 300) {
-                show_toast (_("✓ 连接成功"));
+                show_toast (_("✓ Connected successfully"));
             } else {
                 string detail = "";
                 if (bytes != null && bytes.length > 0) {
@@ -470,12 +470,12 @@ public class AISettingsDialog : GLib.Object {
                     if (detail.length > 200) detail = detail.substring (0, 200) + "…";
                 }
                 string phrase = Soup.status_get_phrase (status);
-                string msg_str = _("✗ 失败: HTTP %u %s").printf (status, phrase)
+                string msg_str = _("✗ Failed: HTTP %u %s").printf (status, phrase)
                     + (detail.length > 0 ? " — " + detail : "");
                 show_toast (msg_str);
             }
         } catch (Error e) {
-            show_toast (_("✗ 失败: %s").printf (e.message));
+            show_toast (_("✗ Failed: %s").printf (e.message));
         }
         test_session = null;
     }

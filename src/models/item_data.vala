@@ -3,7 +3,7 @@ using Gee;
 public enum PreprocessStatus {
     NONE,
     PENDING,
-    CHECKING,    // 正在检查本地缓存, 区别于_("真正在调用 VLM 处理中")
+    CHECKING,    // 正在检查本地缓存, 区别于_("Actually invoking VLM for processing")
     PROCESSING,
     COMPLETED,
     FAILED

@@ -68,11 +68,11 @@ namespace UIHelpers {
                         count++;
                     }
                 } catch (Error e) {
-                    sb.append (_("[无法读取文件内容]\n"));
+                    sb.append (_("[Failed to read file content]\n"));
                 }
                 sb.append ("\n");
             } else if (item.item_type == "text") {
-                sb.append (_("### [自定义文本片段]\n"));
+                sb.append (_("### [Custom text snippet]\n"));
                 string preview = item.content ?? "";
                 if (preview.length > 200) preview = preview.substring (0, 200) + "...";
                 sb.append (preview).append ("\n\n");

@@ -5,48 +5,48 @@ using GtkSource 5;
 template $FileCollectorWindow : Adw.ApplicationWindow {
   default-width: 1200;
   default-height: 750;
-  title: _("FileCollector - 文件收集与编排工具");
+  title: _("FileCollector - File Collection & Orchestration Tool");
   content: Adw.ToastOverlay toast_overlay {
     Adw.ToolbarView {
       [top]
       Adw.HeaderBar {
         Button btn_ai_toggle {
           icon-name: "chat-message-new-symbolic";
-          tooltip-text: _("显示 / 隐藏 AI 助手 (Ctrl+J)");
+          tooltip-text: _("Show / Hide AI Assistant (Ctrl+J)");
         }
 
         Button open_folder_btn {
           icon-name: "folder-open-symbolic";
-          tooltip-text: _("打开工作目录");
+          tooltip-text: _("Open Working Directory");
         }
 
         Button btn_toggle_git {
           icon-name: "xsi-git-symbolic";
-          tooltip-text: _("切换到 Git 提交历史");
+          tooltip-text: _("Switch to Git Commit History");
           sensitive: false;
         }
 
         Button btn_global_search {
           icon-name: "edit-find-symbolic";
-          tooltip-text: _("全局内容搜索 (Ctrl+Shift+F)");
+          tooltip-text: _("Global Content Search (Ctrl+Shift+F)");
           sensitive: false;
         }
 
         Button btn_undo {
           icon-name: "edit-undo-symbolic";
-          tooltip-text: _("撤销");
+          tooltip-text: _("Undo");
           sensitive: false;
         }
 
         Button btn_redo {
           icon-name: "edit-redo-symbolic";
-          tooltip-text: _("重做");
+          tooltip-text: _("Redo");
           sensitive: false;
         }
 
         title-widget: Adw.WindowTitle {
           title: _("FileCollector");
-          subtitle: _("未设置工作目录");
+          subtitle: _("No working directory set");
         };
 
         [end]
@@ -109,7 +109,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
 
             // 标题
             Label lbl_left_title {
-              label: _("资源管理器");
+              label: _("Explorer");
               halign: center;
               css-classes: ["panel-title"];
               margin-top: 0;
@@ -128,7 +128,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                 orientation: vertical;
 
                Gtk.SearchEntry search_entry {
-                 placeholder-text: _("搜索…");
+                 placeholder-text: _("Search…");
                  margin-bottom: 6;
                  margin-start: 12;
                  margin-end: 12;
@@ -149,7 +149,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                 orientation: vertical;
 
                Gtk.SearchEntry git_search_entry {
-                 placeholder-text: _("搜索提交信息…");
+                 placeholder-text: _("Search commit messages…");
                  margin-bottom: 6;
                  margin-start: 12;
                  margin-end: 12;
@@ -195,7 +195,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
 
              // 标题区
              Label {
-               label: _("输出编排列表");
+               label: _("Output Orchestration List");
                halign: center;
                css-classes: ["panel-title"];
              }
@@ -226,44 +226,44 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                 spacing: 6;
                 Button btn_add_ext {
                   icon-name: "document-open-symbolic";
-                  tooltip-text: _("添加外部文件");
+                  tooltip-text: _("Add External File");
                 }
                 Button btn_add_text_above {
                   sensitive: false;
                   icon-name: "go-top-symbolic";
-                  tooltip-text: _("上方插入文本");
+                  tooltip-text: _("Insert Text Above");
                 }
                 Button btn_add_text_below {
                   sensitive: false;
                   icon-name: "go-bottom-symbolic";
-                  tooltip-text: _("下方插入文本");
+                  tooltip-text: _("Insert Text Below");
                 }
                 Button btn_move_up {
                   sensitive: false;
                   icon-name: "go-up-symbolic";
-                  tooltip-text: _("上移");
+                  tooltip-text: _("Move Up");
                 }
                 Button btn_move_down {
                   sensitive: false;
                   icon-name: "go-down-symbolic";
-                  tooltip-text: _("下移");
+                  tooltip-text: _("Move Down");
                 }
                 Button btn_ai_toc {
                   sensitive: false;
                   icon-name: "view-list-ordered-symbolic";
-                  tooltip-text: _("AI 生成阅读指南");
+                  tooltip-text: _("AI Reading Guide");
                 }
                 Button btn_delete {
                   sensitive: false;
                   css-classes: ["destructive-action"];
                   icon-name: "edit-clear-symbolic";
-                  tooltip-text: _("删除");
+                  tooltip-text: _("Delete");
                 }
                 Button btn_clear {
                   sensitive: false;
                   css-classes: ["destructive-action"];
                   icon-name: "user-trash-symbolic";
-                  tooltip-text: _("清空");
+                  tooltip-text: _("Clear");
                 }
               }
 
@@ -276,32 +276,32 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
 
                 Button btn_git_add_all_changed {
                   icon-name: "document-open-symbolic";
-                  tooltip-text: _("一键添加所有改动文件");
+                  tooltip-text: _("Add All Changed Files");
                 }
 
                 Button btn_git_export_working_diff {
                   icon-name: "edit-copy-symbolic";
-                  tooltip-text: _("导出工作区 Diff");
+                  tooltip-text: _("Export Workspace Diff");
                 }
 
                 Button btn_git_export_commit_diff {
                   sensitive: false;
                   icon-name: "document-save-symbolic";
-                  tooltip-text: _("导出选中 Commit Diff");
+                  tooltip-text: _("Export Selected Commit Diff");
                 }
 
                 Button btn_git_delete {
                   sensitive: false;
                   css-classes: ["destructive-action"];
                   icon-name: "edit-clear-symbolic";
-                  tooltip-text: _("删除");
+                  tooltip-text: _("Delete");
                 }
 
                 Button btn_git_clear {
                   sensitive: false;
                   css-classes: ["destructive-action"];
                   icon-name: "user-trash-symbolic";
-                  tooltip-text: _("清空");
+                  tooltip-text: _("Clear");
                 }
               }
             }
@@ -321,19 +321,19 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                 halign: center;
 
                 CheckButton radio_relative_path {
-                  label: _("使用相对路径");
+                  label: _("Use Relative Paths");
                   sensitive: false;
                 }
 
                 CheckButton radio_absolute_path {
-                  label: _("使用绝对路径");
+                  label: _("Use Absolute Paths");
                   group: radio_relative_path;
                   sensitive: false;
                 }
               }
 
               CheckButton check_write_header {
-                label: _("在文件头部标注工作目录信息");
+                label: _("Annotate working directory info at file header");
                 halign: center;
                 sensitive: false;
               }
@@ -356,12 +356,12 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                   halign: center;
                   sensitive: false;
                   css-classes: ["suggested-action"];
-                  tooltip-text: _("预估上下文: 0 / 128000 Tokens");
+                  tooltip-text: _("Estimated context: 0 / 128000 Tokens");
                   Box {
                     spacing: 6;
                     halign: center;
                     Image { icon-name: "document-save-symbolic"; }
-                    Label { label: _("生成合并文本"); }
+                    Label { label: _("Generate Merged Text"); }
                     DrawingArea token_ring {
                       width-request: 18;
                       height-request: 18;
@@ -373,7 +373,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                 Gtk.MenuButton btn_more_menu {
                   valign: center;
                   icon-name: "view-more-symbolic";
-                  tooltip-text: _("更多操作");
+                  tooltip-text: _("More Actions");
                   menu-model: generate_menu;
                 }
               }
@@ -398,7 +398,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
               vexpand: true;
 
               Label {
-               label: _("预览");
+               label: _("Preview");
                halign: center;
                css-classes: ["panel-title"];
              }
@@ -443,7 +443,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                  margin-top: 6;
                  margin-end: 6;
                  icon-name: "view-refresh-symbolic";
-                 tooltip-text: _("重新进行 AI 转换");
+                 tooltip-text: _("Re-run AI Conversion");
                }
              }
            }
@@ -457,25 +457,25 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
 
 menu primary_menu {
   section {
-    item (_("打开项目..."), "app.open_project")
-    item (_("保存项目"), "app.save_project")
-    item (_("项目另存为..."), "app.save_as_project")
+    item (_("Open Project..."), "app.open_project")
+    item (_("Save Project"), "app.save_project")
+    item (_("Save Project As..."), "app.save_as_project")
   }
   section {
-    item (_("常用语管理..."), "app.manage_phrases")
-    item (_("场景模板管理..."), "app.manage_templates")
-    item (_("偏好设置..."), "app.preferences")
-    item (_("清除工作区缓存"), "app.clear_cache")
+    item (_("Manage Phrases..."), "app.manage_phrases")
+    item (_("Manage Scene Templates..."), "app.manage_templates")
+    item (_("Preferences..."), "app.preferences")
+    item (_("Clear Workspace Cache"), "app.clear_cache")
   }
   section {
-    item (_("键盘快捷键..."), "app.shortcuts")
-    item (_("关于 FileCollector"), "app.about")
+    item (_("Keyboard Shortcuts..."), "app.shortcuts")
+    item (_("About FileCollector"), "app.about")
   }
 }
 
 menu generate_menu {
   section {
-    item (_("生成合并文本到剪贴板"), "win.generate_to_clipboard")
-    item (_("导出为 ZIP"), "win.export_zip")
+    item (_("Copy Merged Text to Clipboard"), "win.generate_to_clipboard")
+    item (_("Export as ZIP"), "win.export_zip")
   }
 }

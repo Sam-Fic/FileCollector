@@ -294,12 +294,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (!undo_manager.can_undo) return;
 
         var toast = new Adw.Toast (summary);
-        toast.set_button_label (_("撤销"));
+        toast.set_button_label (_("Undo"));
         toast.set_timeout (6);
 
         toast.button_clicked.connect (() => {
             on_undo ();
-            var confirm = new Adw.Toast (_("已撤销 AI 的操作"));
+            var confirm = new Adw.Toast (_("AI operation undone"));
             confirm.set_timeout (2);
             toast_overlay.add_toast (confirm);
         });
@@ -327,11 +327,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 编排列表非空 → 弹确认对话框, 避免用户误关丢失未保存内容
         if (items.size > 0) {
             var dialog = new Adw.AlertDialog (
-                _("确认关闭"),
-                _("当前编排列表中有未保存的内容。\n关闭后下次启动将不再提示恢复, 确定要关闭吗？")
+                _("Confirm Close"),
+                _("There is unsaved content in the current orchestration list.\nAfter closing, recovery will not be prompted on next launch. Close anyway?")
             );
-            dialog.add_response ("cancel", _("取消"));
-            dialog.add_response ("close", _("关闭"));
+            dialog.add_response ("cancel", _("Cancel"));
+            dialog.add_response ("close", _("Close"));
             dialog.set_response_appearance ("close", Adw.ResponseAppearance.DESTRUCTIVE);
             dialog.set_default_response ("cancel");
             dialog.set_close_response ("cancel");
@@ -428,11 +428,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
 
         var dialog = new Adw.AlertDialog (
-            _("发现未保存的会话"),
-            _("上次运行存在未保存的更改。是否恢复？")
+            _("Unsaved Session Found"),
+            _("There are unsaved changes from the last session. Restore?")
         );
-        dialog.add_response ("discard", _("丢弃"));
-        dialog.add_response ("restore", _("恢复"));
+        dialog.add_response ("discard", _("Discard"));
+        dialog.add_response ("restore", _("Restore"));
         dialog.set_response_appearance ("restore", Adw.ResponseAppearance.SUGGESTED);
         dialog.set_default_response ("restore");
         dialog.response.connect ((response) => {
@@ -460,7 +460,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                             update_ui_after_project_load ();
                         } else {
                             // 文件夹已被删除/移动: 保留工作目录元数据但清空目录树
-                            update_subtitle (wd.get_path () + "  (" + _("文件夹不存在") + ")");
+                            update_subtitle (wd.get_path () + "  (" + _("Folder does not exist") + ")");
                             root_store.remove_all ();
                             search_entry.visible = false;
                             refresh_list ();
@@ -472,10 +472,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                         refresh_list ();
                         update_workdir_dependent_buttons ();
                     }
-                    toast_overlay.add_toast (new Adw.Toast (_("已恢复未保存的会话")));
+                    toast_overlay.add_toast (new Adw.Toast (_("Session restored successfully")));
                 } catch (Error e) {
                     warning ("Recovery failed: %s", e.message);
-                    toast_overlay.add_toast (new Adw.Toast (_("恢复失败: ") + e.message));
+                    toast_overlay.add_toast (new Adw.Toast (_("Restore failed: ") + e.message));
                 }
             }
             delete_recovery_file ();
@@ -676,7 +676,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             }
             if (data.is_missing) {
                 icon_name = "dialog-warning-symbolic";
-                display_name = _("⚠ %s (缺失)").printf (display_name);
+                display_name = _("⚠ %s (missing)").printf (display_name);
             } else {
                 // 根据文件类型选择 GTK 原生图标
                 if (data.is_image_target ()) {
@@ -692,26 +692,26 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 if (data.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
                     switch (data.preprocess_status) {
                         case PreprocessStatus.PENDING:
-                            display_name += _(" [等待处理]");
+                            display_name += _("Pending");
                             break;
                         case PreprocessStatus.CHECKING:
                             // 正在查缓存, 还没真去调 VLM; 复用缓存时只闪这一行
-                            display_name += _(" [检查缓存]");
+                            display_name += _("[Checking cache...]");
                             break;
                         case PreprocessStatus.PROCESSING:
-                            display_name += _(" [处理中...]");
+                            display_name += _("Processing...");
                             break;
                         case PreprocessStatus.COMPLETED:
-                            string cache_tag = data.from_cache ? _("已缓存") : _("已转换");
+                            string cache_tag = data.from_cache ? _("Cached") : _("Converted");
                             display_name += " [%s]".printf (cache_tag);
                             break;
                         case PreprocessStatus.FAILED:
-                            display_name += _(" [转换失败]");
+                            display_name += _(" [Conversion failed]");
                             break;
                     }
                 }
                 if (data.force_absolute) {
-                    display_name += " [%s]".printf (_("来自外部文件"));
+                    display_name += " [%s]".printf (_("External file"));
                 }
             }
         } else {
@@ -1539,11 +1539,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 创建空状态页面
         empty_page_widget = new Adw.StatusPage ();
         empty_page_widget.icon_name = "folder-open-symbolic";
-        empty_page_widget.title = _("未选择工作目录");
-        empty_page_widget.description = _("打开一个文件夹作为工作目录，即可开始收集与编排文件。");
+        empty_page_widget.title = _("No Working Directory Selected");
+        empty_page_widget.description = _("Open a folder as the working directory to start collecting and orchestrating files.");
 
         var empty_btn = new Gtk.Button ();
-        empty_btn.set_label (_("打开工作目录"));
+        empty_btn.set_label (_("Open Working Directory"));
         empty_btn.add_css_class ("suggested-action");
         empty_btn.add_css_class ("pill");
         empty_btn.halign = Gtk.Align.CENTER;
@@ -1616,11 +1616,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void configure_git_empty_page () {
         if (work_dir == null) return;
         if (!GitService.is_git_repo (work_dir.get_path ())) {
-            git_empty_page_widget.title = _("未检测到 Git 仓库");
-            git_empty_page_widget.description = _("当前工作目录不是一个 Git 仓库，无法读取提交历史。请在该目录下执行 git init 进行初始化，或在包含版本库的工作目录中打开本应用。");
+            git_empty_page_widget.title = _("No Git Repository Detected");
+            git_empty_page_widget.description = _("The current working directory is not a Git repository, so commit history cannot be read. Run git init there, or open the app in a working directory that contains a repository.");
         } else {
-            git_empty_page_widget.title = _("暂无提交记录");
-            git_empty_page_widget.description = _("当前 Git 仓库中还没有任何提交。完成首次 git commit 后，提交历史将显示在此处。");
+            git_empty_page_widget.title = _("No Commits Yet");
+            git_empty_page_widget.description = _("The current Git repository has no commits yet. The commit history will appear here after the first git commit.");
         }
     }
 
@@ -1828,9 +1828,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (commit == null) return;
 
             var menu = new GLib.Menu ();
-            menu.append (_("复制短哈希"), "git.copy_short_hash");
-            menu.append (_("复制完整哈希"), "git.copy_full_hash");
-            menu.append (_("复制提交信息"), "git.copy_message");
+            menu.append (_("Copy Short Hash"), "git.copy_short_hash");
+            menu.append (_("Copy Full Hash"), "git.copy_full_hash");
+            menu.append (_("Copy Commit Message"), "git.copy_message");
 
             var actions = new GLib.SimpleActionGroup ();
 
@@ -1911,8 +1911,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             left_stack.visible_child_name = "git_page";
             action_stack.visible_child_name = "git_actions";
             btn_toggle_git.icon_name = "folder-symbolic";
-            btn_toggle_git.tooltip_text = _("切换到文件树");
-            lbl_left_title.label = _("Git 提交历史");
+            btn_toggle_git.tooltip_text = _("Switch to file tree");
+            lbl_left_title.label = _("Git Commit History");
             git_search_entry.visible = work_dir != null;
             btn_git_add_all_changed.sensitive = work_dir != null;
             btn_git_export_working_diff.sensitive = work_dir != null;
@@ -1927,8 +1927,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             left_stack.visible_child_name = "tree_page";
             action_stack.visible_child_name = "normal_actions";
             btn_toggle_git.icon_name = "xsi-git-symbolic";
-            btn_toggle_git.tooltip_text = _("切换到 Git 提交历史");
-            lbl_left_title.label = _("资源管理器");
+            btn_toggle_git.tooltip_text = _("Switch to Git commit history");
+            lbl_left_title.label = _("File Browser");
         }
         update_empty_state ();
     }
@@ -2014,7 +2014,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     int byte_pos = display_msg.index_of_nth_char (57);
                     display_msg = display_msg.substring (0, byte_pos) + "...";
                 }
-                show_toast (_("Git 日志加载失败: %s").printf (display_msg));
+                show_toast (_("Failed to load Git log: %s").printf (display_msg));
             } else if (result != null) {
                 if (result.size < GIT_BATCH_SIZE) {
                     git_all_loaded = true;
@@ -2061,7 +2061,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (work_dir == null) return;
 
         btn_retry_preprocess.visible = false;
-        apply_preview_raw (_("正在加载 Diff..."));
+        apply_preview_raw (_("Loading Diff..."));
 
         string dir = work_dir.get_path ();
         string diff_text = "";
@@ -2124,14 +2124,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void on_git_add_all_changed () {
         if (work_dir == null) {
-            show_toast (_("请先设置工作目录"));
+            show_toast (_("Set working directory"));
             return;
         }
 
         try {
             string status = GitService.get_status (work_dir.get_path ());
             if (status.strip ().length == 0) {
-                show_toast (_("当前工作区没有未提交的改动"));
+                show_toast (_("No uncommitted changes in working tree"));
                 return;
             }
 
@@ -2153,7 +2153,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             }
 
             if (files_to_add.size == 0) {
-                show_toast (_("没有可添加的文件"));
+                show_toast (_("No files to add"));
                 return;
             }
 
@@ -2175,20 +2175,20 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             refresh_all_tree_states ();
             refresh_list ();
         } catch (Error e) {
-            show_error (_("Git 错误"), e.message);
+            show_error (_("Git Error"), e.message);
         }
     }
 
     private void on_git_export_working_diff () {
         if (work_dir == null) {
-            show_toast (_("请先设置工作目录"));
+            show_toast (_("Set working directory"));
             return;
         }
 
         try {
             string diff = GitService.get_working_tree_diff (work_dir.get_path ());
             if (diff.strip ().length == 0) {
-                show_toast (_("当前工作区没有未提交的改动"));
+                show_toast (_("No uncommitted changes in working tree"));
                 return;
             }
             push_undo_state ();
@@ -2196,7 +2196,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             items.insert (0, new ItemData ("text", null, md_text, false));
             refresh_list ();
         } catch (Error e) {
-            show_error (_("Git 错误"), e.message);
+            show_error (_("Git Error"), e.message);
         }
     }
 
@@ -2227,7 +2227,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             }
             refresh_list ();
         } catch (Error e) {
-            show_error (_("Git 错误"), e.message);
+            show_error (_("Git Error"), e.message);
         }
     }
 
@@ -2306,19 +2306,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         });
 
         // 构建悬浮进度卡片 (programmatic, 避免 Blueprint 嵌套问题)
-        lbl_vlm_status = new Gtk.Label (_("正在预处理 0/0 个文件..."));
+        lbl_vlm_status = new Gtk.Label (_("Preprocessing 0/0 files..."));
         lbl_vlm_status.hexpand = true;
         lbl_vlm_status.xalign = 0;
         lbl_vlm_status.ellipsize = Pango.EllipsizeMode.END;
         lbl_vlm_status.add_css_class ("heading");
 
         btn_vlm_pause = new Gtk.Button.from_icon_name ("media-playback-pause-symbolic");
-        btn_vlm_pause.tooltip_text = _("暂停");
+        btn_vlm_pause.tooltip_text = _("Pause");
         btn_vlm_pause.add_css_class ("flat");
         btn_vlm_pause.add_css_class ("circular");
 
         btn_vlm_cancel = new Gtk.Button.from_icon_name ("media-record-symbolic");
-        btn_vlm_cancel.tooltip_text = _("取消全部");
+        btn_vlm_cancel.tooltip_text = _("Cancel All");
         btn_vlm_cancel.add_css_class ("flat");
         btn_vlm_cancel.add_css_class ("circular");
 
@@ -2369,11 +2369,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (vlm_queue.is_paused) {
                 vlm_queue.resume ();
                 btn_vlm_pause.icon_name = "media-playback-pause-symbolic";
-                btn_vlm_pause.tooltip_text = _("暂停");
+                btn_vlm_pause.tooltip_text = _("Pause");
             } else {
                 vlm_queue.pause ();
                 btn_vlm_pause.icon_name = "media-playback-start-symbolic";
-                btn_vlm_pause.tooltip_text = _("继续");
+                btn_vlm_pause.tooltip_text = _("Continue Saving");
             }
         });
 
@@ -2383,7 +2383,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_vlm_progress_changed (int completed, int total, int active) {
-        lbl_vlm_status.set_text (_("正在预处理 %d/%d 个文件...").printf (completed, total));
+        lbl_vlm_status.set_text (_("Preprocessing %d/%d files...").printf (completed, total));
         progress_vlm.set_fraction (total > 0 ? (double) completed / total : 0);
     }
 
@@ -2665,7 +2665,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private async void on_open_folder_clicked () {
         var dialog = new Gtk.FileDialog ();
-        dialog.title = _("选择工作文件夹");
+        dialog.title = _("Select Working Folder");
         try {
             var folder = yield dialog.select_folder (this, null);
             if (folder == null) return;
@@ -2764,7 +2764,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 显示进度条
         if (total_items > chunk_size) {
             Idle.add (() => {
-                dir_load_label.set_text (_("正在加载 %d 个项目...").printf (total_items));
+                dir_load_label.set_text (_("Loading %d items...").printf (total_items));
                 dir_load_progress.set_fraction (0);
                 dir_load_revealer.reveal_child = true;
                 return Source.REMOVE;
@@ -2793,7 +2793,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (total_items > chunk_size) {
                 double frac = (double) current_offset / total_items;
                 dir_load_progress.set_fraction (frac);
-                dir_load_label.set_text (_("已加载 %d / %d").printf (current_offset, total_items));
+                dir_load_label.set_text (_("Loaded %d / %d").printf (current_offset, total_items));
             }
 
             if (current_offset < total_items) {
@@ -3012,7 +3012,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void show_multi_selection_preview (int count) {
         current_preview_item = null;
         UIHelpers.clear_container (preview_info_box);
-        var label = new Gtk.Label (_("已选择 %d 个项目").printf (count));
+        var label = new Gtk.Label (_("%d items selected").printf (count));
         label.add_css_class ("dim-label");
         label.valign = Gtk.Align.CENTER;
         label.halign = Gtk.Align.CENTER;
@@ -3105,7 +3105,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void on_add_external_files () {
         var dialog = new Gtk.FileDialog ();
-        dialog.title = _("选择外部文件");
+        dialog.title = _("Select External Files");
         dialog.open_multiple.begin (this, null, (obj, res) => {
             try {
                 var files = dialog.open_multiple.end (res);
@@ -3153,7 +3153,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         window.set_transient_for (this);
         window.set_modal (true);
         window.set_default_size (450, 350);
-        window.set_title (edit_data != null ? _("编辑文字") : _("插入自定义文字"));
+        window.set_title (edit_data != null ? _("Edit Text") : _("Insert Custom Text"));
 
         var toolbar_view = new Adw.ToolbarView ();
         window.set_content (toolbar_view);
@@ -3163,11 +3163,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         toolbar_view.add_top_bar (header_bar);
 
         var cancel_btn = new Gtk.Button ();
-        cancel_btn.set_label (_("取消"));
+        cancel_btn.set_label (_("Cancel"));
         header_bar.pack_start (cancel_btn);
 
         var ok_btn = new Gtk.Button ();
-        ok_btn.set_label (_("确定"));
+        ok_btn.set_label (_("OK"));
         ok_btn.add_css_class ("suggested-action");
         header_bar.pack_end (ok_btn);
 
@@ -3176,7 +3176,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         btn_size_group.add_widget (ok_btn);
 
         var phrases_btn = new Gtk.Button ();
-        phrases_btn.set_label (_("常用语"));
+        phrases_btn.set_label (_("Common Phrases"));
         header_bar.pack_end (phrases_btn);
 
         var content = new Gtk.Box (Gtk.Orientation.VERTICAL, 12);
@@ -3379,11 +3379,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (items.size == 0) return;
 
         var dialog = new Adw.AlertDialog (
-            _("确认清空"),
-            _("确定要清空编排列表中的所有 %d 个项目吗？").printf (items.size)
+            _("Confirm Clear"),
+            _("Are you sure you want to clear all %d items from the queue?").printf (items.size)
         );
-        dialog.add_response ("cancel", _("取消"));
-        dialog.add_response ("clear", _("清空"));
+        dialog.add_response ("cancel", _("Cancel"));
+        dialog.add_response ("clear", _("Clear"));
         dialog.set_response_appearance ("clear", Adw.ResponseAppearance.DESTRUCTIVE);
         dialog.set_default_response ("cancel");
 
@@ -3445,19 +3445,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 case PreprocessStatus.COMPLETED:
                     show_action_bar = true;
                     btn_retry_preprocess.tooltip_text = item.from_cache
-                        ? _("已读取本地缓存\n点击强制重新调用视觉语言大模型 (VLM) 转换")
-                        : _("AI 转换完成\n点击强制重新调用视觉语言大模型 (VLM) 转换");
+                        ? _("Local cache loaded\nClick to force re-invoke VLM conversion")
+                        : _("AI conversion complete\nClick to force re-invoke VLM conversion");
                     break;
                 case PreprocessStatus.FAILED:
                     show_action_bar = true;
-                    btn_retry_preprocess.tooltip_text = _("AI 转换失败\n点击重试转换");
+                    btn_retry_preprocess.tooltip_text = _("AI conversion failed\nClick to retry conversion");
                     break;
                 case PreprocessStatus.PROCESSING:
-                    btn_retry_preprocess.tooltip_text = _("正在处理中...");
+                    btn_retry_preprocess.tooltip_text = _("Processing...");
                     btn_retry_preprocess.sensitive = false;
                     break;
                 default:
-                    btn_retry_preprocess.tooltip_text = _("等待处理");
+                    btn_retry_preprocess.tooltip_text = _("Pending");
                     btn_retry_preprocess.sensitive = false;
                     break;
             }
@@ -3472,19 +3472,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         } else if (item.item_type == "file" && item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
             switch (item.preprocess_status) {
                 case PreprocessStatus.PROCESSING:
-                    apply_preview_content_full (item, _("[正在处理中，请稍候...]"));
+                    apply_preview_content_full (item, _("Processing..."));
                     break;
                 case PreprocessStatus.FAILED:
-                    apply_preview_content_full (item, _("[AI 转换失败，点击工具栏的重试按钮可重新转换]"));
+                    apply_preview_content_full (item, _("[AI conversion failed; click the retry button on the toolbar to reconvert]"));
                     break;
                 case PreprocessStatus.CHECKING:
-                    apply_preview_content_full (item, _("[正在检查缓存...]"));
+                    apply_preview_content_full (item, _("[Checking cache...]"));
                     break;
                 case PreprocessStatus.PENDING:
-                    apply_preview_content_full (item, _("[正在准备 AI 转换...]"));
+                    apply_preview_content_full (item, _("[Preparing AI conversion...]"));
                     break;
                 default:
-                    apply_preview_content_full (item, _("[二进制文件，预览不可用]"));
+                    apply_preview_content_full (item, _("[Binary file, preview unavailable]"));
                     break;
             }
         } else {
@@ -3501,7 +3501,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     start_lazy_preview (item, file_size);
                 }
             } catch (Error e) {
-                apply_preview_content_full (item, _("[读取错误: %s]").printf (e.message));
+                apply_preview_content_full (item, _("[Read error: %s]").printf (e.message));
             }
         }
     }
@@ -3533,7 +3533,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 apply_preview_with_highlight (text, item.file_path);
             }
         } catch (Error e) {
-            apply_preview_content_full (item, _("[读取错误: %s]").printf (e.message));
+            apply_preview_content_full (item, _("[Read error: %s]").printf (e.message));
         }
     }
 
@@ -3545,7 +3545,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             string snippet = extract_line_range (text, item.start_line, item.end_line);
             apply_preview_with_highlight (snippet, item.file_path);
         } catch (Error e) {
-            apply_preview_content_full (item, _("[读取错误: %s]").printf (e.message));
+            apply_preview_content_full (item, _("[Read error: %s]").printf (e.message));
         }
     }
 
@@ -3575,7 +3575,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             load_preview_chunk.begin ();
         } catch (Error e) {
             var buffer = preview_view.get_buffer () as GtkSource.Buffer;
-            buffer.set_text (_("[读取错误: %s]").printf (e.message), -1);
+            buffer.set_text (_("[Read error: %s]").printf (e.message), -1);
         }
     }
 
@@ -3719,16 +3719,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     public void on_clear_cache () {
         if (work_dir == null) {
-            show_toast (_("尚未设置工作目录"));
+            show_toast (_("No working directory set yet"));
             return;
         }
 
         var dialog = new Adw.AlertDialog (
-            _("确认清除缓存？"),
-            _("这将删除当前工作目录下的 .filecollector_cache 隐藏文件夹。\n下次处理图片及 PDF 等文件时，将重新调用 VLM 并消耗 API Token。")
+            _("Confirm Cache Deletion?"),
+            _("This will delete the .filecollector_cache hidden folder under the working directory.\nNext time images/PDFs are processed, VLM will be re-invoked and consume API tokens.")
         );
-        dialog.add_response ("cancel", _("取消"));
-        dialog.add_response ("clear", _("清除"));
+        dialog.add_response ("cancel", _("Cancel"));
+        dialog.add_response ("clear", _("Clear"));
         dialog.set_response_appearance ("clear", Adw.ResponseAppearance.DESTRUCTIVE);
         dialog.set_default_response ("cancel");
 
@@ -3755,7 +3755,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     }
                 }
 
-                show_toast (_("工作区缓存已清除"));
+                show_toast (_("Workspace cache cleared"));
             }
         });
         dialog.present (this);
@@ -3865,14 +3865,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             uint8[] data;
             FileUtils.get_data (ctx_tree_item.path, out data);
             if (data.length > 1048576) {
-                show_toast (_("文件过大，无法复制内容"));
+                show_toast (_("File too large to copy content"));
                 return;
             }
             string content = EncodingHelper.decode_to_utf8 (data);
             get_clipboard ().set_text (content);
-            show_toast (_("文件内容已复制"));
+            show_toast (_("File content copied"));
         } catch (Error e) {
-            show_toast (_("读取文件失败"));
+            show_toast (_("Failed to read file"));
         }
     }
 
@@ -3880,7 +3880,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (ctx_tree_item == null) return;
 
         var dialog = new Adw.Dialog ();
-        dialog.set_title (_("选择行"));
+        dialog.set_title (_("Select Lines"));
         dialog.set_content_width (400);
 
         var toolbar_view = new Adw.ToolbarView ();
@@ -3888,21 +3888,21 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         header.set_show_end_title_buttons (false);
         toolbar_view.add_top_bar (header);
 
-        var cancel_btn = new Gtk.Button.with_label (_("取消"));
+        var cancel_btn = new Gtk.Button.with_label (_("Cancel"));
         header.pack_start (cancel_btn);
         cancel_btn.clicked.connect (() => dialog.close ());
 
-        var add_btn = new Gtk.Button.with_label (_("添加"));
+        var add_btn = new Gtk.Button.with_label (_("Add"));
         add_btn.add_css_class ("suggested-action");
         header.pack_end (add_btn);
 
         var group = new Adw.PreferencesGroup ();
         group.set_description (
-            _("输入行范围，用逗号分隔，用连字符表示区间。\n例如：1-10,15,20-25")
+            _("Enter line ranges, comma-separated, hyphen for intervals.\nExample: 1-10,15,20-25")
         );
 
         var entry = new Adw.EntryRow ();
-        entry.set_title (_("行范围"));
+        entry.set_title (_("Line Range"));
         group.add (entry);
 
         var prefs_page = new Adw.PreferencesPage ();
@@ -3946,12 +3946,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     // 起始/结束填反时自动纠正顺序并提示，避免直接拒绝导致内容丢失。
                     if (start > end) {
                         int t = start; start = end; end = t;
-                        show_toast (_("行范围 %s 起始行大于结束行，已自动交换").printf (trimmed));
+                        show_toast (_("Line range %s: start line > end line, auto-swapped").printf (trimmed));
                     }
                     starts.add (start);
                     ends.add (end);
                 } else {
-                    show_toast (_("无效的行范围: %s").printf (trimmed));
+                    show_toast (_("Invalid line range: %s").printf (trimmed));
                     return;
                 }
             } else {
@@ -3960,14 +3960,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     starts.add (line);
                     ends.add (line);
                 } else {
-                    show_toast (_("无效的行号: %s").printf (trimmed));
+                    show_toast (_("Invalid line number: %s").printf (trimmed));
                     return;
                 }
             }
         }
 
         if (starts.size == 0) {
-            show_toast (_("未输入有效的行范围"));
+            show_toast (_("No valid line range entered"));
             return;
         }
 
@@ -4021,15 +4021,15 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void on_generate_clicked () {
         if (items.size == 0) {
-            show_toast (_("编排列表为空，请先勾选文件或添加文字内容"));
+            show_toast (_("The queue is empty. Please check some files or add text content first"));
             return;
         }
 
         var dialog = new Gtk.FileDialog ();
-        dialog.title = _("导出合并文本");
+        dialog.title = _("Export Merged Text");
 
         var filter_txt = new Gtk.FileFilter ();
-        filter_txt.name = _("文本文件 (*.txt)");
+        filter_txt.name = _("Text File (*.txt)");
         filter_txt.add_pattern ("*.txt");
 
         var filter_md = new Gtk.FileFilter ();
@@ -4049,7 +4049,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         filter_ipynb.add_pattern ("*.ipynb");
 
         var filter_all = new Gtk.FileFilter ();
-        filter_all.name = _("所有文件 (*)");
+        filter_all.name = _("All Files (*)");
         filter_all.add_pattern ("*");
 
         var filters_list = new GLib.ListStore (typeof (Gtk.FileFilter));
@@ -4090,29 +4090,29 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                         path += ".txt";
                     }
                     FileGenerator.generate_file (path, items, use_absolute, show_header, work_dir);
-                    fmt_name = _("合并文本");
+                    fmt_name = _("Merged Text");
                 }
-                show_toast (_("%s 已保存").printf (fmt_name));
+                show_toast (_("%s saved").printf (fmt_name));
             } catch (Error e) {
                 if (e is GLib.IOError.CANCELLED || e is Gtk.DialogError.DISMISSED) {
                     return;
                 }
-                show_error (_("保存失败"), e.message);
+                show_error (_("Save Failed"), e.message);
             }
         });
     }
 
     private void on_generate_to_clipboard_clicked () {
         if (items.size == 0) {
-            show_toast (_("编排列表为空，请先勾选文件或添加文字内容"));
+            show_toast (_("The queue is empty. Please check some files or add text content first"));
             return;
         }
 
         try {
             FileGenerator.generate_to_clipboard (items, use_absolute, show_header, work_dir, this.get_display ());
-            show_toast (_("合并文本已复制到剪贴板"));
+            show_toast (_("Merged Text Copied to Clipboard"));
         } catch (Error e) {
-            show_error (_("复制失败"), e.message);
+            show_error (_("Copy Failed"), e.message);
         }
     }
 
@@ -4120,17 +4120,17 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void on_export_zip_clicked () {
         if (items.size == 0) {
-            show_toast (_("编排列表为空，请先勾选文件或添加文字内容"));
+            show_toast (_("The queue is empty. Please check some files or add text content first"));
             return;
         }
 
         var dialog = new Gtk.FileDialog ();
-        dialog.title = _("导出为 ZIP");
+        dialog.title = _("Export as ZIP");
         var filter_zip = new Gtk.FileFilter ();
-        filter_zip.name = _("ZIP 压缩包 (*.zip)");
+        filter_zip.name = _("ZIP Archive (*.zip)");
         filter_zip.add_pattern ("*.zip");
         var filter_all = new Gtk.FileFilter ();
-        filter_all.name = _("所有文件 (*)");
+        filter_all.name = _("All Files (*)");
         filter_all.add_pattern ("*");
         var filters_list = new GLib.ListStore (typeof (Gtk.FileFilter));
         filters_list.append (filter_zip);
@@ -4154,13 +4154,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 // ZIP 导出: 文件是真实文件 (不是 VLM 转写后的 markdown),
                 // 所以 use_absolute 只影响 README 中路径显示, 这里传 false 即可
                 ZipExporter.export_to_zip (path, items, show_header, work_dir);
-                show_toast (_("已导出 ZIP: %s").printf (GLib.Path.get_basename (path)));
+                show_toast (_("ZIP exported: %s").printf (GLib.Path.get_basename (path)));
             } catch (Error e) {
                 if (e is GLib.IOError.CANCELLED || e is Gtk.DialogError.DISMISSED) {
-                    show_toast (_("导出已取消"));
+                    show_toast (_("Export Cancelled"));
                     return;
                 }
-                show_error (_("ZIP 导出失败"), e.message);
+                show_error (_("ZIP Export Failed"), e.message);
             }
         });
     }
@@ -4169,13 +4169,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void on_ai_toc_clicked () {
         if (items.size == 0) {
-            show_toast (_("编排列表为空，请先添加文件"));
+            show_toast (_("The queue is empty. Please check some files or add text content first"));
             return;
         }
 
         var s = ConfigManager.load_ai_settings ();
         if (!s.enabled || s.base_url == "" || s.api_key == "" || s.model == "") {
-            show_toast (_("请先在 AI 设置中配置 API"));
+            show_toast (_("Please configure the API in Settings → AI Settings first."));
             return;
         }
 
@@ -4184,7 +4184,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         set_win_action_enabled ("generate", false);
         set_win_action_enabled ("generate_to_clipboard", false);
         set_win_action_enabled ("export_zip", false);
-        show_toast (_("正在让 AI 生成阅读指南..."));
+        show_toast (_("Generating reading guide with AI..."));
 
         var client = new AIClient (s.base_url, s.api_key, s.model, s.timeout);
         string context = build_toc_prompt_context ();
@@ -4210,12 +4210,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
                 Idle.add (() => {
                     if (toc_result.length == 0) {
-                        show_toast (_("AI 生成阅读指南失败"));
+                        show_toast (_("AI reading guide generation failed"));
                     } else {
                         push_undo_state ();
                         items.insert (0, new ItemData ("text", null, toc_result, false));
                         refresh_list ();
-                        show_toast (_("AI 阅读指南已插入编排列表顶部"));
+                        show_toast (_("AI reading guide inserted at top of list"));
                     }
                     update_queue_buttons ();
                     return Source.REMOVE;
@@ -4223,7 +4223,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 return null;
             });
         } catch (ThreadError e) {
-            show_toast (_("无法启动 AI 生成线程"));
+            show_toast (_("Failed to start AI generation thread"));
             update_queue_buttons ();
         }
     }
@@ -4244,9 +4244,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     public void on_open_project () {
         var dialog = new Gtk.FileDialog ();
-        dialog.title = _("打开项目");
+        dialog.title = _("Open Project");
         var filter = new Gtk.FileFilter ();
-        filter.name = _("项目文件 (*.fcol, *.fcol.json, *.project.json)");
+        filter.name = _("Project File (*.fcol, *.fcol.json, *.project.json)");
         filter.add_pattern ("*.fcol");
         filter.add_pattern ("*.fcol.json");
         filter.add_pattern ("*.project.json");
@@ -4262,7 +4262,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 update_ui_after_project_load ();
             } catch (Error e) {
                 if (e is GLib.IOError.CANCELLED) return;
-                show_error (_("打开失败"), e.message);
+                show_error (_("Open Failed"), e.message);
             }
         });
     }
@@ -4310,20 +4310,20 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     public void on_save_project () {
         try {
             if (project_controller.save_current ()) {
-                show_toast (_("项目文件已更新"));
+                show_toast (_("Project file updated"));
             } else {
                 on_save_project_as ();
             }
         } catch (Error e) {
-            show_error (_("保存失败"), e.message);
+            show_error (_("Save Failed"), e.message);
         }
     }
 
     public void on_save_project_as () {
         var dialog = new Gtk.FileDialog ();
-        dialog.title = _("保存项目");
+        dialog.title = _("Save Project");
         var filter = new Gtk.FileFilter ();
-        filter.name = _("项目文件 (*.fcol)");
+        filter.name = _("Project File (*.fcol)");
         filter.add_pattern ("*.fcol");
         var filters_list = new GLib.ListStore (typeof (Gtk.FileFilter));
         filters_list.append (filter);
@@ -4337,10 +4337,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     path += ".fcol";
                 }
                 project_controller.save (path);
-                show_toast (_("项目文件已保存"));
+                show_toast (_("Project file saved"));
             } catch (Error e) {
                 if (e is GLib.IOError.CANCELLED) return;
-                show_error (_("保存失败"), e.message);
+                show_error (_("Save Failed"), e.message);
             }
         });
     }
@@ -4359,7 +4359,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void update_subtitle (string? text) {
-        string subtitle = text ?? _("未设置工作目录");
+        string subtitle = text ?? _("No Working Directory Set");
 
         title = (text != null) ? text : _("FileCollector");
 
@@ -4394,7 +4394,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         about.application_name = _("FileCollector");
         about.version = Config.VERSION;
         about.application_icon = "io.github.sam_fic.filecollector";
-        about.comments = _("文件收集与编排工具");
+        about.comments = _("File Collection & Organization Tool");
         about.developers = { "Sam-Fic" };
         about.website = "https://github.com/Sam-Fic/filecollector";
         about.license_type = Gtk.License.MIT_X11;
@@ -4416,20 +4416,20 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private string build_shortcuts_ui () {
-        _("常用操作");
-        _("列表操作");
-        _("应用程序");
-        _("生成到剪贴板");
-        _("打开项目");
-        _("添加外部文件");
-        _("切换 AI 面板");
-        _("上方插入文本");
-        _("下方插入文本");
-        _("生成合并文本");
-        _("语言设置");
-        _("键盘快捷键");
-        _("关于");
-        _("退出");
+        _("Common Operations");
+        _("List Operations");
+        _("Application");
+        _("Generate to Clipboard");
+        _("Open Project");
+        _("Add External Files");
+        _("Toggle AI Panel");
+        _("Insert Text Above");
+        _("Insert Text Below");
+        _("Generate Merged Text");
+        _("Apply Language Settings");
+        _("Keyboard Shortcuts...");
+        _("About");
+        _("Quit");
         return """<?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <object class="AdwShortcutsDialog" id="sw">
@@ -4596,7 +4596,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void show_error (string title, string msg) {
         var d = new Adw.AlertDialog (title, msg);
-        d.add_response ("ok", _("确定"));
+        d.add_response ("ok", _("OK"));
         d.present (this);
     }
 
@@ -4609,7 +4609,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void show_edit_phrase_dialog (string old_text, int index) {
         var picker = get_phrases_picker ();
         var dialog = new Adw.Dialog ();
-        dialog.set_title (_("编辑常用语"));
+        dialog.set_title (_("Edit Common Phrase"));
         dialog.set_content_width (450);
         dialog.set_content_height (350);
 
@@ -4617,16 +4617,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         dialog.set_child (toolbar_view);
 
         var header_bar = new Adw.HeaderBar ();
-        header_bar.set_title_widget (new Adw.WindowTitle (_("编辑常用语"), ""));
+        header_bar.set_title_widget (new Adw.WindowTitle (_("Edit Common Phrase"), ""));
         header_bar.set_show_end_title_buttons (false);
         toolbar_view.add_top_bar (header_bar);
 
         var cancel_btn = new Gtk.Button ();
-        cancel_btn.set_label (_("取消"));
+        cancel_btn.set_label (_("Cancel"));
         header_bar.pack_start (cancel_btn);
 
         var ok_btn = new Gtk.Button ();
-        ok_btn.set_label (_("确定"));
+        ok_btn.set_label (_("OK"));
         ok_btn.add_css_class ("suggested-action");
         header_bar.pack_end (ok_btn);
 
@@ -4727,7 +4727,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         current_token_ratio = current_context_limit > 0 ? (double) total_tokens / current_context_limit : 0.0;
 
-        btn_generate.tooltip_text = _("预估上下文: %d / %d Tokens (%.1f%%)").printf (
+        btn_generate.tooltip_text = _("Estimated context: %d / %d Tokens (%.1f%%)").printf (
             total_tokens, current_context_limit, current_token_ratio * 100
         );
 
@@ -4808,7 +4808,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void on_global_search () {
         if (work_dir == null) {
-            show_toast (_("请先设置工作目录"));
+            show_toast (_("Set working directory"));
             return;
         }
         var dialog = new GlobalSearchDialog (this, work_dir.get_path ());

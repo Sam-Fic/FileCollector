@@ -13,7 +13,7 @@ public class FileGenerator : GLib.Object {
         File? work_dir
     ) throws Error {
         if (show_header && work_dir != null) {
-            var header = _("# 工作目录绝对路径: %s\n\n").printf (work_dir.get_path ());
+            var header = _("# Working directory absolute path: %s\n\n").printf (work_dir.get_path ());
             dis.put_string (header);
         }
 
@@ -23,7 +23,7 @@ public class FileGenerator : GLib.Object {
             if (data.item_type == "file") {
                 var f = File.new_for_path (data.file_path);
                 if (!f.query_exists () || data.is_missing) {
-                    dis.put_string (_("[缺失文件: %s]\n").printf (data.file_path));
+                    dis.put_string (_("[Missing file: %s]\n").printf (data.file_path));
                     continue;
                 }
                 string display;
@@ -73,7 +73,7 @@ public class FileGenerator : GLib.Object {
                                 sb.append (line).append ("\n");
                             }
                             if (swapped) {
-                                dis.put_string (_("[提示: 起始行(%d)大于结束行(%d)，已自动交换]\n").printf (data.start_line, data.end_line));
+                                dis.put_string (_("[Hint: start line (%d) > end line (%d), auto-swapped]\n").printf (data.start_line, data.end_line));
                             }
                             dis.put_string (sb.str);
                         } finally {
@@ -82,7 +82,7 @@ public class FileGenerator : GLib.Object {
                             }
                         }
                     } catch (Error e) {
-                        dis.put_string (_("[读取片段失败: %s]\n").printf (e.message));
+                        dis.put_string (_("[Failed to read snippet: %s]\n").printf (e.message));
                     }
                     continue;
                 }
@@ -100,11 +100,11 @@ public class FileGenerator : GLib.Object {
                     var info = f.query_info (FileAttribute.STANDARD_SIZE, FileQueryInfoFlags.NONE);
                     file_size = info.get_size ();
                 } catch (Error e) {
-                    dis.put_string (_("[无法获取文件信息: %s]\n").printf (e.message));
+                    dis.put_string (_("[Unable to get file info: %s]\n").printf (e.message));
                     continue;
                 }
                 if (file_size > MAX_FILE_CONTENT_SIZE) {
-                    dis.put_string (_("[文件过大 (%s), 已跳过内容读取]\n").printf (UIHelpers.format_size (file_size)));
+                    dis.put_string (_("[File too large (%s), content reading skipped]\n").printf (UIHelpers.format_size (file_size)));
                     continue;
                 }
 
@@ -130,7 +130,7 @@ public class FileGenerator : GLib.Object {
                     }
 
                     if (is_binary) {
-                        dis.put_string (_("[检测到二进制文件: 已跳过文本内容读取]\n"));
+                        dis.put_string (_("[Binary file detected: text content reading skipped]\n"));
                     } else {
                         // 流式写入：先写入已 peek 的部分
                         dis.put_string ((string) head_buf[0:head_read]);
@@ -146,7 +146,7 @@ public class FileGenerator : GLib.Object {
                         }
                     }
                 } catch (Error e) {
-                    dis.put_string (_("[读取文件失败: %s]\n").printf (e.message));
+                    dis.put_string (_("[Failed to read file: %s]\n").printf (e.message));
                 } finally {
                     if (fis != null) {
                         try { fis.close (); } catch (Error e) { debug ("Close failed: %s", e.message); }

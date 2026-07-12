@@ -15,7 +15,7 @@ public class TemplatesManager : GLib.Object {
 
     public void present () {
         dialog = new Adw.Dialog ();
-        dialog.set_title (_("场景模板管理"));
+        dialog.set_title (_("Prompt Templates"));
         dialog.set_content_width (400);
         dialog.set_content_height (400);
 
@@ -23,15 +23,15 @@ public class TemplatesManager : GLib.Object {
         dialog.set_child (toolbar_view);
 
         var header_bar = new Adw.HeaderBar ();
-        header_bar.set_title_widget (new Adw.WindowTitle (_("场景模板管理"), ""));
+        header_bar.set_title_widget (new Adw.WindowTitle (_("Prompt Templates"), ""));
         header_bar.set_show_end_title_buttons (false);
         toolbar_view.add_top_bar (header_bar);
 
-        var cancel_btn = new Gtk.Button.with_label (_("关闭"));
+        var cancel_btn = new Gtk.Button.with_label (_("Close"));
         header_bar.pack_start (cancel_btn);
         cancel_btn.clicked.connect (() => dialog.close ());
 
-        var add_btn = new Gtk.Button.with_label (_("添加"));
+        var add_btn = new Gtk.Button.with_label (_("Add"));
         add_btn.add_css_class ("suggested-action");
         header_bar.pack_end (add_btn);
         add_btn.clicked.connect (show_add_dialog);
@@ -70,7 +70,7 @@ public class TemplatesManager : GLib.Object {
             var edit_btn = new Gtk.Button.from_icon_name ("document-edit-symbolic");
             edit_btn.add_css_class ("flat");
             edit_btn.valign = Gtk.Align.CENTER;
-            edit_btn.tooltip_text = _("编辑");
+            edit_btn.tooltip_text = _("Edit Text");
             PromptTemplate captured = tpl;
             edit_btn.clicked.connect (() => show_edit_dialog (captured));
             row.add_suffix (edit_btn);
@@ -79,7 +79,7 @@ public class TemplatesManager : GLib.Object {
             del_btn.add_css_class ("flat");
             del_btn.add_css_class ("destructive-action");
             del_btn.valign = Gtk.Align.CENTER;
-            del_btn.tooltip_text = _("删除");
+            del_btn.tooltip_text = _("Delete");
             del_btn.clicked.connect (() => {
                 templates.remove (captured);
                 ConfigManager.save_templates (templates);
@@ -98,7 +98,7 @@ public class TemplatesManager : GLib.Object {
     private void show_edit_dialog (PromptTemplate tpl) {
         bool is_new = (tpl.id == "");
         var edit_dialog = new Adw.Dialog ();
-        edit_dialog.set_title (is_new ? _("添加模板") : _("编辑模板"));
+        edit_dialog.set_title (is_new ? _("Add Template") : _("Edit Template"));
         edit_dialog.set_content_width (450);
         // 不设固定高度, 让 Adw.Dialog 按内容自然尺寸自适应 (ScrolledWindow 处理溢出)
 
@@ -107,38 +107,38 @@ public class TemplatesManager : GLib.Object {
         header.set_show_end_title_buttons (false);
         toolbar_view.add_top_bar (header);
 
-        var cancel_btn = new Gtk.Button.with_label (_("取消"));
+        var cancel_btn = new Gtk.Button.with_label (_("Cancel"));
         header.pack_start (cancel_btn);
         cancel_btn.clicked.connect (() => edit_dialog.close ());
 
-        var save_btn = new Gtk.Button.with_label (_("保存"));
+        var save_btn = new Gtk.Button.with_label (_("Save"));
         save_btn.add_css_class ("suggested-action");
         header.pack_end (save_btn);
 
         var group = new Adw.PreferencesGroup ();
-        group.set_title (_("模板字段"));
+        group.set_title (_("Template Fields"));
         group.set_description (
-            _("在 AI 助手输入框中输入 \"/\" + 指令 ID 即可触发该模板。\n" +
-              "触发后头部/尾部插入文本会自动添加到编排列表的首位 / 末位，" +
-              "AI 驱动提示词会作为用户消息发送给 AI。"));
+            _("Type \"/\" + command ID in the AI assistant input box to trigger this template.\n" +
+              "After triggering, the header/footer inserted text is auto-added to the first / last position of the orchestration list, " +
+              "and the AI-driven prompt is sent to the AI as a user message."));
 
         var entry_id = new Adw.EntryRow ();
-        entry_id.set_title (_("指令 ID (如 bug)"));
+        entry_id.set_title (_("Command ID (e.g. bug)"));
         entry_id.set_text (tpl.id);
         var entry_name = new Adw.EntryRow ();
-        entry_name.set_title (_("显示名称"));
+        entry_name.set_title (_("Display Name"));
         entry_name.set_text (tpl.name);
         var entry_desc = new Adw.EntryRow ();
-        entry_desc.set_title (_("描述"));
+        entry_desc.set_title (_("Description"));
         entry_desc.set_text (tpl.description);
         var entry_header = new Adw.EntryRow ();
-        entry_header.set_title (_("头部插入文本"));
+        entry_header.set_title (_("Insert Text Above"));
         entry_header.set_text (tpl.header_text);
         var entry_footer = new Adw.EntryRow ();
-        entry_footer.set_title (_("尾部插入文本"));
+        entry_footer.set_title (_("Insert Text Below"));
         entry_footer.set_text (tpl.footer_text);
         var entry_prompt = new Adw.EntryRow ();
-        entry_prompt.set_title (_("AI 驱动提示词"));
+        entry_prompt.set_title (_("AI Prompt"));
         entry_prompt.set_text (tpl.ai_prompt);
 
         group.add (entry_id);
