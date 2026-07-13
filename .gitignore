@@ -14,6 +14,12 @@ export-dir/
 repo/
 flatpak-repo/
 
+# Windows build / release artifacts
+staging/
+*.zip
+# Stray downloaded/packaged artifact with no extension (commit it only if intentional)
+6a54ac5c
+
 # Meson/Ninja build files
 .ninja_deps
 .ninja_log
