@@ -9,7 +9,32 @@ import sys
 import shutil
 import subprocess
 
-MINGW_BIN = os.path.dirname(shutil.which("gcc") or "") or None
+# gcc 的位置可能因运行环境不同而返回 Windows 路径 (C:\msys64\mingw64\bin)
+# 或 MSYS POSIX 路径 (/mingw64/bin)。统一规范化为 /mingw64/bin 形式，
+# 以便与 ldd 输出的路径 (通常为 /mingw64/bin/...) 正确比较。
+def normalize_mingw_bin(p):
+    if not p:
+        return None
+    p = p.replace("\\", "/")
+    idx = p.find("/mingw64/bin")
+    if idx != -1:
+        return p[idx:]  # -> /mingw64/bin
+    return p
+
+
+MINGW_BIN = normalize_mingw_bin(os.path.dirname(shutil.which("gcc") or "")) or None
+
+
+def to_win(p):
+    """将 MSYS POSIX 路径转换为 Windows 路径，原生 Windows Python 才能访问。
+    ldd 输出的是 /mingw64/bin/... 形式，需要用 cygpath 转换。"""
+    try:
+        r = subprocess.run(["cygpath", "-w", p], capture_output=True, text=True)
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip()
+    except Exception:
+        pass
+    return p
 
 
 def find_dlls(target):
@@ -24,9 +49,10 @@ def find_dlls(target):
         path = rhs.split("(")[0].strip()
         if not path or path == "not found":
             continue
-        # 只收集 mingw64 提供的 DLL
-        if MINGW_BIN and path.replace("\\", "/").startswith(MINGW_BIN.replace("\\", "/")):
-            found.append(path)
+        # 只收集 mingw64 提供的 DLL（规范化为 /mingw64/bin 后比较）
+        path_norm = normalize_mingw_bin(path) or path.replace("\\", "/")
+        if MINGW_BIN and path_norm.startswith(MINGW_BIN):
+            found.append(to_win(path))
     return found
 
 
