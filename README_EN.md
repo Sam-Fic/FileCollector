@@ -57,23 +57,84 @@ Then run:
 flatpak run io.github.sam_fic.filecollector
 ```
 
+## Pre-built Windows Portable Package
+
+Pre-built Windows portable packages are also available in the [Releases](https://github.com/Sam-Fic/filecollector/releases) section, named like `filecollector-windows-X.Y.Z-x64.zip`. After downloading, **just extract and run — no need to install MSYS2, GTK, or the Visual C++ runtime**: all runtime DLLs are bundled, and MinGW links against the universal C runtime (ucrtbase, etc.) built into Windows 10/11.
+
+> **How to launch: double-click `bin/filecollector-launch.bat`, not `filecollector.exe` directly.**
+>
+> The package bundles GTK's image loaders (PNG/JPEG, etc.), but the loader cache (`loaders.cache`) records the **build machine's absolute paths**, which are invalid on other computers. The `filecollector-launch.bat` launcher sets the `GDK_PIXBUF_MODULEDIR` environment variable to point at the bundled loaders directory, ensuring image formats render correctly.
+> Double-clicking `filecollector.exe` directly will still open the window, but PNG/JPEG and other images may fail to render.
+
+```text
+filecollector-windows-X.Y.Z-x64.zip
+├── bin/
+│   ├── filecollector.exe
+│   ├── filecollector-launch.bat   ← double-click this to launch
+│   └── *.dll                       (GTK / Adwaita / cmark-gfm runtimes, bundled)
+├── lib/gdk-pixbuf-2.0/.../loaders/ (image format loaders)
+├── share/glib-2.0/schemas/         (GSettings schemas)
+├── share/data/
+└── locale/
+```
+
+For the detailed build & packaging workflow, see [BUILD_WINDOWS.md](BUILD_WINDOWS.md).
+
 ## Build from Source
 
-### Install Dependencies
+### Linux
 
-#### Debian/Ubuntu
+#### Install Dependencies
+
+**Debian / Ubuntu**
 
 ```bash
 sudo apt install meson valac libgtk-4-dev libadwaita-1-dev libjson-glib-dev libsoup-3.0-dev libgee-0.8-dev libsecret-1-dev libcmark-gfm-dev libgtksourceview-5-dev blueprint-compiler gettext
 ```
 
-#### Fedora
+**Fedora**
 
 ```bash
 sudo dnf install meson vala gtk4-devel libadwaita-devel json-glib-devel libsoup3-devel libgee-devel libsecret-devel cmark-gfm-devel gtksourceview5-devel blueprint-compiler gettext
 ```
 
-#### Windows (MSYS2 / mingw64)
+#### Build & Install
+
+```bash
+mkdir -p build && cd build
+meson setup ..
+meson compile
+sudo meson install
+```
+
+> **Tip**: If you have built before, re-run `meson compile` inside the `build/` directory for incremental compilation of the binary. If you modified translation files under `po/` or `_()` strings in UI, also re-run `sudo meson install` to deploy the updated `.mo` file to the system path.
+
+#### Run
+
+```bash
+filecollector          # Launch GUI
+filecollector --help   # Show CLI help
+filecollector --gui    # Force GUI mode (same as the first command when no other CLI args)
+```
+
+> **Tip**:
+>
+> - The application automatically uses Chinese or English UI based on your system language. To temporarily switch languages, use the `LANGUAGE` environment variable, e.g. `LANGUAGE=en filecollector` to force English display. This works for both GUI and CLI modes.
+> - For CLI mode usage, see the [CLI Mode](#cli-mode) section below.
+> - **GUI vs CLI behavior**: When any CLI arguments (`--work-dir`, `--select-file`, `--load`, etc.) are detected, the app runs in CLI mode without opening the GUI. **Exception**: Adding `--gui` forces GUI mode — CLI arguments are used only to initialize the interface state, then you can use the GUI for manual adjustments, if the GUI is running, CLI operations will be reflected in the GUI. This is useful when switching from MCP automation to human review.
+
+#### Flatpak Build
+
+```bash
+flatpak-builder build-dir io.github.sam_fic.filecollector.json --user --install --force-clean
+flatpak run io.github.sam_fic.filecollector
+```
+
+You can also hand [BUILD_FLATPAK.md](BUILD_FLATPAK.md) directly to programming tools or AI Agents to leverage the existing mature workflow for standardized packaging.
+
+### Windows
+
+#### Install Dependencies (MSYS2 / mingw64)
 
 Install the toolchain and the full GTK4 stack via the MSYS2 mingw64 terminal (**must** run inside the `mingw64` shell, not the default `MSYS` shell):
 
@@ -107,49 +168,16 @@ cmake --install build
 
 > If `blueprint-compiler` fails on `.blp` with `UnicodeDecodeError: 'gbk' codec can't decode`, Python is reading files with the system GBK encoding. Run `export PYTHONUTF8=1` in the mingw64 shell before `meson compile`.
 
-#### macOS (Apple Silicon)
-
-Install with Homebrew (Apple Silicon / arm64 only):
+#### Build & Install
 
 ```bash
-brew install gtk4 libadwaita json-glib libsoup gtksourceview5 libgee \
-  cmark-gfm blueprint-compiler meson ninja gettext libsecret pkg-config
-export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:$(brew --prefix)/share/pkgconfig"
+meson setup builddir
+meson compile
 ```
 
-> If `meson setup` complains about a missing `libadwaita-1.pc`, make sure `PKG_CONFIG_PATH` is set as shown above. You can also refer to [GitHub Actions](.github/workflows/macos.yml) to produce the macOS portable package.
+> No `meson install` needed: the binary is at `builddir/filecollector.exe` and can be run directly.
 
-> **Optional runtime dependencies** (only needed for binary file pre-conversion): LibreOffice (`libreoffice`) for converting documents to PDF; `poppler-utils` provides `pdftoppm` for rendering PDFs to images. These are not required if you don't use the VLM pre-conversion feature.
-
-### Build & Install
-
-```bash
-meson setup build
-meson compile -C build
-sudo meson install -C build
-```
-
-> **Tip**:
->
-> - Always pass `-C build` to specify the build directory explicitly (e.g. `meson compile -C build`). On this machine (meson with Python 3.14), running `cd build` and then a bare `meson compile` makes meson's own argument parser crash (`os.path.realpath` raises `FileNotFoundError`); using `-C build` avoids it.
-> - If you have built before, re-run `meson compile -C build` for incremental compilation of the binary. If you modified translation files under `po/` or `_()` strings in UI, also re-run `sudo meson install -C build` to deploy the updated `.mo` file to the system path.
-> - `src/win32_dpapi_shim.c` (the Windows DPAPI wrapper) is a Windows-only file: it is only added to `sources` in `meson.build` on Windows builds. It does not exist on Linux/macOS, so never reference it unconditionally in `sources`.
-
-### Run
-
-```bash
-filecollector          # Launch GUI
-filecollector --help   # Show CLI help
-filecollector --gui    # Force GUI mode (same as the first command when no other CLI args)
-```
-
-> **Tip**:
->
-> - The application automatically uses Chinese or English UI based on your system language. To temporarily switch languages, use the `LANGUAGE` environment variable, e.g. `LANGUAGE=en filecollector` to force English display. This works for both GUI and CLI modes.
-> - For CLI mode usage, see the [CLI Mode](#cli-mode) section below.
-> - **GUI vs CLI behavior**: When any CLI arguments (`--work-dir`, `--select-file`, `--load`, etc.) are detected, the app runs in CLI mode without opening the GUI. **Exception**: Adding `--gui` forces GUI mode — CLI arguments are used only to initialize the interface state, then you can use the GUI for manual adjustments, if the GUI is running, CLI operations will be reflected in the GUI. This is useful when switching from MCP automation to human review.
-
-**Windows run notes**: In the mingw64 shell, after `meson compile` the binary is at `builddir/filecollector.exe` (the build dir you passed to `meson setup`). Run it directly — no `meson install` needed:
+#### Run
 
 ```bash
 export PYTHONUTF8=1
@@ -159,14 +187,13 @@ export PYTHONUTF8=1
 
 > At runtime the GTK / cmark-gfm DLLs must be findable — make sure mingw64's `bin` directory is on `PATH` (the mingw64 shell adds it automatically). If double-clicking `filecollector.exe` reports a missing DLL, launch it from the mingw64 shell, or add `C:/msys64/mingw64/bin` to the system `PATH`.
 
-### Flatpak Build
+#### Package as Portable Zip
 
-```bash
-flatpak-builder build-dir io.github.sam_fic.filecollector.json --user --install --force-clean
-flatpak run io.github.sam_fic.filecollector
-```
+To package a portable zip like the "Pre-built Windows Portable Package" above from source, follow [BUILD_WINDOWS.md](BUILD_WINDOWS.md): it collects the DLLs, bundles the image loaders and GSettings schemas, and generates the `filecollector-launch.bat` launcher. Note that the `GDK_PIXBUF_MODULEDIR` set by the launcher is what makes image rendering work correctly.
 
-You can also hand [BUILD_FLATPAK.md](BUILD_FLATPAK.md) directly to programming tools or AI Agents to leverage the existing mature workflow for standardized packaging.
+### macOS (Unverified)
+
+> The from-source build flow for this platform is **not yet verified**; content to be added.
 
 ## Project Structure
 
@@ -232,6 +259,7 @@ You can also hand [BUILD_FLATPAK.md](BUILD_FLATPAK.md) directly to programming t
 │   ├── LINGUAS                             # List of supported languages
 │   └── meson.build                         # i18n build configuration
 ├── BUILD_FLATPAK.md                       # Flatpak build guide (for AI assistants)
+├── BUILD_WINDOWS.md                       # Windows portable package build guide (for AI assistants)
 ├── meson.build                            # Meson build configuration
 └── io.github.sam_fic.filecollector.json   # Flatpak build manifest
 ```

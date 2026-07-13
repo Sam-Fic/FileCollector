@@ -57,23 +57,84 @@ flatpak install --user <下载的.flatpak文件>
 flatpak run io.github.sam_fic.filecollector
 ```
 
+## 预编译 Windows 便携包
+
+预编译好的 Windows 便携包同样发布在 [Releases](https://github.com/Sam-Fic/filecollector/releases) 页面，文件名形如 `filecollector-windows-X.Y.Z-x64.zip`。下载后**解压即可使用，无需安装 MSYS2、GTK 或 Visual C++ 运行库**——所有运行时 DLL 已随包自带，且 MinGW 链接的是 Windows 10/11 内置的通用 C 运行时（ucrtbase 等）。
+
+> **启动方式：请双击 `bin/filecollector-launch.bat`，不要直接双击 `filecollector.exe`。**
+>
+> 包内已包含 GTK 的图像加载器（PNG/JPEG 等），但加载器缓存（`loaders.cache`）里记录的是**构建机的绝对路径**，在他人电脑上会失效。启动器 `filecollector-launch.bat` 会在启动时设置 `GDK_PIXBUF_MODULEDIR` 环境变量指向包内的加载器目录，确保图片格式正常渲染。
+> 若直接双击 `filecollector.exe` 也能打开窗口，但 PNG/JPEG 等图片文件可能渲染异常。
+
+```text
+filecollector-windows-X.Y.Z-x64.zip
+├── bin/
+│   ├── filecollector.exe
+│   ├── filecollector-launch.bat   ← 双击这个启动
+│   └── *.dll                       （GTK / Adwaita / cmark-gfm 等运行时，已自带）
+├── lib/gdk-pixbuf-2.0/.../loaders/ （图像格式加载器）
+├── share/glib-2.0/schemas/         （GSettings 配置）
+├── share/data/
+└── locale/
+```
+
+详细的构建与打包流程见 [BUILD_WINDOWS.md](BUILD_WINDOWS.md)。
+
 ## 自行构建
 
-### 安装依赖
+### Linux
 
-#### Debian/Ubuntu
+#### 安装依赖
+
+**Debian / Ubuntu**
 
 ```bash
 sudo apt install meson valac libgtk-4-dev libadwaita-1-dev libjson-glib-dev libsoup-3.0-dev libgee-0.8-dev libsecret-1-dev libcmark-gfm-dev libgtksourceview-5-dev blueprint-compiler gettext
 ```
 
-#### Fedora
+**Fedora**
 
 ```bash
 sudo dnf install meson vala gtk4-devel libadwaita-devel json-glib-devel libsoup3-devel libgee-devel libsecret-devel cmark-gfm-devel gtksourceview5-devel blueprint-compiler gettext
 ```
 
-#### Windows (MSYS2 / mingw64)
+#### 构建与安装
+
+```bash
+mkdir -p build && cd build
+meson setup ..
+meson compile
+sudo meson install
+```
+
+> **提示**：如果之前已经构建过，修改源码后只需在 `build/` 目录下重新运行 `meson compile` 即可增量编译二进制。若修改了 `po/` 下的翻译文件或 UI 中的 `_()` 字符串，则需要重新运行 `sudo meson install` 以更新翻译文件到系统路径。
+
+#### 运行
+
+```bash
+filecollector          # 启动图形界面
+filecollector --help   # 查看 CLI 命令行帮助
+filecollector --gui    # 强制启动图形界面（无其他 CLI 参数时第一行等价）
+```
+
+> **提示**：
+>
+> - 程序默认跟随系统语言显示中文或英文界面。如需临时切换语言，可使用环境变量，例如 `LANGUAGE=en filecollector` 强制显示英文。该环境变量同时对图形界面和 CLI 命令行模式生效。
+> - 如需使用 CLI 命令行模式，请参见下方的 [CLI 命令行模式](#cli-命令行模式) 章节。
+> - **GUI 与 CLI 的行为规则**：当检测到任何 CLI 参数（`--work-dir`、`--select-file`、`--load` 等）时，程序默认进入命令行模式，不会弹出图形界面。**例外**：添加 `--gui` 参数可强制打开图形界面，CLI 参数仅用于初始化界面状态（工作目录、勾选文件等），初始化完成后可接续使用 GUI 供人工微调，GUI 若在运行中，CLI 的操作会反映在 GUI 上。这在 MCP 自动化流程与人工审查切换时非常有用。
+
+#### Flatpak 构建
+
+```bash
+flatpak-builder build-dir io.github.sam_fic.filecollector.json --user --install --force-clean
+flatpak run io.github.sam_fic.filecollector
+```
+
+也可以将 [BUILD_FLATPAK.md](BUILD_FLATPAK.md) 直接交给编程工具或 AI Agent，利用现有成熟流程完成规范化打包。
+
+### Windows
+
+#### 安装依赖（MSYS2 / mingw64）
 
 通过 MSYS2 的 mingw64 终端安装工具链与 GTK4 全家桶（**必须**在 `mingw64` shell 内操作，不要用默认的 `MSYS` shell）：
 
@@ -107,49 +168,16 @@ cmake --install build
 
 > 若 `blueprint-compiler` 编译 `.blp` 时报 `UnicodeDecodeError: 'gbk' codec can't decode`，说明 Python 默认用系统 GBK 编码读取文件。在 mingw64 shell 里先执行 `export PYTHONUTF8=1` 再 `meson compile` 即可。
 
-#### macOS (Apple Silicon)
-
-使用 Homebrew 安装（仅支持 Apple Silicon / arm64）：
+#### 构建与安装
 
 ```bash
-brew install gtk4 libadwaita json-glib libsoup gtksourceview5 libgee \
-  cmark-gfm blueprint-compiler meson ninja gettext libsecret pkg-config
-export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:$(brew --prefix)/share/pkgconfig"
+meson setup builddir
+meson compile
 ```
 
-> 若 `meson setup` 报找不到 `libadwaita-1.pc`，请确认已设置上述 `PKG_CONFIG_PATH`。也可直接参考 [GitHub Actions](.github/workflows/macos.yml) 产出 macOS 便携包。
+> 无需 `meson install`：产物位于 `builddir/filecollector.exe`，可直接运行。
 
-> **可选运行时依赖**（仅二进制文件预转换功能需要）：LibreOffice（`libreoffice`）用于将文档转为 PDF；`poppler-utils` 提供 `pdftoppm` 用于 PDF 渲染为图片。如不使用 VLM 预转换功能可不安装。
-
-### 构建与安装
-
-```bash
-meson setup build
-meson compile -C build
-sudo meson install -C build
-```
-
-> **提示**：
->
-> - 请始终用 `-C build` 显式指定构建目录（如 `meson compile -C build`）。在本机（meson 与 Python 3.14 组合）下，`cd build` 后再直接运行 `meson compile` 会让 meson 自身的参数解析器崩溃（`os.path.realpath` 抛 `FileNotFoundError`），用 `-C build` 可规避。
-> - 如果之前已经构建过，修改源码后只需重新运行 `meson compile -C build` 即可增量编译二进制。若修改了 `po/` 下的翻译文件或 UI 中的 `_()` 字符串，则需要重新运行 `sudo meson install -C build` 以更新翻译文件到系统路径。
-> - `src/win32_dpapi_shim.c`（Windows DPAPI 封装）是 Windows 专用文件，仅在 Windows 构建时由 `meson.build` 加入 `sources`；在 Linux/macOS 上不存在，请勿在 `sources` 中无条件引用它。
-
-### 运行
-
-```bash
-filecollector          # 启动图形界面
-filecollector --help   # 查看 CLI 命令行帮助
-filecollector --gui    # 强制启动图形界面（无其他 CLI 参数时第一行等价）
-```
-
-> **提示**：
->
-> - 程序默认跟随系统语言显示中文或英文界面。如需临时切换语言，可使用环境变量，例如 `LANGUAGE=en filecollector` 强制显示英文。该环境变量同时对图形界面和 CLI 命令行模式生效。
-> - 如需使用 CLI 命令行模式，请参见下方的 [CLI 命令行模式](#cli-命令行模式) 章节。
-> - **GUI 与 CLI 的行为规则**：当检测到任何 CLI 参数（`--work-dir`、`--select-file`、`--load` 等）时，程序默认进入命令行模式，不会弹出图形界面。**例外**：添加 `--gui` 参数可强制打开图形界面，CLI 参数仅用于初始化界面状态（工作目录、勾选文件等），初始化完成后可接续使用 GUI 供人工微调，GUI 若在运行中，CLI 的操作会反映在 GUI 上。这在 MCP 自动化流程与人工审查切换时非常有用。
-
-**Windows 运行说明**：在 mingw64 shell 里，`meson compile` 后产物位于 `builddir/filecollector.exe`（即 `meson setup builddir` 时的构建目录）。直接运行即可，无需 `meson install`：
+#### 运行
 
 ```bash
 export PYTHONUTF8=1
@@ -159,14 +187,13 @@ export PYTHONUTF8=1
 
 > 运行时需要能找到 GTK / cmark-gfm 等 DLL，请确保 mingw64 的 `bin` 目录在 `PATH` 中（启动 mingw64 shell 时已自动加入）。若双击 `filecollector.exe` 提示缺少 DLL，请在 mingw64 shell 中启动，或把 `C:/msys64/mingw64/bin` 加入系统 `PATH`。
 
-### Flatpak 构建
+#### 打包为便携包
 
-```bash
-flatpak-builder build-dir io.github.sam_fic.filecollector.json --user --install --force-clean
-flatpak run io.github.sam_fic.filecollector
-```
+若要从源码自行打包成上面「预编译 Windows 便携包」那样的便携 zip，请参考 [BUILD_WINDOWS.md](BUILD_WINDOWS.md)：它会自动收集 DLL、打包图像加载器与 GSettings schema，并生成 `filecollector-launch.bat` 启动器。注意启动器里的 `GDK_PIXBUF_MODULEDIR` 是图片正常渲染的关键。
 
-也可以将 [BUILD_FLATPAK.md](BUILD_FLATPAK.md) 直接交给编程工具或 AI Agent，利用现有成熟流程完成规范化打包。
+### macOS（暂未验证）
+
+> 本平台的从源码构建流程**尚未验证**，相关内容待补充。
 
 ## 项目结构
 
@@ -232,6 +259,7 @@ flatpak run io.github.sam_fic.filecollector
 │   ├── LINGUAS                             # 支持的语言列表
 │   └── meson.build                         # i18n 构建配置
 ├── BUILD_FLATPAK.md                       # Flatpak 构建指南（供 AI 助手参考）
+├── BUILD_WINDOWS.md                       # Windows 便携包构建指南（供 AI 助手参考）
 ├── meson.build                            # Meson 构建配置
 └── io.github.sam_fic.filecollector.json   # Flatpak 构建清单
 ```
