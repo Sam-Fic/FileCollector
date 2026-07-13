@@ -171,18 +171,18 @@ cmake --install build
 #### 构建与安装
 
 ```bash
-meson setup builddir
+meson setup build
 meson compile
 ```
 
-> 无需 `meson install`：产物位于 `builddir/filecollector.exe`，可直接运行。
+> 无需 `meson install`：产物位于 `build/filecollector.exe`，可直接运行。
 
 #### 运行
 
 ```bash
 export PYTHONUTF8=1
-./builddir/filecollector.exe          # 启动图形界面
-./builddir/filecollector.exe --help   # 查看 CLI 命令行帮助
+./build/filecollector.exe          # 启动图形界面
+./build/filecollector.exe --help   # 查看 CLI 命令行帮助
 ```
 
 > 运行时需要能找到 GTK / cmark-gfm 等 DLL，请确保 mingw64 的 `bin` 目录在 `PATH` 中（启动 mingw64 shell 时已自动加入）。若双击 `filecollector.exe` 提示缺少 DLL，请在 mingw64 shell 中启动，或把 `C:/msys64/mingw64/bin` 加入系统 `PATH`。

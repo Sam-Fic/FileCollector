@@ -171,18 +171,18 @@ cmake --install build
 #### Build & Install
 
 ```bash
-meson setup builddir
+meson setup build
 meson compile
 ```
 
-> No `meson install` needed: the binary is at `builddir/filecollector.exe` and can be run directly.
+> No `meson install` needed: the binary is at `build/filecollector.exe` and can be run directly.
 
 #### Run
 
 ```bash
 export PYTHONUTF8=1
-./builddir/filecollector.exe          # Launch GUI
-./builddir/filecollector.exe --help   # Show CLI help
+./build/filecollector.exe          # Launch GUI
+./build/filecollector.exe --help   # Show CLI help
 ```
 
 > At runtime the GTK / cmark-gfm DLLs must be findable — make sure mingw64's `bin` directory is on `PATH` (the mingw64 shell adds it automatically). If double-clicking `filecollector.exe` reports a missing DLL, launch it from the mingw64 shell, or add `C:/msys64/mingw64/bin` to the system `PATH`.
