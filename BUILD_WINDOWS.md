@@ -154,13 +154,34 @@ cp /mingw64/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache staging/lib/gdk-pixbuf-2.0/2
 mkdir -p staging/share/glib-2.0/schemas
 cp /mingw64/share/glib-2.0/schemas/gschemas.compiled staging/share/glib-2.0/schemas/ 2>/dev/null || true
 
-# 3) 启动器：设置 GDK_PIXBUF_MODULEDIR 后启动 exe。
+# 3) 图标主题（Adwaita / hicolor）：GTK / libadwaita 的界面图标全部来自图标主题，
+#    Linux 上由系统提供，Windows 便携包必须自带，否则所有图标丢失。
+#   按 libgtk DLL 位置回退查找 staging/share/icons/...
+mkdir -p staging/share/icons
+cp -r /mingw64/share/icons/Adwaita staging/share/icons/ 2>/dev/null || true
+cp -r /mingw64/share/icons/hicolor staging/share/icons/ 2>/dev/null || true
+
+# 4) GIO TLS 后端（HTTPS 必需）：libsoup 走 HTTPS 时需要 GIO 的 TLS 模块
+#    libgiognutls.dll，否则会报 “TLS support is not available”，导致 AI 功能无法联网。
+#    该模块不在 exe 的依赖树中（ldd 看不到，collect_dlls.py 不会收集），必须单独拷贝；
+#    同时把它依赖的 gnutls 等 DLL 一并收集到 bin，否则模块加载时会找不到依赖。
+#    GTK 按 libgio DLL 的位置（staging/bin）回退查找 staging/lib/gio/modules/...。
+mkdir -p staging/lib/gio/modules
+cp /mingw64/lib/gio/modules/libgiognutls.dll staging/lib/gio/modules/ 2>/dev/null || true
+# gnutls 相关依赖（libgnutls-30 / libp11-kit / libhogweed / libnettle / libgmp /
+# libidn2 / libtasn1 / libunistring / brotli* / libzstd 等）一般不在主程序依赖树里，
+# 因此以 TLS 模块为根再做一次 DLL 收集，确保其依赖都在 bin 中可加载。
+python3 tools/collect_dlls.py staging/lib/gio/modules/libgiognutls.dll staging/bin
+
+# 5) 启动器：设置 GDK_PIXBUF_MODULEDIR 与 GIO_MODULE_DIR 后启动 exe。
 #    gdk-pixbuf 的 loaders.cache 内是“构建机绝对路径”，在他人电脑上失效；
 #    通过此变量让 GTK 直接扫描我们打包的 loaders 目录，图片格式（PNG/JPEG…）才能正常加载。
+#    GIO_MODULE_DIR 让 GIO 直接扫描我们打包的 TLS 模块目录，HTTPS 才能正常建立。
 #    别人解压后请双击本启动器（而非直接双击 exe）。
 cat > staging/bin/filecollector-launch.bat <<'BAT'
 @echo off
 set GDK_PIXBUF_MODULEDIR=%~dp0lib\gdk-pixbuf-2.0\2.10.0\loaders
+set GIO_MODULE_DIR=%~dp0lib\gio\modules
 start "" "%~dp0filecollector.exe" %*
 BAT
 
@@ -177,7 +198,10 @@ cd staging && zip -r ../filecollector-windows-${VERSION}-x64.zip . && cd ..
 > - **推荐**：解压后双击 `bin/filecollector-launch.bat` 启动（它会设置 `GDK_PIXBUF_MODULEDIR`，保证图片格式正常加载）。
 > - 直接双击 `bin/filecollector.exe` 也能打开窗口，但图像文件（PNG/JPEG 等）渲染可能异常，因为
 >   `loaders.cache` 内是构建机的绝对路径、在他人电脑上失效。`filecollector-launch.bat` 解决了这一点。
-> 详见上文第 1、2、3 步（gdk-pixbuf 加载器、GSettings schema、启动器）。
+> - 图标主题（Adwaita / hicolor）已随包自带，界面图标可正常显示；若缺失会是第 3 步未打包图标主题所致。
+> - **AI 联网（HTTPS）依赖第 4 步打包的 GIO TLS 后端**：若报 `Network error: TLS support is not available`，
+>   说明 `lib/gio/modules/libgiognutls.dll` 缺失或其依赖 DLL 未收集，需重新打包（见下文 5.6）。
+> 详见上文第 1–5 步（gdk-pixbuf 加载器、GSettings schema、图标主题、GIO TLS 后端、启动器）。
 
 > 💡 版本号从 `meson.build` 第 2 行的 `version: 'x.y.z'` 读取（这是**唯一版本源**，与 Flatpak 共用），确保 Windows 包版本与 Flatpak 包版本一致。
 
@@ -189,14 +213,17 @@ ls -lh filecollector-windows-*.zip
 unzip -l filecollector-windows-*.zip | head -n 20
 
 # 确认关键的运行时模块都在 zip 内
-unzip -l filecollector-windows-*.zip | grep -E "loaders/|gschemas.compiled|libgtk-4-1|libadwaita"
+unzip -l filecollector-windows-*.zip | grep -E "loaders/|gschemas.compiled|libgtk-4-1|libadwaita|gio/modules"
 
-# （可选）在 Windows 上解压后双击 filecollector.exe 验证能否启动
+# 确认 GIO TLS 后端与其关键依赖存在（AI 联网所需）
+unzip -l filecollector-windows-*.zip | grep -E "lib/gio/modules/libgiognutls|libgnutls-30|libp11-kit-0"
+
+# （可选）在 Windows 上解压后双击 filecollector-launch.bat 验证能否启动并联网
 ```
 
 > 💡 `tools/collect_dlls.py` 通过 `ldd`/依赖分析自动拷贝 MinGW 的 GTK/Adwaita 等**静态链接** DLL。
-> 但 GTK 还会**动态加载** gdk-pixbuf 图像加载器与 GSettings schema（见上文第 1、2 步），
-> 这两类不在 `ldd` 依赖树中，必须单独拷贝。
+> 但 GTK/libsoup 还会**动态加载** gdk-pixbuf 图像加载器、GSettings schema 与 GIO TLS 后端（见上文第 1、2、4 步），
+> 这三类不在 `ldd` 依赖树中，必须单独拷贝（其中 TLS 后端的依赖 DLL 由第 4 步的二次 `collect_dlls.py` 收集）。
 
 ### 2.6 修改源码后重新构建
 
@@ -234,11 +261,17 @@ Windows 下不使用 libsecret，而是用 `src/win32_dpapi_shim.c` + `advapi32`
 filecollector-windows-X.Y.Z-x64.zip
 ├── bin/
 │   ├── filecollector.exe
-│   ├── *.dll                       ← MinGW GTK/Adwaita 等运行时（由 collect_dlls.py 收集）
+│   ├── filecollector-launch.bat      ← 启动器（设置 GDK_PIXBUF_MODULEDIR / GIO_MODULE_DIR）
+│   ├── *.dll                          ← MinGW GTK/Adwaita 等运行时（含 libgnutls-30 / libp11-kit-0 等 TLS 依赖，由 collect_dlls.py 收集）
 │   └── ...
+├── lib/
+│   ├── gio/modules/libgiognutls.dll   ← GIO TLS 后端（AI 联网 HTTPS 必需）
+│   └── gdk-pixbuf-2.0/2.10.0/loaders/  ← 图像格式加载器
 ├── share/
-│   └── data/                       ← .gresource / desktop / metainfo / svg
-└── locale/                         ← 翻译 .mo 文件
+│   ├── data/                          ← .gresource / desktop / metainfo / svg
+│   ├── glib-2.0/schemas/              ← GSettings schema
+│   └── icons/                         ← Adwaita / hicolor 图标主题
+└── locale/                            ← 翻译 .mo 文件
 ```
 
 ## 五、常见问题排查
@@ -270,7 +303,32 @@ Run-time dependency cmark-gfm found: NO
 curl -L -o /tmp/cmark-gfm.tar.gz https://github.com/github/cmark-gfm/archive/refs/tags/0.29.0.gfm.13.tar.gz
 ```
 
-### 5.5 打包产物清理
+### 5.5 AI 功能报错：`Network error: TLS support is not available`
+
+在「设置 → AI 设置」填好 API 地址/密钥后调用 AI，弹出 `Call failed: Network error: TLS support is not available`。
+
+**原因**：libsoup 走 HTTPS 时需要 GIO 的 TLS 后端模块 `libgiognutls.dll`，而该模块是**运行时动态加载**的，
+不在 `ldd` 依赖树中。若打包时漏掉（见 2.4 第 4 步），便携包在他人电脑上就没有 TLS 能力，所有 HTTPS 请求失败。
+
+**打包侧修复（根治）**：确认 2.4 第 4 步已执行，把 `libgiognutls.dll` 拷贝到 `staging/lib/gio/modules/`，
+并用 `collect_dlls.py` 以它为根收集 `libgnutls-30` / `libp11-kit-0` / `libhogweed` / `libnettle` / `libgmp` /
+`libidn2` / `libtasn1` / `libunistring` / `brotli*` / `libzstd` 等依赖到 `staging/bin`。重新打包并上传。
+
+**已解压包的快速修复（无需重新下载）**：在本机 MINGW64 环境中找到以下文件，手动补到已解压的目录：
+
+```bash
+# 假设便携包已解压到 D:\filecollector，且本机有 MSYS2 MINGW64
+PK=D:/filecollector
+mkdir -p "$PK/lib/gio/modules"
+cp /mingw64/lib/gio/modules/libgiognutls.dll "$PK/lib/gio/modules/"
+# 收集 TLS 模块依赖到 bin
+python3 tools/collect_dlls.py "$PK/lib/gio/modules/libgiognutls.dll" "$PK/bin"
+```
+
+然后**务必通过 `bin/filecollector-launch.bat` 启动**（它会设置 `GIO_MODULE_DIR` 指向 `lib/gio/modules`）。
+直接双击 `filecollector.exe` 时 GIO 可能仍按默认路径查找而找不到 TLS 模块。
+
+### 5.6 打包产物清理
 
 ```bash
 # 删除旧版本 zip，保留当前版本

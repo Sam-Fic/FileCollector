@@ -61,6 +61,10 @@ jobs:
           cp /mingw64/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache staging/lib/gdk-pixbuf-2.0/2.10.0/ 2>/dev/null || true
           mkdir -p staging/share/glib-2.0/schemas
           cp /mingw64/share/glib-2.0/schemas/gschemas.compiled staging/share/glib-2.0/schemas/ 2>/dev/null || true
+          # 图标主题（Adwaita / hicolor）：GTK 界面图标来自图标主题，Windows 便携包必须自带
+          mkdir -p staging/share/icons
+          cp -r /mingw64/share/icons/Adwaita staging/share/icons/ 2>/dev/null || true
+          cp -r /mingw64/share/icons/hicolor staging/share/icons/ 2>/dev/null || true
           # 启动器：设置 GDK_PIXBUF_MODULEDIR，让 GTK 直接扫描打包的 loaders 目录
           # （loaders.cache 内是构建机绝对路径，他人电脑上失效，必须靠此变量）
           cat > staging/bin/filecollector-launch.bat <<'BAT'
