@@ -35,7 +35,7 @@ For the usage process and tips of the graphical interface, please refer to the [
 - **Scene-based Prompt Templates**: Built-in templates for Bug analysis, API documentation, and code refactoring. Use `/t <id>` slash commands to insert structured placeholders and drive AI execution in one step
 - **AI Reading Guide Generation**: One-click AI analysis of the orchestration list to generate a structured table of contents and reading guide
 
-> **Tip**: This repository now supports Windows and macOS (Apple Silicon) with portable packages built automatically by GitHub Actions — see [Cross-platform Builds & Releases (GitHub Actions)](#cross-platform-builds--releases-github-actions). For an alternative Flet-based cross-platform implementation, see the [Flet version repository](https://github.com/Sam-Fic/filecollector-flet).
+> **Tip**: This repository now supports Windows and macOS (Apple Silicon), but there may be compatibility issues. For an alternative Flet-based cross-platform implementation, see the [Flet version repository](https://github.com/Sam-Fic/filecollector-flet).
 
 ## Why Use This Tool?
 

@@ -35,7 +35,7 @@ FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排
 - **场景化编排模板**：内置 Bug 分析、API 文档生成、代码重构等模板，通过 `/t <id>` 斜杠指令一键插入结构化占位符并驱动 AI 执行
 - **AI 生成阅读指南**：一键让 AI 分析编排列表中的文件，生成结构化的目录与阅读指南
 
-> **提示**：本仓库现已支持 Windows 与 macOS（Apple Silicon），由 GitHub Actions 自动构建便携包，详见 [跨平台构建与发布（GitHub Actions）](#跨平台构建与发布github-actions)。如您偏好基于 Flet 的另一种跨平台实现，仍可参考 [Flet 版本仓库](https://github.com/Sam-Fic/filecollector-flet)。
+> **提示**：本仓库现已支持 Windows 与 macOS（Apple Silicon），但可能会有兼容性问题。如您偏好基于 Flet 的另一种跨平台实现，仍可参考 [Flet 版本仓库](https://github.com/Sam-Fic/filecollector-flet)。
 
 ## 为什么使用此工具？
 
