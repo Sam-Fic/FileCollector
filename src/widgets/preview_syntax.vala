@@ -28,6 +28,17 @@ public class PreviewSyntaxManager : GLib.Object {
         preview_view.set_wrap_mode (Gtk.WrapMode.WORD_CHAR);
         preview_view.add_css_class ("sourceview");
         preview_view.set_show_line_numbers (false);
+        // 预览区是只读的: 设为不可编辑可避免用户在预览内输入时开启 user-action,
+        // 否则随后程序化 set_text/insert 会在 user-action 进行中触发
+        // "Cannot begin irreversible action while in user action" 等告警.
+        preview_view.set_editable (false);
+        // 预览无需撤销栈; 关闭 undo 可避免 GtkSource 撤销管理器对缓冲区
+        // 增删操作的 user-action 包裹, 进一步消除上述告警及其引发的
+        // 缓冲区迭代器/a11y 越界 (end >= start) 告警.
+        var buf = preview_view.get_buffer () as Buffer;
+        if (buf != null) {
+            buf.set_enable_undo (false);
+        }
 
         var style_manager = Adw.StyleManager.get_default ();
         style_manager.notify["dark"].connect (() => apply_scheme ());
@@ -59,9 +70,11 @@ public class PreviewSyntaxManager : GLib.Object {
 
     public void apply_with_highlight (string text, string? file_path) {
         var buffer = preview_view.get_buffer () as Buffer;
-        buffer.set_text ("", -1);
         buffer.set_language (guess_language (file_path));
         buffer.set_highlight_syntax (true);
+        // 直接 set_text(text) 一次完成替换, 避免先 set_text("") 造成缓冲区瞬间
+        // 为空, 否则 a11y 层可能在空缓冲区间歇读取而触发
+        // "gtk_accessible_text_get_contents: assertion 'end >= start' failed".
         buffer.set_text (text, -1);
         preview_view.set_show_line_numbers (text.length > 0);
     }

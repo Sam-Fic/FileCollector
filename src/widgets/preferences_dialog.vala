@@ -236,7 +236,9 @@ public class PreferencesDialog : GLib.Object {
         edit_mm_prompt.notify["text"].connect (schedule_ai_auto_save);
 
         edit_mm_allowed_exts.notify["text"].connect (schedule_ai_auto_save);
-        edit_ignored_dirs.notify["text"].connect (schedule_ai_auto_save);
+        // 注意: edit_ignored_dirs 在 build_context_page() 中创建, 此处尚未赋值,
+        // 其信号连接也已迁移到 build_context_page() 内, 避免连接空对象触发
+        // g_signal_connect_object 的 NULL 断言告警.
 
         btn_sidebar_test.clicked.connect (() => { testing_sidebar = true; on_ai_test (); });
         btn_mm_test.clicked.connect (() => { testing_sidebar = false; on_ai_test (); });
@@ -280,6 +282,10 @@ public class PreferencesDialog : GLib.Object {
         ignored_row.set_text (string.joinv (", ", current_ignored));
         edit_ignored_dirs = ignored_row;
         ignored_group.add (ignored_row);
+
+        // edit_ignored_dirs 在此处已创建并赋值, 故其自动保存连接放在这里
+        // (不能放在 build_ai_page(), 那时该字段仍为 null).
+        edit_ignored_dirs.notify["text"].connect (schedule_ai_auto_save);
 
         dialog.add (page);
     }
