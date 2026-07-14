@@ -3036,12 +3036,21 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             try { preview_fis.close (); } catch (Error e) {}
             preview_fis = null;
         }
+        // 复位读取锁, 允许新的懒加载重新发起读取 (否则旧读仍占锁会导致新读直接 return)
+        preview_loading = false;
         preview_leftover = new uint8[0];
         preview_current_path = null;
     }
 
     private void start_lazy_preview (ItemData item, int64 file_size) {
+        // 先作废任何进行中的旧懒加载 (复位读取锁与代际), 再发起本次读取,
+        // 避免快速重复触发时旧读占锁/代际失效, 导致真实内容永远不被写入缓冲区.
+        cancel_preview_loading ();
+
         apply_preview_with_highlight ("", item.file_path);
+        // 占位时文本为空, apply_preview_with_highlight 会关行号; 但已知文件非空,
+        // 内容异步追加后应有行号, 故此处强制开启 (空文本本就无行, 不会误显).
+        preview_view.set_show_line_numbers (true);
 
         // 新预览代际: 让此前可能仍在飞行的线程 (同一文件、偏移 0 重读) 失效
         preview_generation++;
@@ -3166,7 +3175,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void append_to_preview (string text) {
-        var buffer = preview_view.get_buffer ();
+        var buffer = preview_view.get_buffer () as GtkSource.Buffer;
         Gtk.TextIter end_iter;
         buffer.get_end_iter (out end_iter);
         buffer.insert (ref end_iter, text, -1);

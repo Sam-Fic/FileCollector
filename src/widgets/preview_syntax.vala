@@ -70,7 +70,8 @@ public class PreviewSyntaxManager : GLib.Object {
 
     public void apply_with_highlight (string text, string? file_path) {
         var buffer = preview_view.get_buffer () as Buffer;
-        buffer.set_language (guess_language (file_path));
+        var lang = guess_language (file_path);
+        buffer.set_language (lang);
         buffer.set_highlight_syntax (true);
         // 直接 set_text(text) 一次完成替换, 避免先 set_text("") 造成缓冲区瞬间
         // 为空, 否则 a11y 层可能在空缓冲区间歇读取而触发

@@ -65,16 +65,29 @@ namespace Platform {
 
     /**
      * 应用数据目录 (gtksourceview 主题等)。
-     * Linux 默认 /usr/share/filecollector, 找不到则回退到源码树 data/。
-     * 其他平台直接回退到工作目录下的 data/。
+     * 解析优先级:
+     *   1. 系统安装路径 /usr/share/filecollector
+     *   2. 从可执行文件所在目录向上查找含 data/gtksourceview-5/styles 的目录
+     *      (开发期可执行文件在 build/, 其父即源码树根, 这样无论从 build/ 还是
+     *       源码根启动都能定位到 data/, 不再依赖启动时的当前工作目录)
+     *   3. 回退到当前工作目录下的 data/
      */
     public static string get_data_dir () {
 #if LINUX
         string app_data_dir = "/usr/share/filecollector";
-        if (!FileUtils.test (app_data_dir, FileTest.EXISTS)) {
-            app_data_dir = Path.build_filename (Environment.get_current_dir (), "data");
+        if (FileUtils.test (app_data_dir, FileTest.EXISTS)) {
+            return app_data_dir;
         }
-        return app_data_dir;
+        // 从 exe 目录向上至多 4 层查找 data/gtksourceview-5/styles
+        string? dir = Path.get_dirname (get_executable_path ());
+        for (int i = 0; i < 4 && dir != null && dir != "/"; i++) {
+            string candidate = Path.build_filename (dir, "data", "gtksourceview-5", "styles");
+            if (FileUtils.test (candidate, FileTest.EXISTS)) {
+                return Path.build_filename (dir, "data");
+            }
+            dir = Path.get_dirname (dir);
+        }
+        return Path.build_filename (Environment.get_current_dir (), "data");
 #else
         return Path.build_filename (Environment.get_current_dir (), "data");
 #endif

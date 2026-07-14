@@ -1,45 +1,117 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <style-scheme id="filecollector-light" _name="FileCollector Light" version="1.0">
-  <_description>Transparent background scheme for light mode</_description>
+  <_description>Light scheme using the Catppuccin Latte palette over the app's light card background</_description>
   <metadata>
     <property name="variant">light</property>
     <property name="dark-variant">filecollector-dark</property>
   </metadata>
 
+  <!-- Catppuccin Latte palette -->
   <color name="bg"          value="#00000000"/>
-  <color name="fg"          value="#1e1e1e"/>
-  <color name="fg_dim"      value="#77767b"/>
-  <color name="blue"        value="#1a5fb4"/>
-  <color name="green"       value="#26a269"/>
-  <color name="orange"      value="#c64600"/>
-  <color name="purple"      value="#813d9c"/>
-  <color name="red"         value="#c01c28"/>
-  <color name="yellow"      value="#a5a50a"/>
-  <color name="cyan"        value="#0e7c86"/>
+  <color name="fg"          value="#4c4f69"/>
+  <color name="fg_dim"      value="#6c6f85"/>
+  <color name="rosewater"   value="#dc8a78"/>
+  <color name="flamingo"    value="#dd7878"/>
+  <color name="pink"        value="#ea76cb"/>
+  <color name="mauve"       value="#8839ef"/>
+  <color name="red"         value="#d20f39"/>
+  <color name="maroon"      value="#e64553"/>
+  <color name="peach"       value="#fe640b"/>
+  <color name="yellow"      value="#df8e1d"/>
+  <color name="green"       value="#40a02b"/>
+  <color name="teal"        value="#179299"/>
+  <color name="sky"         value="#04a5e5"/>
+  <color name="sapphire"    value="#209fb5"/>
+  <color name="blue"        value="#1e66f5"/>
+  <color name="lavender"    value="#7287fd"/>
+  <color name="subtext1"    value="#5c5f77"/>
+  <color name="selection"   value="#bcc0cc"/>
 
   <style name="text"                        background="bg" foreground="fg"/>
-  <style name="selection"                   background="#3584e4" foreground="#ffffff"/>
-  <style name="current-line"                background="bg"/>
+  <style name="selection"                   background="selection" foreground="#1b1f27"/>
+  <style name="current-line"                background="#0000000a"/>
   <style name="line-numbers"                background="bg" foreground="fg_dim"/>
   <style name="current-line-number"         background="bg" foreground="fg_dim"/>
   <style name="background-pattern"          background="bg"/>
   <style name="right-margin"                background="bg"/>
-  <style name="draw-spaces"                 foreground="bg"/>
+  <style name="draw-spaces"                 foreground="fg_dim"/>
 
+  <!-- 注释 -->
   <style name="def:comment"                 foreground="fg_dim" italic="true"/>
-  <style name="def:keyword"                 foreground="blue"/>
-  <style name="def:statement"               foreground="blue"/>
-  <style name="def:type"                    foreground="cyan"/>
+  <style name="def:doc-comment-element"     foreground="fg_dim" italic="true"/>
+
+  <!-- 关键字 / 语句: Mauve -->
+  <style name="def:keyword"                 foreground="mauve" bold="true"/>
+  <style name="def:statement"               foreground="mauve" bold="true"/>
+  <style name="def:control"                 foreground="mauve" bold="true"/>
+
+  <!-- 类型 / 类 / 内建: Blue -->
+  <style name="def:type"                    foreground="blue"/>
+  <style name="def:class-name"              foreground="blue"/>
+  <style name="def:builtin"                 foreground="sapphire"/>
+
+  <!-- 变量 / 标识符: Lavender -->
+  <style name="def:variable"                foreground="lavender"/>
+  <style name="def:variable-name"           foreground="lavender"/>
+  <style name="def:identifier"              foreground="lavender"/>
+  <style name="def:function-argument"       foreground="lavender"/>
+  <style name="def:parameter"               foreground="lavender"/>
+
+  <!-- 成员变量 / 字段 / 属性: Maroon -->
+  <style name="def:property"                foreground="maroon"/>
+  <style name="def:property-value"          foreground="maroon"/>
+
+  <!-- 函数名 / 实体名: Green -->
   <style name="def:function"                foreground="green"/>
-  <style name="def:identifier"              foreground="fg"/>
-  <style name="def:string"                  foreground="green"/>
-  <style name="def:special-char"            foreground="purple"/>
-  <style name="def:number"                  foreground="orange"/>
-  <style name="def:float"                   foreground="orange"/>
-  <style name="def:boolean"                 foreground="orange"/>
-  <style name="def:constant"                foreground="orange"/>
-  <style name="def:preprocessor"            foreground="red"/>
+  <style name="def:signal-handler"          foreground="green"/>
+
+  <!-- 命名空间: Sky -->
+  <style name="def:namespace"               foreground="sky"/>
+
+  <!-- 字符串: Teal, 字符/转义: Peach -->
+  <style name="def:string"                  foreground="teal"/>
+  <style name="def:char"                    foreground="peach"/>
+  <style name="def:special-char"            foreground="peach"/>
+  <style name="def:escape"                  foreground="peach"/>
+
+  <!-- 数字 / 常量 / 布尔: Peach -->
+  <style name="def:number"                  foreground="peach"/>
+  <style name="def:decimal"                 foreground="peach"/>
+  <style name="def:boolean"                 foreground="peach"/>
+  <style name="def:constant"                foreground="peach"/>
+  <style name="def:base-n-integer"          foreground="peach"/>
+  <style name="def:floating-point"          foreground="peach"/>
+  <style name="def:complex"                 foreground="peach"/>
+  <style name="def:imaginary"               foreground="peach"/>
+
+  <!-- 预处理 / 包含 / 宏: Red -->
+  <style name="def:preprocessor"            foreground="red" italic="true"/>
+  <style name="def:directive"               foreground="red" italic="true"/>
+
+  <!-- 操作符 / 标点: Subtext1 -->
+  <style name="def:operator"                foreground="subtext1"/>
+
+  <!-- 标记语言 -->
+  <style name="def:tag"                     foreground="mauve" italic="true"/>
+  <style name="def:element"                 foreground="mauve" italic="true"/>
+  <style name="def:attribute"               foreground="green"/>
+  <style name="def:entity"                  foreground="pink"/>
+  <style name="def:cdata"                   foreground="fg_dim"/>
+  <style name="def:shebang"                 foreground="fg_dim"/>
+
+  <!-- 文档 / 标记类 -->
+  <style name="def:heading"                 foreground="sky" bold="true"/>
+  <style name="def:strong-emphasis"         foreground="fg" bold="true"/>
+  <style name="def:emphasis"                foreground="fg" italic="true"/>
+  <style name="def:underline"               foreground="fg" underline="single"/>
+  <style name="def:link-text"               foreground="sky"/>
+  <style name="def:link-destination"        foreground="teal"/>
+  <style name="def:net-address"             foreground="teal"/>
+  <style name="def:list-marker"             foreground="pink"/>
+  <style name="def:preformatted-section"    foreground="fg_dim"/>
+  <style name="def:deletion"                foreground="red"/>
+  <style name="def:insertion"               foreground="green"/>
+  <style name="def:note"                    foreground="yellow"/>
   <style name="def:error"                   foreground="red" underline="error"/>
   <style name="def:warning"                 foreground="yellow" underline="error"/>
-  <style name="def:builtin"                 foreground="cyan"/>
 </style-scheme>
