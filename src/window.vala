@@ -435,9 +435,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
             var drag = new Gtk.DragSource ();
             drag.set_actions (Gdk.DragAction.MOVE);
+            // 记录鼠标按下点相对 box 的偏移, 用作浮动图标的 hot point,
+            // 使拖动时按下位置"粘"在鼠标箭头处 (而不是整项居中于鼠标).
+            double press_x = 0, press_y = 0;
             drag.prepare.connect ((s, gx, gy) => {
                 // 模型正在突变 (删除/刷新) 时禁止发起拖拽, 避免拖拽中途数据错位
                 if (queue_update_depth > 0) return null;
+                // gx/gy 是相对拖拽源 grip 的坐标, 转换成相对 box 的偏移.
+                grip.translate_coordinates (box, gx, gy, out press_x, out press_y);
                 var data = list_item.get_item () as ItemData;
                 // payload 携带 ItemData 引用, 落点处再按引用现算索引, 避免拖拽期间索引偏移
                 return data != null ? new Gdk.ContentProvider.for_value (data) : null;
@@ -446,7 +451,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             // 彩色字体 (无 emoji 字体的环境下会刷 Pango "All font fallbacks failed").
             drag.drag_begin.connect ((d) => {
                 var p = new Gtk.WidgetPaintable (box);
-                Gtk.DragIcon.set_from_paintable (d, p, box.get_width () / 2, box.get_height () / 2);
+                Gtk.DragIcon.set_from_paintable (d, p, (int) press_x, (int) press_y);
             });
             grip.add_controller (drag);
             // 拖拽结束时无论是否落在有效位置, 都清掉落点指示线
