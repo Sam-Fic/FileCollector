@@ -644,7 +644,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             }
             if (data.is_missing) {
                 icon_name = "dialog-warning-symbolic";
-                display_name = _("⚠ %s (missing)").printf (display_name);
+                display_name = _("%s (missing)").printf (display_name);
             } else {
                 // 根据文件类型选择 GTK 原生图标
                 if (data.is_image_target ()) {

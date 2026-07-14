@@ -588,7 +588,7 @@ public class PreferencesDialog : GLib.Object {
             var bytes = session.send_and_read_async.end (res);
             uint status = msg.status_code;
             if (status >= 200 && status < 300) {
-                show_toast (_("✓ Connected successfully"));
+                show_toast (_("Connected successfully"));
             } else {
                 string detail = "";
                 if (bytes != null && bytes.length > 0) {

@@ -117,7 +117,6 @@ row:selected .queue-drag-handle {
 .drop-indicator {
     background-color: @accent_color;
     border-radius: 0;
-    pointer-events: none;
 }
 
 .paned-no-handle {
