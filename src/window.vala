@@ -3826,159 +3826,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         try {
             var builder = new Gtk.Builder ();
             builder.set_translation_domain (Config.GETTEXT_PACKAGE);
-            builder.add_from_string (build_shortcuts_ui (), -1);
+            builder.add_from_string (ShortcutsHelper.build_ui (), -1);
             var win = builder.get_object ("sw") as Adw.ShortcutsDialog;
             if (win == null) return;
             win.present (this);
         } catch (Error e) {
             warning ("Failed to show shortcuts: %s", e.message);
         }
-    }
-
-    private string build_shortcuts_ui () {
-        _("Common Operations");
-        _("List Operations");
-        _("Application");
-        _("Generate to Clipboard");
-        _("Open Project");
-        _("Add External Files");
-        _("Toggle AI Panel");
-        _("Insert Text Above");
-        _("Insert Text Below");
-        _("Generate Merged Text");
-        _("Apply Language Settings");
-        _("Keyboard Shortcuts...");
-        _("About");
-        _("Quit");
-        return """<?xml version="1.0" encoding="UTF-8"?>
-<interface>
-  <object class="AdwShortcutsDialog" id="sw">
-    <property name="title" translatable="yes">键盘快捷键</property>
-    <child>
-      <object class="AdwShortcutsSection">
-        <property name="title" translatable="yes">常用操作</property>
-        <child>
-          <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">撤销</property>
-            <property name="action-name">win.undo</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">重做</property>
-            <property name="action-name">win.redo</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">打开项目</property>
-            <property name="accelerator">&lt;Control&gt;o</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">保存项目</property>
-            <property name="accelerator">&lt;Control&gt;s</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">清空列表</property>
-            <property name="action-name">win.clear_items</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">添加外部文件</property>
-            <property name="action-name">win.add_external_files</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">切换 AI 面板</property>
-            <property name="action-name">win.toggle_ai_panel</property>
-          </object>
-        </child>
-      </object>
-    </child>
-    <child>
-      <object class="AdwShortcutsSection">
-        <property name="title" translatable="yes">列表操作</property>
-        <child>
-          <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">上方插入文本</property>
-            <property name="action-name">win.insert_text</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">下方插入文本</property>
-            <property name="action-name">win.insert_text_no_header</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">上移</property>
-            <property name="action-name">win.move_up</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">下移</property>
-            <property name="action-name">win.move_down</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">删除</property>
-            <property name="action-name">win.delete_item</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">生成合并文本</property>
-            <property name="action-name">win.generate</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">生成到剪贴板</property>
-            <property name="action-name">win.generate_to_clipboard</property>
-          </object>
-        </child>
-      </object>
-    </child>
-    <child>
-      <object class="AdwShortcutsSection">
-        <property name="title" translatable="yes">应用程序</property>
-        <child>
-          <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">语言设置</property>
-            <property name="accelerator">&lt;Control&gt;comma</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">键盘快捷键</property>
-            <property name="accelerator">&lt;Control&gt;slash</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">关于</property>
-            <property name="accelerator">F1</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">退出</property>
-            <property name="accelerator">&lt;Control&gt;q</property>
-          </object>
-        </child>
-      </object>
-    </child>
-  </object>
-</interface>""";
     }
 
     public void on_preferences () {
@@ -4135,10 +3989,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     total_tokens += data.cached_tokens;
                 } else if (data.is_binary_target ()) {
                     // 二进制文件预处理前不估算 token, 只统计转换后的 Markdown
-                } else if (data.is_snippet ()) {
-                    total_tokens += estimate_snippet_tokens_fast (data.file_path, data.start_line, data.end_line);
+                } else                 if (data.is_snippet ()) {
+                    total_tokens += TokenEstimator.estimate_snippet_tokens_fast (data.file_path, data.start_line, data.end_line);
                 } else {
-                    total_tokens += estimate_file_tokens_fast (data.file_path);
+                    total_tokens += TokenEstimator.estimate_file_tokens_fast (data.file_path);
                 }
             } else if (data.item_type == "text") {
                 total_tokens += data.cached_tokens;
@@ -4154,42 +4008,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         token_ring.queue_draw ();
     }
 
-    private int estimate_file_tokens_fast (string path) {
-        var file = File.new_for_path (path);
-        if (!file.query_exists ()) return 0;
-
-        try {
-            var info = file.query_info (FileAttribute.STANDARD_SIZE, FileQueryInfoFlags.NONE);
-            if (info.get_size () > 10 * 1024 * 1024) return 0;
-            return (int) Math.ceil (info.get_size () / 3.5);
-        } catch (Error e) {
-            return 0;
-        }
-    }
-
-    private int estimate_snippet_tokens_fast (string path, int start_line, int end_line) {
-        var file = File.new_for_path (path);
-        if (!file.query_exists ()) return 0;
-
-        try {
-            var info = file.query_info (FileAttribute.STANDARD_SIZE, FileQueryInfoFlags.NONE);
-            if (info.get_size () > 10 * 1024 * 1024) return 0;
-            int total_lines = 0;
-            try {
-                uint8[] raw;
-                FileUtils.get_data (path, out raw);
-                string content = EncodingHelper.decode_to_utf8 (raw);
-                total_lines = content.split ("\n").length;
-            } catch (Error e) {
-                return (int) Math.ceil (info.get_size () / 3.5);
-            }
-            if (total_lines <= 0) return 0;
-            double ratio = (double) (end_line - start_line + 1) / total_lines;
-            return (int) Math.ceil (info.get_size () / 3.5 * ratio * 1.05);
-        } catch (Error e) {
-            return 0;
-        }
-    }
 
     private string get_display_path (ItemData data) {
         if (data.force_absolute || use_absolute || work_dir == null) return data.file_path;
