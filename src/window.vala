@@ -167,6 +167,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private bool preview_auto_scroll = true;
     private const int64 PREVIEW_CHUNK_SIZE = 65536;
 
+    // 预览代际令牌: 每次发起新的懒加载预览 (start_lazy_preview) 或取消加载
+    // (cancel_preview_loading) 时自增. 每个 load_preview_chunk 后台线程在生成时捕获
+    // 当前代际, 只有当捕获值与当前 preview_generation 一致时才允许把读到的内容写入
+    // 缓冲区. 这样即便一次移动/重选触发了多个并行的预览线程 (它们各自以偏移 0 重读整
+    // 个文件), 也只有最后一次请求的数据会被真正追加, 从而避免预览内容重复显示.
+    private uint preview_generation = 0;
+
     // 自动保存 / 崩溃恢复
     private uint auto_save_timeout_id = 0;
     private const uint AUTO_SAVE_DELAY_MS = 5000; // 状态变更后 5 秒触发自动保存
@@ -3551,6 +3558,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void cancel_preview_loading () {
         preview_fully_loaded = true;
+        // 使任何仍在飞行中的旧预览线程失效, 防止其后续把过期内容写入缓冲区
+        preview_generation++;
         if (preview_fis != null) {
             try { preview_fis.close (); } catch (Error e) {}
             preview_fis = null;
@@ -3562,6 +3571,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void start_lazy_preview (ItemData item, int64 file_size) {
         apply_preview_with_highlight ("", item.file_path);
 
+        // 新预览代际: 让此前可能仍在飞行的线程 (同一文件、偏移 0 重读) 失效
+        preview_generation++;
         preview_file_size = file_size;
         preview_loaded_bytes = 0;
         preview_leftover = new uint8[0];
@@ -3583,6 +3594,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (preview_loading || preview_fully_loaded || preview_fis == null) return;
         preview_loading = true;
 
+        // 捕获本线程所属的代际; 若此后用户切换/移动触发了新一代预览, 本线程恢复时
+        // 其捕获值与 preview_generation 不一致, 则丢弃本次读到的内容, 不写入缓冲区.
+        uint gen = preview_generation;
         string? target_path = preview_current_path;
         // 先把当前流捕获到局部变量: cancel_preview_loading() 会在用户切换预览/关闭
         // 窗口时关闭并置空 preview_fis 字段, 若后台线程仍引用该字段就会对 null 调用
@@ -3623,6 +3637,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
 
         if (target_path != preview_current_path) return;
+        // 代际校验: 本线程已过期 (期间发生了新的预览请求), 丢弃其内容, 避免重复/错乱
+        if (gen != preview_generation) {
+            preview_loading = false;
+            return;
+        }
 
         if (new_data == null || new_data.length == 0) {
             preview_fully_loaded = true;
