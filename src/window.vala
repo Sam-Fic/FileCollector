@@ -3584,6 +3584,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         preview_loading = true;
 
         string? target_path = preview_current_path;
+        // 先把当前流捕获到局部变量: cancel_preview_loading() 会在用户切换预览/关闭
+        // 窗口时关闭并置空 preview_fis 字段, 若后台线程仍引用该字段就会对 null 调用
+        // read() 触发 "g_input_stream_read: assertion 'G_IS_INPUT_STREAM (stream)' failed".
+        // 改为引用局部副本后, 即使字段被置空, 线程读到的仍是有效的 (可能已关闭的) 流对象,
+        // 读取已关闭流只会抛出可被下方 try 捕获的错误, 而非断言失败.
+        FileInputStream? fis = preview_fis;
+        if (fis == null) {
+            preview_loading = false;
+            return;
+        }
         uint8[]? new_data = null;
         bool read_done = false;
 
@@ -3591,7 +3601,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             new Thread<void*> ("preview-read", () => {
                 try {
                     uint8[] buffer = new uint8[PREVIEW_CHUNK_SIZE];
-                    ssize_t n = preview_fis.read (buffer);
+                    ssize_t n = fis.read (buffer);
                     if (n > 0) {
                         new_data = buffer[0:n];
                     }
