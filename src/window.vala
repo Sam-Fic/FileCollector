@@ -130,6 +130,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private Gtk.Label dir_load_label;
 
     private GitHistoryPanel git_panel;
+    private RecoveryManager recovery_manager;
+    private PaneLayoutManager pane_layout_manager;
 
     // VLM 预处理队列
     private VLMQueueManager vlm_queue;
@@ -167,10 +169,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // 个文件), 也只有最后一次请求的数据会被真正追加, 从而避免预览内容重复显示.
     private uint preview_generation = 0;
 
-    // 自动保存 / 崩溃恢复
-    private uint auto_save_timeout_id = 0;
-    private const uint AUTO_SAVE_DELAY_MS = 5000; // 状态变更后 5 秒触发自动保存
-
 
     public FileCollectorWindow (Adw.Application app) {
         GLib.Object (application: app);
@@ -181,6 +179,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         project_controller = new ProjectController (app_state);
         ai_controller = new AIController (app_state);
         undo_manager = new UndoManager ();
+        recovery_manager = new RecoveryManager (app_state);
 
         ConfigManager.load_common_phrases (app_state.common_phrases);
         load_css ();
@@ -196,7 +195,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         sync_path_mode_radios ();
         setup_signals ();
         setup_ai_panel ();
-        setup_pane_sizes ();
+        pane_layout_manager = new PaneLayoutManager (app_state, outer_paned, inner_paned, ai_paned, ai_sidebar);
+        pane_layout_manager.setup ();
         setup_shortcuts ();
         setup_empty_state ();
         search_entry.visible = false;
@@ -251,21 +251,26 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         GLib.Idle.add (() => {
             cache_title_widget ();
-            check_recovery_on_startup ();
+            recovery_manager.maybe_prompt_restore (this, app_state.project_file);
             return Source.REMOVE;
         });
     }
 
     private void bind_app_state_signals () {
         app_state.items_changed.connect (refresh_list);
-        app_state.items_changed.connect (schedule_auto_save);
+        app_state.items_changed.connect (() => recovery_manager.schedule ());
         app_state.state_changed.connect (() => {
             sync_path_mode_radios ();
             sync_header_checkbox ();
             update_title ();
             update_undo_redo_buttons ();
             update_workdir_dependent_buttons ();
-            schedule_auto_save ();
+            recovery_manager.schedule ();
+        });
+
+        recovery_manager.restored.connect (on_recovery_restored);
+        recovery_manager.restore_failed.connect ((msg) => {
+            toast_overlay.add_toast (new Adw.Toast (_("Restore failed: ") + msg));
         });
 
         // AIController 信号 → View 层 UI 操作
@@ -320,8 +325,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
         // 先取消挂起的自动保存定时器, 再同步保存一次
         // (保证 5s 延迟窗口内的状态变更也能落盘, 避免点关闭瞬间数据丢失)
-        cancel_auto_save ();
-        save_recovery_state ();
+        recovery_manager.cancel ();
+        recovery_manager.save ();
         app_state.window_closing = true; // 必须在 save 之后置位, 否则 save 第一行会因 app_state.window_closing 早退
 
         // 编排列表非空 → 弹确认对话框, 避免用户误关丢失未保存内容
@@ -339,7 +344,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 dialog.destroy ();
                 if (response == "close") {
                     // 用户明确确认关闭 → 删除恢复文件, 下次启动不再弹恢复提示
-                    delete_recovery_file ();
+                    recovery_manager.delete_file ();
                     // destroy() 不会再次触发 close-request, 不会递归进 on_close_request
                     this.destroy ();
                 }
@@ -349,139 +354,36 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             return true; // 阻止窗口关闭, 等待用户在对话框中确认
         }
 
-        // 编排列表为空: save_recovery_state 内部已经自动删除恢复文件, 直接放行
+        // 编排列表为空: recovery_manager.save() 内部已经自动删除恢复文件, 直接放行
         app_state.bg_threads.clear ();
         return false;
     }
 
-    // ─── 自动保存 / 崩溃恢复 ─────────────────────────────────────────────
+    // ─── 自动保存 / 崩溃恢复 (逻辑在 RecoveryManager) ──────────────────────
 
-    private void schedule_auto_save () {
-        if (app_state.window_closing) return;
-        cancel_auto_save ();
-        auto_save_timeout_id = GLib.Timeout.add (AUTO_SAVE_DELAY_MS, () => {
-            auto_save_timeout_id = 0;
-            save_recovery_state ();
-            return Source.REMOVE;
-        });
-    }
-
-    private void cancel_auto_save () {
-        if (auto_save_timeout_id != 0) {
-            GLib.Source.remove (auto_save_timeout_id);
-            auto_save_timeout_id = 0;
-        }
-    }
-
-    private void save_recovery_state () {
-        if (app_state.window_closing) return;
-        if (items.size == 0 && work_dir == null) {
-            // 空状态不需要恢复
-            delete_recovery_file ();
-            return;
-        }
-        try {
-            ProjectManager.write_project_file (
-                ConfigManager.get_recovery_file (),
-                work_dir,
-                use_absolute,
-                show_header,
-                items,
-                check_model.checked_files,
-                check_model.checked_dirs,
-                common_phrases
-            );
-        } catch (Error e) {
-            warning ("Auto-save recovery failed: %s", e.message);
-        }
-    }
-
-    private void delete_recovery_file () {
-        try {
-            var f = File.new_for_path (ConfigManager.get_recovery_file ());
-            if (f.query_exists ()) {
-                f.delete ();
+    // RecoveryManager 还原成功后的 UI 刷新: 逻辑原在 check_recovery_on_startup 的
+    // restore 分支, 因涉及窗口控件 (root_store / search_entry / toast_overlay) 留在窗口.
+    private void on_recovery_restored (File? wd) {
+        undo_manager.clear ();
+        // 复原工作区文件夹位置: 重建目录树、加载子项、展开根节点
+        if (wd != null) {
+            if (wd.query_exists ()) {
+                update_ui_after_project_load ();
+            } else {
+                // 文件夹已被删除/移动: 保留工作目录元数据但清空目录树
+                update_subtitle (wd.get_path () + "  (" + _("Folder does not exist") + ")");
+                root_store.remove_all ();
+                search_entry.visible = false;
+                refresh_list ();
+                update_undo_redo_buttons ();
+                update_workdir_dependent_buttons ();
             }
-        } catch (Error e) {
-            debug ("Failed to delete recovery file: %s", e.message);
+        } else {
+            update_title ();
+            refresh_list ();
+            update_workdir_dependent_buttons ();
         }
-    }
-
-    private void check_recovery_on_startup () {
-        var recovery_path = ConfigManager.get_recovery_file ();
-        var recovery_file = File.new_for_path (recovery_path);
-        if (!recovery_file.query_exists ()) return;
-
-        // 如果有未保存的项目文件，比较时间戳决定是否提示
-        if (project_file != null) {
-            try {
-                var recovery_info = recovery_file.query_info (FileAttribute.TIME_MODIFIED, FileQueryInfoFlags.NONE);
-                var project_info = File.new_for_path (project_file).query_info (FileAttribute.TIME_MODIFIED, FileQueryInfoFlags.NONE);
-                if (project_info.get_modification_time ().tv_sec >= recovery_info.get_modification_time ().tv_sec) {
-                    // 项目文件比恢复文件新，不需要恢复
-                    delete_recovery_file ();
-                    return;
-                }
-            } catch (Error e) {
-                // 无法比较，继续提示恢复
-            }
-        }
-
-        var dialog = new Adw.AlertDialog (
-            _("Unsaved Session Found"),
-            _("There are unsaved changes from the last session. Restore?")
-        );
-        dialog.add_response ("discard", _("Discard"));
-        dialog.add_response ("restore", _("Restore"));
-        dialog.set_response_appearance ("restore", Adw.ResponseAppearance.SUGGESTED);
-        dialog.set_default_response ("restore");
-        dialog.response.connect ((response) => {
-            if (response == "restore") {
-                try {
-                    File? wd;
-                    string? pf;
-                    bool ua;
-                    bool sh;
-                    var new_items = new Gee.ArrayList<ItemData> ();
-                    var new_checked = new Gee.HashSet<string> ();
-                    var new_dirs = new Gee.HashSet<string> ();
-                    var new_phrases = new Gee.ArrayList<string> ();
-
-                    ProjectManager.load_project_file (
-                        recovery_path, new_items, new_checked, new_dirs, new_phrases,
-                        out wd, out pf, out ua, out sh
-                    );
-
-                    app_state.replace_from (wd, ua, sh, new_items, new_checked, new_dirs, new_phrases);
-                    undo_manager.clear ();
-                    // 复原工作区文件夹位置: 重建目录树、加载子项、展开根节点
-                    if (wd != null) {
-                        if (wd.query_exists ()) {
-                            update_ui_after_project_load ();
-                        } else {
-                            // 文件夹已被删除/移动: 保留工作目录元数据但清空目录树
-                            update_subtitle (wd.get_path () + "  (" + _("Folder does not exist") + ")");
-                            root_store.remove_all ();
-                            search_entry.visible = false;
-                            refresh_list ();
-                            update_undo_redo_buttons ();
-                            update_workdir_dependent_buttons ();
-                        }
-                    } else {
-                        update_title ();
-                        refresh_list ();
-                        update_workdir_dependent_buttons ();
-                    }
-                    toast_overlay.add_toast (new Adw.Toast (_("Session restored successfully")));
-                } catch (Error e) {
-                    warning ("Recovery failed: %s", e.message);
-                    toast_overlay.add_toast (new Adw.Toast (_("Restore failed: ") + e.message));
-                }
-            }
-            delete_recovery_file ();
-            dialog.destroy ();
-        });
-        dialog.present (this);
+        toast_overlay.add_toast (new Adw.Toast (_("Session restored successfully")));
     }
 
     private void load_css () {
@@ -2022,175 +1924,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         vlm_queue.enqueue (item.file_path);
     }
 
-    private void setup_pane_sizes () {
-        outer_paned.notify["position"].connect (clamp_outer_paned_position);
-        outer_paned.notify["width"].connect (clamp_outer_paned_position);
-        inner_paned.notify["position"].connect (clamp_inner_paned_position);
-
-        GLib.Idle.add (() => {
-            if (app_state.window_closing) return Source.REMOVE;
-            measure_pane_minimums ();
-            update_window_min_size ();
-            clamp_outer_paned_position ();
-            clamp_inner_paned_position ();
-            return Source.REMOVE;
-        });
-    }
-
-    private const int PANED_SEP = 12;
-
-    private bool _clamping_inner_from_outer = false;
-    // 阻断 clamp_outer_paned_position 在修改 outer_paned.position 时
-    // 触发 notify["position"] 信号导致的递归调用
-    private bool _clamping_outer = false;
-
-    private int left_min_width = 0;
-    private int center_min_width = 0;
-    private int right_min_width = 0;
-
-    // 根据当前可见面板的最小宽度, 计算并设置 ai_paned 的最小宽度,
-    // 防止窗口缩小到导致面板内容被裁剪.
-    private void update_window_min_size () {
-        int min_w = 0;
-
-        // ai_paned 自身的 margin
-        min_w += ai_paned.get_margin_start () + ai_paned.get_margin_end ();
-
-        // AI 边栏 (可见时才计入)
-        if (ai_sidebar.visible) {
-            min_w += ai_sidebar.get_margin_start () + ai_sidebar.get_margin_end ();
-            min_w += 280; // ai_sidebar 的 width-request
-            min_w += PANED_SEP; // ai_paned 分隔条
-        }
-
-        // outer_paned margin
-        min_w += outer_paned.get_margin_start () + outer_paned.get_margin_end ();
-
-        // 左栏
-        var left_child = outer_paned.get_start_child ();
-        if (left_child != null) {
-            min_w += left_child.get_margin_start () + left_child.get_margin_end ();
-            min_w += left_min_width;
-            min_w += PANED_SEP; // outer_paned 分隔条
-        }
-
-        // inner_paned margin
-        min_w += inner_paned.get_margin_start () + inner_paned.get_margin_end ();
-
-        // 中栏
-        var center_child = inner_paned.get_start_child ();
-        if (center_child != null) {
-            min_w += center_child.get_margin_start () + center_child.get_margin_end ();
-            min_w += center_min_width;
-            min_w += PANED_SEP; // inner_paned 分隔条
-        }
-
-        // 右栏
-        var right_child = inner_paned.get_end_child ();
-        if (right_child != null) {
-            min_w += right_child.get_margin_start () + right_child.get_margin_end ();
-            min_w += right_min_width;
-        }
-
-        ai_paned.set_size_request (min_w, -1);
-    }
-
-    private void measure_pane_minimums () {
-        int min, nat;
-
-        var left_child = outer_paned.get_start_child ();
-        if (left_child != null) {
-            left_child.measure (Gtk.Orientation.HORIZONTAL, -1, out min, out nat, null, null);
-            left_min_width = int.max (min, 200);
-        }
-
-        var center_child = inner_paned.get_start_child ();
-        if (center_child != null) {
-            center_child.measure (Gtk.Orientation.HORIZONTAL, -1, out min, out nat, null, null);
-            center_min_width = int.max (min, 400);
-        }
-
-        var right_child = inner_paned.get_end_child ();
-        if (right_child != null) {
-            right_child.measure (Gtk.Orientation.HORIZONTAL, -1, out min, out nat, null, null);
-            right_min_width = int.max (min, 200);
-        }
-    }
-
-    private void clamp_outer_paned_position () {
-        if (_clamping_outer) return;
-        _clamping_outer = true;
-        var pw = outer_paned.get_width ();
-        if (pw <= 0) {
-            _clamping_outer = false;
-            return;
-        }
-        var pos = outer_paned.position;
-        var cw = pw - outer_paned.get_margin_start () - outer_paned.get_margin_end ();
-
-        // 子项 margin: measure() 返回的 min 不含 margin, 需额外计入
-        var left_child = outer_paned.get_start_child ();
-        int left_margin = (left_child != null)
-            ? left_child.get_margin_start () + left_child.get_margin_end () : 0;
-
-        var center_child = inner_paned.get_start_child ();
-        var right_child = inner_paned.get_end_child ();
-        int center_margin = (center_child != null)
-            ? center_child.get_margin_start () + center_child.get_margin_end () : 0;
-        int right_margin = (right_child != null)
-            ? right_child.get_margin_start () + right_child.get_margin_end () : 0;
-        int inner_margin = inner_paned.get_margin_start () + inner_paned.get_margin_end ();
-
-        var min_pos = left_min_width + left_margin;
-        // inner_paned 需要的最小宽度 = 自身 margin + 中栏(含margin) + 分隔条 + 右栏(含margin)
-        var inner_needed = inner_margin + center_margin + center_min_width
-            + PANED_SEP + right_margin + right_min_width;
-        var max_pos = int.max (min_pos, cw - PANED_SEP - inner_needed);
-        if (pos < min_pos) {
-            outer_paned.position = min_pos;
-        } else if (pos > max_pos) {
-            outer_paned.position = max_pos;
-        }
-
-        // 同步 clamp inner_paned
-        var inner_width = cw - PANED_SEP - outer_paned.position;
-        var icw = inner_width - inner_paned.get_margin_start () - inner_paned.get_margin_end ();
-        var ipos = inner_paned.position;
-        var imin = center_min_width + center_margin;
-        var imax = int.max (imin, icw - PANED_SEP - right_min_width - right_margin);
-        _clamping_inner_from_outer = true;
-        if (ipos < imin) {
-            inner_paned.position = imin;
-        } else if (ipos > imax) {
-            inner_paned.position = imax;
-        }
-        _clamping_inner_from_outer = false;
-        _clamping_outer = false;
-    }
-
-    private void clamp_inner_paned_position () {
-        if (_clamping_inner_from_outer) return;
-        var pw = inner_paned.get_width ();
-        if (pw <= 0) return;
-        var pos = inner_paned.position;
-        var cw = pw - inner_paned.get_margin_start () - inner_paned.get_margin_end ();
-
-        var center_child = inner_paned.get_start_child ();
-        var right_child = inner_paned.get_end_child ();
-        int center_margin = (center_child != null)
-            ? center_child.get_margin_start () + center_child.get_margin_end () : 0;
-        int right_margin = (right_child != null)
-            ? right_child.get_margin_start () + right_child.get_margin_end () : 0;
-
-        var min_pos = center_min_width + center_margin;
-        var max_pos = int.max (min_pos, cw - PANED_SEP - right_min_width - right_margin);
-        if (pos < min_pos) {
-            inner_paned.position = min_pos;
-        } else if (pos > max_pos) {
-            inner_paned.position = max_pos;
-        }
-    }
-
     // ─── Keyboard Shortcuts ───────────────────────────────────────────────
 
     private void setup_shortcuts () {
@@ -2934,7 +2667,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         items.insert (to, it);
 
         push_undo_delta (new UndoDelta.for_move (from, to));
-        // items_changed 同时驱动 refresh_list (差分同步视图) 与 schedule_auto_save (落盘),
+        // items_changed 同时驱动 refresh_list (差分同步视图) 与 recovery_manager.schedule (落盘),
         // 比 on_move_up/down 仅 refresh_list 更完整地自动保存新顺序.
         app_state.items_changed ();
         select_queue_row (to);
@@ -4579,7 +4312,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         apply_ai_settings_to_panel ();
 
         // 更新窗口最小宽度 (AI 边栏可见时需要更大)
-        update_window_min_size ();
+        pane_layout_manager.update_min_size ();
 
         // 展开 AI 侧边栏时自动加宽窗口, 防止现有栏被挤出画面
         expand_window_for_ai ();
@@ -4625,7 +4358,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         ai_panel_visible = false;
         ai_sidebar.visible = false;
         // 更新窗口最小宽度 (AI 边栏隐藏后可以更小)
-        update_window_min_size ();
+        pane_layout_manager.update_min_size ();
 
         // 恢复 AI 面板展开前的窗口宽度
         if (pre_ai_width > 0) {
