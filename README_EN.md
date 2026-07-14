@@ -34,6 +34,7 @@ For the usage process and tips of the graphical interface, please refer to the [
 - **Global Content Search**: `Ctrl+Shift+F` opens a search dialog with async background scanning, encoding auto-detection, result highlighting, and one-click addition of matched files to the orchestration list
 - **Scene-based Prompt Templates**: Built-in templates for Bug analysis, API documentation, and code refactoring. Use `/t <id>` slash commands to insert structured placeholders and drive AI execution in one step
 - **AI Reading Guide Generation**: One-click AI analysis of the orchestration list to generate a structured table of contents and reading guide
+- **Drag-to-reorder**: Each row in the orchestration list has a drag handle on the right; press and hold to reorder
 
 > **Tip**: This repository now supports Windows and macOS (Apple Silicon), but there may be compatibility issues. For an alternative Flet-based cross-platform implementation, see the [Flet version repository](https://github.com/Sam-Fic/filecollector-flet).
 
