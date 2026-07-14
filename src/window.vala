@@ -484,11 +484,15 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             });
             box.add_controller (right_click);
 
-            // 左键单击: 配合 MultiSelection, selection_changed 信号会自动处理预览更新
+            // 左键单击: 配合 MultiSelection, selection_changed 信号会自动处理预览更新.
+            // 但点击"已选中的同一项"不会触发 selection_changed, 故此处主动重跑预览,
+            // 保证每次点击都重新加载 (并回到顶部、重算内容长度, 避免残留滚动空白).
             var left_click = new Gtk.GestureClick ();
             left_click.set_button (Gdk.BUTTON_PRIMARY);
             left_click.pressed.connect ((n_press, gx, gy) => {
                 clear_tree_selection ();
+                var data = list_item.get_item () as ItemData;
+                if (data != null) update_preview (data);
             });
             box.add_controller (left_click);
 
@@ -1816,6 +1820,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (syntax_manager != null) {
             syntax_manager.apply_with_highlight (text, file_path);
         }
+        // 滚动归零与自动滚动复位统一在 update_preview() 入口处理 (代码与 Markdown
+        // 预览共用), 此处仅负责 GtkSourceView 的内容渲染.
     }
 
     private void apply_preview_no_highlight (string text) {
@@ -2915,6 +2921,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void update_preview (ItemData item) {
         cancel_preview_loading ();
+        // 切换预览项时先把滚动区归零到顶部: 代码与 Markdown 预览都经此入口,
+        // 统一重置后可避免沿用上一文件 (尤其长文件) 的滚动位置, 使短文件停在空白区.
+        preview_scrolled.get_vadjustment ().set_value (0);
+        preview_auto_scroll = false;
         bool show_action_bar = false;
         current_preview_item = item;
 
@@ -3060,7 +3070,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         preview_fully_loaded = false;
         preview_loading = false;
         preview_current_path = item.file_path;
-        preview_auto_scroll = true;
+        // 切换文件时预览停在顶部 (不再自动跟随加载到底), 由下方 set_show_line_numbers
+        // 与 apply_preview_with_highlight 内的滚动归零共同保证回到开头、无残留空白.
+        preview_auto_scroll = false;
 
         try {
             preview_fis = File.new_for_path (item.file_path).read ();
@@ -3179,11 +3191,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         Gtk.TextIter end_iter;
         buffer.get_end_iter (out end_iter);
         buffer.insert (ref end_iter, text, -1);
-
-        if (preview_auto_scroll) {
-            var adj = preview_scrolled.get_vadjustment ();
-            adj.set_value (adj.get_upper () - adj.get_page_size ());
-        }
+        // 不在此处自动滚动: 切换文件时已通过 apply_preview_with_highlight 归零到顶部,
+        // 增量加载时保持当前视口 (顶部), 由用户自行滚动, 避免短文件停在空白区.
     }
 
     // 按 1-based 行号范围从文本中提取对应行
