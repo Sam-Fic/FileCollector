@@ -23,19 +23,22 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
-    <release version="4.6.0" date="2026-07-09">
+    <release version="4.6.0" date="2026-07-14">
       <description>
         <p>新特性与修复：</p>
         <ul>
-          <li>目录忽略功能：扫描时支持按配置的忽略目录过滤，忽略设置移至上下文页面统一管理</li>
-          <li>全局搜索优化：搜索对话框新增空状态与引导页面，采用 Adw.ExpanderRow 重构展开交互</li>
-          <li>快捷键窗口：迁移至 Adw.ShortcutsDialog，并提升 libadwaita 依赖至 1.8</li>
-          <li>Flatpak 环境修复：新增 git_executable 探测逻辑，正确访问宿主机 git 命令</li>
-          <li>目录状态引擎：重构自底向上状态刷新与统计收集，引入基于目录维度的并发操作令牌机制</li>
-          <li>样式体系升级：引入 CSS 变量管理圆角与描边规范，提升 GTK 版本要求至 4.16</li>
-          <li>布局优化：简化面板布局结构、统一输入框样式、调整面板间距与分割条交互</li>
-          <li>AI 设置重构：整合 AI 设置至统一偏好设置界面，完善英文翻译与多语言支持</li>
-          <li>修复：修正搜索结果展开箭头颜色、按钮图标名称错误等多个样式与交互问题</li>
+          <li>跨平台密钥环：新增跨平台密钥环抽象层 secret_store，Windows 平台支持 DPAPI 加密存储 API key</li>
+          <li>平台抽象层：新增 platform 工具层，收敛 Linux 硬编码，支持跨平台构建与运行时路径适配</li>
+          <li>应用 ID 迁移：将应用 ID 从 com.github.samfic 迁移至 io.github.sam_fic</li>
+          <li>队列拖拽重排：支持队列项拖拽重排，自定义圆角落点指示线，修复拖拽落点盲区与指示线不一致问题</li>
+          <li>预览稳定性：引入代际令牌机制避免过期预览线程写入重复内容，后台线程改用局部文件流避免空断言崩溃</li>
+          <li>文件片段流式读取：文件片段模式改为逐行流式读取，避免大文件 OOM</li>
+          <li>持久化安全：持久化文件改为原子写入，防止崩溃时损坏项目文件</li>
+          <li>国际化重构：翻转 i18n 方向，源码 msgid 改为英文，meson i18n 配置迁移至 po/ 目录</li>
+          <li>偏好设置重构：重构偏好设置页面结构，将语言设置整合至外观页面</li>
+          <li>代码重构：抽离快捷键 UI 构建逻辑至 ShortcutsHelper、Git 提交历史面板为独立组件、窗口恢复与面板布局职责剥离至独立管理器</li>
+          <li>UI 修复：修复空对象信号连接与预览区断言告警、JSON 解析空值校验避免运行时崩溃、片段行区间填反时自动交换并提示</li>
+          <li>构建优化：放宽 gtk4/libadwaita 版本约束以兼容 Ubuntu 24.04，优化 Windows 构建打包流程与 DLL 收集路径</li>
         </ul>
       </description>
     </release>
