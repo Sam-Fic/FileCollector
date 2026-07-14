@@ -504,4 +504,6 @@ The token estimation feature is inspired by the open-source project [tokenx](htt
 
 This project uses [cmark-gfm](https://github.com/github/cmark-gfm) (GitHub Flavored Markdown parser) to render Markdown in the AI chat bubbles and the reading guide.
 
+The syntax highlighting colors in the code preview are taken from the [Catppuccin](https://github.com/catppuccin/catppuccin) palette (Latte for light / Mocha for dark).
+
 > Contributions and ideas are welcome!

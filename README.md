@@ -504,4 +504,6 @@ Token 估算功能参考了开源项目 [tokenx](https://github.com/johannschopp
 
 本项目使用 [cmark-gfm](https://github.com/github/cmark-gfm)（GitHub Flavored Markdown 解析器）实现 AI 聊天气泡与阅读指南的 Markdown 渲染。
 
+代码预览区的语法高亮配色取自 [Catppuccin](https://github.com/catppuccin/catppuccin) 调色板（浅色 Latte / 深色 Mocha）。
+
 > 欢迎贡献想法或参与开发！
