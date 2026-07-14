@@ -100,6 +100,12 @@
     border-radius: var(--radius-lg);
 }
 
+/* 编排列表行内边距: 用 padding 而非 margin, 确保 DropTarget 覆盖整行 (含间距区),
+   消除行间盲区导致的落点与指示线不一致问题 */
+.queue-row-box {
+    padding: 6px 8px;
+}
+
 /* 拖拽手柄: 默认隐藏, 仅当所在行悬停/选中时淡入 (原生 GNOME 列表惯例),
    触发区域与整行灰色 hover 背景一致 */
 .queue-drag-handle {

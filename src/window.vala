@@ -417,10 +417,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             label.hexpand = true;
 
             var box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
-            box.margin_top = 6;
-            box.margin_bottom = 6;
-            box.margin_start = 8;
-            box.margin_end = 8;
+            // 用 CSS padding 而非 margin: padding 在 allocation 之内, DropTarget 可覆盖整行;
+            // margin 在 allocation 之外, 行间 margin 缝隙会成为 DropTarget 盲区 —— 落在缝隙
+            // 的 drop 会被 queue_list 上的 end_drop 捕获并错误地移到列表末尾, 与指示线不一致.
+            box.add_css_class ("queue-row-box");
             box.append (icon);
             box.append (label);
 
@@ -457,25 +457,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             // 拖拽结束时无论是否落在有效位置, 都清掉落点指示线
             drag.drag_end.connect (() => set_drop_indicator (null, false));
 
-            var drop = new Gtk.DropTarget (typeof (ItemData), Gdk.DragAction.MOVE);
-            // 拖动悬停在本行时, 在上/下半部画一条水平落点指示线 (替代 GTK 默认方角框)
-            drop.motion.connect ((s, dx, dy) => {
-                var row = box.get_parent () as Gtk.Widget;
-                bool drop_after = dy > box.get_height () / 2;
-                set_drop_indicator (row, drop_after);
-                return Gdk.DragAction.MOVE;
-            });
-            drop.drop.connect ((s, val, dx, dy) => {
-                var dragged = val.get_object () as ItemData;
-                if (dragged == null) return false;
-                set_drop_indicator (null, false);
-                int target_row = (int) list_item.get_position ();
-                // 指针在行上半部=插到该行之前, 下半部=之后
-                bool drop_after = dy > box.get_height () / 2;
-                reorder_queue_item (dragged, target_row, drop_after);
-                return true;
-            });
-            box.add_controller (drop);
+            // DropTarget 统一挂在 queue_list 上 (见 setup_queue_list 中的 list_drop),
+            // 不在每行 box 上单独挂, 避免行间缝隙导致 DropTarget 盲区.
 
             var right_click = new Gtk.GestureClick ();
             right_click.set_button (Gdk.BUTTON_SECONDARY);
@@ -521,6 +504,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
             var box = list_item.get_child () as Gtk.Box;
             if (box == null) return;
+
+            // 存储 ItemData 引用到 box 上, 供 list_drop 的 pick() 定位目标行
+            box.set_data<ItemData> ("queue-item", data);
 
             var icon = box.get_first_child () as Gtk.Image;
             if (icon == null) return;
@@ -613,25 +599,60 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             list_item.set_data ("cache_notify_id", null);
             list_item.set_data ("position_notify_id", null);
             list_item.set_data ("monitored_data_ptr", null);
+
+            // 清理 box 上的 ItemData 引用 (bind 时挂载, 供 list_drop pick 使用)
+            var unbind_box = list_item.get_child () as Gtk.Box;
+            if (unbind_box != null) {
+                unbind_box.set_data<ItemData> ("queue-item", null);
+            }
         });
 
         queue_list.model = queue_selection;
         queue_list.factory = factory;
 
-        // 列表末行以下的空白区落点: 目标取最后一行, drop_after=true 即"拖到末尾".
-        // 落在具体行上的 drop 由各行 box 的 DropTarget 先行消费.
-        var end_drop = new Gtk.DropTarget (typeof (ItemData), Gdk.DragAction.MOVE);
-        // 注意: 不在这里加 motion —— 否则拖拽时它会持续覆盖各行 box 的 motion 指示线,
-        // 导致横线永远停在最后一行. 行的跟随由各行 box 的 DropTarget.motion 负责;
-        // 此处的 drop 仅在真正落在列表末行以下空白区时触发 (落点=末尾).
-        end_drop.drop.connect ((s, val, x, y) => {
+        // 统一 DropTarget 挂在 queue_list 上: 覆盖整个列表区域, 无盲区.
+        // 之前的方案在每行 box 上各挂一个 DropTarget, 行间缝隙 (CSS 间距/回收重用)
+        // 会导致 DropTarget 事件丢失或落点错误. 统一 DropTarget 用 pick() 定位目标行.
+        var list_drop = new Gtk.DropTarget (typeof (ItemData), Gdk.DragAction.MOVE);
+        list_drop.motion.connect ((s, x, y) => {
+            var target_box = pick_row_box (x, y);
+            if (target_box == null) {
+                set_drop_indicator (null, false);
+            } else {
+                double rel_x, rel_y;
+                if (queue_list.translate_coordinates (target_box, x, y, out rel_x, out rel_y)) {
+                    bool drop_after = rel_y > target_box.get_height () / 2;
+                    set_drop_indicator (target_box.get_parent (), drop_after);
+                }
+            }
+            return Gdk.DragAction.MOVE;
+        });
+        list_drop.drop.connect ((s, val, x, y) => {
             var dragged = val.get_object () as ItemData;
             if (dragged == null) return false;
             set_drop_indicator (null, false);
-            reorder_queue_item (dragged, (int) queue_store.get_n_items () - 1, true);
+
+            var target_box = pick_row_box (x, y);
+            if (target_box == null) {
+                // 列表末行以下的空白区: 移到末尾
+                reorder_queue_item (dragged, (int) queue_store.get_n_items () - 1, true);
+                return true;
+            }
+
+            var target_data = target_box.get_data<ItemData> ("queue-item");
+            if (target_data == null) return true;
+
+            int target_row = find_item_index (target_data);
+            if (target_row < 0) return true;
+
+            double rel_x, rel_y;
+            if (queue_list.translate_coordinates (target_box, x, y, out rel_x, out rel_y)) {
+                bool drop_after = rel_y > target_box.get_height () / 2;
+                reorder_queue_item (dragged, target_row, drop_after);
+            }
             return true;
         });
-        queue_list.add_controller (end_drop);
+        queue_list.add_controller (list_drop);
 
         // 指示线覆盖层不拦截指针事件, 否则会挡在行上方吞掉该 2px 区域的拖拽/落点
         drop_indicator.can_target = false;
@@ -2694,6 +2715,61 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             drop_indicator.margin_top = (int) Math.round (oy) - 1;
             drop_indicator.visible = true;
         }
+    }
+
+    // 在 queue_list 坐标 (x, y) 处查找 queue-row-box.
+    // 先用 pick() 精确定位; 若 pick() 返回非行 widget (行间缝隙),
+    // 回退为遍历子 widget 找 y 坐标最近的行.
+    private Gtk.Box? pick_row_box (double x, double y) {
+        // 1. pick() 精确定位
+        var picked = queue_list.pick (x, y, Gtk.PickFlags.DEFAULT);
+        if (picked != null) {
+            var w = picked;
+            while (w != null && w != queue_list) {
+                var b = w as Gtk.Box;
+                if (b != null && b.has_css_class ("queue-row-box")) {
+                    return b;
+                }
+                w = w.get_parent ();
+            }
+        }
+
+        // 2. 回退: 遍历 queue_list 的直接子 widget (GtkListItemWidget),
+        //    找 y 坐标最近的行 (处理行间缝隙盲区)
+        Gtk.Box? best = null;
+        double best_dist = double.MAX;
+        var child = queue_list.get_first_child ();
+        while (child != null) {
+            double dummy_x = 0, top_y = 0;
+            if (child.translate_coordinates (queue_list, 0, 0, out dummy_x, out top_y)) {
+                double h = (double) child.get_height ();
+                double bottom_y = top_y + h;
+                double dist = (y < top_y) ? (top_y - y) : ((y > bottom_y) ? (y - bottom_y) : 0);
+                if (dist < best_dist) {
+                    var box = find_queue_row_box_in (child);
+                    if (box != null) {
+                        best = box;
+                        best_dist = dist;
+                    }
+                }
+            }
+            child = child.get_next_sibling ();
+        }
+        return best;
+    }
+
+    // 在 widget 子树中递归查找带 queue-row-box CSS 类的 Box
+    private Gtk.Box? find_queue_row_box_in (Gtk.Widget widget) {
+        if (widget is Gtk.Box && widget.has_css_class ("queue-row-box")) {
+            return widget as Gtk.Box;
+        }
+        var child = widget.get_first_child ();
+        while (child != null) {
+            var result = find_queue_row_box_in (child);
+            if (result != null) return result;
+            child = child.get_next_sibling ();
+        }
+        return null;
     }
 
     private void on_delete_item () {
