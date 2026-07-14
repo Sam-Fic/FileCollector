@@ -160,6 +160,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private bool preview_loading = false;
     private FileInputStream? preview_fis = null;
     private bool preview_auto_scroll = true;
+    // 当前正在拖拽的源项: drag.prepare 时记录, drag_end 时清空.
+    // 用于在 drop.motion 中跳过"悬停在源项自身"的落点指示线 (插到自身前/后等于没移动).
+    private ItemData? dragging_item = null;
     private const int64 PREVIEW_CHUNK_SIZE = 65536;
 
     // 预览代际令牌: 每次发起新的懒加载预览 (start_lazy_preview) 或取消加载
@@ -444,6 +447,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 // gx/gy 是相对拖拽源 grip 的坐标, 转换成相对 box 的偏移.
                 grip.translate_coordinates (box, gx, gy, out press_x, out press_y);
                 var data = list_item.get_item () as ItemData;
+                // 记录源项, 供 drop.motion 跳过"悬停在自身"的无效落点线
+                dragging_item = data;
                 // payload 携带 ItemData 引用, 落点处再按引用现算索引, 避免拖拽期间索引偏移
                 return data != null ? new Gdk.ContentProvider.for_value (data) : null;
             });
@@ -454,8 +459,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 Gtk.DragIcon.set_from_paintable (d, p, (int) press_x, (int) press_y);
             });
             grip.add_controller (drag);
-            // 拖拽结束时无论是否落在有效位置, 都清掉落点指示线
-            drag.drag_end.connect (() => set_drop_indicator (null, false));
+            // 拖拽结束时无论是否落在有效位置, 都清掉落点指示线并复位源项记录
+            drag.drag_end.connect (() => {
+                set_drop_indicator (null, false);
+                dragging_item = null;
+            });
 
             // DropTarget 统一挂在 queue_list 上 (见 setup_queue_list 中的 list_drop),
             // 不在每行 box 上单独挂, 避免行间缝隙导致 DropTarget 盲区.
@@ -623,9 +631,24 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (target_box == null) {
                 set_drop_indicator (null, false);
             } else {
+                var target_data = target_box.get_data<ItemData> ("queue-item");
                 double rel_x, rel_y;
-                if (queue_list.translate_coordinates (target_box, x, y, out rel_x, out rel_y)) {
-                    bool drop_after = rel_y > target_box.get_height () / 2;
+                bool have_rel = queue_list.translate_coordinates (target_box, x, y, out rel_x, out rel_y);
+                bool drop_after = have_rel && rel_y > target_box.get_height () / 2;
+                bool skip = false;
+                if (target_data != null && dragging_item != null) {
+                    int from = find_item_index (dragging_item);
+                    int t = find_item_index (target_data);
+                    if (from >= 0 && t >= 0) {
+                        // 插入位置 k: 落在 t 的上半区 = 插到 t 前(k=t), 下半区 = 插到 t 后(k=t+1)
+                        // 当 k == from 或 k == from+1 时, 等价于"插到源项自身的前/后"=没移动, 不显示指示线
+                        int k = drop_after ? t + 1 : t;
+                        if (k == from || k == from + 1) skip = true;
+                    }
+                }
+                if (skip) {
+                    set_drop_indicator (null, false);
+                } else {
                     set_drop_indicator (target_box.get_parent (), drop_after);
                 }
             }
@@ -646,14 +669,24 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             var target_data = target_box.get_data<ItemData> ("queue-item");
             if (target_data == null) return true;
 
+            double rel_x, rel_y;
+            bool have_rel = queue_list.translate_coordinates (target_box, x, y, out rel_x, out rel_y);
+            bool drop_after = have_rel && rel_y > target_box.get_height () / 2;
+
+            // 与 motion 一致的抑制逻辑: 插入位置 k == from 或 from+1 时为"原地移动", 忽略
+            if (dragging_item != null) {
+                int from = find_item_index (dragging_item);
+                int t = find_item_index (target_data);
+                if (from >= 0 && t >= 0) {
+                    int k = drop_after ? t + 1 : t;
+                    if (k == from || k == from + 1) return true;
+                }
+            }
+
             int target_row = find_item_index (target_data);
             if (target_row < 0) return true;
 
-            double rel_x, rel_y;
-            if (queue_list.translate_coordinates (target_box, x, y, out rel_x, out rel_y)) {
-                bool drop_after = rel_y > target_box.get_height () / 2;
-                reorder_queue_item (dragged, target_row, drop_after);
-            }
+            reorder_queue_item (dragged, target_row, drop_after);
             return true;
         });
         queue_list.add_controller (list_drop);
