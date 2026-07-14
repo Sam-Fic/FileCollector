@@ -200,14 +200,32 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                css-classes: ["panel-title"];
              }
 
-             // 队列列表区
-             ScrolledWindow {
-               vexpand: true;
-               margin-start: 12;
-               margin-end: 12;
-               margin-top: 0;
-               margin-bottom: 6;
-              ListView queue_list {
+            // 队列列表区 (包一层 Overlay, 落点指示线作为独立覆盖层, 位置精确落在
+            // 两行边界, 避免用行内 border/box-shadow 时 "在上方行下方" 与 "在下方行上方"
+            // 两条线位置错开 2px 的问题)
+            Overlay queue_overlay {
+              vexpand: true;
+
+              child: ScrolledWindow {
+                vexpand: true;
+                margin-start: 12;
+                margin-end: 12;
+                margin-top: 0;
+                margin-bottom: 6;
+                ListView queue_list {
+                }
+              };
+
+              [overlay]
+              Box drop_indicator {
+                css-classes: ["drop-indicator"];
+                height-request: 2;
+                halign: fill;
+                hexpand: true;
+                valign: start;
+                margin-start: 12;
+                margin-end: 12;
+                visible: false;
               }
             }
 

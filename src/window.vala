@@ -9,6 +9,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     [GtkChild] private unowned Gtk.ScrolledWindow dir_scrolled;
     [GtkChild] private unowned Gtk.ListView queue_list;
+    [GtkChild] private unowned Gtk.Overlay queue_overlay;
+    [GtkChild] private unowned Gtk.Box drop_indicator;
     [GtkChild] private unowned Gtk.Stack preview_stack;
     [GtkChild] private unowned Gtk.Box preview_markdown_box;
     [GtkChild] private unowned Gtk.Box preview_info_box;
@@ -69,6 +71,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private string search_text = "";
 
     private GLib.ListStore queue_store;
+
     private Gtk.MultiSelection queue_selection;
 
     // 防御: 在对 queue_store/queue_selection 进行突变 (splice/unselect/select)
@@ -529,6 +532,54 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             box.append (icon);
             box.append (label);
 
+            // 拖拽排序手柄: 仅手柄作为拖拽源, 与行内已有的左/右键点击手势互不干扰.
+            // 使用 Adwaita 原生的六点拖拽手柄图标 (list-drag-handle-symbolic), 而非
+            // "更多操作" 省略号, 以贴合 GNOME 列表的视觉惯例.
+            var grip = new Gtk.Image.from_icon_name ("list-drag-handle-symbolic");
+            grip.add_css_class ("dim-label");
+            grip.add_css_class ("queue-drag-handle");
+            grip.set_cursor (new Gdk.Cursor.from_name ("grab", null));
+            box.append (grip);
+
+            var drag = new Gtk.DragSource ();
+            drag.set_actions (Gdk.DragAction.MOVE);
+            drag.prepare.connect ((s, gx, gy) => {
+                // 模型正在突变 (删除/刷新) 时禁止发起拖拽, 避免拖拽中途数据错位
+                if (queue_update_depth > 0) return null;
+                var data = list_item.get_item () as ItemData;
+                // payload 携带 ItemData 引用, 落点处再按引用现算索引, 避免拖拽期间索引偏移
+                return data != null ? new Gdk.ContentProvider.for_value (data) : null;
+            });
+            // 自定义拖拽图标: 用行快照, 避免 GTK 默认拖拽图标渲染路径去拉取 emoji
+            // 彩色字体 (无 emoji 字体的环境下会刷 Pango "All font fallbacks failed").
+            drag.drag_begin.connect ((d) => {
+                var p = new Gtk.WidgetPaintable (box);
+                Gtk.DragIcon.set_from_paintable (d, p, box.get_width () / 2, box.get_height () / 2);
+            });
+            grip.add_controller (drag);
+            // 拖拽结束时无论是否落在有效位置, 都清掉落点指示线
+            drag.drag_end.connect (() => set_drop_indicator (null, false));
+
+            var drop = new Gtk.DropTarget (typeof (ItemData), Gdk.DragAction.MOVE);
+            // 拖动悬停在本行时, 在上/下半部画一条水平落点指示线 (替代 GTK 默认方角框)
+            drop.motion.connect ((s, dx, dy) => {
+                var row = box.get_parent () as Gtk.Widget;
+                bool drop_after = dy > box.get_height () / 2;
+                set_drop_indicator (row, drop_after);
+                return Gdk.DragAction.MOVE;
+            });
+            drop.drop.connect ((s, val, dx, dy) => {
+                var dragged = val.get_object () as ItemData;
+                if (dragged == null) return false;
+                set_drop_indicator (null, false);
+                int target_row = (int) list_item.get_position ();
+                // 指针在行上半部=插到该行之前, 下半部=之后
+                bool drop_after = dy > box.get_height () / 2;
+                reorder_queue_item (dragged, target_row, drop_after);
+                return true;
+            });
+            box.add_controller (drop);
+
             var right_click = new Gtk.GestureClick ();
             right_click.set_button (Gdk.BUTTON_SECONDARY);
             right_click.pressed.connect ((n_press, gx, gy) => {
@@ -669,6 +720,24 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         queue_list.model = queue_selection;
         queue_list.factory = factory;
+
+        // 列表末行以下的空白区落点: 目标取最后一行, drop_after=true 即"拖到末尾".
+        // 落在具体行上的 drop 由各行 box 的 DropTarget 先行消费.
+        var end_drop = new Gtk.DropTarget (typeof (ItemData), Gdk.DragAction.MOVE);
+        // 注意: 不在这里加 motion —— 否则拖拽时它会持续覆盖各行 box 的 motion 指示线,
+        // 导致横线永远停在最后一行. 行的跟随由各行 box 的 DropTarget.motion 负责;
+        // 此处的 drop 仅在真正落在列表末行以下空白区时触发 (落点=末尾).
+        end_drop.drop.connect ((s, val, x, y) => {
+            var dragged = val.get_object () as ItemData;
+            if (dragged == null) return false;
+            set_drop_indicator (null, false);
+            reorder_queue_item (dragged, (int) queue_store.get_n_items () - 1, true);
+            return true;
+        });
+        queue_list.add_controller (end_drop);
+
+        // 指示线覆盖层不拦截指针事件, 否则会挡在行上方吞掉该 2px 区域的拖拽/落点
+        drop_indicator.can_target = false;
     }
 
     // 渲染编排列表单行: 根据 item_type 计算 display_name 和 icon, 写入 label/icon
@@ -3298,6 +3367,50 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         push_undo_delta (new UndoDelta.for_swap (index, index + 1));
         refresh_list ();
         select_queue_row (index + 1);
+    }
+
+    // 拖拽重排: 把 dragged 项移动到 target_row 之前或之后.
+    // 索引约定与 UndoDelta.for_move(from, to) 一致 —— to 为元素移动后的"最终索引".
+    // apply_redo_delta 对 MOVE 的实现即 remove(from) 后 insert(to), 故此处 perform 步骤与之相同.
+    private void reorder_queue_item (ItemData dragged, int target_row, bool drop_after) {
+        if (dragged == null) return;
+        int from = find_item_index (dragged);
+        if (from < 0) return;
+
+        int to = target_row + (drop_after ? 1 : 0);
+        // 移除 from 后, 高位索引整体下移 1, 需补偿
+        if (to > from) to -= 1;
+        if (to < 0) to = 0;
+        if (to > items.size - 1) to = items.size - 1;
+        if (from == to) return;
+
+        var it = items.get (from);
+        items.remove_at (from);
+        items.insert (to, it);
+
+        push_undo_delta (new UndoDelta.for_move (from, to));
+        // items_changed 同时驱动 refresh_list (差分同步视图) 与 schedule_auto_save (落盘),
+        // 比 on_move_up/down 仅 refresh_list 更完整地自动保存新顺序.
+        app_state.items_changed ();
+        select_queue_row (to);
+    }
+
+    // 拖拽落点指示线: 用单独的覆盖层 (drop_indicator) 精确画在相邻两行的边界上.
+    // "悬停在上行下方" (after) 取本行底边, "悬停在下行上方" (before) 取本行顶边,
+    // 二者 translate 到覆盖层后是同一条 y, 故指示线位置完全一致; 且不改变任何行布局
+    // (覆盖层不参与列表排版), 列表不会因线出现而跳动. 替代 GTK 默认方角框.
+    private void set_drop_indicator (Gtk.Widget? row, bool after) {
+        if (row == null) {
+            drop_indicator.visible = false;
+            return;
+        }
+        // 边界点: after=本行底边, before=本行顶边
+        double boundary_y = after ? (double) row.get_allocated_height () : 0;
+        double ox, oy;
+        if (row.translate_coordinates (queue_overlay, 0, boundary_y, out ox, out oy)) {
+            drop_indicator.margin_top = (int) Math.round (oy) - 1;
+            drop_indicator.visible = true;
+        }
     }
 
     private void on_delete_item () {

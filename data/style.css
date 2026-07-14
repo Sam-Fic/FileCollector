@@ -70,6 +70,56 @@
     border-radius: var(--radius-lg);
 }
 
+/* 拖拽/按下/落点等状态下强制保持圆角: 这些状态 GTK 默认会叠一个方角高亮
+   (outline/box-shadow 不跟随 border-radius), 会把圆角选中态带成直角矩形.
+   这里统一锁圆角, 避免拖动时选中高亮变方角. "某些位置" 出现方角正是因为指针
+   移回被拖项自身所在行时该行进入 :drop(active) 触发默认方角落点框. */
+.card listview row:selected,
+.card listview row:active,
+.card listview row:drop(active) {
+    border-radius: var(--radius-lg);
+}
+
+/* 普通鼠标焦点去掉方角 outline; 键盘焦点 (:focus-visible) 改用圆角内阴影描边
+   (box-shadow 跟随 border-radius, 不会像 outline 那样画成方角矩形) 以保证可达性 */
+.card listview row:focus {
+    outline: none;
+}
+.card listview row:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px @accent_color;
+    border-radius: var(--radius-lg);
+}
+
+/* 拖动悬停到某行时, 去掉 GTK 默认的落点方角框 (drop highlight); 落点已有水平
+   指示线替代. 同时锁圆角, 防止默认框把行内容带成直角. */
+.card listview :drop(active) {
+    outline: none;
+    background: transparent;
+    box-shadow: none;
+    border-radius: var(--radius-lg);
+}
+
+/* 拖拽手柄: 默认隐藏, 仅当所在行悬停/选中时淡入 (原生 GNOME 列表惯例),
+   触发区域与整行灰色 hover 背景一致 */
+.queue-drag-handle {
+    opacity: 0;
+    transition: opacity 150ms ease;
+}
+row:hover .queue-drag-handle,
+row:selected .queue-drag-handle {
+    opacity: 0.5;
+}
+
+/* 拖拽落点水平指示线: 一条 2px 强调色直线, 由覆盖层 drop_indicator 画在相邻两行的
+   精确边界上 (位置由代码用 translate_coordinates 计算, 上行下方/下行上方指向同一 y),
+   不参与列表排版, 故不引起跳动, 且线永远是直的. 覆盖层本身设为不拦截事件. */
+.drop-indicator {
+    background-color: @accent_color;
+    border-radius: 0;
+    pointer-events: none;
+}
+
 .paned-no-handle {
     background: none;
 }
