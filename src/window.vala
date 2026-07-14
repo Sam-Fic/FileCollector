@@ -108,10 +108,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // 记录 AI 面板展开前的窗口宽度, 隐藏时恢复
     private int pre_ai_width = 0;
 
-    // 后台线程引用: 防止 Thread 对象被提前回收, 并在窗口关闭时 join 确保安全退出
-    private Gee.ArrayList<GLib.Thread<void*>> bg_threads = new Gee.ArrayList<GLib.Thread<void*>> ();
-    private bool window_closing = false;
-    private GLib.Cancellable? app_cancellable = new GLib.Cancellable ();
     // 操作令牌: 目录勾选等分批任务递增, 旧令牌任务在 Idle 中自行放弃, 防止上下文切换后仍修改旧列表
     private uint current_operation_token = 0;
     // 每个目录各自的最新令牌, 仅当同一目录有更新的操作时才放弃旧的 items 分批任务, 避免不同目录间的误取消
@@ -123,23 +119,17 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private ulong handler_path_abs;
     private ulong handler_path_rel;
     private ulong handler_header;
-    private GLib.ListStore git_commit_store;
 
-    // 空状态引导
+    // 空状态引导 (非 Git 模式)
     private Adw.StatusPage empty_page_widget;
-    private Adw.StatusPage git_empty_page_widget;
     private Gtk.Widget? saved_toolbar_content = null;
 
     // 目录加载进度条
     private Gtk.Revealer dir_load_revealer;
     private Gtk.ProgressBar dir_load_progress;
     private Gtk.Label dir_load_label;
-    private Gtk.MultiSelection git_selection;
-    private Gee.ArrayList<GitCommit> git_commits;
-    private string git_search_text = "";
-    private bool git_loading = false;
-    private bool git_all_loaded = false;
-    private const int GIT_BATCH_SIZE = 100;
+
+    private GitHistoryPanel git_panel;
 
     // VLM 预处理队列
     private VLMQueueManager vlm_queue;
@@ -199,7 +189,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         setup_queue_list ();
         setup_tree_view ();
-        setup_git_view ();
+        init_git_panel ();
         setup_vlm_queue ();
         setup_preview_syntax ();
         setup_preview_signals ();
@@ -318,8 +308,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private bool on_close_request () {
-        if (app_cancellable != null) {
-            app_cancellable.cancel ();
+        if (app_state.app_cancellable != null) {
+            app_state.app_cancellable.cancel ();
         }
         cancel_preview_loading ();
         if (vlm_queue != null) {
@@ -332,7 +322,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // (保证 5s 延迟窗口内的状态变更也能落盘, 避免点关闭瞬间数据丢失)
         cancel_auto_save ();
         save_recovery_state ();
-        window_closing = true; // 必须在 save 之后置位, 否则 save 第一行会因 window_closing 早退
+        app_state.window_closing = true; // 必须在 save 之后置位, 否则 save 第一行会因 app_state.window_closing 早退
 
         // 编排列表非空 → 弹确认对话框, 避免用户误关丢失未保存内容
         if (items.size > 0) {
@@ -360,14 +350,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
 
         // 编排列表为空: save_recovery_state 内部已经自动删除恢复文件, 直接放行
-        bg_threads.clear ();
+        app_state.bg_threads.clear ();
         return false;
     }
 
     // ─── 自动保存 / 崩溃恢复 ─────────────────────────────────────────────
 
     private void schedule_auto_save () {
-        if (window_closing) return;
+        if (app_state.window_closing) return;
         cancel_auto_save ();
         auto_save_timeout_id = GLib.Timeout.add (AUTO_SAVE_DELAY_MS, () => {
             auto_save_timeout_id = 0;
@@ -384,7 +374,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void save_recovery_state () {
-        if (window_closing) return;
+        if (app_state.window_closing) return;
         if (items.size == 0 && work_dir == null) {
             // 空状态不需要恢复
             delete_recovery_file ();
@@ -1137,16 +1127,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     var dir_paths = new Gee.ArrayList<string> ();
                     collect_files_from_filesystem (dir_path, file_paths, dir_paths);
                     Idle.add (() => {
-                        if (window_closing) {
+                        if (app_state.window_closing) {
                             return Source.REMOVE;
                         }
                         apply_dir_check_result (new_checked, dir_paths, file_paths);
-                        if (thread != null) bg_threads.remove (thread);
+                        if (thread != null) app_state.bg_threads.remove (thread);
                         return Source.REMOVE;
                     });
                     return null;
                 });
-                bg_threads.add (thread);
+                app_state.bg_threads.add (thread);
             } catch (ThreadError e) {
                 warning ("Failed to create collect-files thread: %s", e.message);
                 // 后备: 同步执行
@@ -1212,7 +1202,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         int chunk_size = 200;
         int idx = 0;
         Idle.add (() => {
-            if (window_closing) return Source.REMOVE;
+            if (app_state.window_closing) return Source.REMOVE;
             if (op_dir != "" && dir_operation_tokens.has_key (op_dir) && dir_operation_tokens.get (op_dir) != my_token) return Source.REMOVE;
             int count = 0;
             while (idx < file_paths.size && count < chunk_size) {
@@ -1234,7 +1224,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (idx < file_paths.size) {
                 return Source.CONTINUE;
             }
-            if (!window_closing && (op_dir == "" || !dir_operation_tokens.has_key (op_dir) || dir_operation_tokens.get (op_dir) == my_token)) {
+            if (!app_state.window_closing && (op_dir == "" || !dir_operation_tokens.has_key (op_dir) || dir_operation_tokens.get (op_dir) == my_token)) {
                 refresh_list ();
             }
             return Source.REMOVE;
@@ -1243,7 +1233,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // 从文件系统递归收集目录下所有文件路径和子目录路径
     private void collect_files_from_filesystem (string dir_path, Gee.ArrayList<string> out_files, Gee.ArrayList<string> out_dirs) {
-        if (app_cancellable != null && app_cancellable.is_cancelled ()) return;
+        if (app_state.app_cancellable != null && app_state.app_cancellable.is_cancelled ()) return;
         out_dirs.add (dir_path);
         var dir = File.new_for_path (dir_path);
         string[] ignored_dirs = ConfigManager.get_ignored_dirs ();
@@ -1254,7 +1244,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             );
             FileInfo info;
             while ((info = enumerator.next_file ()) != null) {
-                if (app_cancellable != null && app_cancellable.is_cancelled ()) return;
+                if (app_state.app_cancellable != null && app_state.app_cancellable.is_cancelled ()) return;
                 string child_name = info.get_name ();
                 if (child_name == ".filecollector_cache") continue;
                 if (child_name in ignored_dirs) continue;
@@ -1626,9 +1616,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         empty_btn.clicked.connect (() => on_open_folder_clicked.begin ());
         empty_page_widget.child = empty_btn;
 
-        git_empty_page_widget = new Adw.StatusPage ();
-        git_empty_page_widget.icon_name = "xsi-git-symbolic";
-
         update_empty_state ();
     }
 
@@ -1640,7 +1627,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             toolbar_view = main_overlay.child as Adw.ToolbarView;
         }
 
-        bool show_empty = (work_dir == null) || (is_git_mode && !git_data_available ());
+        bool show_empty = (work_dir == null) || (is_git_mode && !git_panel.has_data ());
         bool no_workdir = (work_dir == null);
 
         if (show_empty) {
@@ -1648,8 +1635,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (toolbar_view != null && saved_toolbar_content == null && toolbar_view.content != null) {
                 saved_toolbar_content = toolbar_view.content;
                 if (is_git_mode) {
-                    configure_git_empty_page ();
-                    toolbar_view.content = git_empty_page_widget;
+                    git_panel.configure_empty_page ();
+                    toolbar_view.content = git_panel.empty_page_widget;
                 } else {
                     toolbar_view.content = empty_page_widget;
                 }
@@ -1678,25 +1665,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             btn_global_search.visible = true;
             btn_undo.visible = true;
             btn_redo.visible = true;
-        }
-    }
-
-    private bool git_data_available () {
-        if (work_dir == null) return false;
-        if (!GitService.is_git_repo (work_dir.get_path ())) return false;
-        if (git_commits.size > 0) return true;
-        if (!git_all_loaded) return true;
-        return false;
-    }
-
-    private void configure_git_empty_page () {
-        if (work_dir == null) return;
-        if (!GitService.is_git_repo (work_dir.get_path ())) {
-            git_empty_page_widget.title = _("No Git Repository Detected");
-            git_empty_page_widget.description = _("The current working directory is not a Git repository, so commit history cannot be read. Run git init there, or open the app in a working directory that contains a repository.");
-        } else {
-            git_empty_page_widget.title = _("No Commits Yet");
-            git_empty_page_widget.description = _("The current Git repository has no commits yet. The commit history will appear here after the first git commit.");
         }
     }
 
@@ -1801,18 +1769,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // ─── Git 模式 ────────────────────────────────────────────────────────
 
-    private void setup_git_view () {
-        git_commits = new Gee.ArrayList<GitCommit> ();
-        git_commit_store = new GLib.ListStore (typeof (GitCommit));
-        git_selection = new Gtk.MultiSelection (git_commit_store);
-
-        var factory = new Gtk.SignalListItemFactory ();
-        factory.setup.connect (setup_git_list_item);
-        factory.bind.connect (bind_git_list_item);
-        git_list_view.model = git_selection;
-        git_list_view.factory = factory;
-
-        // Register stack pages by name
+    private void init_git_panel () {
+        // 注册 left / action stack 页面名 (原 setup_git_view 的窗口布局部分)
         left_stack.get_page (tree_page).set_name ("tree_page");
         left_stack.get_page (git_page).set_name ("git_page");
         action_stack.get_page (normal_actions).set_name ("normal_actions");
@@ -1820,14 +1778,34 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         left_stack.visible_child = tree_page;
         action_stack.visible_child = normal_actions;
 
-        // Git 列表滚动到底部时自动加载更多
-        git_scrolled.edge_reached.connect ((pos) => {
-            if (pos == Gtk.PositionType.BOTTOM && !git_loading && !git_all_loaded) {
-                load_more_git_history ();
-            }
-        });
+        setup_dir_load_ui ();
 
-        // 目录加载进度条 (添加到 left_stack 的父容器)
+        git_panel = new GitHistoryPanel (
+            this, app_state,
+            git_page, git_list_view, git_scrolled, git_search_entry, git_actions,
+            btn_git_add_all_changed, btn_git_export_working_diff, btn_git_export_commit_diff,
+            btn_git_delete, btn_git_clear,
+            preview_view, preview_stack, btn_retry_preprocess
+        );
+        git_panel.refresh_list_requested.connect (refresh_list);
+        git_panel.undo_snapshot_requested.connect (() => push_undo_state ());
+        git_panel.preprocess_item_requested.connect ((path) => {
+            var it = find_item_by_path (path);
+            if (it != null) enqueue_item_for_preprocess (it);
+        });
+        git_panel.toast.connect ((msg) => show_toast (msg));
+        git_panel.error.connect ((title, msg) => show_error (title, msg));
+        git_panel.empty_state_changed.connect (update_empty_state);
+        git_panel.refresh_tree_states_requested.connect (refresh_all_tree_states);
+        git_panel.delete_requested.connect (on_delete_item);
+        git_panel.clear_requested.connect (on_clear_items_with_confirm);
+
+        btn_toggle_git.clicked.connect (on_toggle_git_mode);
+        btn_global_search.clicked.connect (on_global_search);
+    }
+
+    // 目录加载进度条 (原 setup_git_view 中构建, 属目录树, 待任务 #8 迁入 DirectoryController)
+    private void setup_dir_load_ui () {
         dir_load_label = new Gtk.Label (null);
         dir_load_label.xalign = 0;
         dir_load_label.add_css_class ("dim-label");
@@ -1852,136 +1830,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (parent_box != null) {
             parent_box.append (dir_load_revealer);
         }
-
-        btn_toggle_git.clicked.connect (on_toggle_git_mode);
-        btn_global_search.clicked.connect (on_global_search);
-        git_search_entry.search_changed.connect (on_git_search_changed);
-
-        btn_git_add_all_changed.clicked.connect (on_git_add_all_changed);
-        btn_git_export_working_diff.clicked.connect (on_git_export_working_diff);
-        btn_git_export_commit_diff.clicked.connect (on_git_export_commit_diff);
-        btn_git_delete.clicked.connect (on_delete_item);
-        btn_git_clear.clicked.connect (on_clear_items_with_confirm);
-
-        git_selection.selection_changed.connect (on_git_selection_changed);
-    }
-
-    private void setup_git_list_item (GLib.Object obj) {
-        var list_item = obj as Gtk.ListItem;
-
-        var hash_label = new Gtk.Label ("");
-        hash_label.add_css_class ("dim-label");
-        hash_label.xalign = 0;
-        hash_label.ellipsize = Pango.EllipsizeMode.END;
-        hash_label.width_chars = 8;
-
-        var msg_label = new Gtk.Label ("");
-        msg_label.xalign = 0;
-        msg_label.hexpand = true;
-        msg_label.ellipsize = Pango.EllipsizeMode.END;
-
-        var date_label = new Gtk.Label ("");
-        date_label.add_css_class ("dim-label");
-        date_label.add_css_class ("caption");
-        date_label.xalign = 1;
-
-        var box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
-        box.margin_top = 4;
-        box.margin_bottom = 4;
-        box.margin_start = 4;
-        box.margin_end = 4;
-        box.append (hash_label);
-        box.append (msg_label);
-        box.append (date_label);
-
-        // 右键菜单: 复制提交哈希
-        var right_click = new Gtk.GestureClick ();
-        right_click.set_button (Gdk.BUTTON_SECONDARY);
-        right_click.pressed.connect ((n_press, gx, gy) => {
-            var li = obj as Gtk.ListItem;
-            if (li == null) return;
-            var commit = li.get_item () as GitCommit;
-            if (commit == null) return;
-
-            var menu = new GLib.Menu ();
-            menu.append (_("Copy Short Hash"), "git.copy_short_hash");
-            menu.append (_("Copy Full Hash"), "git.copy_full_hash");
-            menu.append (_("Copy Commit Message"), "git.copy_message");
-
-            var actions = new GLib.SimpleActionGroup ();
-
-            var act_short = new GLib.SimpleAction ("copy_short_hash", null);
-            act_short.activate.connect (() => {
-                get_clipboard ().set_text (commit.short_hash);
-            });
-            actions.add_action (act_short);
-
-            var act_full = new GLib.SimpleAction ("copy_full_hash", null);
-            act_full.activate.connect (() => {
-                get_clipboard ().set_text (commit.hash);
-            });
-            actions.add_action (act_full);
-
-            var act_msg = new GLib.SimpleAction ("copy_message", null);
-            act_msg.activate.connect (() => {
-                get_clipboard ().set_text (commit.message);
-            });
-            actions.add_action (act_msg);
-
-            var popover = new Gtk.PopoverMenu.from_model (menu);
-            popover.set_has_arrow (false);
-            popover.set_parent (box);
-            popover.insert_action_group ("git", actions);
-            popover.add_css_class ("ctx-menu");
-            popover.set_halign (Gtk.Align.START);
-            popover.set_valign (Gtk.Align.START);
-            Gdk.Rectangle rect = { (int) gx, (int) gy, 1, 1 };
-            popover.set_pointing_to (rect);
-            popover.popup ();
-        });
-        box.add_controller (right_click);
-
-        // 左键点击: 强制刷新预览 (解决点击同一行不触发 selection_changed 的问题)
-        var left_click = new Gtk.GestureClick ();
-        left_click.set_button (Gdk.BUTTON_PRIMARY);
-        left_click.pressed.connect ((n_press, gx, gy) => {
-            // 延迟一帧, 等 SingleSelection 先更新选中项
-            Idle.add (() => {
-                refresh_git_preview ();
-                return Source.REMOVE;
-            });
-        });
-        box.add_controller (left_click);
-
-        list_item.set_child (box);
-    }
-
-    private void bind_git_list_item (GLib.Object obj) {
-        var list_item = obj as Gtk.ListItem;
-        if (list_item == null) return;
-
-        var commit = list_item.get_item () as GitCommit;
-        if (commit == null) return;
-
-        var box = list_item.get_child () as Gtk.Box;
-        if (box == null) return;
-
-        var hash_label = box.get_first_child () as Gtk.Label;
-        if (hash_label == null) return;
-
-        var msg_label = hash_label.get_next_sibling () as Gtk.Label;
-        if (msg_label == null) return;
-
-        var date_label = msg_label.get_next_sibling () as Gtk.Label;
-        if (date_label == null) return;
-
-        hash_label.set_text (commit.short_hash);
-        msg_label.set_text (commit.message);
-        date_label.set_text (commit.date);
     }
 
     private void on_toggle_git_mode () {
         is_git_mode = !is_git_mode;
+        git_panel.is_git_mode = is_git_mode;
 
         if (is_git_mode) {
             left_stack.visible_child_name = "git_page";
@@ -1989,16 +1842,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             btn_toggle_git.icon_name = "folder-symbolic";
             btn_toggle_git.tooltip_text = _("Switch to file tree");
             lbl_left_title.label = _("Git Commit History");
-            git_search_entry.visible = work_dir != null;
-            btn_git_add_all_changed.sensitive = work_dir != null;
-            btn_git_export_working_diff.sensitive = work_dir != null;
-            btn_git_export_commit_diff.sensitive = false;
-
-            if (work_dir != null && GitService.is_git_repo (work_dir.get_path ())) {
-                if (git_commits.size == 0 && !git_all_loaded) {
-                    load_git_history_async ();
-                }
-            }
+            git_panel.maybe_load_history ();
         } else {
             left_stack.visible_child_name = "tree_page";
             action_stack.visible_child_name = "normal_actions";
@@ -2007,304 +1851,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             lbl_left_title.label = _("File Browser");
         }
         update_empty_state ();
-    }
-
-    private void on_git_search_changed () {
-        git_search_text = git_search_entry.text;
-        refresh_git_list ();
-    }
-
-    private void refresh_git_list () {
-        git_commit_store.remove_all ();
-        foreach (var commit in git_commits) {
-            if (git_search_text != "" &&
-                !commit.message.down ().contains (git_search_text.down ()) &&
-                !commit.short_hash.down ().contains (git_search_text.down ())) {
-                continue;
-            }
-            git_commit_store.append (commit);
-        }
-    }
-
-    private void append_git_commits (Gee.ArrayList<GitCommit> new_commits) {
-        foreach (var commit in new_commits) {
-            git_commits.add (commit);
-            // 如果有搜索过滤, 只添加匹配的
-            if (git_search_text != "" &&
-                !commit.message.down ().contains (git_search_text.down ()) &&
-                !commit.short_hash.down ().contains (git_search_text.down ())) {
-                continue;
-            }
-            git_commit_store.append (commit);
-        }
-    }
-
-    private void load_git_history_async () {
-        if (work_dir == null) return;
-        git_commits.clear ();
-        git_commit_store.remove_all ();
-        git_all_loaded = false;
-        load_more_git_history ();
-    }
-
-    private void load_more_git_history () {
-        if (work_dir == null || git_loading || git_all_loaded) return;
-        git_loading = true;
-        string dir = work_dir.get_path ();
-        int skip = git_commits.size;
-
-        try {
-            GLib.Thread<void*>? thread = null;
-            thread = new Thread<void*> ("git-log", () => {
-                load_git_batch_in_thread (dir, skip, thread);
-                return null;
-            });
-            bg_threads.add (thread);
-        } catch (ThreadError e) {
-            git_loading = false;
-            warning ("Failed to create git-log thread: %s", e.message);
-        }
-    }
-
-    private void load_git_batch_in_thread (string dir, int skip, GLib.Thread<void*>? thread) {
-        string? error_msg = null;
-        Gee.ArrayList<GitCommit>? result = null;
-        try {
-            result = GitService.get_log_with_skip (dir, GIT_BATCH_SIZE, skip);
-        } catch (GLib.Error e) {
-            error_msg = e.message;
-        }
-
-        Idle.add (() => {
-            if (window_closing) return Source.REMOVE;
-            if (error_msg != null) {
-                string display_msg = error_msg;
-                if (display_msg.has_prefix ("Git error: ")) {
-                    display_msg = display_msg.substring (11);
-                }
-                if (display_msg.contains ("fatal:")) {
-                    display_msg = display_msg.replace ("fatal: ", "").replace ("fatal:", "");
-                }
-                display_msg = display_msg.strip ();
-                if (display_msg.char_count () > 60) {
-                    int byte_pos = display_msg.index_of_nth_char (57);
-                    display_msg = display_msg.substring (0, byte_pos) + "...";
-                }
-                show_toast (_("Failed to load Git log: %s").printf (display_msg));
-            } else if (result != null) {
-                if (result.size < GIT_BATCH_SIZE) {
-                    git_all_loaded = true;
-                }
-                append_git_commits (result);
-            }
-            git_loading = false;
-            if (is_git_mode) update_empty_state ();
-            if (thread != null) bg_threads.remove (thread);
-            return Source.REMOVE;
-        });
-    }
-
-    private void on_git_selection_changed (uint position, uint n_items) {
-        refresh_git_preview ();
-    }
-
-    private void refresh_git_preview () {
-        uint first_selected = Gtk.INVALID_LIST_POSITION;
-        uint n = git_commit_store.get_n_items ();
-        for (uint i = 0; i < n; i++) {
-            if (git_selection.is_selected (i)) {
-                first_selected = i;
-                break;
-            }
-        }
-
-        if (first_selected == Gtk.INVALID_LIST_POSITION || first_selected >= n) {
-            btn_git_export_commit_diff.sensitive = false;
-            return;
-        }
-
-        var commit = git_commit_store.get_item (first_selected) as GitCommit;
-        if (commit == null) {
-            btn_git_export_commit_diff.sensitive = false;
-            return;
-        }
-
-        btn_git_export_commit_diff.sensitive = true;
-        load_and_preview_commit_diff.begin (commit.hash);
-    }
-
-    private async void load_and_preview_commit_diff (string hash) {
-        if (work_dir == null) return;
-
-        btn_retry_preprocess.visible = false;
-        apply_preview_raw (_("Loading Diff..."));
-
-        string dir = work_dir.get_path ();
-        string diff_text = "";
-        try {
-            diff_text = GitService.get_commit_diff (dir, hash);
-        } catch (Error e) {
-            diff_text = "Error: " + e.message;
-        }
-
-        render_diff_to_preview (diff_text);
-    }
-
-    private void render_diff_to_preview (string diff_text) {
-        preview_stack.visible_child = preview_view;
-
-        var buffer = preview_view.get_buffer () as GtkSource.Buffer;
-        var lang_manager = GtkSource.LanguageManager.get_default ();
-        var diff_lang = lang_manager.guess_language (null, "text/x-diff");
-        buffer.set_language (diff_lang);
-        buffer.set_highlight_syntax (diff_lang != null);
-        preview_view.set_show_line_numbers (true);
-
-        // 插入文件名分隔标题 + 原始 diff 文本
-        var sb = new StringBuilder ();
-        string? last_file = null;
-        foreach (var line in diff_text.split ("\n")) {
-            if (line.has_prefix ("diff ")) {
-                string fname = extract_diff_filename (line);
-                if (fname != null && fname != last_file) {
-                    last_file = fname;
-                    sb.append ("\n━━━ ").append (fname).append (" ━━━\n");
-                }
-            }
-            sb.append (line).append ("\n");
-        }
-        buffer.set_text (sb.str, -1);
-    }
-
-    private static string? extract_diff_filename (string diff_line) {
-        // diff --git a/src/foo.vala b/src/foo.vala → src/foo.vala
-        int a_pos = diff_line.index_of (" a/");
-        int b_pos = diff_line.index_of (" b/");
-        if (b_pos > a_pos && a_pos >= 0) {
-            return diff_line.substring (b_pos + 3);
-        }
-        if (a_pos >= 0) {
-            string rest = diff_line.substring (a_pos + 3);
-            int space = rest.index_of (" ");
-            return space >= 0 ? rest.substring (0, space) : rest;
-        }
-        return null;
-    }
-
-    // 简单的预览文本设置 (无 Markdown)
-    private void apply_preview_raw (string text) {
-        apply_preview_no_highlight (text);
-    }
-
-    // ─── Git 中栏按钮操作 ────────────────────────────────────────────────
-
-    private void on_git_add_all_changed () {
-        if (work_dir == null) {
-            show_toast (_("Set working directory"));
-            return;
-        }
-
-        try {
-            string status = GitService.get_status (work_dir.get_path ());
-            if (status.strip ().length == 0) {
-                show_toast (_("No uncommitted changes in working tree"));
-                return;
-            }
-
-            var files_to_add = new Gee.ArrayList<string> ();
-            foreach (var line in status.split ("\n")) {
-                string trimmed = line.strip ();
-                if (trimmed.length < 4) continue;
-                // porcelain v1 format: XY <path>
-                string path_part = trimmed.substring (3).strip ();
-                // 处理 rename: "old -> new"
-                if (path_part.contains (" -> ")) {
-                    string[] ren = path_part.split (" -> ", 2);
-                    path_part = ren[1];
-                }
-                string abs = GLib.Path.build_filename (work_dir.get_path (), path_part);
-                if (FileUtils.test (abs, FileTest.EXISTS) && !FileUtils.test (abs, FileTest.IS_DIR)) {
-                    files_to_add.add (abs);
-                }
-            }
-
-            if (files_to_add.size == 0) {
-                show_toast (_("No files to add"));
-                return;
-            }
-
-            push_undo_state ();
-            int added = 0;
-            foreach (var path in files_to_add) {
-                if (!path_in_items (path)) {
-                    var new_item = new ItemData ("file", path, null, false);
-                    items.add (new_item);
-                    if (new_item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
-                        enqueue_item_for_preprocess (new_item);
-                    }
-                    if (!(path in check_model.checked_files)) {
-                        check_model.add_files ({ path });
-                    }
-                    added++;
-                }
-            }
-            refresh_all_tree_states ();
-            refresh_list ();
-        } catch (Error e) {
-            show_error (_("Git Error"), e.message);
-        }
-    }
-
-    private void on_git_export_working_diff () {
-        if (work_dir == null) {
-            show_toast (_("Set working directory"));
-            return;
-        }
-
-        try {
-            string diff = GitService.get_working_tree_diff (work_dir.get_path ());
-            if (diff.strip ().length == 0) {
-                show_toast (_("No uncommitted changes in working tree"));
-                return;
-            }
-            push_undo_state ();
-            string md_text = "# Git Working Tree Diff\n\n```diff\n%s\n```".printf (diff);
-            items.insert (0, new ItemData ("text", null, md_text, false));
-            refresh_list ();
-        } catch (Error e) {
-            show_error (_("Git Error"), e.message);
-        }
-    }
-
-    private void on_git_export_commit_diff () {
-        if (work_dir == null) return;
-
-        var selected_commits = new Gee.ArrayList<GitCommit> ();
-        uint n = git_commit_store.get_n_items ();
-        for (uint i = 0; i < n; i++) {
-            if (git_selection.is_selected (i)) {
-                var commit = git_commit_store.get_item (i) as GitCommit;
-                if (commit != null) {
-                    selected_commits.add (commit);
-                }
-            }
-        }
-
-        if (selected_commits.size == 0) return;
-
-        try {
-            push_undo_state ();
-            // git_commit_store 中索引 0 为最新提交；依次在位置 0 插入，最终列表为提交先后顺序（最旧在前）
-            foreach (var commit in selected_commits) {
-                string diff = GitService.get_commit_diff (work_dir.get_path (), commit.hash);
-                string md_text = "# Git Commit: %s (%s)\n\n```diff\n%s\n```".printf (
-                    commit.short_hash, commit.message, diff);
-                items.insert (0, new ItemData ("text", null, md_text, false));
-            }
-            refresh_list ();
-        } catch (Error e) {
-            show_error (_("Git Error"), e.message);
-        }
     }
 
     // ─── 语法高亮 ────────────────────────────────────────────────────────
@@ -2482,7 +2028,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         inner_paned.notify["position"].connect (clamp_inner_paned_position);
 
         GLib.Idle.add (() => {
-            if (window_closing) return Source.REMOVE;
+            if (app_state.window_closing) return Source.REMOVE;
             measure_pane_minimums ();
             update_window_min_size ();
             clamp_outer_paned_position ();
@@ -2739,6 +2285,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         return UIHelpers.path_in_items (items, path);
     }
 
+    private ItemData? find_item_by_path (string path) {
+        return UIHelpers.find_item_by_path (items, path);
+    }
+
     private async void on_open_folder_clicked () {
         var dialog = new Gtk.FileDialog ();
         dialog.title = _("Select Working Folder");
@@ -2746,7 +2296,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             var folder = yield dialog.select_folder (this, null);
             if (folder == null) return;
 
-            if (window_closing) return;
+            if (app_state.window_closing) return;
 
             this.work_dir = folder;
 
@@ -2771,14 +2321,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             }
 
             GLib.Idle.add (() => {
-                if (window_closing) return Source.REMOVE;
+                if (app_state.window_closing) return Source.REMOVE;
                 refresh_list ();
-                git_commits.clear ();
-                refresh_git_list ();
-                git_search_entry.visible = true;
-                if (is_git_mode) {
-                    load_git_history_async ();
-                }
+                git_panel.on_work_dir_changed ();
                 return Source.REMOVE;
             });
         } catch (Error e) {
@@ -2807,10 +2352,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void load_directory_children_lazy (DirectoryItem parent_item) {
         if (!parent_item.is_dir) return;
         if (parent_item.children_loading) return;
-        if (window_closing) return;
+        if (app_state.window_closing) return;
         parent_item.children_loading = true;
         string dir_path = parent_item.path;
-        var cancellable = app_cancellable;
+        var cancellable = app_state.app_cancellable;
         try {
             GLib.Thread<void*>? thread = null;
             thread = new Thread<void*> ("load-dir-children", () => {
@@ -2819,7 +2364,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 apply_directory_children_lazy (parent_item, entries, thread);
                 return null;
             });
-            bg_threads.add (thread);
+            app_state.bg_threads.add (thread);
         } catch (ThreadError e) {
             parent_item.children_loading = false;
             warning ("Failed to create load-dir-children thread: %s", e.message);
@@ -2848,7 +2393,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
 
         GLib.Idle.add (() => {
-            if (window_closing) {
+            if (app_state.window_closing) {
                 return GLib.Source.REMOVE;
             }
             if (parent == null || parent.children == null) {
@@ -2882,7 +2427,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             parent.children_loaded = true;
             refresh_all_tree_states ();
             dir_column_view.queue_draw ();
-            if (thread != null) bg_threads.remove (thread);
+            if (thread != null) app_state.bg_threads.remove (thread);
             return GLib.Source.REMOVE;
         });
     }
@@ -2957,7 +2502,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void schedule_ensure_path_retry (string abs_path, uint token) {
         GLib.Timeout.add (50, () => {
-            if (window_closing || token != ensure_path_token) {
+            if (app_state.window_closing || token != ensure_path_token) {
                 return Source.REMOVE;
             }
             ensure_path_loaded (abs_path);
@@ -3130,8 +2675,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         radio_absolute_path.sensitive = has_work_dir;
         check_write_header.sensitive = has_work_dir;
 
-        btn_git_add_all_changed.sensitive = has_work_dir;
-        btn_git_export_working_diff.sensitive = has_work_dir;
+        // Git 相关按钮的可用性由面板自行管理 (取决于工作目录与 Git 模式)
+        git_panel.refresh_sensitivity ();
         btn_toggle_git.sensitive = has_work_dir;
         btn_global_search.sensitive = has_work_dir;
 

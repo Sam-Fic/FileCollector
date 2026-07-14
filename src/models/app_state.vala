@@ -15,6 +15,12 @@ public class AppState : GLib.Object {
     public bool show_header { get; set; }
     public string? project_file { get; set; }
 
+    // 应用级生命周期 / 取消语义: 供窗口与各子控制器/面板 (Git 历史、目录树、预览) 共享.
+    // 原分散在 FileCollectorWindow 的 private 字段, 抽出子模块后为避免暴露窗口内部而下沉至此.
+    public Gee.ArrayList<GLib.Thread<void*>> bg_threads { get; private set; }
+    public bool window_closing { get; set; }
+    public GLib.Cancellable? app_cancellable { get; private set; }
+
     // AI 配置状态 (未来可进一步拆分，但目前与 AppState 生命周期一致)
     public string ai_mode { get; set; }
     public string ai_file_extension { get; set; }
@@ -28,6 +34,9 @@ public class AppState : GLib.Object {
         items = new Gee.ArrayList<ItemData> ();
         check_model = new CheckStateModel ();
         common_phrases = new Gee.ArrayList<string> ();
+        bg_threads = new Gee.ArrayList<GLib.Thread<void*>> ();
+        app_cancellable = new GLib.Cancellable ();
+        window_closing = false;
         ai_mode = "default";
         ai_file_extension = "";
         ai_file_label = _("File");

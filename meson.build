@@ -137,6 +137,7 @@ sources = files(
   'src/utils/glob_helper.vala',
   'src/utils/ui_helpers.vala',
   'src/widgets/ai_panel.vala',
+  'src/widgets/git_history_panel.vala',
   'src/widgets/ai_settings_dialog.vala',
   'src/widgets/context_menus.vala',
   'src/widgets/context_settings_dialog.vala',

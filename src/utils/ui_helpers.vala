@@ -173,6 +173,16 @@ namespace UIHelpers {
         return false;
     }
 
+    public static ItemData? find_item_by_path (Gee.ArrayList<ItemData> items, string path) {
+        for (int i = 0; i < items.size; i++) {
+            var item = items.get (i);
+            if (item.item_type == "file" && item.file_path == path) {
+                return item;
+            }
+        }
+        return null;
+    }
+
     public static void remove_items_by_path (Gee.ArrayList<ItemData> items, string path) {
         for (int i = items.size - 1; i >= 0; i--) {
             var item = items.get (i);
