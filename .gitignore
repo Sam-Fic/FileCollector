@@ -65,6 +65,10 @@ __pycache__/
 # Build logs
 *.log
 
+# Local GDB debug scripts and their logs
+*.gdb
+gdb_null.log
+
 # Translation editor backups
 *.po~
 *.pot~
