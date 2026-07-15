@@ -15,12 +15,19 @@ public class BinaryPreprocessor : GLib.Object {
     ) throws Error {
         from_cache = false;
 
-        // 1. Compute file hash
-        string hash = PreprocessCache.compute_file_hash (item.file_path);
-
-        // 2. Check cache
+        // 1. 先走轻量指纹 (size:mtime) 快速命中缓存, 避免对大文件 (PDF/图片) 计算 SHA256.
+        //    命中即返回, 未命中 (含旧版无 quick 字段的缓存) 再回退到完整 SHA256 路径.
+        string quick = PreprocessCache.compute_file_hash_fast (item.file_path);
         var cache = new PreprocessCache (work_dir_path);
-        string? cached = cache.get_cached_markdown (item.file_path, hash);
+        string? cached = cache.get_cached_markdown_quick (item.file_path, quick);
+        if (cached != null) {
+            from_cache = true;
+            return cached;
+        }
+
+        // 2. 完整哈希路径 (兼容既有磁盘缓存)
+        string hash = PreprocessCache.compute_file_hash (item.file_path);
+        cached = cache.get_cached_markdown (item.file_path, hash);
         if (cached != null) {
             from_cache = true;
             return cached;
@@ -82,8 +89,12 @@ public class BinaryPreprocessor : GLib.Object {
         ItemData item, string? work_dir_path
     ) throws Error {
         if (work_dir_path == null) return null;
-        string hash = PreprocessCache.compute_file_hash (item.file_path);
+        // 先轻量指纹命中, 未命中回退 SHA256 路径 (兼容旧缓存)
+        string quick = PreprocessCache.compute_file_hash_fast (item.file_path);
         var cache = new PreprocessCache (work_dir_path);
+        string? cached = cache.get_cached_markdown_quick (item.file_path, quick);
+        if (cached != null) return cached;
+        string hash = PreprocessCache.compute_file_hash (item.file_path);
         return cache.get_cached_markdown (item.file_path, hash);
     }
 

@@ -31,10 +31,17 @@ public class VLMTaskRunner : GLib.Object {
         string? cached_md = null;
         string hash = "";
         try {
-            hash = PreprocessCache.compute_file_hash (file_path);
+            // 先走轻量指纹 (size:mtime) 快速命中, 跳过对大文件计算 SHA256
+            string quick = PreprocessCache.compute_file_hash_fast (file_path);
             if (local_work_dir != null) {
                 var cache = new PreprocessCache (local_work_dir.get_path ());
-                cached_md = cache.get_cached_markdown (file_path, hash);
+                cached_md = cache.get_cached_markdown_quick (file_path, quick);
+                if (cached_md == null) {
+                    hash = PreprocessCache.compute_file_hash (file_path);
+                    cached_md = cache.get_cached_markdown (file_path, hash);
+                }
+            } else {
+                hash = PreprocessCache.compute_file_hash (file_path);
             }
         } catch (Error e) {
             warning ("Cache check failed: %s", e.message);
