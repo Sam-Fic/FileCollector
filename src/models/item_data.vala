@@ -40,14 +40,28 @@ public class ItemData : GLib.Object {
             force_absolute: force_abs,
             is_missing: missing
         );
-        // preprocessed_content 赋值时自动刷新 cached_tokens, 避免遗漏调用点导致估算为 0
-        notify["preprocessed-content"].connect (() => update_token_stats ());
-        update_token_stats ();
+            // preprocessed_content 赋值时自动刷新 cached_tokens, 避免遗漏调用点导致估算为 0.
+        // 估算改为合并到空闲回调: 批量赋值时 (如一次导入数百文件 / VLM 批量完成) 不会
+        // 每个文件都同步逐字符遍历, 而是在空闲时统一重算一次, 避免主线程被 token 估算阻塞.
+        notify["preprocessed-content"].connect (() => schedule_token_stats ());
+        schedule_token_stats ();
     }
 
+    // 立即重算 token (供显式刷新点调用, 如编辑确认 / 批量导入后)
     public void update_token_stats () {
         string text = get_effective_content ();
         cached_tokens = TokenEstimator.estimate_tokens_fast (text);
+    }
+
+    private uint token_stats_source = 0;
+    private void schedule_token_stats () {
+        if (token_stats_source != 0) return;
+        token_stats_source = GLib.Idle.add (() => {
+            token_stats_source = 0;
+            string text = get_effective_content ();
+            cached_tokens = TokenEstimator.estimate_tokens_fast (text);
+            return Source.REMOVE;
+        });
     }
 
     public string get_effective_content () {

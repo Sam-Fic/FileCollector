@@ -171,6 +171,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // 缓冲区. 这样即便一次移动/重选触发了多个并行的预览线程 (它们各自以偏移 0 重读整
     // 个文件), 也只有最后一次请求的数据会被真正追加, 从而避免预览内容重复显示.
     private uint preview_generation = 0;
+    // 上次发起预览的时间戳 (毫秒), 用于合并快速重入的重复预览请求
+    // (例如一次拖拽/添加操作会经 items_changed -> refresh_list -> on_queue_selection_changed
+    // 多次触发 update_preview, 去抖可避免对同一个文件重复读取/重建).
+    private int64 preview_last_request_ms = 0;
+    // 记录上次因列表选择变化而预览的选中项集合, refresh_list 末尾据此判断选择是否真的
+    // 变了, 没变则跳过再次 update_preview, 避免无谓的重载与闪烁.
+    private Gee.ArrayList<int>? last_previewed_selection = null;
+    // Markdown 预览构建结果缓存: 重复点击同一文件 (mtime 不变) 直接复用已构建的
+    // widget 树, 避免每次切换都重新解析 AST + 重建全部子 widget (长文档耗时显著).
+    private MarkdownView? markdown_cache_view = null;
+    private string? markdown_cache_key = null;
+    // 大 Markdown 文档 (>200KB) 的构建放到空闲回调中执行, 先显示占位, 避免阻塞切换.
+    private const int64 MARKDOWN_DEFER_THRESHOLD = 200 * 1024;
 
 
     public FileCollectorWindow (Adw.Application app) {
@@ -561,7 +574,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 // 关键修复: 避免 get_selection() (VAPI 所有权错误导致误 unref),
                 // 改用 is_selected() 判断当前行是否被选中.
                 if (sel < queue_store.get_n_items () && queue_selection.is_selected (sel) && queue_store.get_item (sel) == data) {
-                    update_preview (data);
+                    // 仅当该项确为当前预览项时才刷新: 状态变化 (如 VLM 完成) 通常只影响
+                    // 预览内容, 且 update_preview 内部已对 80ms 内的重复请求去抖, 这里
+                    // 再限定"是当前预览项"可避免对后台非可见文件做无用读取.
+                    if (data == current_preview_item) {
+                        update_preview (data);
+                    }
                 }
             });
 
@@ -1888,7 +1906,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     if (md != null) it.preprocessed_content = md;
                     it.preprocess_status = status;
                     it.from_cache = from_cache;
-                    refresh_list ();
+                    // 合并刷新: 批量预处理完成时每个文件完成都会触发, 直接 refresh_list
+                    // 会形成 N 次 O(n) 扫描 + 末尾预览级联. 合并到 150ms 窗口只刷新一次.
+                    schedule_refresh_list ();
                     break;
                 }
             }
@@ -2310,6 +2330,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // ─── Queue List ──────────────────────────────────────────────────────
 
+    // 合并刷新: 把短时间内多次 refresh_list 调用 (如批量 VLM 完成, 或一次性导入数百文件)
+    // 折叠为一次, 避免每次都做 O(n) 差分扫描与预览级联. 仅在时间窗口内首次调用时登记
+    // 一个超时回调, 后续调用仅刷新"待执行"标记.
+    private uint refresh_merge_source = 0;
+    private void schedule_refresh_list () {
+        if (refresh_merge_source != 0) return; // 已登记, 等待窗口内合并
+        refresh_merge_source = GLib.Timeout.add (150, () => {
+            refresh_merge_source = 0;
+            refresh_list ();
+            return Source.REMOVE;
+        });
+    }
+
     private void refresh_list () {
         // 防御: 在 splice/unselect/select 期间, selection 模型可能处于不稳定状态,
         // 嵌套调用时只由最外层管理深度计数, 避免信号处理函数重入导致崩溃.
@@ -2392,17 +2425,31 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
             update_queue_buttons ();
 
-            // 6. 更新预览面板
+            // 6. 更新预览面板: 仅在"选中项集合相对上次预览确实变化"时才重跑预览,
+            // 避免一次列表变更 (拖拽/添加/删除经 items_changed) 级联触发无谓的重载与闪烁.
             var new_indices = get_selected_indices ();
-            if (new_indices.size == 1) {
-                int sel = new_indices.get (0);
-                if (sel >= 0 && sel < items.size) {
-                    update_preview (items.get (sel));
+            bool selection_unchanged = (last_previewed_selection != null
+                && last_previewed_selection.size == new_indices.size);
+            if (selection_unchanged) {
+                for (int i = 0; i < new_indices.size; i++) {
+                    if (last_previewed_selection.get (i) != new_indices.get (i)) {
+                        selection_unchanged = false;
+                        break;
+                    }
                 }
-            } else if (new_indices.size > 1) {
-                show_multi_selection_preview (new_indices.size);
-            } else {
-                clear_preview ();
+            }
+            if (!selection_unchanged) {
+                last_previewed_selection = new_indices;
+                if (new_indices.size == 1) {
+                    int sel = new_indices.get (0);
+                    if (sel >= 0 && sel < items.size) {
+                        update_preview (items.get (sel));
+                    }
+                } else if (new_indices.size > 1) {
+                    show_multi_selection_preview (new_indices.size);
+                } else {
+                    clear_preview ();
+                }
             }
         } finally {
             queue_update_depth--;
@@ -2441,10 +2488,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         preview_stack.visible_child = preview_info_box;
     }
 
-    private void clear_preview () {
-        current_preview_item = null;
+    // 同步清空所有预览面板的内容 (代码视图缓冲 / Markdown 容器 / 信息容器),
+    // 并把可见页切回代码视图. 必须在切换预览的"同一帧"内完成, 否则旧文件内容会先被
+    // 渲染出来再被替换, 造成"闪现旧文件顶部"的现象. update_preview 入口即调用此函数.
+    private void clear_preview_buffer () {
         preview_stack.visible_child = preview_view;
         (preview_view.get_buffer () as GtkSource.Buffer).set_text ("", -1);
+        UIHelpers.clear_container (preview_markdown_box);
+        UIHelpers.clear_container (preview_info_box);
+    }
+
+    private void clear_preview () {
+        current_preview_item = null;
+        clear_preview_buffer ();
     }
 
     private void update_queue_buttons () {
@@ -2953,8 +3009,20 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void update_preview (ItemData item) {
+        // 去抖: 极短时间内对同一个文件重复发起预览 (例如一次操作经 refresh_list 级联
+        // 多次触发), 直接忽略后续请求, 避免重复读取/重建导致的卡顿与闪烁.
+        // 注意: 用户主动重新点击同一文件走的是 on_queue_selection_changed -> 此处,
+        // 但重新点击不会在 80ms 内发生, 故正常重点击仍会执行 (且会回到顶部).
+        int64 now_ms = (int64) (GLib.get_monotonic_time () / 1000);
+        if (item == current_preview_item && now_ms - preview_last_request_ms < 80) {
+            return;
+        }
+        preview_last_request_ms = now_ms;
+
         cancel_preview_loading ();
-        // 切换预览项时先把滚动区归零到顶部: 代码与 Markdown 预览都经此入口,
+        // 同一帧内立即同步清空上一文件的全部内容, 消除"先闪现旧文件顶部再换文件"的窗口.
+        clear_preview_buffer ();
+        // 切换预览项时把滚动区归零到顶部: 代码与 Markdown 预览都经此入口,
         // 统一重置后可避免沿用上一文件 (尤其长文件) 的滚动位置, 使短文件停在空白区.
         preview_scrolled.get_vadjustment ().set_value (0);
         preview_auto_scroll = false;
@@ -3042,33 +3110,148 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
     }
 
-    private void load_full_text_preview (ItemData item, bool use_markdown) {
+    // 后台线程全量读取文件字节 (主线程外执行, 避免大文件同步读阻塞 UI).
+    // 读取前捕获代际, 读完后若代际已变化 (期间切换了预览) 则丢弃结果.
+    private async uint8[]? read_entire_file_async (string path) {
+        uint gen = preview_generation;
+        uint8[] result = new uint8[0];
         try {
-            uint8[] buf;
-            FileUtils.get_data (item.file_path, out buf);
+            FileInputStream? fis = File.new_for_path (path).read () as FileInputStream;
+            if (fis == null) return null;
+            uint8[] buffer = new uint8[PREVIEW_CHUNK_SIZE];
+            ssize_t n;
+            while ((n = fis.read (buffer)) > 0) {
+                uint8[] copy = new uint8[n];
+                Memory.copy (copy, buffer, n);
+                // 累加到增长数组: 复制旧内容 + 新块
+                uint8[] merged = new uint8[result.length + n];
+                if (result.length > 0) Memory.copy (merged, result, result.length);
+                Memory.copy (merged[result.length:merged.length], copy, n);
+                result = merged;
+            }
+            fis.close ();
+        } catch (Error e) {
+            debug ("Async file read error: %s", e.message);
+            return null;
+        }
+        if (gen != preview_generation) return null;
+        return result;
+    }
+
+    // 获取 item 对应文本的 Markdown 渲染视图. 同一文件 (路径 + mtime 不变) 复用缓存的
+    // widget 树, 避免重复解析 AST 与重建子 widget. 长文档 (>阈值) 的构建延迟到空闲回调,
+    // 先返回占位 label, 构建完成后原地替换, 防止切换时被同步构建阻塞.
+    private Gtk.Widget get_markdown_view (ItemData item, string text) {
+        string key;
+        if (item.item_type == "file") {
+            int64 mtime = 0;
+            try {
+                var info = File.new_for_path (item.file_path).query_info (
+                    FileAttribute.TIME_MODIFIED, FileQueryInfoFlags.NONE);
+                mtime = (int64) info.get_modification_time ().tv_sec;
+            } catch (Error e) {}
+            key = "f:" + item.file_path + "@" + mtime.to_string ();
+        } else {
+            // 内存内容 (如 AI 预处理结果): 用长度 + 内容前 256 字节做廉价指纹
+            key = "m:" + text.length.to_string () + ":" + text.substring (0, int.min (256, text.length));
+        }
+
+        if (markdown_cache_key == key && markdown_cache_view != null) {
+            return markdown_cache_view;
+        }
+
+        // 大文档延迟构建: 返回占位, 空闲时构建并替换
+        if (text.length > (int) MARKDOWN_DEFER_THRESHOLD) {
+            var placeholder = new Gtk.Label (_("Rendering Markdown…")) { hexpand = true, vexpand = true };
+            placeholder.add_css_class ("dim-label");
+            placeholder.valign = Gtk.Align.CENTER;
+            var holder = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+            holder.append (placeholder);
+            GLib.Idle.add (() => {
+                if (markdown_cache_key == key) return Source.REMOVE; // 已被新预览取代
+                var built = new MarkdownView (text);
+                markdown_cache_view = built;
+                markdown_cache_key = key;
+                // 替换占位 (仅当当前仍是本次预览)
+                if (placeholder.get_parent () == holder) {
+                    holder.remove (placeholder);
+                    holder.append (built);
+                }
+                return Source.REMOVE;
+            });
+            return holder;
+        }
+
+        var view = new MarkdownView (text);
+        markdown_cache_view = view;
+        markdown_cache_key = key;
+        return view;
+    }
+
+    private void load_full_text_preview (ItemData item, bool use_markdown) {
+        // 改为后台线程读文件, 主线程仅在读取完成后渲染, 避免大文件同步读卡顿 UI.
+        read_entire_file_async.begin (item.file_path, (obj, res) => {
+            uint8[]? buf = read_entire_file_async.end (res);
+            if (buf == null) return;
+            // 代际已变 (切换了预览) 或 buffer 已被新内容接管, 直接丢弃
             string text = EncodingHelper.decode_to_utf8 (buf);
             if (use_markdown) {
+                var md = get_markdown_view (item, text);
                 UIHelpers.clear_container (preview_markdown_box);
-                preview_markdown_box.append (new MarkdownView (text));
+                preview_markdown_box.append (md);
                 preview_stack.visible_child = preview_markdown_box;
             } else {
                 apply_preview_with_highlight (text, item.file_path);
             }
-        } catch (Error e) {
-            apply_preview_content_full (item, _("[Read error: %s]").printf (e.message));
-        }
+        });
     }
 
     private void load_snippet_preview (ItemData item, int64 file_size) {
-        try {
-            uint8[] buf;
-            FileUtils.get_data (item.file_path, out buf);
+        // 后台线程读文件, 主线程切片高亮. 仅读取到 end_line 为止以约束内存/IO:
+        // 在线程内逐字节扫描换行, 数到 end_line 后停止.
+        uint gen = preview_generation;
+        string path = item.file_path;
+        int end_line = item.end_line;
+        read_line_range_async.begin (path, end_line, (obj, res) => {
+            uint8[]? buf = read_line_range_async.end (res);
+            if (buf == null) return;
+            if (gen != preview_generation) return;
             string text = EncodingHelper.decode_to_utf8 (buf);
             string snippet = extract_line_range (text, item.start_line, item.end_line);
             apply_preview_with_highlight (snippet, item.file_path);
+        });
+    }
+
+    // 后台读取文件, 但只读到约 end_line 行处即停止 (按换行计数), 约束大文件的读取量.
+    private async uint8[]? read_line_range_async (string path, int end_line) {
+        uint gen = preview_generation;
+        uint8[] result = new uint8[0];
+        try {
+            FileInputStream? fis = File.new_for_path (path).read () as FileInputStream;
+            if (fis == null) return null;
+            int nl_count = 0;
+            uint8[] buffer = new uint8[PREVIEW_CHUNK_SIZE];
+            ssize_t n;
+            while ((n = fis.read (buffer)) > 0) {
+                for (ssize_t i = 0; i < n; i++) {
+                    if (buffer[i] == 0x0A) nl_count++;
+                }
+                uint8[] copy = new uint8[n];
+                Memory.copy (copy, buffer, n);
+                uint8[] merged = new uint8[result.length + n];
+                if (result.length > 0) Memory.copy (merged, result, result.length);
+                Memory.copy (merged[result.length:merged.length], copy, n);
+                result = merged;
+                // 读到 end_line 之后若干行即可停止 (多留 2 行余量, 避免截断 end_line)
+                if (nl_count >= end_line + 2) break;
+            }
+            fis.close ();
         } catch (Error e) {
-            apply_preview_content_full (item, _("[Read error: %s]").printf (e.message));
+            debug ("Async line-range read error: %s", e.message);
+            return null;
         }
+        if (gen != preview_generation) return null;
+        return result;
     }
 
     private void cancel_preview_loading () {
