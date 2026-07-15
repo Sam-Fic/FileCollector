@@ -432,6 +432,13 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                    vexpand: true;
                    Stack preview_stack {
                     transition-type: crossfade;
+                    // 关键: 关闭垂直方向均一化. Gtk.Stack 默认 vhomogeneous=true,
+                    // 会以"所有页面中最高的那一页"作为自身高度. 预览区切换文件时,
+                    // 非可见的 preview_view 仍可能残留上一长文件内容, 导致 stack 高度
+                    // 被撑高, 滚动范围不随短文件收缩, 短文件下方出现大片可滚动空白.
+                    // 设为 false 后 stack 高度只取当前可见页, 滚动范围正好贴合当前文件.
+                    vhomogeneous: false;
+                    hhomogeneous: false;
                     hexpand: true;
                     vexpand: true;
 
