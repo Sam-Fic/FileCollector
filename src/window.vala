@@ -432,22 +432,24 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             label.xalign = 0;
             label.hexpand = true;
 
+            // 拖拽排序手柄: 仅手柄作为拖拽源, 与行内已有的左/右键点击手势互不干扰.
+            // 使用 Adwaita 原生的六点拖拽手柄图标 (list-drag-handle-symbolic), 而非
+            // "更多操作" 省略号, 以贴合 GNOME 列表的视觉惯例.
+            // 放在最左边: 避免与行最右侧的滚动指示器 (滚动条) 视觉/交互打架.
+            var grip = new Gtk.Image.from_icon_name ("list-drag-handle-symbolic");
+            grip.add_css_class ("dim-label");
+            grip.add_css_class ("queue-drag-handle");
+            grip.set_cursor (new Gdk.Cursor.from_name ("grab", null));
+
             var box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
             // 用 CSS padding 而非 margin: padding 在 allocation 之内, DropTarget 可覆盖整行;
             // margin 在 allocation 之外, 行间 margin 缝隙会成为 DropTarget 盲区 —— 落在缝隙
             // 的 drop 会被 queue_list 上的 end_drop 捕获并错误地移到列表末尾, 与指示线不一致.
             box.add_css_class ("queue-row-box");
+            // 顺序: 拖拽手柄(最左) -> 文件类型图标 -> 文件名. 手柄居左可避开右侧滚动条.
+            box.append (grip);
             box.append (icon);
             box.append (label);
-
-            // 拖拽排序手柄: 仅手柄作为拖拽源, 与行内已有的左/右键点击手势互不干扰.
-            // 使用 Adwaita 原生的六点拖拽手柄图标 (list-drag-handle-symbolic), 而非
-            // "更多操作" 省略号, 以贴合 GNOME 列表的视觉惯例.
-            var grip = new Gtk.Image.from_icon_name ("list-drag-handle-symbolic");
-            grip.add_css_class ("dim-label");
-            grip.add_css_class ("queue-drag-handle");
-            grip.set_cursor (new Gdk.Cursor.from_name ("grab", null));
-            box.append (grip);
 
             var drag = new Gtk.DragSource ();
             drag.set_actions (Gdk.DragAction.MOVE);
@@ -533,7 +535,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             // 存储 ItemData 引用到 box 上, 供 list_drop 的 pick() 定位目标行
             box.set_data<ItemData> ("queue-item", data);
 
-            var icon = box.get_first_child () as Gtk.Image;
+            // 行内子控件顺序: 拖拽手柄(grip) -> 文件图标(icon) -> 文件名(label).
+            // 手柄现为首个子控件, 故取图标需跳过它 (get_first_child 返回的是 grip).
+            var grip = box.get_first_child () as Gtk.Image;
+            var icon = grip != null ? grip.get_next_sibling () as Gtk.Image : box.get_first_child () as Gtk.Image;
             if (icon == null) return;
 
             var label = icon.get_next_sibling () as Gtk.Label;
@@ -770,7 +775,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 preview = preview.substring (0, byte_pos) + "…";
             }
             display_name = preview;
-            icon_name = "edit-symbolic";
+            // 自定义文字项: 用标准图标 document-edit-symbolic (编辑/文本草稿语义).
+            // 注意: 不能用 "edit-symbolic" —— 该名称不属于 FreeDesktop/Adwaita 标准图标
+            // 命名, 在 Adwaita 等主题下会显示"图标未找到"占位符.
+            icon_name = "document-edit-symbolic";
         }
 
         var pos = list_item.get_position ();
