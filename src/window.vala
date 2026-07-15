@@ -158,12 +158,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private uint8[] preview_leftover = new uint8[0];
     private bool preview_fully_loaded = false;
     private bool preview_loading = false;
-    private FileInputStream? preview_fis = null;
+    private InputStream? preview_fis = null;
     private bool preview_auto_scroll = true;
     // 当前正在拖拽的源项: drag.prepare 时记录, drag_end 时清空.
     // 用于在 drop.motion 中跳过"悬停在源项自身"的落点指示线 (插到自身前/后等于没移动).
     private ItemData? dragging_item = null;
-    private const int64 PREVIEW_CHUNK_SIZE = 65536;
+    private const int64 PREVIEW_CHUNK_SIZE = 262144; // 256KB: 大文件分块读取的块大小 (原 64KB 会导致过多线程往返)
 
     // 预览代际令牌: 每次发起新的懒加载预览 (start_lazy_preview) 或取消加载
     // (cancel_preview_loading) 时自增. 每个 load_preview_chunk 后台线程在生成时捕获
@@ -2499,12 +2499,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         preview_stack.visible_child = preview_info_box;
     }
 
-    // 同步清空所有预览面板的内容 (代码视图缓冲 / Markdown 容器 / 信息容器),
-    // 并把可见页切回代码视图. 必须在切换预览的"同一帧"内完成, 否则旧文件内容会先被
-    // 渲染出来再被替换, 造成"闪现旧文件顶部"的现象. update_preview 入口即调用此函数.
+    // 切换预览时清空各面板内容. 注意: 不把代码视图缓冲置空、也不切到代码视图 —— 否则
+    // GtkSource.View 会渲染出"行号 1 + 空白"的怪异空行, 在 Stack 的 crossfade 过渡中
+    // 闪现. 代码视图缓冲交给 start_lazy_preview 在内容到达前清空, 或新内容的 set_text 整体覆盖.
     private void clear_preview_buffer () {
-        preview_stack.visible_child = preview_view;
-        (preview_view.get_buffer () as GtkSource.Buffer).set_text ("", -1);
         UIHelpers.clear_container (preview_markdown_box);
         UIHelpers.clear_container (preview_info_box);
     }
@@ -2512,6 +2510,22 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void clear_preview () {
         current_preview_item = null;
         clear_preview_buffer ();
+        // 无选中项: 显示"未选择"占位, 而非空白的代码视图
+        var label = new Gtk.Label (_("No file selected"));
+        label.add_css_class ("dim-label");
+        label.valign = Gtk.Align.CENTER;
+        label.halign = Gtk.Align.CENTER;
+        label.vexpand = true;
+        label.hexpand = true;
+        preview_info_box.append (label);
+        preview_stack.visible_child = preview_info_box;
+    }
+
+    // 懒加载路径揭示内容: 把 stack 切到代码视图 (此前可能停在 markdown/info 页). 这是修复
+    // "代码/纯文本类无法加载"的关键 —— 加载期间不切换 stack 页, 必须由内容到达时显式切回
+    // preview_view, 否则内容写进了 preview_view 缓冲却不被显示.
+    private void reveal_preview_view () {
+        preview_stack.visible_child = preview_view;
     }
 
     private void update_queue_buttons () {
@@ -3203,7 +3217,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 改为后台线程读文件, 主线程仅在读取完成后渲染, 避免大文件同步读卡顿 UI.
         read_entire_file_async.begin (item.file_path, (obj, res) => {
             uint8[]? buf = read_entire_file_async.end (res);
-            if (buf == null) return;
+            if (buf == null) {
+                apply_preview_with_highlight (_("[Read error]"), item.file_path);
+                return;
+            }
             // 代际已变 (切换了预览) 或 buffer 已被新内容接管, 直接丢弃
             string text = EncodingHelper.decode_to_utf8 (buf);
             if (use_markdown) {
@@ -3225,7 +3242,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         int end_line = item.end_line;
         read_line_range_async.begin (path, end_line, (obj, res) => {
             uint8[]? buf = read_line_range_async.end (res);
-            if (buf == null) return;
+            if (buf == null) {
+                apply_preview_with_highlight (_("[Read error]"), item.file_path);
+                return;
+            }
             if (gen != preview_generation) return;
             string text = EncodingHelper.decode_to_utf8 (buf);
             string snippet = extract_line_range (text, item.start_line, item.end_line);
@@ -3284,9 +3304,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 避免快速重复触发时旧读占锁/代际失效, 导致真实内容永远不被写入缓冲区.
         cancel_preview_loading ();
 
-        apply_preview_with_highlight ("", item.file_path);
-        // 占位时文本为空, apply_preview_with_highlight 会关行号; 但已知文件非空,
-        // 内容异步追加后应有行号, 故此处强制开启 (空文本本就无行, 不会误显).
+        // 加载期间不显示任何加载指示; 内容到达直接呈现. 此处在内容到达前清空缓冲区,
+        // 否则后续 append_to_preview 会把新内容拼到旧内容之后. (清空发生在 preview_view
+        // 可见之前, 不会出现"行号1空行"的闪现.)
+        (preview_view.get_buffer () as GtkSource.Buffer).set_text ("", -1);
         preview_view.set_show_line_numbers (true);
 
         // 新预览代际: 让此前可能仍在飞行的线程 (同一文件、偏移 0 重读) 失效
@@ -3302,7 +3323,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         preview_auto_scroll = false;
 
         try {
-            preview_fis = File.new_for_path (item.file_path).read ();
+            // 用 BufferedInputStream 包裹底层的 FileInputStream: 单次 read() 会先在进程内
+            // 缓冲区填满 PREVIEW_CHUNK_SIZE, 再拷出; 配合增大的块大小, 大文件分块读取的
+            // 系统调用 / 线程往返次数显著下降 (原 64KB 直读对每个块都直接落系统调用).
+            var raw = File.new_for_path (item.file_path).read ();
+            preview_fis = new BufferedInputStream (raw);
+            ((BufferedInputStream) preview_fis).buffer_size = (uint) PREVIEW_CHUNK_SIZE;
             load_preview_chunk.begin ();
         } catch (Error e) {
             var buffer = preview_view.get_buffer () as GtkSource.Buffer;
@@ -3323,7 +3349,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // read() 触发 "g_input_stream_read: assertion 'G_IS_INPUT_STREAM (stream)' failed".
         // 改为引用局部副本后, 即使字段被置空, 线程读到的仍是有效的 (可能已关闭的) 流对象,
         // 读取已关闭流只会抛出可被下方 try 捕获的错误, 而非断言失败.
-        FileInputStream? fis = preview_fis;
+        InputStream? fis = preview_fis;
         if (fis == null) {
             preview_loading = false;
             return;
@@ -3367,8 +3393,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             preview_fully_loaded = true;
             preview_loading = false;
             if (preview_leftover.length > 0) {
+                reveal_preview_view ();
                 append_to_preview (EncodingHelper.decode_to_utf8 (preview_leftover));
                 preview_leftover = new uint8[0];
+            } else {
+                // 空文件: 切到代码视图显示空内容
+                reveal_preview_view ();
             }
             return;
         }
@@ -3399,12 +3429,17 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
 
         if (to_decode.length > 0) {
+            // 首个分块到达: 切回代码视图. 此前 stack 可能停在 markdown/info 页 (加载期间
+            // 未切换 stack 页), 必须显式切回 preview_view 内容才可见. 快速切换时若已在新文件
+            // 加载态, 当前线程会因代际校验在上方 return, 不会误切走新文件的内容页.
+            reveal_preview_view ();
             append_to_preview (EncodingHelper.decode_to_utf8 (to_decode));
         }
 
         if (preview_loaded_bytes >= preview_file_size) {
             preview_fully_loaded = true;
             if (preview_leftover.length > 0) {
+                reveal_preview_view ();
                 append_to_preview (EncodingHelper.decode_to_utf8 (preview_leftover));
                 preview_leftover = new uint8[0];
             }
