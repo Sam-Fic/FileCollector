@@ -7,6 +7,11 @@ public class SearchService : GLib.Object {
 
     private const int64 MAX_FILE_SIZE = 2 * 1024 * 1024;
     private const int MAX_RESULTS = 2000;
+    // 批量发射结果: 把短时间内的多次匹配聚合成一批, 用一次 Idle 回主线程统一发射,
+    // 避免每个匹配都单独 Idle.add (几百个匹配 = 几百次主线程回调, 每次都新建 GTK
+    // 行 widget, 造成 UI 频繁刷新与卡顿).
+    private const int BATCH_SIZE = 50;
+    private Gee.ArrayList<SearchResult> pending_results = new Gee.ArrayList<SearchResult> ();
 
     public void search_async (string root_dir, string keyword, bool case_sensitive, GLib.Cancellable cancellable) {
         new GLib.Thread<void*> ("global-search", () => {
@@ -35,6 +40,9 @@ public class SearchService : GLib.Object {
             warning ("Search error: %s", e.message);
         }
 
+        // 收尾: 把最后不足一批的残留结果一并发射 (内部会检查取消)
+        flush_pending_results (cancellable);
+
         if (!cancellable.is_cancelled ()) {
             Idle.add (() => {
                 finished (scanned, matched);
@@ -44,11 +52,40 @@ public class SearchService : GLib.Object {
     }
 
     /**
+     * 将累积的待发射结果成批回主线程: 在一次 Idle 中逐个发射本批结果, 把 N 次主线程
+     * 回调降为 N/BATCH_SIZE 次, 显著减少 UI 刷新次数. 取消时整批丢弃.
+     */
+    private void flush_pending_results (GLib.Cancellable cancellable) {
+        if (pending_results.size == 0) return;
+        var batch = new Gee.ArrayList<SearchResult> ();
+        batch.add_all (pending_results);
+        pending_results.clear ();
+        Idle.add (() => {
+            if (!cancellable.is_cancelled ()) {
+                foreach (var r in batch) {
+                    result_found (r);
+                }
+            }
+            return Source.REMOVE;
+        });
+    }
+
+    /**
      * 净化忽略目录列表：剔除空串与空白项（空串会使 name in ignored_dirs 的比较
      * 行为异常，导致整个子树被错误跳过），并去重。忽略目录只按 basename 比较，
-     * 故此处无需路径规范化。
+     * 故此处无需路径规范化。结果按原始配置内容做静态缓存, 配置不变时直接复用,
+     * 避免每次搜索都重建去重列表.
      */
+    private static string[]? cached_raw_dirs = null;
+    private static string[]? cached_sanitized_dirs = null;
     private static string[] sanitize_ignored_dirs (string[] raw) {
+        if (cached_raw_dirs != null && cached_raw_dirs.length == raw.length) {
+            bool same = true;
+            for (int i = 0; i < raw.length; i++) {
+                if (cached_raw_dirs[i] != raw[i]) { same = false; break; }
+            }
+            if (same && cached_sanitized_dirs != null) return cached_sanitized_dirs;
+        }
         var cleaned = new Gee.ArrayList<string> ();
         foreach (var d in raw) {
             if (d == null) continue;
@@ -56,7 +93,9 @@ public class SearchService : GLib.Object {
             if (s.length == 0) continue;
             if (!cleaned.contains (s)) cleaned.add (s);
         }
-        return cleaned.to_array ();
+        cached_raw_dirs = raw;
+        cached_sanitized_dirs = cleaned.to_array ();
+        return cached_sanitized_dirs;
     }
 
     private void scan_directory (string root, string current_dir, string keyword, bool case_sensitive,
@@ -127,14 +166,12 @@ public class SearchService : GLib.Object {
                     matched++;
                     int ln = i + 1;
                     string lc = line.strip ();
-                    string fp = file_path;
-                    string rp = rel_path;
-                    Idle.add (() => {
-                        if (!cancellable.is_cancelled ()) {
-                            result_found (new SearchResult (fp, rp, ln, lc));
-                        }
-                        return Source.REMOVE;
-                    });
+                    // 累积到批次, 由 flush_pending_results 成批回主线程发射,
+                    // 避免每个匹配都单独 Idle.add 造成 UI 频繁刷新.
+                    pending_results.add (new SearchResult (file_path, rel_path, ln, lc));
+                    if (pending_results.size >= BATCH_SIZE) {
+                        flush_pending_results (cancellable);
+                    }
                     if (matched >= MAX_RESULTS) break;
                 }
             }
