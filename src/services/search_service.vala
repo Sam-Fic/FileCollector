@@ -140,39 +140,61 @@ public class SearchService : GLib.Object {
     private void search_in_file (string file_path, string root, string keyword, bool case_sensitive,
                                   GLib.Cancellable cancellable, ref int matched) {
         try {
-            uint8[] content_bytes;
-            FileUtils.get_data (file_path, out content_bytes);
-            if (content_bytes == null || content_bytes.length == 0) return;
+            var file = File.new_for_path (file_path);
+            FileInputStream? fis = null;
+            try {
+                fis = file.read ();
 
-            size_t check_len = size_t.min (content_bytes.length, 2048);
-            for (size_t i = 0; i < check_len; i++) {
-                if (content_bytes[i] == 0) return;
-            }
+                // 先读前 2048 字节做二进制检测: 含 \0 即视为二进制文件, 跳过
+                var head = fis.read_bytes (2048);
+                unowned uint8[] head_data = head.get_data ();
+                for (size_t i = 0; i < head_data.length; i++) {
+                    if (head_data[i] == 0) return;
+                }
 
-            string content = EncodingHelper.decode_to_utf8 (content_bytes);
-            string[] lines = content.split ("\n");
+                // 流式拼接文件内容, 避免一次性把整个文件读入内存
+                // (总大小已由 scan_directory 的 MAX_FILE_SIZE 上限控制).
+                var content_builder = new StringBuilder ();
+                content_builder.append_len ((string) head_data, head_data.length);
 
-            string rel_path = file_path;
-            var root_dir = File.new_for_path (root);
-            var rel = root_dir.get_relative_path (File.new_for_path (file_path));
-            if (rel != null) rel_path = rel;
+                const int BUFFER_SIZE = 8192;
+                uint8[] buffer = new uint8[BUFFER_SIZE];
+                ssize_t n;
+                while ((n = fis.read (buffer)) > 0) {
+                    if (cancellable.is_cancelled ()) break;
+                    content_builder.append_len ((string) buffer[0:n], (ssize_t) n);
+                }
+                if (cancellable.is_cancelled ()) return;
 
-            for (int i = 0; i < lines.length; i++) {
-                if (cancellable.is_cancelled ()) break;
-                string line = lines[i];
-                string cmp_line = case_sensitive ? line : line.down ();
+                string content = EncodingHelper.decode_to_utf8 (content_builder.str.data);
+                string[] lines = content.split ("\n");
 
-                if (cmp_line.contains (keyword)) {
-                    matched++;
-                    int ln = i + 1;
-                    string lc = line.strip ();
-                    // 累积到批次, 由 flush_pending_results 成批回主线程发射,
-                    // 避免每个匹配都单独 Idle.add 造成 UI 频繁刷新.
-                    pending_results.add (new SearchResult (file_path, rel_path, ln, lc));
-                    if (pending_results.size >= BATCH_SIZE) {
-                        flush_pending_results (cancellable);
+                string rel_path = file_path;
+                var root_dir = File.new_for_path (root);
+                var rel = root_dir.get_relative_path (File.new_for_path (file_path));
+                if (rel != null) rel_path = rel;
+
+                for (int i = 0; i < lines.length; i++) {
+                    if (cancellable.is_cancelled ()) break;
+                    string line = lines[i];
+                    string cmp_line = case_sensitive ? line : line.down ();
+
+                    if (cmp_line.contains (keyword)) {
+                        matched++;
+                        int ln = i + 1;
+                        string lc = line.strip ();
+                        // 累积到批次, 由 flush_pending_results 成批回主线程发射,
+                        // 避免每个匹配都单独 Idle.add 造成 UI 频繁刷新.
+                        pending_results.add (new SearchResult (file_path, rel_path, ln, lc));
+                        if (pending_results.size >= BATCH_SIZE) {
+                            flush_pending_results (cancellable);
+                        }
+                        if (matched >= MAX_RESULTS) break;
                     }
-                    if (matched >= MAX_RESULTS) break;
+                }
+            } finally {
+                if (fis != null) {
+                    try { fis.close (); } catch (Error e) {}
                 }
             }
         } catch (Error e) {
