@@ -119,10 +119,17 @@ row:selected .queue-drag-handle {
 
 /* 拖拽落点水平指示线: 一条 2px 强调色直线, 由覆盖层 drop_indicator 画在相邻两行的
    精确边界上 (位置由代码用 translate_coordinates 计算, 上行下方/下行上方指向同一 y),
-   不参与列表排版, 故不引起跳动, 且线永远是直的. 覆盖层本身设为不拦截事件. */
+   不参与列表排版, 故不引起跳动, 且线永远是直的. 覆盖层本身设为不拦截事件.
+   默认 opacity:0 隐藏; 代码通过增删 .show 类触发 opacity 过渡, 让线淡入/淡出
+   而非硬切闪现. 覆盖层始终保持 visible:true 以便过渡能正常播放. */
 .drop-indicator {
     background-color: @accent_color;
     border-radius: 0;
+    opacity: 0;
+    transition: opacity 120ms ease;
+}
+.drop-indicator.show {
+    opacity: 1;
 }
 
 .paned-no-handle {

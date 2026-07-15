@@ -2904,7 +2904,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // (覆盖层不参与列表排版), 列表不会因线出现而跳动. 替代 GTK 默认方角框.
     private void set_drop_indicator (Gtk.Widget? row, bool after) {
         if (row == null) {
-            drop_indicator.visible = false;
+            // 隐藏: 移除 .show 让 CSS opacity 过渡淡出 (覆盖层始终保留, 不拦截事件)
+            drop_indicator.remove_css_class ("show");
             return;
         }
         // 边界点: after=本行底边, before=本行顶边
@@ -2912,7 +2913,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         double ox, oy;
         if (row.translate_coordinates (queue_overlay, 0, boundary_y, out ox, out oy)) {
             drop_indicator.margin_top = (int) Math.round (oy) - 1;
-            drop_indicator.visible = true;
+            // 显示: 加 .show 触发 opacity 过渡淡入
+            drop_indicator.add_css_class ("show");
         }
     }
 
@@ -4523,7 +4525,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void show_ai_panel () {
         ai_panel_visible = true;
-        ai_sidebar.visible = true;
         // 第一次显示时构建 panel
         if (ai_panel_instance == null) {
             ai_panel_instance = new AIPanel (this);
@@ -4574,6 +4575,23 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         // 展开 AI 侧边栏时自动加宽窗口, 防止现有栏被挤出画面
         expand_window_for_ai ();
+
+        ai_sidebar.visible = true;
+    }
+
+    private void hide_ai_panel () {
+        ai_panel_visible = false;
+        ai_sidebar.visible = false;
+        // 更新窗口最小宽度 (AI 边栏隐藏后可以更小)
+        pane_layout_manager.update_min_size ();
+
+        // 恢复 AI 面板展开前的窗口宽度
+        if (pre_ai_width > 0) {
+            int cur_h = get_height ();
+            if (cur_h <= 0) cur_h = default_height;
+            set_default_size (pre_ai_width, cur_h);
+            pre_ai_width = 0;
+        }
     }
 
     private void expand_window_for_ai () {
@@ -4610,21 +4628,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
 
         set_default_size (target_w, cur_h);
-    }
-
-    private void hide_ai_panel () {
-        ai_panel_visible = false;
-        ai_sidebar.visible = false;
-        // 更新窗口最小宽度 (AI 边栏隐藏后可以更小)
-        pane_layout_manager.update_min_size ();
-
-        // 恢复 AI 面板展开前的窗口宽度
-        if (pre_ai_width > 0) {
-            int cur_h = get_height ();
-            if (cur_h <= 0) cur_h = default_height;
-            set_default_size (pre_ai_width, cur_h);
-            pre_ai_width = 0;
-        }
     }
 
     private void apply_ai_settings_to_panel () {
