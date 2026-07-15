@@ -50,7 +50,7 @@ public class MultiFormatExporter : GLib.Object {
             dos = new DataOutputStream (file.replace (null, false, FileCreateFlags.NONE));
 
             if (show_header && work_dir != null) {
-                dos.put_string ("# 工作目录: %s\n\n".printf (work_dir.get_path ()));
+                dos.put_string (_("# Working directory: %s\n\n").printf (work_dir.get_path ()));
             }
 
             bool first = true;
@@ -195,7 +195,7 @@ public class MultiFormatExporter : GLib.Object {
             builder.begin_array ();
             add_source_lines (builder, "# FileCollector Export\n");
             add_source_lines (builder, "\n");
-            add_source_lines (builder, "工作目录: `%s`\n".printf (work_dir.get_path ()));
+            add_source_lines (builder, _("Working directory: `%s`\n").printf (work_dir.get_path ()));
             builder.end_array ();
             builder.end_object ();
         }

@@ -4299,7 +4299,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         int total_tokens = 0;
 
         if (show_header && work_dir != null) {
-            string header = "# 工作目录绝对路径: " + work_dir.get_path () + "\n\n";
+            string header = _("# Working directory absolute path: ") + work_dir.get_path () + "\n\n";
             total_tokens += TokenEstimator.estimate_tokens_fast (header);
         }
 
