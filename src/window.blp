@@ -206,13 +206,22 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
             Overlay queue_overlay {
               vexpand: true;
 
-              child: ScrolledWindow {
-                vexpand: true;
-                margin-start: 12;
-                margin-end: 12;
-                margin-top: 0;
-                margin-bottom: 6;
-                ListView queue_list {
+              child: Stack queue_stack {
+                vhomogeneous: true;
+                hhomogeneous: true;
+
+                StackPage {
+                  name: "list";
+                  // 列表页: 编排列表 (model 为空时由代码切到空状态页)
+                  child: ScrolledWindow {
+                    vexpand: true;
+                    margin-start: 12;
+                    margin-end: 12;
+                    margin-top: 0;
+                    margin-bottom: 6;
+                    ListView queue_list {
+                    }
+                  };
                 }
               };
 
@@ -454,8 +463,10 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                       orientation: vertical;
                     }
 
-                    Box preview_info_box {
-                      orientation: vertical;
+                    Adw.StatusPage preview_info_box {
+                      // 预览区空状态: 图标 + 标题 + 描述, 与编排列表的空状态风格统一
+                      vexpand: true;
+                      hexpand: true;
                     }
                   }
                 };

@@ -10,10 +10,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.ScrolledWindow dir_scrolled;
     [GtkChild] private unowned Gtk.ListView queue_list;
     [GtkChild] private unowned Gtk.Overlay queue_overlay;
+    [GtkChild] private unowned Gtk.Stack queue_stack;
     [GtkChild] private unowned Gtk.Box drop_indicator;
+    private Adw.StatusPage queue_empty_page;
     [GtkChild] private unowned Gtk.Stack preview_stack;
     [GtkChild] private unowned Gtk.Box preview_markdown_box;
-    [GtkChild] private unowned Gtk.Box preview_info_box;
+    [GtkChild] private unowned Adw.StatusPage preview_info_box;
     [GtkChild] private unowned GtkSource.View preview_view;
     [GtkChild] private unowned Gtk.Button open_folder_btn;
     [GtkChild] private unowned Gtk.MenuButton menu_btn;
@@ -69,6 +71,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private Gtk.SingleSelection tree_selection;
     private GLib.ListStore root_store;
     private string search_text = "";
+    // 搜索匹配缓存: 存放"自身或其子树存在名称匹配"的节点 path。
+    // 预计算一次, filter_tree_func 直接查表, 避免每个可见节点都递归遍历子树。
+    private Gee.HashSet<string> matching_paths = new Gee.HashSet<string> ();
 
     private GLib.ListStore queue_store;
 
@@ -716,6 +721,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         // 指示线覆盖层不拦截指针事件, 否则会挡在行上方吞掉该 2px 区域的拖拽/落点
         drop_indicator.can_target = false;
+
+        // 编排列表空状态: StatusPage 作为 queue_stack 的第二页, 由 refresh_list
+        // 根据 items 数量在列表页/空状态页间切换. 图标 + 标题 + 描述, 风格与预览区统一.
+        queue_empty_page = new Adw.StatusPage ();
+        queue_empty_page.icon_name = "list-add-symbolic";
+        queue_empty_page.title = _("No files collected yet");
+        queue_empty_page.description = _("Check files in the directory tree or add custom text to build your collection.");
+        queue_stack.add_child (queue_empty_page);
     }
 
     // 渲染编排列表单行: 根据 item_type 计算 display_name 和 icon, 写入 label/icon
@@ -1028,6 +1041,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void on_search_changed () {
         search_text = search_entry.text;
+        rebuild_matching_cache ();
         tree_filter.changed (Gtk.FilterChange.DIFFERENT);
     }
 
@@ -1066,23 +1080,35 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var dir_item = row.get_item () as DirectoryItem;
         if (dir_item == null) return true;
 
-        if (dir_item.name.casefold ().contains (search_text.casefold ()))
-            return true;
-
-        if (dir_item.is_dir && has_matching_descendant (dir_item))
-            return true;
-
-        return false;
+        // 直接查匹配缓存: 命中表示自身或其子树中存在名称匹配
+        return matching_paths.contains (dir_item.path);
     }
 
-    private bool has_matching_descendant (DirectoryItem item) {
+    // 预计算搜索匹配缓存: 自底向上遍历整棵树, 把自身名称匹配、或其子树含匹配的
+    // 所有节点 path 加入 matching_paths。filter_tree_func 之后只查表, 不再递归。
+    private void rebuild_matching_cache () {
+        matching_paths.clear ();
+        if (search_text == "") return;
+        string lower_search = search_text.casefold ();
+        for (uint i = 0; i < root_store.get_n_items (); i++) {
+            collect_matching_paths ((DirectoryItem) root_store.get_item (i), lower_search);
+        }
+    }
+
+    // 返回当前子树(含自身)是否含匹配; 含则把自身 path 记入缓存并向上冒泡
+    private bool collect_matching_paths (DirectoryItem item, string lower_search) {
+        bool self_match = item.name.casefold ().contains (lower_search);
+        bool descendant_match = false;
         for (uint i = 0; i < item.children.get_n_items (); i++) {
             var child = item.children.get_item (i) as DirectoryItem;
             if (child == null) continue;
-            if (child.name.casefold ().contains (search_text.casefold ()))
-                return true;
-            if (child.is_dir && has_matching_descendant (child))
-                return true;
+            if (collect_matching_paths (child, lower_search)) {
+                descendant_match = true;
+            }
+        }
+        if (self_match || descendant_match) {
+            matching_paths.add (item.path);
+            return true;
         }
         return false;
     }
@@ -1106,7 +1132,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (item.is_dir) {
             // 立即更新 checked_dirs 确保未展开目录状态正确
             check_model.set_dir_checked (item.path, new_checked);
-            refresh_all_tree_states ();
+            refresh_tree_state_for_path (item);
             dir_column_view.queue_draw ();
 
             // 目录: 后台线程递归收集文件路径和子目录路径, 完成后在主线程更新 UI, 避免阻塞
@@ -1151,7 +1177,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             } else {
                 remove_items_by_path (item.path);
             }
-            refresh_all_tree_states ();
+            refresh_tree_state_for_path (item);
             dir_column_view.queue_draw ();
             refresh_list ();
             if (binary_item != null) {
@@ -1185,8 +1211,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             // 将取消勾选的目录的祖先从 checked_dirs 中移除, 使其降级为半选
             check_model.remove_ancestors_from_checked_dirs (dir_paths.get (0));
         }
-        // 树状态立即刷新 (基于 check_model, 已同步更新)
-        refresh_all_tree_states ();
+        // 树状态刷新 (基于 check_model, 已同步更新)
+        // 增量: 从被勾目录向上重算受影响的子树与祖先链, 避免全树递归
+        refresh_tree_state_for_path_str (op_dir != "" ? op_dir : dir_paths.get (0));
         dir_column_view.queue_draw ();
 
         // items 增删: 分批在 Idle 中执行, 每批 200 个, 避免阻塞主循环
@@ -1367,6 +1394,58 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // 保留兼容接口
     private void refresh_subtree_states (DirectoryItem item) {
         refresh_and_collect_stats (item);
+    }
+
+    // ─── 增量刷新 (问题4): 只刷新受影响子树 + 向上父链 ────────────────
+    // DirectoryItem 无 parent 指针, 故按 path 在树中查找节点
+
+    // 按 path 在目录树中递归查找 DirectoryItem
+    private DirectoryItem? find_directory_item_by_path (DirectoryItem? root, string target_path) {
+        if (root == null) return null;
+        if (root.path == target_path) return root;
+        for (uint i = 0; i < root.children.get_n_items (); i++) {
+            var child = root.children.get_item (i) as DirectoryItem;
+            var found = find_directory_item_by_path (child, target_path);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    // 给定某节点, 沿其 path 逐级向上, 找到其在树中的父 DirectoryItem
+    private DirectoryItem? find_parent_directory_item (DirectoryItem item) {
+        var parent_file = File.new_for_path (item.path).get_parent ();
+        if (parent_file == null) return null; // 顶层节点
+        string parent_path = parent_file.get_path ();
+        for (uint i = 0; i < root_store.get_n_items (); i++) {
+            var root_item = root_store.get_item (i) as DirectoryItem;
+            var found = find_directory_item_by_path (root_item, parent_path);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    // 增量刷新: 重算 item 自身子树的三态, 再沿祖先链逐层向上重算,
+    // 避免 refresh_all_tree_states 对全树做无谓递归。
+    private void refresh_tree_state_for_path (DirectoryItem item) {
+        refresh_and_collect_stats (item);
+        var parent = find_parent_directory_item (item);
+        while (parent != null) {
+            refresh_and_collect_stats (parent);
+            parent = find_parent_directory_item (parent);
+        }
+    }
+
+    // 按 path 增量刷新 (外部已知 path 时调用)
+    private void refresh_tree_state_for_path_str (string path) {
+        DirectoryItem? target = null;
+        for (uint i = 0; i < root_store.get_n_items (); i++) {
+            var root_item = root_store.get_item (i) as DirectoryItem;
+            target = find_directory_item_by_path (root_item, path);
+            if (target != null) break;
+        }
+        if (target != null) {
+            refresh_tree_state_for_path (target);
+        }
     }
 
     private void push_undo_state () {
@@ -2281,8 +2360,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 2. 触发懒加载, 确保该路径的父目录已加载 (这样 UI 才能显示)
         ensure_path_loaded (abs_path);
 
-        // 3. 刷新整个可见树的三态
-        refresh_all_tree_states ();
+        // 3. 增量刷新该文件路径向上的三态 (与文件勾选等价)
+        refresh_tree_state_for_path_str (abs_path);
         refresh_list ();
     }
 
@@ -2470,6 +2549,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 模型已恢复稳定, 统一触发一次 UI 刷新 (包括清除目录树选择等副作用).
         on_queue_selection_changed (0, 0);
 
+        // 编排列表空状态切换: 无项显示 StatusPage 空状态页, 有项显示列表页
+        if (items.size == 0) {
+            queue_stack.visible_child = queue_empty_page;
+        } else {
+            queue_stack.visible_child_name = "list";
+        }
+
         update_token_display ();
     }
 
@@ -2488,36 +2574,29 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void show_multi_selection_preview (int count) {
         current_preview_item = null;
-        UIHelpers.clear_container (preview_info_box);
-        var label = new Gtk.Label (_("%d items selected").printf (count));
-        label.add_css_class ("dim-label");
-        label.valign = Gtk.Align.CENTER;
-        label.halign = Gtk.Align.CENTER;
-        label.vexpand = true;
-        label.hexpand = true;
-        preview_info_box.append (label);
+        preview_info_box.icon_name = "selection-mode-symbolic";
+        preview_info_box.title = _("%d items selected").printf (count);
+        preview_info_box.description = _("Select a single file to preview its content.");
         preview_stack.visible_child = preview_info_box;
     }
 
     // 切换预览时清空各面板内容. 注意: 不把代码视图缓冲置空、也不切到代码视图 —— 否则
     // GtkSource.View 会渲染出"行号 1 + 空白"的怪异空行, 在 Stack 的 crossfade 过渡中
     // 闪现. 代码视图缓冲交给 start_lazy_preview 在内容到达前清空, 或新内容的 set_text 整体覆盖.
+    // 注意: preview_info_box 已是 Adw.StatusPage, 内容由 icon_name/title/description 属性
+    // 驱动, 其内部子结构是 StatusPage 自管的 (ScrolledWindow>Viewport>Box), 切勿对它调
+    // clear_container, 否则会 unparent 掉内部 viewport 导致整页变空白不显示.
     private void clear_preview_buffer () {
         UIHelpers.clear_container (preview_markdown_box);
-        UIHelpers.clear_container (preview_info_box);
     }
 
     private void clear_preview () {
         current_preview_item = null;
         clear_preview_buffer ();
         // 无选中项: 显示"未选择"占位, 而非空白的代码视图
-        var label = new Gtk.Label (_("No file selected"));
-        label.add_css_class ("dim-label");
-        label.valign = Gtk.Align.CENTER;
-        label.halign = Gtk.Align.CENTER;
-        label.vexpand = true;
-        label.hexpand = true;
-        preview_info_box.append (label);
+        preview_info_box.icon_name = "text-x-generic-symbolic";
+        preview_info_box.title = _("No file selected");
+        preview_info_box.description = _("Select a file from the list or directory tree to preview it here.");
         preview_stack.visible_child = preview_info_box;
     }
 
