@@ -133,6 +133,11 @@ paned {
     background: transparent;
 }
 
+/* 设计决策: 预览区/侧栏等分割线刻意不显示 (透明背景, 仅保留 12px 作为拖拽热区).
+   不要为了"让分割线可见"而在此画竖线/边框 —— 这是有意为之, 不是遗漏.
+   注意: GTK4 中 separator 的拖拽命中区 = 其自身分配宽度 (此处 12px), 而相邻 .card
+   的 1px 边框压在 separator 一侧边缘, 故可拖拽区域相对可见 card 边界略偏, 这是
+   GtkPaned 的固有行为, 非 bug, 亦无需"修正". 若日后要调整抓取手感, 改 min-width 即可. */
 paned separator,
 paned > separator {
     background: transparent;
