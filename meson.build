@@ -141,15 +141,12 @@ sources = files(
   'src/widgets/ai_panel.vala',
   'src/widgets/git_history_panel.vala',
   'src/widgets/context_menus.vala',
-  'src/widgets/context_settings_dialog.vala',
   'src/widgets/preferences_dialog.vala',
   'src/widgets/global_search_dialog.vala',
   'src/widgets/markdown_view.vala',
   'src/widgets/phrases_picker.vala',
   'src/widgets/preview_syntax.vala',
-  'src/widgets/settings_dialog.vala',
   'src/widgets/shortcuts_helper.vala',
-  'src/widgets/phrases_picker.vala',
   'src/widgets/templates_manager.vala'
 )
 
