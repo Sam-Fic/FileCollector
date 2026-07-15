@@ -42,37 +42,45 @@ public class MultiFormatExporter : GLib.Object {
         bool show_header,
         File? work_dir
     ) throws Error {
-        var resolved = resolve_items (items, use_absolute, work_dir);
-        var sb = new StringBuilder ();
+        // 流式写入: 逐项解析并立即落盘, 不再把全部内容拼进一个 StringBuilder,
+        // 峰值内存仅为单个文件内容, 大队列导出时主线程占用更平稳.
+        DataOutputStream? dos = null;
+        try {
+            var file = File.new_for_path (file_path);
+            dos = new DataOutputStream (file.replace (null, false, FileCreateFlags.NONE));
 
-        if (show_header && work_dir != null) {
-            sb.append ("# 工作目录: %s\n\n".printf (work_dir.get_path ()));
-        }
-
-        bool first = true;
-        foreach (var ri in resolved) {
-            if (!first) sb.append ("\n\n");
-            first = false;
-
-            if (ri.source.item_type == "text") {
-                sb.append (ri.content ?? "");
-                continue;
+            if (show_header && work_dir != null) {
+                dos.put_string ("# 工作目录: %s\n\n".printf (work_dir.get_path ()));
             }
 
-            sb.append ("# %s\n\n".printf (ri.display_path));
-            if (ri.kind == ItemKind.OK) {
-                sb.append ("```%s\n".printf (ri.language));
-                sb.append (ri.content ?? "");
-                if (!(ri.content ?? "").has_suffix ("\n")) sb.append_c ('\n');
-                sb.append ("```\n");
-            } else {
-                sb.append ("```\n");
-                sb.append (ri.error_message ?? "");
-                sb.append ("\n```\n");
+            bool first = true;
+            foreach (var data in items) {
+                var ri = resolve_single_item (data, use_absolute, work_dir);
+                if (!first) dos.put_string ("\n\n");
+                first = false;
+
+                if (ri.source.item_type == "text") {
+                    dos.put_string (ri.content ?? "");
+                    continue;
+                }
+
+                dos.put_string ("# %s\n\n".printf (ri.display_path));
+                if (ri.kind == ItemKind.OK) {
+                    dos.put_string ("```%s\n".printf (ri.language));
+                    dos.put_string (ri.content ?? "");
+                    if (!(ri.content ?? "").has_suffix ("\n")) dos.put_string ("\n");
+                    dos.put_string ("```\n");
+                } else {
+                    dos.put_string ("```\n");
+                    dos.put_string (ri.error_message ?? "");
+                    dos.put_string ("\n```\n");
+                }
+            }
+        } finally {
+            if (dos != null) {
+                try { dos.close (); } catch (Error e) {}
             }
         }
-
-        write_text_file (file_path, sb.str);
     }
 
     // ─── 入口: JSON ───────────────────────────────────────────────────
@@ -84,7 +92,8 @@ public class MultiFormatExporter : GLib.Object {
         bool show_header,
         File? work_dir
     ) throws Error {
-        var resolved = resolve_items (items, use_absolute, work_dir);
+        // 逐项解析 (resolve_single_item) 直接写入 builder, 避免先 resolve_items 把所有
+        // 内容额外持有一份再构建 JSON 树, 降低峰值内存.
         var builder = new Json.Builder ();
         builder.begin_object ();
 
@@ -96,7 +105,8 @@ public class MultiFormatExporter : GLib.Object {
         builder.add_string_value (new DateTime.now_local ().format_iso8601 ());
         builder.set_member_name ("items");
         builder.begin_array ();
-        foreach (var ri in resolved) {
+        foreach (var data in items) {
+            var ri = resolve_single_item (data, use_absolute, work_dir);
             append_item_object (builder, ri);
         }
         builder.end_array ();
@@ -114,21 +124,30 @@ public class MultiFormatExporter : GLib.Object {
         bool show_header,
         File? work_dir
     ) throws Error {
-        var resolved = resolve_items (items, use_absolute, work_dir);
-        var sb = new StringBuilder ();
+        // 流式写入: 每一项解析后立刻序列化为一行 JSON 落盘, 不再把所有行先攒进
+        // 一个大 StringBuilder. 每行仍用一个 Json.Builder/Generator 序列化单个对象
+        // (JSON 对象必须独立序列化), 但内存峰值仅为单行.
+        DataOutputStream? dos = null;
+        try {
+            var file = File.new_for_path (file_path);
+            dos = new DataOutputStream (file.replace (null, false, FileCreateFlags.NONE));
 
-        foreach (var ri in resolved) {
-            var builder = new Json.Builder ();
-            append_item_object (builder, ri);
+            foreach (var data in items) {
+                var ri = resolve_single_item (data, use_absolute, work_dir);
+                var builder = new Json.Builder ();
+                append_item_object (builder, ri);
 
-            var gen = new Json.Generator ();
-            gen.set_root (builder.get_root ());
-            gen.pretty = false;
-            sb.append (gen.to_data (null));
-            sb.append_c ('\n');
+                var gen = new Json.Generator ();
+                gen.set_root (builder.get_root ());
+                gen.pretty = false;
+                dos.put_string (gen.to_data (null));
+                dos.put_byte ('\n');
+            }
+        } finally {
+            if (dos != null) {
+                try { dos.close (); } catch (Error e) {}
+            }
         }
-
-        write_text_file (file_path, sb.str);
     }
 
     // ─── 入口: Jupyter Notebook (.ipynb) ──────────────────────────────
@@ -140,8 +159,8 @@ public class MultiFormatExporter : GLib.Object {
         bool show_header,
         File? work_dir
     ) throws Error {
-        var resolved = resolve_items (items, use_absolute, work_dir);
-
+        // 逐项解析 (resolve_single_item) 直接构建 cells, 避免先 resolve_items 把所有
+        // 内容额外持有一份. ipynb 本身是单一 JSON 结构, 仍需整体持有, 但省去了重复存储.
         var builder = new Json.Builder ();
         builder.begin_object ();
 
@@ -181,7 +200,8 @@ public class MultiFormatExporter : GLib.Object {
             builder.end_object ();
         }
 
-        foreach (var ri in resolved) {
+        foreach (var data in items) {
+            var ri = resolve_single_item (data, use_absolute, work_dir);
             bool as_code = (ri.source.item_type == "file")
                            && ri.kind == ItemKind.OK
                            && is_code_language (ri.language);
@@ -237,6 +257,104 @@ public class MultiFormatExporter : GLib.Object {
 
     // ─── 共用解析 ─────────────────────────────────────────────────────
 
+    // 解析单个 item: 归一化 missing/binary/too_large/read_error 等情况, 返回 ResolvedItem.
+    // 抽出来供各 export 函数逐项流式调用, 避免一次性把全部文件内容读入内存.
+    public static ResolvedItem resolve_single_item (
+        ItemData data,
+        bool use_absolute,
+        File? work_dir
+    ) {
+        var ri = new ResolvedItem (data);
+
+        if (data.item_type == "text") {
+            ri.content = data.content ?? "";
+            ri.kind = ItemKind.OK;
+            return ri;
+        }
+
+        // file 项
+        ri.display_path = compute_display_path (
+            data.file_path, data.force_absolute, use_absolute, work_dir
+        );
+        ri.language = extract_language (data.file_path);
+
+        var f = File.new_for_path (data.file_path);
+        if (!f.query_exists () || data.is_missing) {
+            ri.kind = ItemKind.MISSING;
+            ri.error_message = _("[Missing file: %s]").printf (data.file_path);
+            return ri;
+        }
+
+        if (data.preprocessed_content != null && data.preprocessed_content.length > 0) {
+            ri.kind = ItemKind.OK;
+            ri.content = data.preprocessed_content;
+            return ri;
+        }
+
+        int64 file_size = 0;
+        try {
+            var info = f.query_info (FileAttribute.STANDARD_SIZE, FileQueryInfoFlags.NONE);
+            file_size = info.get_size ();
+        } catch (Error e) {
+            ri.kind = ItemKind.READ_ERROR;
+            ri.error_message = _("[Unable to get file info: %s]").printf (e.message);
+            return ri;
+        }
+        if (file_size > MAX_FILE_CONTENT_SIZE) {
+            ri.kind = ItemKind.TOO_LARGE;
+            ri.error_message = _("[File too large (%s), content reading skipped]").printf (UIHelpers.format_size (file_size));
+            return ri;
+        }
+
+        FileInputStream? fis = null;
+        try {
+            fis = f.read ();
+            const int PEEK_SIZE = 8192;
+            uint8[] head_buf = new uint8[PEEK_SIZE];
+            var peek_bytes = fis.read_bytes (PEEK_SIZE);
+            unowned uint8[] peek_data = peek_bytes.get_data ();
+            size_t head_read = peek_data.length;
+            Memory.copy (head_buf, peek_data, head_read);
+
+            bool is_binary = false;
+            for (size_t j = 0; j < head_read; j++) {
+                if (head_buf[j] == 0) {
+                    is_binary = true;
+                    break;
+                }
+            }
+            if (is_binary) {
+                ri.kind = ItemKind.BINARY;
+                ri.error_message = _("[Binary file detected: text content reading skipped]");
+                return ri;
+            }
+
+            var sb = new StringBuilder ();
+            sb.append_len ((string) head_buf[0:head_read], (ssize_t) head_read);
+            size_t remaining = (size_t) file_size - head_read;
+            uint8[] chunk_buf = new uint8[8192];
+            while (remaining > 0) {
+                size_t to_read = size_t.min (8192, remaining);
+                ssize_t n = fis.read (chunk_buf[0:to_read]);
+                if (n <= 0) break;
+                sb.append_len ((string) chunk_buf[0:n], (ssize_t) n);
+                remaining -= (size_t) n;
+            }
+            ri.kind = ItemKind.OK;
+            ri.content = sb.str;
+        } catch (Error e) {
+            ri.kind = ItemKind.READ_ERROR;
+            ri.error_message = _("[Failed to read file: %s]").printf (e.message);
+        } finally {
+            if (fis != null) {
+                try { fis.close (); } catch (Error e) {}
+            }
+        }
+        return ri;
+    }
+
+    // 保留的批量解析入口: 复用 resolve_single_item, 行为不变.
+    // (当前各 export 已改为逐项流式解析, 此方法仅作为兼容 API 保留.)
     public static Gee.ArrayList<ResolvedItem> resolve_items (
         Gee.ArrayList<ItemData> items,
         bool use_absolute,
@@ -244,100 +362,7 @@ public class MultiFormatExporter : GLib.Object {
     ) {
         var result = new Gee.ArrayList<ResolvedItem> ();
         foreach (var data in items) {
-            var ri = new ResolvedItem (data);
-
-            if (data.item_type == "text") {
-                ri.content = data.content ?? "";
-                ri.kind = ItemKind.OK;
-                result.add (ri);
-                continue;
-            }
-
-            // file 项
-            ri.display_path = compute_display_path (
-                data.file_path, data.force_absolute, use_absolute, work_dir
-            );
-            ri.language = extract_language (data.file_path);
-
-            var f = File.new_for_path (data.file_path);
-            if (!f.query_exists () || data.is_missing) {
-                ri.kind = ItemKind.MISSING;
-                ri.error_message = _("[Missing file: %s]").printf (data.file_path);
-                result.add (ri);
-                continue;
-            }
-
-            if (data.preprocessed_content != null && data.preprocessed_content.length > 0) {
-                ri.kind = ItemKind.OK;
-                ri.content = data.preprocessed_content;
-                result.add (ri);
-                continue;
-            }
-
-            int64 file_size = 0;
-            try {
-                var info = f.query_info (FileAttribute.STANDARD_SIZE, FileQueryInfoFlags.NONE);
-                file_size = info.get_size ();
-            } catch (Error e) {
-                ri.kind = ItemKind.READ_ERROR;
-                ri.error_message = _("[Unable to get file info: %s]").printf (e.message);
-                result.add (ri);
-                continue;
-            }
-            if (file_size > MAX_FILE_CONTENT_SIZE) {
-                ri.kind = ItemKind.TOO_LARGE;
-                ri.error_message = _("[File too large (%s), content reading skipped]").printf (UIHelpers.format_size (file_size));
-                result.add (ri);
-                continue;
-            }
-
-            FileInputStream? fis = null;
-            try {
-                fis = f.read ();
-                const int PEEK_SIZE = 8192;
-                uint8[] head_buf = new uint8[PEEK_SIZE];
-                var peek_bytes = fis.read_bytes (PEEK_SIZE);
-                unowned uint8[] peek_data = peek_bytes.get_data ();
-                size_t head_read = peek_data.length;
-                Memory.copy (head_buf, peek_data, head_read);
-
-                bool is_binary = false;
-                for (size_t j = 0; j < head_read; j++) {
-                    if (head_buf[j] == 0) {
-                        is_binary = true;
-                        break;
-                    }
-                }
-                if (is_binary) {
-                    ri.kind = ItemKind.BINARY;
-                    ri.error_message = _("[Binary file detected: text content reading skipped]");
-                    result.add (ri);
-                    continue;
-                }
-
-                var sb = new StringBuilder ();
-                sb.append_len ((string) head_buf[0:head_read], (ssize_t) head_read);
-                size_t remaining = (size_t) file_size - head_read;
-                uint8[] chunk_buf = new uint8[8192];
-                while (remaining > 0) {
-                    size_t to_read = size_t.min (8192, remaining);
-                    ssize_t n = fis.read (chunk_buf[0:to_read]);
-                    if (n <= 0) break;
-                    sb.append_len ((string) chunk_buf[0:n], (ssize_t) n);
-                    remaining -= (size_t) n;
-                }
-                ri.kind = ItemKind.OK;
-                ri.content = sb.str;
-                result.add (ri);
-            } catch (Error e) {
-                ri.kind = ItemKind.READ_ERROR;
-                ri.error_message = _("[Failed to read file: %s]").printf (e.message);
-                result.add (ri);
-            } finally {
-                if (fis != null) {
-                    try { fis.close (); } catch (Error e) {}
-                }
-            }
+            result.add (resolve_single_item (data, use_absolute, work_dir));
         }
         return result;
     }
