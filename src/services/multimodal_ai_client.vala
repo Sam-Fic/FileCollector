@@ -6,7 +6,7 @@ public class MultimodalAIClient : GLib.Object {
     public string base_url { get; construct; }
     public string api_key { get; construct; }
     public string model { get; construct; }
-    public string prompt { get; construct; }
+    public string prompt { get; set; }
     private Soup.Session session;
 
     public MultimodalAIClient (string url, string key, string mdl, string prmt, double timeout) {

@@ -27,6 +27,7 @@ public class PreferencesDialog : GLib.Object {
     private PasswordEntryRow edit_mm_api_key;
     private EntryRow edit_mm_model;
     private SpinRow spin_mm_timeout;
+    private SpinRow spin_mm_concurrency;
     private EntryRow edit_mm_prompt;
     private Button btn_mm_test;
     private EntryRow edit_mm_allowed_exts;
@@ -169,6 +170,12 @@ public class PreferencesDialog : GLib.Object {
         spin_mm_timeout = mm_timeout_row;
         mm_group.add (mm_timeout_row);
 
+        var mm_concurrency_row = new SpinRow.with_range (1.0, 16.0, 1.0);
+        mm_concurrency_row.set_title (_("Concurrency (parallel tasks)"));
+        mm_concurrency_row.set_subtitle (_("Max simultaneous VLM preprocessing tasks. Set per your model provider's rate/concurrency limit."));
+        spin_mm_concurrency = mm_concurrency_row;
+        mm_group.add (mm_concurrency_row);
+
         var mm_advanced = new PreferencesGroup ();
         mm_advanced.set_title (_("Advanced"));
         page.add (mm_advanced);
@@ -233,6 +240,7 @@ public class PreferencesDialog : GLib.Object {
         edit_mm_api_key.notify["text"].connect (schedule_ai_auto_save);
         edit_mm_model.notify["text"].connect (schedule_ai_auto_save);
         spin_mm_timeout.notify["value"].connect (schedule_ai_auto_save);
+        spin_mm_concurrency.notify["value"].connect (schedule_ai_auto_save);
         edit_mm_prompt.notify["text"].connect (schedule_ai_auto_save);
 
         edit_mm_allowed_exts.notify["text"].connect (schedule_ai_auto_save);
@@ -424,6 +432,7 @@ public class PreferencesDialog : GLib.Object {
         edit_mm_api_key.set_text (mm_current.api_key ?? "");
         edit_mm_model.set_text (mm_current.model ?? "");
         spin_mm_timeout.set_value (mm_current.timeout > 0 ? mm_current.timeout : 120.0);
+        spin_mm_concurrency.set_value (mm_current.max_concurrency > 0 ? (double) mm_current.max_concurrency : 3.0);
         edit_mm_prompt.set_text (mm_current.system_prompt_override ?? "");
 
         string[] current_exts = ConfigManager.get_allowed_binary_extensions ();
@@ -495,7 +504,8 @@ public class PreferencesDialog : GLib.Object {
             api_key = edit_mm_api_key.get_text ().strip (),
             model = edit_mm_model.get_text ().strip (),
             system_prompt_override = edit_mm_prompt.get_text (),
-            timeout = spin_mm_timeout.get_value ()
+            timeout = spin_mm_timeout.get_value (),
+            max_concurrency = (int) spin_mm_concurrency.get_value ()
         };
     }
 

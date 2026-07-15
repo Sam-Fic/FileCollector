@@ -17,6 +17,58 @@ public class VLMTaskRunner : GLib.Object {
     public File? work_dir { get; set; }
     private PromptProvider prompt_provider;
 
+    // ─── VLM 客户端池 ──────────────────────────────────────────────────
+    // 复用 MultimodalAIClient 以避免每个任务都重建 Soup.Session. 并发上限通常很小
+    // (默认 3), 故池容量固定一个较小的上限即可. 复用前必须校验连接参数 (base_url/
+    // api_key/model/timeout) 与当前设置完全一致 —— 否则复用旧凭据/旧模型会发出错误
+    // 请求. 参数变化时清空整个池, 防止任何陈旧客户端被复用.
+    private static Mutex pool_mutex = Mutex ();
+    private static Gee.LinkedList<MultimodalAIClient> client_pool = new Gee.LinkedList<MultimodalAIClient> ();
+    private static string? pool_settings_sig = null;
+    private const int POOL_CAP = 8;
+
+    private static string settings_signature (ConfigManager.MultimodalAISettings s) {
+        return "%s|%s|%s|%g".printf (s.base_url, s.api_key, s.model, s.timeout);
+    }
+
+    // 取一个与当前设置匹配的客户端; 池空或参数不匹配则新建. 调用方需在 finally 中
+    // release_client 归还, 以便后续任务复用.
+    private static MultimodalAIClient acquire_client (ConfigManager.MultimodalAISettings settings, string prompt) {
+        string sig = settings_signature (settings);
+        pool_mutex.lock ();
+        if (pool_settings_sig != null && pool_settings_sig != sig) {
+            // 设置已变化: 丢弃整个池, 避免复用陈旧客户端
+            while (!client_pool.is_empty) { var old = client_pool.poll (); }
+            pool_settings_sig = null;
+        }
+        if (pool_settings_sig == null) pool_settings_sig = sig;
+
+        MultimodalAIClient? client = null;
+        if (!client_pool.is_empty) {
+            client = client_pool.poll ();
+        }
+        pool_mutex.unlock ();
+
+        if (client != null) {
+            // prompt 是每任务可变的, 直接更新 (public 属性, 构造后亦可赋值)
+            client.prompt = prompt;
+            return client;
+        }
+        var fresh = new MultimodalAIClient (
+            settings.base_url, settings.api_key, settings.model,
+            prompt, settings.timeout
+        );
+        return fresh;
+    }
+
+    private static void release_client (MultimodalAIClient client) {
+        pool_mutex.lock ();
+        if (pool_settings_sig != null && client_pool.size < POOL_CAP) {
+            client_pool.offer (client);
+        }
+        pool_mutex.unlock ();
+    }
+
     public VLMTaskRunner (File? work_dir, owned PromptProvider prompt_provider) {
         this.work_dir = work_dir;
         this.prompt_provider = (owned) prompt_provider;
@@ -101,23 +153,24 @@ public class VLMTaskRunner : GLib.Object {
                 ? settings.system_prompt_override
                 : prompt_provider (file_path);
 
-            var client = new MultimodalAIClient (
-                settings.base_url, settings.api_key, settings.model,
-                prompt, settings.timeout
-            );
-            string md = client.process_images (base64_images, mime_types);
+            var client = acquire_client (settings, prompt);
+            try {
+                string md = client.process_images (base64_images, mime_types);
 
-            if (manager.check_cancelled ()) { manager.notify_finished (file_path); return; }
+                if (manager.check_cancelled ()) { manager.notify_finished (file_path); return; }
 
-            if (local_work_dir != null) {
-                var cache = new PreprocessCache (local_work_dir.get_path ());
-                cache.save_markdown (file_path, hash, md);
+                if (local_work_dir != null) {
+                    var cache = new PreprocessCache (local_work_dir.get_path ());
+                    cache.save_markdown (file_path, hash, md);
+                }
+
+                Idle.add (() => {
+                    manager.task_completed (file_path, md, PreprocessStatus.COMPLETED, false);
+                    return Source.REMOVE;
+                });
+            } finally {
+                release_client (client);
             }
-
-            Idle.add (() => {
-                manager.task_completed (file_path, md, PreprocessStatus.COMPLETED, false);
-                return Source.REMOVE;
-            });
         } catch (Error e) {
             warning ("VLM Task failed: %s", e.message);
             Idle.add (() => {

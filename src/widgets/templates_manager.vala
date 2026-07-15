@@ -177,7 +177,7 @@ public class TemplatesManager : GLib.Object {
         prefs_page.add (group);
 
         // Adw.PreferencesPage 自身处理滚动, 直接挂到 toolbar_view 即可自适应内容高度
-        // (参考 AI 设置对话框 ai_settings_dialog.vala: 用 ToastOverlay 包 prefs_page)
+        // (参考 preferences_dialog.vala: 用 ToastOverlay 包 prefs_page)
         toolbar_view.set_content (prefs_page);
         edit_dialog.set_child (toolbar_view);
         edit_dialog.present (dialog);

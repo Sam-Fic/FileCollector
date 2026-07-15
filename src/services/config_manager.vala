@@ -232,6 +232,9 @@ public class ConfigManager : GLib.Object {
         public string model;
         public string system_prompt_override;
         public double timeout;
+        // 并发预处理任务的线程数. 不同模型提供商的速率限制/并发上限不同,
+        // 故开放为设置项由用户按其提供商的约束填写 (默认 3).
+        public int max_concurrency;
     }
 
     private static bool store_mm_api_key_to_keyring (string api_key) {
@@ -249,7 +252,8 @@ public class ConfigManager : GLib.Object {
             api_key = "",
             model = "gpt-4o",
             system_prompt_override = "",
-            timeout = 120.0
+            timeout = 120.0,
+            max_concurrency = 3
         };
         config_mutex.lock ();
         try {
@@ -262,6 +266,7 @@ public class ConfigManager : GLib.Object {
             defaults.model = ai.get_string_member_with_default ("model", defaults.model);
             defaults.system_prompt_override = ai.get_string_member_with_default ("system_prompt_override", "");
             defaults.timeout = ai.get_double_member_with_default ("timeout", defaults.timeout);
+            defaults.max_concurrency = (int) ai.get_int_member_with_default ("max_concurrency", defaults.max_concurrency);
 
             string? keyring_key = load_mm_api_key_from_keyring ();
             if (keyring_key != null && keyring_key.length > 0) {
@@ -295,6 +300,7 @@ public class ConfigManager : GLib.Object {
             ai.set_string_member ("model", s.model ?? "");
             ai.set_string_member ("system_prompt_override", s.system_prompt_override ?? "");
             ai.set_double_member ("timeout", s.timeout > 0 ? s.timeout : 120.0);
+            ai.set_int_member ("max_concurrency", s.max_concurrency > 0 ? s.max_concurrency : 3);
             root.set_member ("multimodal_ai", AI.SchemaHelper.obj_to_node (ai));
             write_settings_root_unlocked (root);
             store_mm_api_key_to_keyring (s.api_key ?? "");

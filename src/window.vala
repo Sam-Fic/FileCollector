@@ -2014,6 +2014,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (item.file_path == null) return;
         if (item.preprocess_status == PreprocessStatus.PROCESSING ||
             item.preprocess_status == PreprocessStatus.CHECKING) return;
+        // 每次入队前同步最新的并发数设置 (用户可能在设置里改过), 无需重启即可生效
+        var mm = ConfigManager.load_multimodal_ai_settings ();
+        vlm_queue.max_concurrency = mm.max_concurrency > 0 ? mm.max_concurrency : 3;
         vlm_queue.enqueue (item.file_path);
     }
 
