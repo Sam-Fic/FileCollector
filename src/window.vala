@@ -4574,10 +4574,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 更新窗口最小宽度 (AI 边栏可见时需要更大)
         pane_layout_manager.update_min_size ();
 
-        // 展开 AI 侧边栏时自动加宽窗口, 防止现有栏被挤出画面
-        expand_window_for_ai ();
-
+        // 先显示侧边栏, 再加宽窗口 (Wayland 上 set_default_size 需要布局已变更才生效)
         ai_sidebar.visible = true;
+        expand_window_for_ai ();
     }
 
     private void hide_ai_panel () {

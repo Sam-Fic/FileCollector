@@ -44,7 +44,7 @@ public class PaneLayoutManager : GLib.Object {
         // 程序化强制设置, 不依赖 BLP 编译
         // start child 可缩小 → 窗口窄时左栏/中栏先缩
         // end child 不可缩小 → 预览栏永不被裁剪
-        outer_paned.set_shrink_start_child (true);
+        outer_paned.set_shrink_start_child (false);
         outer_paned.set_shrink_end_child (false);
         inner_paned.set_shrink_start_child (false);
         inner_paned.set_shrink_end_child (false);
