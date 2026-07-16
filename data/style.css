@@ -136,6 +136,17 @@ row:selected .queue-drag-handle {
     background: none;
 }
 
+/* 中栏/右栏分隔条 */
+.separator-cr {
+    background: transparent;
+    min-width: 12px;
+    cursor: col-resize;
+}
+
+.separator-cr:hover {
+    background-color: alpha(@borders, 0.3);
+}
+
 paned {
     background: transparent;
 }

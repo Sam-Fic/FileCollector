@@ -217,6 +217,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         setup_signals ();
         setup_ai_panel ();
         pane_layout_manager = new PaneLayoutManager (app_state, outer_paned, inner_paned, ai_paned, ai_sidebar);
+        pane_layout_manager.set_window (this);
         pane_layout_manager.setup ();
         setup_shortcuts ();
         setup_empty_state ();

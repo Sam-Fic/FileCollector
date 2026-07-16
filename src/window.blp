@@ -87,7 +87,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
        margin-start: 0;
        margin-end: 0;
        position: 300;
-       shrink-start-child: false;
+       shrink-start-child: true;
        shrink-end-child: false;
        css-classes: ["paned-no-handle"];
 
@@ -172,7 +172,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
       Paned inner_paned {
         orientation: horizontal;
         position: 500;
-        shrink-start-child: false;
+        shrink-start-child: true;
         shrink-end-child: false;
         margin-start: 0;
         css-classes: ["paned-no-handle"];
@@ -405,12 +405,12 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                 }
               }
             }
-          }
+           }
         }
 
         // 右栏 - 预览
         Box {
-           hexpand: true;
+           hexpand: false;
            vexpand: true;
            width-request: 200;
            margin-top: 0;

@@ -137,6 +137,7 @@ sources = files(
   'src/utils/encoding_helper.vala',
   'src/utils/glob_helper.vala',
   'src/utils/pane_layout_manager.vala',
+  'src/utils/split_box.vala',
   'src/utils/ui_helpers.vala',
   'src/widgets/ai_panel.vala',
   'src/widgets/git_history_panel.vala',
