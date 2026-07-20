@@ -10,6 +10,9 @@ public class AppState : GLib.Object {
     public CheckStateModel check_model { get; private set; }
     public Gee.ArrayList<string> common_phrases { get; private set; }
 
+    // 工作区快照列表：多组暂留的编排状态，支持快速切换 / 合并导出
+    public Gee.ArrayList<WorkspaceSnapshot> snapshots { get; private set; }
+
     public File? work_dir { get; set; }
     public bool use_absolute { get; set; }
     public bool show_header { get; set; }
@@ -29,11 +32,13 @@ public class AppState : GLib.Object {
 
     public signal void items_changed ();
     public signal void state_changed ();
+    public signal void snapshots_changed ();
 
     public AppState () {
         items = new Gee.ArrayList<ItemData> ();
         check_model = new CheckStateModel ();
         common_phrases = new Gee.ArrayList<string> ();
+        snapshots = new Gee.ArrayList<WorkspaceSnapshot> ();
         bg_threads = new Gee.ArrayList<GLib.Thread<void*>> ();
         app_cancellable = new GLib.Cancellable ();
         window_closing = false;
@@ -109,8 +114,10 @@ public class AppState : GLib.Object {
         use_absolute = false;
         show_header = false;
         project_file = null;
+        snapshots.clear ();
         items_changed ();
         state_changed ();
+        snapshots_changed ();
     }
 
     public void replace_from (
@@ -147,5 +154,41 @@ public class AppState : GLib.Object {
 
     public void notify_state_changed () {
         state_changed ();
+    }
+
+    // ─── 工作区快照 ────────────────────────────────────────────────────
+
+    // 保存当前完整状态为新快照（深拷贝，追加到列表末尾）
+    public void save_snapshot (string name) {
+        var snap = WorkspaceSnapshot.from_app_state (this, name);
+        snapshots.add (snap);
+        snapshots_changed ();
+    }
+
+    // 应用指定快照到当前状态（深拷贝写回，触发 items_changed / state_changed）
+    public void apply_snapshot (int index) {
+        if (index < 0 || index >= snapshots.size) return;
+        snapshots.get (index).apply_to (this);
+    }
+
+    public void remove_snapshot (int index) {
+        if (index < 0 || index >= snapshots.size) return;
+        snapshots.remove_at (index);
+        snapshots_changed ();
+    }
+
+    public void rename_snapshot (int index, string name) {
+        if (index < 0 || index >= snapshots.size) return;
+        snapshots.get (index).name = name;
+        snapshots_changed ();
+    }
+
+    // 确保至少有一个工作区快照：首次启动 / 加载的项目不含任何快照时,
+    // 以当前状态创建一个默认的 "Workspace 1", 避免侧栏显示空的 "No Snapshots".
+    public void ensure_default_snapshot () {
+        if (snapshots.size > 0) return;
+        var snap = WorkspaceSnapshot.from_app_state (this, _("Workspace 1"));
+        snapshots.add (snap);
+        snapshots_changed ();
     }
 }

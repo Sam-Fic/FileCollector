@@ -190,7 +190,8 @@ public class CliController : GLib.Object {
             try {
                 ProjectManager.write_project_file (
                     save_path, work_dir, use_absolute, show_header,
-                    items, checked_paths, checked_dirs, common_phrases
+                    items, checked_paths, checked_dirs, common_phrases,
+                    new Gee.ArrayList<WorkspaceSnapshot> ()
                 );
                 stdout.printf (_("Project saved to: %s\n"), save_path);
                 operation_messages.add (_("Project saved to: %s").printf (save_path));

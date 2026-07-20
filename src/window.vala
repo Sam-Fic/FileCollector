@@ -38,8 +38,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.Paned outer_paned;
     [GtkChild] private unowned Gtk.Paned inner_paned;
     [GtkChild] private unowned Gtk.Button btn_ai_toggle;
+    [GtkChild] private unowned Gtk.Button btn_toggle_snapshot;
     [GtkChild] private unowned Gtk.Paned ai_paned;
     [GtkChild] private unowned Gtk.Box ai_sidebar;
+
+    // 工作区快照栏 (在 Vala 中构建, 因 blueprint 0.19 无法正确为
+    // AdwOverlaySplitView 指定 sidebar/content 子控件, 导致侧栏空白)
+    [GtkChild] private unowned Adw.ToolbarView main_view;
+    private Adw.OverlaySplitView snapshot_split;
+    private Adw.Sidebar snapshot_sidebar;
+    private Gtk.Button btn_new_snapshot;
 
     [GtkChild] private unowned Gtk.Button btn_retry_preprocess;
     [GtkChild] private unowned Gtk.DrawingArea token_ring;
@@ -77,6 +85,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private GLib.ListStore queue_store;
 
+    // 快照栏: AdwSidebarItem 列表 (与 app_state.snapshots 一一对应)
+    private GLib.ListStore snapshot_store;
+    private Adw.SidebarSection snapshot_section;
+    private int snapshot_selected_index = -1;
+    // 当前激活的工作区索引: 正在编辑的内容始终属于该 Workspace,
+    // 打开目录 / 切换 / 新建前都会把当前状态同步回它, 避免内容游离在列表之外.
+    private int active_workspace_index = -1;
+    // 响应式断点: AI 侧边栏隐藏 / 显示时用不同阈值 (显示时须加上 AI 栏宽度,
+    // 避免三栏被裁切才切覆盖模式). 同一时刻只挂一个断点到窗口.
+    private Adw.Breakpoint? snapshot_bp;
     private Gtk.MultiSelection queue_selection;
 
     // 防御: 在对 queue_store/queue_selection 进行突变 (splice/unselect/select)
@@ -89,7 +107,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private Gee.ArrayList<ItemData> items { get { return app_state.items; } }
     private CheckStateModel check_model { get { return app_state.check_model; } }
     private Gee.ArrayList<string> common_phrases { get { return app_state.common_phrases; } }
-    private File? work_dir { get { return app_state.work_dir; } set { app_state.work_dir = value; update_empty_state (); } }
+    private File? work_dir {
+        get { return app_state.work_dir; }
+        set {
+            app_state.work_dir = value;
+            // 打开/更改工作目录时, 把当前状态同步回激活的工作区,
+            // 使该目录归属于当前 Workspace (而非游离).
+            sync_active_snapshot ();
+            update_empty_state ();
+        }
+    }
     private bool use_absolute { get { return app_state.use_absolute; } set { app_state.use_absolute = value; } }
     private bool show_header { get { return app_state.show_header; } set { app_state.show_header = value; } }
     private string? project_file { get { return app_state.project_file; } set { app_state.project_file = value; } }
@@ -210,6 +237,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         setup_queue_list ();
         setup_tree_view ();
         init_git_panel ();
+        setup_snapshot_sidebar ();
         setup_vlm_queue ();
         setup_preview_syntax ();
         setup_preview_signals ();
@@ -1691,12 +1719,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void update_empty_state () {
-        // 获取 ToolbarView
-        var main_overlay = toast_overlay.child as Gtk.Overlay;
-        Adw.ToolbarView? toolbar_view = null;
-        if (main_overlay != null) {
-            toolbar_view = main_overlay.child as Adw.ToolbarView;
-        }
+        // 主内容 ToolbarView 现在位于 snapshot_split 内, 直接通过字段引用,
+        // 不再从 toast_overlay.child 强转 (它现在是 AdwOverlaySplitView)。
+        Adw.ToolbarView? toolbar_view = main_view;
 
         bool show_empty = (work_dir == null) || (is_git_mode && !git_panel.has_data ());
         bool no_workdir = (work_dir == null);
@@ -2052,11 +2077,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         // 用 Gtk.Overlay 包裹 ToolbarView, 使进度卡片能悬浮在窗口右下角
         var main_overlay = new Gtk.Overlay ();
-        var toolbar_view = toast_overlay.child;
-        toast_overlay.child = null;
-        main_overlay.child = toolbar_view;
+        // main_view 当前是 snapshot_split.content, 需先摘除再挂入 overlay,
+        // 否则 gtk_overlay_set_child 会因 main_view 已持有父节点而报断言错误。
+        snapshot_split.content = null;
+        main_overlay.child = main_view;
         main_overlay.add_overlay (vlm_progress_revealer);
-        toast_overlay.child = main_overlay;
+        snapshot_split.content = main_overlay;
 
         // 信号连接
         vlm_queue.progress_changed.connect (on_vlm_progress_changed);
@@ -2127,6 +2153,423 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 快捷键 Action 在 setup 后才创建, 需要重新同步一次状态
         update_queue_buttons ();
         update_workdir_dependent_buttons ();
+    }
+
+    // ─── 工作区快照栏 ────────────────────────────────────────────────────
+
+    // 在 Vala 中构建快照侧栏与 AdwOverlaySplitView。
+    // blueprint 0.19 不能为 OverlaySplitView 正确指派 sidebar/content 子控件,
+    // 故在此显式 set_sidebar()/set_content(), 确保侧栏能正常分配尺寸并渲染。
+    private void build_snapshot_split_view () {
+        // 侧栏: 顶部 "Workspaces" 标题栏 + 新建按钮
+        var sidebar_header = new Adw.HeaderBar ();
+        sidebar_header.title_widget = new Adw.WindowTitle (_("Workspaces"), "");
+        btn_new_snapshot = new Gtk.Button.from_icon_name ("list-add-symbolic");
+        btn_new_snapshot.tooltip_text = _("Save Current State as New Snapshot");
+        sidebar_header.pack_end (btn_new_snapshot);
+
+        // 侧栏列表: AdwSidebar + 空状态占位
+        snapshot_sidebar = new Adw.Sidebar ();
+        var snapshot_menu = new GLib.Menu ();
+        var sec1 = new GLib.Menu ();
+        sec1.append (_("Rename Snapshot"), "win.rename_snapshot");
+        sec1.append (_("Save Snapshot As Project..."), "win.snapshot_save_as");
+        snapshot_menu.append_section (null, sec1);
+        var sec2 = new GLib.Menu ();
+        sec2.append (_("Delete Snapshot"), "win.delete_snapshot");
+        snapshot_menu.append_section (null, sec2);
+        snapshot_sidebar.menu_model = snapshot_menu;
+
+        var placeholder = new Adw.StatusPage ();
+        placeholder.icon_name = "view-grid-symbolic";
+        placeholder.title = _("No Snapshots");
+        placeholder.description = _("Save the current state as a new snapshot with the + button above.");
+        snapshot_sidebar.placeholder = placeholder;
+
+        var sidebar_view = new Adw.ToolbarView ();
+        sidebar_view.add_top_bar (sidebar_header);
+        sidebar_view.content = snapshot_sidebar;
+
+        // 主内容区: 复用蓝图中的 main_view
+        snapshot_split = new Adw.OverlaySplitView ();
+        snapshot_split.collapsed = false;
+        snapshot_split.pin_sidebar = true;
+        snapshot_split.show_sidebar = true;
+        snapshot_split.sidebar_position = Gtk.PackType.START;
+        snapshot_split.min_sidebar_width = 200;
+        snapshot_split.max_sidebar_width = 320;
+        snapshot_split.sidebar_width_fraction = 0.30;
+        snapshot_split.sidebar = sidebar_view;
+
+        // 响应式: 窗口宽度不足时, 侧栏切换为覆盖 (overlay) 模式, 浮在内容之上
+        // (会盖住顶部菜单栏); 宽度足够时回到并排 (docked) 模式.
+        // 阈值取保守值: AI 隐藏时 1100sp, AI 显示时再加 AI 栏宽度 (~300sp) → 1400sp.
+        // 均参考 PaneLayoutManager.update_min_size() 的三栏不裁切最小总宽 (~860sp),
+        // 确保三栏 (及 AI 栏) 正常显示时绝不误触覆盖模式.
+        // Adw.ApplicationWindow 不支持运行时 remove_breakpoint, 故只创建单个 breakpoint,
+        // AI 显隐时通过 set_condition() 动态切换阈值 (setter 不变, 始终令 collapsed=true).
+        snapshot_bp = new Adw.Breakpoint (Adw.BreakpointCondition.parse ("max-width: 1100sp"));
+        snapshot_bp.add_setter (snapshot_split, "collapsed", true);
+        this.add_breakpoint (snapshot_bp);
+        apply_snapshot_breakpoint ();
+
+        // AI 侧边栏显隐时, 切换断点阈值 (加上 / 去掉 AI 栏宽度)
+        ai_sidebar.notify["visible"].connect (() => apply_snapshot_breakpoint ());
+
+        // 先把 main_view 从 toast_overlay 摘除 (置空 toast_overlay 的 child,
+        // 让 GTK 正确解除父子关系), 再挂到 split view 的 content, 否则 GTK 会因
+        // main_view 仍被 toast_overlay 持有而拒绝 set_content / 报断言错误。
+        toast_overlay.child = null;
+        snapshot_split.content = main_view;
+
+        // 将 toast_overlay 的内容替换为带侧栏的 split view
+        toast_overlay.child = snapshot_split;
+    }
+
+    // 根据 AI 侧边栏是否打开, 切换响应式断点阈值:
+    //   - AI 隐藏 → 1100sp (max-width 时进入覆盖模式)
+    //   - AI 显示 → 1400sp (额外加上 AI 栏宽度 ~300sp)
+    // Adw.ApplicationWindow 不支持运行时移除 breakpoint, 故仅动态更新
+    // 已挂载 breakpoint 的 condition (setter 始终令 collapsed=true 不变)。
+    private void apply_snapshot_breakpoint () {
+        var condition = Adw.BreakpointCondition.parse (
+            ai_sidebar.visible ? "max-width: 1400sp" : "max-width: 1100sp");
+        snapshot_bp.set_condition (condition);
+    }
+
+    private void setup_snapshot_sidebar () {
+        // 在 Vala 中构建 AdwOverlaySplitView, 因为 blueprint 0.19 无法为
+        // OverlaySplitView 正确指派 sidebar/content 子控件 (会导致侧栏整片空白)。
+        // 这里显式 set_sidebar()/set_content(), 绕过 blueprint 的子控件分配缺陷。
+        build_snapshot_split_view ();
+
+        snapshot_store = new GLib.ListStore (typeof (Adw.SidebarItem));
+        snapshot_section = new Adw.SidebarSection ();
+        snapshot_section.set_title (_("Snapshots"));
+        snapshot_sidebar.append (snapshot_section);
+
+        // 应用菜单动作 (重命名 / 另存为 / 删除)
+        var rename_act = new GLib.SimpleAction ("rename_snapshot", null);
+        rename_act.activate.connect (() => on_rename_snapshot ());
+        add_action (rename_act);
+
+        var save_as_act = new GLib.SimpleAction ("snapshot_save_as", null);
+        save_as_act.activate.connect (() => on_snapshot_save_as ());
+        add_action (save_as_act);
+
+        var del_act = new GLib.SimpleAction ("delete_snapshot", null);
+        del_act.activate.connect (() => on_delete_snapshot ());
+        add_action (del_act);
+
+        // 点击某快照 → 切换为该工作区状态。
+        // 注意: AdwSidebar.activated 返回的 index 是其内部 flat 索引,
+        // 可能与 snapshot_store / app_state.snapshots 的排列顺序不一致
+        // (尤其当显示顺序与存储顺序相反时)。因此通过 get_item 取回实际
+        // AdwSidebarItem, 再用 index_of_sidebar_item 映射回真实的快照索引,
+        // 避免点击错位 (错乱会导致所有点击都加载到同一快照)。
+        snapshot_sidebar.activated.connect ((index) => {
+            var item = snapshot_sidebar.get_item (index);
+            var real_index = index_of_sidebar_item (item);
+            if (real_index >= 0) switch_to_snapshot (real_index);
+        });
+
+        // 右键菜单: 记录当前项的索引, 供菜单动作使用 (item 可能为 null)
+        snapshot_sidebar.setup_menu.connect ((item) => {
+            snapshot_selected_index = (int) index_of_sidebar_item (item);
+        });
+
+        // 新建快照
+        btn_new_snapshot.clicked.connect (() => on_new_snapshot ());
+
+        // 顶栏开关: 展开 / 收起快照栏 (窄屏时自动以覆盖层呈现)
+        btn_toggle_snapshot.clicked.connect (() => {
+            snapshot_split.show_sidebar = !snapshot_split.show_sidebar;
+            sync_snapshot_toggle_button ();
+        });
+        sync_snapshot_toggle_button ();
+
+        // 列表变更 → 重建侧栏
+        app_state.snapshots_changed.connect (rebuild_snapshot_sidebar);
+        // 首次启动 / 无快照时, 保证侧栏至少有一个默认工作区 (Workspace 1)
+        app_state.ensure_default_snapshot ();
+        active_workspace_index = 0;
+        rebuild_snapshot_sidebar ();
+        snapshot_sidebar.set_selected (0);
+
+        // 合并导出 (所有快照) 通过快捷键 Ctrl+Shift+E 触发
+        var merge_act = new GLib.SimpleAction ("merge_export_snapshots", null);
+        merge_act.activate.connect (() => on_merge_export_snapshots ());
+        add_action (merge_act);
+        GLib.Idle.add (() => {
+            var app = this.application;
+            if (app != null) {
+                app.set_accels_for_action ("win.merge_export_snapshots", { "<Control><Shift>e" });
+            }
+            return GLib.Source.REMOVE;
+        });
+    }
+
+    private void rebuild_snapshot_sidebar () {
+        snapshot_store.remove_all ();
+        snapshot_section.remove_all ();
+        for (int i = 0; i < app_state.snapshots.size; i++) {
+            var snap = app_state.snapshots.get (i);
+            var item = new Adw.SidebarItem (snap.name);
+            item.icon_name = "view-grid-symbolic";
+            snapshot_store.append (item);
+            snapshot_section.append (item);
+        }
+    }
+
+    // 将当前正在编辑的状态同步回"激活的工作区" (覆盖写, 不触发 snapshots_changed,
+    // 因为侧栏只显示名称, 名称未变无需重绘). 这样打开目录 / 编辑后再切换或新建时,
+    // 当前内容已归属于 active_workspace_index 对应的 Workspace, 不会游离在列表之外.
+    private void sync_active_snapshot () {
+        if (active_workspace_index < 0 || active_workspace_index >= app_state.snapshots.size) return;
+        var name = app_state.snapshots.get (active_workspace_index).name;
+        var snap = WorkspaceSnapshot.from_app_state (app_state, name);
+        app_state.snapshots.set (active_workspace_index, snap);
+    }
+
+    // 同步顶栏开关按钮的图标与提示 (反映快照栏是否可见)
+    private void sync_snapshot_toggle_button () {
+        var visible = snapshot_split.show_sidebar;
+        // 主题仅提供 sidebar-show-symbolic (无 hide 变体); 侧栏出现即覆盖顶栏,
+        // 无需为按钮做额外的激活态高亮
+        btn_toggle_snapshot.icon_name = "sidebar-show-symbolic";
+        btn_toggle_snapshot.tooltip_text = visible
+            ? _("Hide Workspaces Sidebar")
+            : _("Show Workspaces Sidebar");
+    }
+
+    // 将 AdwSidebarItem 映射回其在 snapshot_store 中的索引 (-1 表示无效)
+    private int index_of_sidebar_item (Adw.SidebarItem? item) {
+        if (item == null) return -1;
+        uint pos;
+        return snapshot_store.find (item, out pos) ? (int) pos : -1;
+    }
+
+    private void switch_to_snapshot (int index) {
+        if (index < 0 || index >= app_state.snapshots.size) return;
+        push_undo_state ();
+        // 切换前, 先把当前正在编辑的内容存回"旧激活工作区",
+        // 否则当前内容会丢失 / 游离. 然后切换到目标并标记为激活.
+        sync_active_snapshot ();
+        active_workspace_index = index;
+        app_state.apply_snapshot (index);
+        snapshot_sidebar.set_selected ((uint) index);
+        // apply_snapshot 通过 replace_from 触发 items_changed / state_changed,
+        // 但工作目录是直接写入 app_state (绕过 work_dir 属性 setter), 需在此手动
+        // 同步目录树 / 标题 / 空状态, 使切换快照后界面与对应工作区一致.
+        var new_work_dir = app_state.work_dir;
+        update_subtitle (new_work_dir != null ? new_work_dir.get_path () : _("No working directory set"));
+        if (new_work_dir != null) {
+            root_store.remove_all ();
+            var root_item = new DirectoryItem (new_work_dir.get_basename (), new_work_dir.get_path (), true);
+            root_store.append (root_item);
+            load_directory_children_lazy (root_item);
+            search_entry.visible = true;
+            var root_row = tree_list_model.get_item (0) as Gtk.TreeListRow;
+            if (root_row != null) root_row.set_expanded (true);
+        } else {
+            root_store.remove_all ();
+            search_entry.visible = false;
+        }
+        refresh_list ();
+        update_workdir_dependent_buttons ();
+        update_empty_state ();
+        show_toast (_("Switched to snapshot: %s").printf (app_state.snapshots.get (index).name));
+    }
+
+    private void on_new_snapshot () {
+        var dialog = new Adw.AlertDialog (_("New Workspace"), null);
+        dialog.set_body (_("Save the current orchestration state as a new workspace."));
+        dialog.add_response ("cancel", _("Cancel"));
+        dialog.add_response ("save", _("Save"));
+        dialog.set_response_appearance ("save", Adw.ResponseAppearance.SUGGESTED);
+        dialog.set_default_response ("save");
+
+        var entry = new Gtk.Entry ();
+        entry.placeholder_text = _("Workspace name");
+        entry.text = _("Workspace %d").printf (app_state.snapshots.size + 1);
+        entry.activate.connect (() => dialog.response ("save"));
+        dialog.set_extra_child (entry);
+        dialog.response.connect ((resp) => {
+            if (resp == "save") {
+                var name = entry.text.strip ();
+                if (name.length == 0) name = _("Workspace %d").printf (app_state.snapshots.size + 1);
+                // 语义: 把"当前正在编辑的内容"固化进当前激活的工作区 (如 Workspace 1 = 目录A),
+                // 再新建一个空白 Workspace 并激活它, 当前变为空白等待打开新目录.
+                // 这样目录A 归属于原 Workspace, 新建的 Workspace 2 才是空白.
+                push_undo_state ();
+                // (1) 先把当前内容存回激活工作区
+                sync_active_snapshot ();
+                // (2) 清空当前状态 — 直接写 app_state 绕过 work_dir 属性 setter,
+                //     避免 setter 的 sync_active_snapshot 把刚存好的目录A 覆盖成空.
+                app_state.clear_items ();
+                app_state.common_phrases.clear ();
+                app_state.work_dir = null;
+                // (3) 此时当前为空, 新建快照捕获的即是空白 Workspace
+                app_state.save_snapshot (name);
+                active_workspace_index = app_state.snapshots.size - 1;
+                refresh_list ();
+                update_workdir_dependent_buttons ();
+                update_empty_state ();
+                // 先重建侧栏 (save_snapshot 已触发过一次重建, 这里确保 item 与索引一致),
+                // 再设置高亮到新建的 Workspace, 否则重建会清空选中态.
+                rebuild_snapshot_sidebar ();
+                snapshot_sidebar.set_selected ((uint) active_workspace_index);
+                show_toast (_("Workspace saved: %s — current workspace cleared").printf (name));
+            }
+            dialog.destroy ();
+        });
+        dialog.present (this);
+    }
+
+    private void on_rename_snapshot () {
+        if (snapshot_selected_index < 0 || snapshot_selected_index >= app_state.snapshots.size) return;
+        var snap = app_state.snapshots.get (snapshot_selected_index);
+        var dialog = new Adw.AlertDialog (_("Rename Snapshot"), null);
+        dialog.set_body (_("Enter a new name for this snapshot."));
+        dialog.add_response ("cancel", _("Cancel"));
+        dialog.add_response ("rename", _("Rename"));
+        dialog.set_response_appearance ("rename", Adw.ResponseAppearance.SUGGESTED);
+        dialog.set_default_response ("rename");
+
+        var entry = new Gtk.Entry ();
+        entry.text = snap.name;
+        entry.activate.connect (() => dialog.response ("rename"));
+        dialog.set_extra_child (entry);
+        dialog.response.connect ((resp) => {
+            if (resp == "rename") {
+                var name = entry.text.strip ();
+                if (name.length > 0) {
+                    app_state.rename_snapshot (snapshot_selected_index, name);
+                }
+            }
+            dialog.destroy ();
+        });
+        dialog.present (this);
+    }
+
+    private void on_delete_snapshot () {
+        if (snapshot_selected_index < 0 || snapshot_selected_index >= app_state.snapshots.size) return;
+        var snap = app_state.snapshots.get (snapshot_selected_index);
+        var dialog = new Adw.AlertDialog (
+            _("Delete Snapshot"),
+            _("Delete snapshot \"%s\"? This cannot be undone.").printf (snap.name)
+        );
+        dialog.add_response ("cancel", _("Cancel"));
+        dialog.add_response ("delete", _("Delete"));
+        dialog.set_response_appearance ("delete", Adw.ResponseAppearance.DESTRUCTIVE);
+        dialog.set_default_response ("cancel");
+        dialog.response.connect ((resp) => {
+            if (resp == "delete") {
+                // 删除前, 把当前编辑内容存回激活工作区 (若它正是被删项, 则丢弃)
+                if (snapshot_selected_index != active_workspace_index) {
+                    sync_active_snapshot ();
+                }
+                app_state.remove_snapshot (snapshot_selected_index);
+                // 修正激活索引: 删的是数组中部/末尾时, 后续项前移
+                if (active_workspace_index > snapshot_selected_index) {
+                    active_workspace_index--;
+                } else if (active_workspace_index == snapshot_selected_index) {
+                    active_workspace_index = app_state.snapshots.size > 0
+                        ? int.min (active_workspace_index, app_state.snapshots.size - 1)
+                        : -1;
+                }
+                snapshot_selected_index = -1;
+                if (active_workspace_index >= 0) {
+                    snapshot_sidebar.set_selected ((uint) active_workspace_index);
+                }
+                show_toast (_("Workspace deleted"));
+            }
+            dialog.destroy ();
+        });
+        dialog.present (this);
+    }
+
+    private void on_snapshot_save_as () {
+        if (snapshot_selected_index < 0 || snapshot_selected_index >= app_state.snapshots.size) return;
+        var snap = app_state.snapshots.get (snapshot_selected_index);
+        var temp_state = new AppState ();
+        snap.apply_to (temp_state);
+
+        var dialog = new Gtk.FileDialog ();
+        dialog.title = _("Save Snapshot As Project");
+        var filter_fcol = new Gtk.FileFilter ();
+        filter_fcol.name = _("FileCollector Project (*.fcol)");
+        filter_fcol.add_pattern ("*.fcol");
+        var filters = new GLib.ListStore (typeof (Gtk.FileFilter));
+        filters.append (filter_fcol);
+        dialog.set_filters (filters);
+        dialog.set_default_filter (filter_fcol);
+        dialog.set_initial_name ("%s.fcol".printf (snap.name.replace (" ", "_")));
+
+        dialog.save.begin (this, null, (obj, res) => {
+            try {
+                var file = dialog.save.end (res);
+                var path = file.get_path ();
+                if (!path.has_suffix (".fcol")) path += ".fcol";
+                ProjectManager.write_project_file (
+                    path, temp_state.work_dir, temp_state.use_absolute, temp_state.show_header,
+                    temp_state.items, temp_state.check_model.checked_files,
+                    temp_state.check_model.checked_dirs, temp_state.common_phrases,
+                    new Gee.ArrayList<WorkspaceSnapshot> ()
+                );
+                show_toast (_("Saved: %s").printf (GLib.Path.get_basename (path)));
+            } catch (Error e) {
+                if (!(e is GLib.IOError.CANCELLED || e is Gtk.DialogError.DISMISSED)) {
+                    show_error (_("Save Failed"), e.message);
+                }
+            }
+        });
+    }
+
+    // 合并导出: 收集所有快照的 items, 生成一段合并文本 / ZIP, 不改变当前工作区.
+    private void on_merge_export_snapshots () {
+        if (app_state.snapshots.size == 0) {
+            show_toast (_("No snapshots to merge"));
+            return;
+        }
+        var merged = new Gee.ArrayList<ItemData> ();
+        foreach (var snap in app_state.snapshots) {
+            foreach (var it in snap.items) {
+                merged.add (new ItemData (it.item_type, it.file_path, it.content, it.force_absolute, it.is_missing));
+            }
+        }
+        if (merged.size == 0) {
+            show_toast (_("Snapshots are empty, nothing to export"));
+            return;
+        }
+        // 复用现有导出逻辑: 临时把合并结果交给导出对话框流程.
+        export_items_to_clipboard (merged);
+    }
+
+    // 将给定 items 复制为合并文本到剪贴板 (供合并导出复用)
+    private void export_items_to_clipboard (Gee.ArrayList<ItemData> export_items) {
+        try {
+            FileGenerator.generate_to_clipboard (export_items, use_absolute, show_header, work_dir, this.get_display ());
+            show_toast (_("Merged %d items copied to clipboard").printf (export_items.size));
+        } catch (Error e) {
+            show_error (_("Merge Export Failed"), e.message);
+        }
+    }
+
+    private void update_subtitle_from_state () {
+        update_subtitle (work_dir != null ? work_dir.get_path () : _("No working directory set"));
+    }
+
+    private void refresh_directory_tree_if_needed () {
+        if (work_dir == null) return;
+        // 工作目录变更时重建目录树根; 否则维持现有树 (勾选状态由 check_model 驱动)
+        // 为避免无谓重建, 仅在根不存在或路径不同时重建.
+        if (root_store.get_n_items () == 0) {
+            root_store.remove_all ();
+            var root_item = new DirectoryItem (work_dir.get_basename (), work_dir.get_path (), true);
+            root_store.append (root_item);
+            load_directory_children_lazy (root_item);
+        }
     }
 
     public CliController create_cli_from_state () {
@@ -4131,6 +4574,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void update_ui_after_project_load () {
+        // 加载新项目后, 当前编辑内容归属于第一个工作区; 先复位激活索引,
+        // 避免 work_dir setter 的 sync_active_snapshot 写入旧的/越界的索引.
+        active_workspace_index = 0;
         if (work_dir != null) {
             update_subtitle (work_dir.get_path ());
             root_store.remove_all ();
@@ -4168,6 +4614,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (it.item_type == "text") it.update_token_stats ();
         }
         update_token_display ();
+        // 加载的项目不含任何快照时, 补一个默认工作区, 保持侧栏非空
+        app_state.ensure_default_snapshot ();
+        // 激活第一个工作区 (加载后当前编辑内容归属于它)
+        active_workspace_index = 0;
+        snapshot_sidebar.set_selected (0);
     }
 
     public void on_save_project () {

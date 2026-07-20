@@ -7,6 +7,7 @@ public class ProjectManager : GLib.Object {
         Gee.HashSet<string> checked_paths,
         Gee.HashSet<string> checked_dirs,
         Gee.ArrayList<string> common_phrases,
+        Gee.ArrayList<WorkspaceSnapshot> snapshots,
         out File? work_dir,
         out string? project_file,
         out bool use_absolute,
@@ -94,6 +95,70 @@ public class ProjectManager : GLib.Object {
             }
         }
 
+        // 工作区快照（向后兼容：旧工程文件无 snapshots 字段时为空）
+        snapshots.clear ();
+        var snaps_arr = root.has_member ("snapshots") ? root.get_array_member ("snapshots") : null;
+        if (snaps_arr != null) {
+            for (int i = 0; i < snaps_arr.get_length (); i++) {
+                var so = snaps_arr.get_object_element (i);
+                if (so == null) continue;
+                var snap = new WorkspaceSnapshot ();
+                snap.name = so.get_string_member_with_default ("name", _("Snapshot %d").printf (i + 1));
+                snap.id = so.get_string_member_with_default ("id", snap.id);
+                snap.created_at = (int64) so.get_int_member_with_default ("created_at", snap.created_at);
+
+                var swd = so.get_string_member_with_default ("work_dir", "");
+                snap.work_dir = (swd != "") ? File.new_for_path (swd) : null;
+                snap.use_absolute = so.get_boolean_member_with_default ("use_absolute", false);
+                snap.show_header = so.get_boolean_member_with_default ("show_header", false);
+
+                var sitems = so.has_member ("items") ? so.get_array_member ("items") : null;
+                if (sitems != null) {
+                    for (int j = 0; j < sitems.get_length (); j++) {
+                        var io = sitems.get_object_element (j);
+                        if (io == null) continue;
+                        var itype = io.get_string_member ("type");
+                        if (itype == "file") {
+                            var p = io.get_string_member ("path");
+                            var fa = io.get_boolean_member_with_default ("force_absolute", false);
+                            var sl = (int) io.get_int_member_with_default ("start_line", 0);
+                            var el = (int) io.get_int_member_with_default ("end_line", 0);
+                            var item = new ItemData ("file", p, null, fa);
+                            item.start_line = sl;
+                            item.end_line = el;
+                            if (io.get_boolean_member_with_default ("missing", false)) {
+                                item.is_missing = true;
+                            }
+                            snap.items.add (item);
+                        } else {
+                            var c = io.get_string_member_with_default ("content", "");
+                            snap.items.add (new ItemData ("text", null, c, false));
+                        }
+                    }
+                }
+
+                var scp = so.has_member ("checked_files") ? so.get_array_member ("checked_files") : null;
+                if (scp != null) {
+                    for (int j = 0; j < scp.get_length (); j++) snap.checked_paths.add (scp.get_string_element (j));
+                }
+                var scd = so.has_member ("checked_dirs") ? so.get_array_member ("checked_dirs") : null;
+                if (scd != null) {
+                    for (int j = 0; j < scd.get_length (); j++) snap.checked_dirs.add (scd.get_string_element (j));
+                }
+                var sph = so.has_member ("common_phrases") ? so.get_array_member ("common_phrases") : null;
+                if (sph != null) {
+                    for (int j = 0; j < sph.get_length (); j++) snap.common_phrases.add (sph.get_string_element (j));
+                }
+
+                snap.ai_mode = so.get_string_member_with_default ("ai_mode", "default");
+                snap.ai_file_extension = so.get_string_member_with_default ("ai_file_extension", "");
+                snap.ai_file_label = so.get_string_member_with_default ("ai_file_label", _("File"));
+                snap.ai_max_files = (int) so.get_int_member_with_default ("ai_max_files", 50);
+
+                snapshots.add (snap);
+            }
+        }
+
         project_file = file_path;
     }
 
@@ -105,7 +170,8 @@ public class ProjectManager : GLib.Object {
         Gee.ArrayList<ItemData> items,
         Gee.HashSet<string> checked_paths,
         Gee.HashSet<string> checked_dirs,
-        Gee.ArrayList<string> common_phrases
+        Gee.ArrayList<string> common_phrases,
+        Gee.ArrayList<WorkspaceSnapshot> snapshots
     ) throws Error {
         var builder = new Json.Builder ();
         builder.begin_object ();
@@ -173,6 +239,93 @@ public class ProjectManager : GLib.Object {
         builder.begin_array ();
         for (int i = 0; i < common_phrases.size; i++) {
             builder.add_string_value (common_phrases.get (i));
+        }
+        builder.end_array ();
+
+        // 工作区快照
+        builder.set_member_name ("snapshots");
+        builder.begin_array ();
+        for (int i = 0; i < snapshots.size; i++) {
+            var snap = snapshots.get (i);
+            builder.begin_object ();
+
+            builder.set_member_name ("name");
+            builder.add_string_value (snap.name);
+            builder.set_member_name ("id");
+            builder.add_string_value (snap.id);
+            builder.set_member_name ("created_at");
+            builder.add_int_value (snap.created_at);
+
+            builder.set_member_name ("work_dir");
+            if (snap.work_dir != null) {
+                builder.add_string_value (snap.work_dir.get_path ());
+            } else {
+                builder.add_null_value ();
+            }
+            builder.set_member_name ("use_absolute");
+            builder.add_boolean_value (snap.use_absolute);
+            builder.set_member_name ("show_header");
+            builder.add_boolean_value (snap.show_header);
+
+            builder.set_member_name ("checked_files");
+            builder.begin_array ();
+            foreach (var key in snap.checked_paths) builder.add_string_value (key);
+            builder.end_array ();
+
+            builder.set_member_name ("checked_dirs");
+            builder.begin_array ();
+            foreach (var key in snap.checked_dirs) builder.add_string_value (key);
+            builder.end_array ();
+
+            builder.set_member_name ("items");
+            builder.begin_array ();
+            for (int j = 0; j < snap.items.size; j++) {
+                var data = snap.items.get (j);
+                builder.begin_object ();
+                builder.set_member_name ("type");
+                builder.add_string_value (data.item_type);
+                if (data.item_type == "file") {
+                    builder.set_member_name ("path");
+                    builder.add_string_value (data.file_path);
+                    builder.set_member_name ("force_absolute");
+                    builder.add_boolean_value (data.force_absolute);
+                    if (data.is_missing) {
+                        builder.set_member_name ("missing");
+                        builder.add_boolean_value (true);
+                    }
+                    if (data.start_line > 0) {
+                        builder.set_member_name ("start_line");
+                        builder.add_int_value (data.start_line);
+                    }
+                    if (data.end_line > 0) {
+                        builder.set_member_name ("end_line");
+                        builder.add_int_value (data.end_line);
+                    }
+                } else {
+                    builder.set_member_name ("content");
+                    builder.add_string_value (data.content);
+                }
+                builder.end_object ();
+            }
+            builder.end_array ();
+
+            builder.set_member_name ("common_phrases");
+            builder.begin_array ();
+            for (int j = 0; j < snap.common_phrases.size; j++) {
+                builder.add_string_value (snap.common_phrases.get (j));
+            }
+            builder.end_array ();
+
+            builder.set_member_name ("ai_mode");
+            builder.add_string_value (snap.ai_mode);
+            builder.set_member_name ("ai_file_extension");
+            builder.add_string_value (snap.ai_file_extension);
+            builder.set_member_name ("ai_file_label");
+            builder.add_string_value (snap.ai_file_label);
+            builder.set_member_name ("ai_max_files");
+            builder.add_int_value (snap.ai_max_files);
+
+            builder.end_object ();
         }
         builder.end_array ();
 

@@ -61,7 +61,8 @@ public class RecoveryManager : GLib.Object {
                 app_state.items,
                 app_state.check_model.checked_files,
                 app_state.check_model.checked_dirs,
-                app_state.common_phrases
+                app_state.common_phrases,
+                app_state.snapshots
             );
         } catch (Error e) {
             warning ("Auto-save recovery failed: %s", e.message);
@@ -122,9 +123,10 @@ public class RecoveryManager : GLib.Object {
                     var new_checked = new Gee.HashSet<string> ();
                     var new_dirs = new Gee.HashSet<string> ();
                     var new_phrases = new Gee.ArrayList<string> ();
+                    var new_snaps = new Gee.ArrayList<WorkspaceSnapshot> ();
 
                     ProjectManager.load_project_file (
-                        recovery_path, new_items, new_checked, new_dirs, new_phrases,
+                        recovery_path, new_items, new_checked, new_dirs, new_phrases, new_snaps,
                         out wd, out pf, out ua, out sh
                     );
 

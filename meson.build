@@ -6,7 +6,7 @@ project('filecollector', 'vala', 'c',
 # 依赖导入
 dependency('glib-2.0', version: '>= 2.76')
 dependency('gtk4', version: '>= 4.14')
-dependency('libadwaita-1', version: '>= 1.8')
+dependency('libadwaita-1', version: '>= 1.9')
 dependency('json-glib-1.0')
 dependency('libsoup-3.0')
 dependency('gee-0.8')
@@ -110,6 +110,7 @@ sources = files(
   'src/services/secret_store.vala',
   'src/models/item_data.vala',
   'src/models/app_state.vala',
+  'src/models/workspace_snapshot.vala',
   'src/models/directory_item.vala',
   'src/models/git_commit.vala',
   'src/models/prompt_template.vala',

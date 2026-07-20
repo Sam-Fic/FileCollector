@@ -7,9 +7,14 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
   default-height: 750;
   title: _("FileCollector - File Collection & Orchestration Tool");
   content: Adw.ToastOverlay toast_overlay {
-    Adw.ToolbarView {
+    Adw.ToolbarView main_view {
       [top]
       Adw.HeaderBar {
+        Button btn_toggle_snapshot {
+          icon-name: "sidebar-show-symbolic";
+          tooltip-text: _("Show / Hide Workspaces Sidebar");
+        }
+
         Button btn_ai_toggle {
           icon-name: "chat-message-new-symbolic";
           tooltip-text: _("Show / Hide AI Assistant (Ctrl+J)");
@@ -513,5 +518,15 @@ menu generate_menu {
   section {
     item (_("Copy Merged Text to Clipboard"), "win.generate_to_clipboard")
     item (_("Export as ZIP"), "win.export_zip")
+  }
+}
+
+menu snapshot_menu {
+  section {
+    item (_("Rename Snapshot"), "win.rename_snapshot")
+    item (_("Save Snapshot As Project..."), "win.snapshot_save_as")
+  }
+  section {
+    item (_("Delete Snapshot"), "win.delete_snapshot")
   }
 }

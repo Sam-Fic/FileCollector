@@ -19,15 +19,19 @@ public class ProjectController : GLib.Object {
         var checked_paths = new Gee.HashSet<string> ();
         var checked_dirs = new Gee.HashSet<string> ();
         var common_phrases = new Gee.ArrayList<string> ();
+        var snapshots = new Gee.ArrayList<WorkspaceSnapshot> ();
 
         ProjectManager.load_project_file (
             file_path,
-            items, checked_paths, checked_dirs, common_phrases,
+            items, checked_paths, checked_dirs, common_phrases, snapshots,
             out work_dir, out project_file, out use_absolute, out show_header
         );
 
         app_state.replace_from (work_dir, use_absolute, show_header, items, checked_paths, checked_dirs, common_phrases);
+        app_state.snapshots.clear ();
+        foreach (var snap in snapshots) app_state.snapshots.add (snap);
         app_state.project_file = project_file;
+        app_state.snapshots_changed ();
     }
 
     // 保存当前 AppState 到 .fcol 文件
@@ -40,7 +44,8 @@ public class ProjectController : GLib.Object {
             app_state.items,
             app_state.check_model.checked_files,
             app_state.check_model.checked_dirs,
-            app_state.common_phrases
+            app_state.common_phrases,
+            app_state.snapshots
         );
         app_state.project_file = file_path;
     }
