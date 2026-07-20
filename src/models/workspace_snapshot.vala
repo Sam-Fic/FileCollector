@@ -7,6 +7,9 @@ public class WorkspaceSnapshot : GLib.Object {
     public string name { get; set; }
     public int64 created_at { get; set; }
 
+    // 侧栏显示用的图标 (Adwaita symbolic 图标名), 纯展示属性, 不写回 AppState
+    public string icon_name { get; set; default = "view-grid-symbolic"; }
+
     public File? work_dir { get; set; }
     public bool use_absolute { get; set; }
     public bool show_header { get; set; }
@@ -39,6 +42,7 @@ public class WorkspaceSnapshot : GLib.Object {
     public static WorkspaceSnapshot from_app_state (AppState s, string snap_name) {
         var snap = new WorkspaceSnapshot ();
         snap.name = snap_name;
+        snap.icon_name = "view-grid-symbolic";
         snap.work_dir = s.work_dir;
         snap.use_absolute = s.use_absolute;
         snap.show_header = s.show_header;
@@ -84,6 +88,7 @@ public class WorkspaceSnapshot : GLib.Object {
     public WorkspaceSnapshot clone () {
         var snap = new WorkspaceSnapshot ();
         snap.name = name;
+        snap.icon_name = icon_name;
         snap.work_dir = work_dir;
         snap.use_absolute = use_absolute;
         snap.show_header = show_header;

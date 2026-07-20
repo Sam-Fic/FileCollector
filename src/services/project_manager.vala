@@ -106,6 +106,7 @@ public class ProjectManager : GLib.Object {
                 snap.name = so.get_string_member_with_default ("name", _("Snapshot %d").printf (i + 1));
                 snap.id = so.get_string_member_with_default ("id", snap.id);
                 snap.created_at = (int64) so.get_int_member_with_default ("created_at", snap.created_at);
+                snap.icon_name = so.get_string_member_with_default ("icon", "view-grid-symbolic");
 
                 var swd = so.get_string_member_with_default ("work_dir", "");
                 snap.work_dir = (swd != "") ? File.new_for_path (swd) : null;
@@ -255,6 +256,9 @@ public class ProjectManager : GLib.Object {
             builder.add_string_value (snap.id);
             builder.set_member_name ("created_at");
             builder.add_int_value (snap.created_at);
+
+            builder.set_member_name ("icon");
+            builder.add_string_value (snap.icon_name);
 
             builder.set_member_name ("work_dir");
             if (snap.work_dir != null) {

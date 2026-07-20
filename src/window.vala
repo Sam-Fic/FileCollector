@@ -2175,6 +2175,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         sec1.append (_("Rename Snapshot"), "win.rename_snapshot");
         sec1.append (_("Save Snapshot As Project..."), "win.snapshot_save_as");
         snapshot_menu.append_section (null, sec1);
+        var sec_icon = new GLib.Menu ();
+        sec_icon.append (_("Change Icon..."), "win.change_snapshot_icon");
+        snapshot_menu.append_section (null, sec_icon);
         var sec2 = new GLib.Menu ();
         sec2.append (_("Delete Snapshot"), "win.delete_snapshot");
         snapshot_menu.append_section (null, sec2);
@@ -2261,6 +2264,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         del_act.activate.connect (() => on_delete_snapshot ());
         add_action (del_act);
 
+        var icon_act = new GLib.SimpleAction ("change_snapshot_icon", null);
+        icon_act.activate.connect (() => on_change_snapshot_icon ());
+        add_action (icon_act);
+
         // 点击某快照 → 切换为该工作区状态。
         // 注意: AdwSidebar.activated 返回的 index 是其内部 flat 索引,
         // 可能与 snapshot_store / app_state.snapshots 的排列顺序不一致
@@ -2315,7 +2322,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         for (int i = 0; i < app_state.snapshots.size; i++) {
             var snap = app_state.snapshots.get (i);
             var item = new Adw.SidebarItem (snap.name);
-            item.icon_name = "view-grid-symbolic";
+            item.icon_name = snap.icon_name;
             snapshot_store.append (item);
             snapshot_section.append (item);
         }
@@ -2486,6 +2493,106 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             }
             dialog.destroy ();
         });
+        dialog.present (this);
+    }
+
+    // 精选的 Adwaita symbolic 图标, 供工作区图标选择使用 (取自系统自带图标主题,
+    // 均已确认存在于 /usr/share/icons/Adwaita/symbolic 中).
+    private static string[] SNAPSHOT_ICON_CHOICES = {
+        "view-grid-symbolic",
+        "folder-symbolic",
+        "folder-documents-symbolic",
+        "document-open-symbolic",
+        "text-x-generic-symbolic",
+        "x-office-document-symbolic",
+        "image-x-generic-symbolic",
+        "text-editor-symbolic",
+        "document-edit-symbolic",
+        "folder-open-symbolic",
+        "view-list-symbolic",
+        "system-file-manager-symbolic",
+        "user-home-symbolic",
+        "list-add-symbolic"
+    };
+
+    private void on_change_snapshot_icon () {
+        if (snapshot_selected_index < 0 || snapshot_selected_index >= app_state.snapshots.size) return;
+        var snap = app_state.snapshots.get (snapshot_selected_index);
+        var current_icon = snap.icon_name;
+
+        var dialog = new Adw.Dialog ();
+        dialog.title = _("Change Icon");
+        dialog.set_content_width (440);
+        // 高度跟随内容自适应 (AdwDialog:follows-content-size), 而非固定值.
+        // 未使用 breakpoint, 故无需手动设最小尺寸.
+        dialog.follows_content_size = true;
+
+        // 垂直布局: 顶部 AdwHeaderBar + 下方图标网格.
+        // 按 Adw.Dialog 标准用法, 置于其内的 AdwHeaderBar 会自动显示标题
+        // 并附带系统关闭按钮 (无需手动添加), 关闭即 adw_dialog_close().
+        var root_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+        // follows_content_size 下宽高都跟随内容, 故用 width_request 锁死宽度,
+        // 高度仍由内容自然决定 (自适应).
+        root_box.width_request = 440;
+        // 与标题栏 (AdwHeaderBar) 共用 background 配色, 避免内容区用 surface 色
+        // 导致与标题栏出现背景色差 (卡片感).
+        root_box.add_css_class ("background");
+        var header = new Adw.HeaderBar ();
+        root_box.append (header);
+
+        var scrolled = new Gtk.ScrolledWindow ();
+        scrolled.vexpand = true;
+        scrolled.hexpand = true;
+        scrolled.propagate_natural_height = true;
+        scrolled.add_css_class ("background");
+
+        // 用 Gtk.Grid 而非 FlowBox: FlowBox 的 homogeneous 仅保证列等宽,
+        // 无法保证格子宽=高, 实际会变成长方形. Grid + 固定 64x64 按钮可得到
+        // 严格的正方形格子.
+        int target_index = snapshot_selected_index;
+
+        var grid = new Gtk.Grid ();
+        grid.column_spacing = 12;
+        grid.row_spacing = 12;
+        grid.margin_start = 16;
+        grid.margin_end = 16;
+        grid.margin_top = 16;
+        grid.margin_bottom = 16;
+        grid.halign = Gtk.Align.CENTER;
+        grid.valign = Gtk.Align.START;
+
+        const int COLS = 5;
+        int col = 0;
+        int grow = 0;
+        foreach (var icon in SNAPSHOT_ICON_CHOICES) {
+            var img = new Gtk.Image ();
+            img.icon_name = icon;
+            img.pixel_size = 32;
+            var btn = new Gtk.Button ();
+            // 锁定正方形, 保证每个格子都是 64x64
+            btn.width_request = 64;
+            btn.height_request = 64;
+            btn.child = img;
+            btn.tooltip_text = icon;
+            // 当前已选图标用有框样式标记
+            btn.has_frame = (icon == current_icon);
+            btn.halign = Gtk.Align.CENTER;
+            btn.valign = Gtk.Align.CENTER;
+            grid.attach (btn, col, grow, 1, 1);
+            col++;
+            if (col >= COLS) { col = 0; grow++; }
+            btn.clicked.connect (() => {
+                if (target_index < 0 || target_index >= app_state.snapshots.size) return;
+                app_state.snapshots.get (target_index).icon_name = icon;
+                rebuild_snapshot_sidebar ();
+                snapshot_sidebar.set_selected ((uint) active_workspace_index);
+                dialog.close ();
+            });
+        }
+
+        scrolled.child = grid;
+        root_box.append (scrolled);
+        dialog.set_child (root_box);
         dialog.present (this);
     }
 
