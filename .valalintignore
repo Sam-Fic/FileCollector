@@ -1,0 +1,40 @@
+# vala-lint 忽略列表 (glob 模式, 一行一个)
+#
+# 注: 创建本文件后, vala-lint 不再读取 .gitignore, 所以需把 .gitignore 中
+#     仍要忽略的模式在此重复一遍.
+
+# 构建产物
+build
+builddir
+build-dir
+build-flatpak
+_build
+
+# Meson/Ninja
+.ninja_deps
+.ninja_log
+compile_commands.json
+meson-private
+meson-info
+meson-logs
+
+# Vala 编译生成
+*.c
+*.h
+
+# GTK 资源
+*-resources.c
+*-resources.h
+
+# 第三方 VAPI 绑定 (C 库的 Vala 接口, 不遵循 Vala 命名约定)
+src/vapi
+
+# 翻译
+po
+locale
+
+# 数据/文档/截图 (非 Vala 源码)
+data
+docs
+screenshots
+tools
