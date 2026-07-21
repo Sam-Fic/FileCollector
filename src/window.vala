@@ -2384,7 +2384,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         refresh_list ();
         update_workdir_dependent_buttons ();
         update_empty_state ();
-        show_toast (_("Switched to snapshot: %s").printf (app_state.snapshots.get (index).name));
     }
 
     private void on_new_snapshot () {
@@ -2425,7 +2424,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 // 再设置高亮到新建的 Workspace, 否则重建会清空选中态.
                 rebuild_snapshot_sidebar ();
                 snapshot_sidebar.set_selected ((uint) active_workspace_index);
-                show_toast (_("Workspace saved: %s — current workspace cleared").printf (name));
             }
             dialog.destroy ();
         });
