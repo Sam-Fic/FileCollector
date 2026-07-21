@@ -135,6 +135,7 @@ sources = files(
   'src/services/project_manager.vala',
   'src/services/recovery_manager.vala',
   'src/services/search_service.vala',
+  'src/services/search_query_parser.vala',
   'src/services/undo_manager.vala',
   'src/services/vlm_queue.vala',
   'src/services/vlm_task_runner.vala',

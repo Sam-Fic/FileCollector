@@ -106,6 +106,179 @@ public class SearchService : GLib.Object {
         }
     }
 
+    /**
+     * 同步多词布尔搜索 (AI search_files 工具专用).
+     *
+     * 与 search_async 的差异:
+     *   - 同步执行, 直接返回格式化字符串 (AI 工具不能走信号/线程)
+     *   - 接受已解析的 SearchQueryNode, 分离解析与搜索职责
+     *   - 同时支持文件名匹配 (对 basename 求值 node.matches) 和内容匹配 (逐行求值)
+     *
+     * 复用 sanitize_ignored_dirs / MAX_FILE_SIZE / 二进制检测逻辑,
+     * 避免与现有 search_async 产生重复实现.
+     */
+    public string search_multi_sync (
+        string root_dir,
+        SearchQueryNode query_node,
+        bool case_sensitive,
+        bool search_filename,
+        bool search_content,
+        int max_filename_results = 50,
+        int max_content_results = 100,
+        int max_depth = 8
+    ) {
+        var sb = new StringBuilder ();
+        sb.append ("ROOT=").append (root_dir).append ("\n");
+        sb.append ("QUERY=").append (query_node.to_debug_string ()).append ("\n\n");
+
+        string[] ignored_dirs = sanitize_ignored_dirs (ConfigManager.get_ignored_dirs ());
+        int scanned = 0;
+        int fn_matched = 0;
+        int content_matched = 0;
+        int files_with_content_match = 0;
+
+        try {
+            scan_directory_multi (
+                root_dir, root_dir, query_node, case_sensitive, ignored_dirs,
+                sb, ref scanned, ref fn_matched, ref content_matched, ref files_with_content_match,
+                max_filename_results, max_content_results, max_depth, 0
+            );
+        } catch (Error e) {
+            warning ("search_multi_sync error: %s", e.message);
+            sb.append ("\n# ERROR: ").append (e.message).append ("\n");
+        }
+
+        sb.append ("\n# scanned ").append (scanned.to_string ()).append (" file(s)");
+        if (search_filename) {
+            sb.append (", filename matches: ").append (fn_matched.to_string ());
+        }
+        if (search_content) {
+            sb.append (", content matches: ").append (content_matched.to_string ())
+              .append (" in ").append (files_with_content_match.to_string ()).append (" file(s)");
+        }
+        return sb.str;
+    }
+
+    private void scan_directory_multi (
+        string root, string current_dir,
+        SearchQueryNode query_node, bool case_sensitive, string[] ignored_dirs,
+        StringBuilder sb,
+        ref int scanned, ref int fn_matched, ref int content_matched, ref int files_with_content_match,
+        int max_fn, int max_content, int max_depth, int depth
+    ) throws Error {
+        if (depth > max_depth) return;
+        if (fn_matched >= max_fn && content_matched >= max_content) return;
+
+        var dir = File.new_for_path (current_dir);
+        var enumerator = dir.enumerate_children (
+            FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE + "," + FileAttribute.STANDARD_SIZE,
+            FileQueryInfoFlags.NOFOLLOW_SYMLINKS
+        );
+
+        FileInfo info;
+        while ((info = enumerator.next_file ()) != null) {
+            if (fn_matched >= max_fn && content_matched >= max_content) break;
+
+            string name = info.get_name ();
+            if (info.get_file_type () == FileType.DIRECTORY) {
+                if (name in ignored_dirs || name.has_prefix (".")) continue;
+                scan_directory_multi (
+                    root, dir.get_child (name).get_path (),
+                    query_node, case_sensitive, ignored_dirs, sb,
+                    ref scanned, ref fn_matched, ref content_matched, ref files_with_content_match,
+                    max_fn, max_content, max_depth, depth + 1
+                );
+            } else {
+                if (info.get_size () > MAX_FILE_SIZE || info.get_size () == 0) continue;
+                string file_path = dir.get_child (name).get_path ();
+                scanned++;
+
+                string rel_path = file_path;
+                var root_dir = File.new_for_path (root);
+                var rel = root_dir.get_relative_path (File.new_for_path (file_path));
+                if (rel != null) rel_path = rel;
+
+                // 文件名匹配: 对 basename 求值 node.matches
+                // max_fn = 0 时 (search_filename=false) 条件 fn_matched < max_fn
+                // 即 0 < 0 = false, 自动跳过, 无需额外检查 search_filename 标志.
+                if (fn_matched < max_fn &&
+                    query_node.matches (name, case_sensitive)) {
+                    if (fn_matched == 0) sb.append ("=== Filename matches ===\n");
+                    sb.append ("FILE ").append (rel_path)
+                      .append ("  (").append (UIHelpers.format_size (info.get_size ())).append (")\n");
+                    fn_matched++;
+                }
+
+                // 内容匹配: 逐行求值 (复用 search_in_file 的二进制检测 + 流式读取思路)
+                // 同理 max_content = 0 时自动跳过.
+                if (content_matched < max_content) {
+                    int before = content_matched;
+                    search_in_file_multi (
+                        file_path, rel_path, query_node, case_sensitive,
+                        sb, ref content_matched, max_content
+                    );
+                    if (content_matched > before) files_with_content_match++;
+                }
+            }
+        }
+    }
+
+    private void search_in_file_multi (
+        string file_path, string rel_path,
+        SearchQueryNode query_node, bool case_sensitive,
+        StringBuilder sb, ref int content_matched, int max_content
+    ) {
+        const int LINE_PREVIEW_LIMIT = 120;
+        try {
+            var file = File.new_for_path (file_path);
+            FileInputStream? fis = null;
+            try {
+                fis = file.read ();
+                // 二进制检测: 前 2048 字节含 \0 即跳过
+                var head = fis.read_bytes (2048);
+                unowned uint8[] head_data = head.get_data ();
+                for (size_t i = 0; i < head_data.length; i++) {
+                    if (head_data[i] == 0) return;
+                }
+                // 流式拼内容
+                var content_builder = new StringBuilder ();
+                content_builder.append (EncodingHelper.bytes_to_string_safe (head_data, head_data.length));
+                const int BUFFER_SIZE = 8192;
+                uint8[] buffer = new uint8[BUFFER_SIZE];
+                ssize_t n;
+                while ((n = fis.read (buffer)) > 0) {
+                    content_builder.append (EncodingHelper.bytes_to_string_safe (buffer, (size_t) n));
+                }
+                string content = EncodingHelper.decode_to_utf8 (content_builder.str.data);
+                string[] lines = content.split ("\n");
+
+                bool header_written = false;
+                for (int i = 0; i < lines.length && content_matched < max_content; i++) {
+                    string line = lines[i];
+                    if (line.length == 0) continue;
+                    if (query_node.matches (line, case_sensitive)) {
+                        if (!header_written) {
+                            sb.append ("\n=== Content matches in ").append (rel_path).append (" ===\n");
+                            header_written = true;
+                        }
+                        string preview = line.strip ();
+                        if (preview.length > LINE_PREVIEW_LIMIT) {
+                            preview = preview.substring (0, LINE_PREVIEW_LIMIT) + "…";
+                        }
+                        sb.append ("%4d: ".printf (i + 1)).append (preview).append ("\n");
+                        content_matched++;
+                    }
+                }
+            } finally {
+                if (fis != null) {
+                    try { fis.close (); } catch (Error e) {}
+                }
+            }
+        } catch (Error e) {
+            // 静默跳过无权限/读取失败的文件, 与 search_in_file 行为一致
+        }
+    }
+
     private void scan_directory (string root, string current_dir, string keyword, bool case_sensitive,
                                   string[] ignored_dirs, GLib.Cancellable cancellable,
                                   ref int scanned, ref int matched) throws Error {

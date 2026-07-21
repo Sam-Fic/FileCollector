@@ -90,7 +90,12 @@ public class AIPromptBuilder : GLib.Object {
             + "- add_git_commit_diff(commit_hash): inject a specific commit's diff directly into the list.\n"
             + "- add_git_diff_range(from_hash, to_hash?): inject the combined diff of a commit range (from..to) into the list.\n"
             + "- add_file_snippet(path, start_line, end_line): add only a specific line range of a file. "
-            + "Use this after read_file to extract just the relevant function/class, saving tokens.\n\n"
+            + "Use this after read_file to extract just the relevant function/class, saving tokens.\n"
+            + "- search_files(query, kind?, case_sensitive?, max_results?, max_depth?, directory?): "
+            + "boolean multi-word search over file names AND/OR contents. Supports & (AND), | (OR), "
+            + "parentheses, \"quoted phrases\", implicit AND via whitespace. Use to locate files by "
+            + "keywords in large projects — far more efficient than list_files + read_file guessing. "
+            + "kind: 'filename', 'content', or 'both' (default).\n\n"
             + "Workflow rules:\n"
             + "1. Prefer tool calls over asking the user for paths you can discover yourself. "
             + "If the user says 'add all files about X' or 'find files matching Y', call "
@@ -125,7 +130,14 @@ public class AIPromptBuilder : GLib.Object {
             + "use `add_git_diff_range(from_hash, to_hash)` instead of calling `add_git_commit_diff` multiple times. "
             + "This is much more efficient. First call `get_git_log` to find the exact hashes if needed.\n"
             + "10. When a file is large but only a specific function or class is relevant, use `read_file` to locate the exact line numbers, "
-            + "then use `add_file_snippet` instead of `add_files` to avoid bloating the context window with irrelevant code."
+            + "then use `add_file_snippet` instead of `add_files` to avoid bloating the context window with irrelevant code.\n"
+            + "11. For large projects (thousands of files), NEVER explore blindly with list_files + "
+            + "read_file. Use `search_files` first with a precise boolean query to narrow the candidate "
+            + "set — e.g. `search_files(query=\"ItemData & (notify | connect)\", kind=\"both\")` returns "
+            + "only files whose names or contents mention those terms. Then call `read_file` on the few "
+            + "returned candidates to confirm. This avoids token exhaustion and aimless wandering. "
+            + "`search_files` is also the right tool when the user gives specific identifiers "
+            + "(class names, function names, error strings) — search by those tokens directly."
         );
     }
 
@@ -203,6 +215,26 @@ public class AIPromptBuilder : GLib.Object {
                 if (o.has_member ("max_items"))
                     parts.add ("max_items=%s".printf (o.get_int_member ("max_items").to_string ()));
                 return parts.size > 0 ? string.joinv (", ", (string[]) parts.to_array ()) : "(all items)";
+            }
+        }
+        if (name == "search_files") {
+            var arr = parse_args (raw);
+            if (arr.get_node_type () == Json.NodeType.OBJECT) {
+                var o = arr.get_object ();
+                var parts = new Gee.ArrayList<string> ();
+                if (o.has_member ("query"))
+                    parts.add ("query=\"" + o.get_string_member ("query") + "\"");
+                if (o.has_member ("kind"))
+                    parts.add ("kind='" + o.get_string_member ("kind") + "'");
+                if (o.has_member ("case_sensitive") && o.get_boolean_member ("case_sensitive"))
+                    parts.add ("case_sensitive=true");
+                if (o.has_member ("max_results"))
+                    parts.add ("max_results=%s".printf (o.get_int_member ("max_results").to_string ()));
+                if (o.has_member ("max_depth"))
+                    parts.add ("max_depth=%s".printf (o.get_int_member ("max_depth").to_string ()));
+                if (o.has_member ("directory"))
+                    parts.add ("directory='" + o.get_string_member ("directory") + "'");
+                return parts.size > 0 ? string.joinv (", ", (string[]) parts.to_array ()) : "(no filter)";
             }
         }
         // 默认: 美化 JSON 输出

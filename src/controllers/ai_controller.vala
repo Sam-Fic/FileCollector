@@ -7,6 +7,10 @@ using Json;
 public class AIController : GLib.Object {
     public AppState app_state { get; construct; }
 
+    // search_files 工具的同步搜索服务 (与 GlobalSearchDialog 的实例隔离,
+    // 避免其信号回调污染 AI 工具调用)
+    private SearchService search_service = new SearchService ();
+
     // 信号: 通知 View 层执行 UI 相关操作
     public signal void undo_snapshot_requested ();
     public signal void undo_delta_requested (UndoDelta delta);
@@ -93,6 +97,7 @@ public class AIController : GLib.Object {
             case "add_git_commit_diff": return tool_add_git_commit_diff (args);
             case "add_git_diff_range": return tool_add_git_diff_range (args);
             case "add_file_snippet": return tool_add_file_snippet (args);
+            case "search_files": return tool_search_files (args);
             default:
                 return _("Unknown tool: ") + name;
         }
@@ -837,6 +842,62 @@ public class AIController : GLib.Object {
 
         return (swapped ? _("Start/end lines auto-swapped.") : "") +
             _("Snippet added: %s [L%d-L%d]").printf (GLib.Path.get_basename (resolved), sl, el);
+    }
+
+    private string tool_search_files (Json.Node args) throws GLib.Error {
+        if (app_state.work_dir == null) return _("Error: Work directory not set.");
+        if (args.get_node_type () != Json.NodeType.OBJECT) return _("Invalid parameters");
+        var o = args.get_object ();
+
+        string query = o.get_string_member_with_default ("query", "");
+        if (query.strip () == "") return _("Missing query");
+
+        string kind = o.get_string_member_with_default ("kind", "both");
+        if (kind != "filename" && kind != "content" && kind != "both") {
+            return _("Invalid kind: ") + kind + _(" (must be 'filename', 'content', or 'both')");
+        }
+        bool search_filename = (kind == "filename" || kind == "both");
+        bool search_content  = (kind == "content"  || kind == "both");
+
+        bool case_sensitive = false;
+        if (o.has_member ("case_sensitive")) case_sensitive = o.get_boolean_member ("case_sensitive");
+
+        int64 max_results = o.has_member ("max_results") ? o.get_int_member ("max_results") : 100;
+        if (max_results <= 0) max_results = 100;
+        if (max_results > 500) max_results = 500;
+        // 拆分给 filename / content 两段, 不超过 max_results 总量
+        int max_fn = search_filename ? int.min ((int) max_results, 50) : 0;
+        int max_content = search_content ? (int) max_results : 0;
+
+        int64 max_depth = o.has_member ("max_depth") ? o.get_int_member ("max_depth") : 8;
+        if (max_depth <= 0) max_depth = 8;
+        if (max_depth > 20) max_depth = 20;
+
+        // 解析查询; 解析失败时 SearchQueryParser.parse 自身会回退为单 TERM,
+        // 仅当纯空白/纯运算符时返回 null
+        var node = SearchQueryParser.parse (query);
+        if (node == null) return _("Empty query after parsing: ") + query;
+
+        // 目录解析: 默认 work_dir, 可选 directory 子目录 (路径安全校验)
+        string root_dir = app_state.work_dir.get_path ();
+        if (o.has_member ("directory")) {
+            string dir_param = o.get_string_member ("directory");
+            if (dir_param.strip () != "") {
+                string? resolved = resolve_ai_path (dir_param);
+                if (resolved == null) return _("Cannot resolve directory: ") + dir_param;
+                if (!is_path_in_work_dir (resolved)) {
+                    return _("Access denied: directory outside work directory");
+                }
+                var dir_file = File.new_for_path (resolved);
+                if (!dir_file.query_exists ()) return _("Directory does not exist: ") + resolved;
+                root_dir = resolved;
+            }
+        }
+
+        return search_service.search_multi_sync (
+            root_dir, node, case_sensitive, search_filename, search_content,
+            max_fn, max_content, (int) max_depth
+        );
     }
 
     // ─── 静态辅助方法 ────────────────────────────────────────────────

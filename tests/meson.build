@@ -160,3 +160,13 @@ test_file_content_reader_exe = executable('test_file_content_reader',
   dependencies: [glib_dep, gio_dep, gee_dep],
 )
 test('test_file_content_reader', test_file_content_reader_exe)
+
+# ─── 11. SearchQueryParser (布尔查询解析, 纯逻辑) ─────────────────
+# 解析器只依赖 gee-0.8 + glib-2.0, 无 GTK / json-glib 依赖.
+search_query_parser_src = files(join_paths(src_dir, 'services', 'search_query_parser.vala'))
+test_search_query_parser_exe = executable('test_search_query_parser',
+  'test_search_query_parser.vala',
+  search_query_parser_src,
+  dependencies: [glib_dep, gio_dep, gee_dep],
+)
+test('test_search_query_parser', test_search_query_parser_exe)

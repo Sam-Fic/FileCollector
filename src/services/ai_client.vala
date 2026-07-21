@@ -257,6 +257,28 @@ private static Json.Node add_file_snippet_params () {
     return SchemaHelper.obj_to_node (make_param ("object", SchemaHelper.obj_to_node (props), { "path", "start_line", "end_line" }));
 }
 
+private static Json.Node search_files_params () {
+    var props = new Json.Object ();
+    props.set_member ("query", SchemaHelper.obj_to_node (str_prop (
+        "Boolean query string. Supports: bare words, \"quoted phrases\", " +
+        "& (AND), | (OR), parentheses for grouping, and implicit AND between " +
+        "adjacent atoms (whitespace = AND). AND has higher precedence than OR. " +
+        "Examples: 'foo & bar', '(notify | connect) & ItemData', '\"hello world\"'.")));
+    props.set_member ("kind", SchemaHelper.obj_to_node (str_prop (
+        "What to search: 'filename' (match against file basename), 'content' " +
+        "(match against file contents line by line), or 'both' (default).")));
+    props.set_member ("case_sensitive", SchemaHelper.obj_to_node (bool_prop (
+        "True for case-sensitive matching. Default false.")));
+    props.set_member ("max_results", SchemaHelper.obj_to_node (int_prop (
+        "Maximum total matches to return. Default 100, hard cap 500.")));
+    props.set_member ("max_depth", SchemaHelper.obj_to_node (int_prop (
+        "Maximum directory recursion depth. Default 8, hard cap 20.")));
+    props.set_member ("directory", SchemaHelper.obj_to_node (str_prop (
+        "Optional subdirectory to scope the search (absolute or relative to work dir). " +
+        "Defaults to the current work directory.")));
+    return SchemaHelper.obj_to_node (make_param ("object", SchemaHelper.obj_to_node (props), { "query" }));
+}
+
 private static Json.Object make_tool (string name, string desc, Json.Node params) {
     var fn = new Json.Object ();
     fn.set_string_member ("name", name);
@@ -393,6 +415,19 @@ public static Json.Node build_full_tool_schema () {
         + "Use this after `read_file` to extract only the relevant function, class, or code block, "
         + "saving massive amounts of tokens compared to adding the whole file.",
         AI.SchemaHelper.add_file_snippet_params ()));
+    arr.add_object_element (AI.SchemaHelper.make_tool (
+        "search_files",
+        "Search the project for files matching a boolean query — simultaneously matching "
+        + "file NAMES (basename) and/or file CONTENTS (line by line). Supports multi-word "
+        + "boolean queries: 'foo & bar' (AND), 'foo | bar' (OR), '(a | b) & c' (grouping), "
+        + "\"quoted phrase\" (exact substring with spaces). Use this when list_files + read_file "
+        + "would be too slow or token-expensive — e.g. 'find all files that mention ItemData "
+        + "AND (notify OR connect)' or 'locate the file defining the search parser'. "
+        + "Returns filename matches (with sizes) and content matches (with line numbers and "
+        + "preview, truncated to 120 chars per line). Much faster than reading every candidate "
+        + "file: use search_files to NARROW the candidate set first, then read_file only the "
+        + "few files that truly need inspection.",
+        AI.SchemaHelper.search_files_params ()));
     return AI.SchemaHelper.arr_to_node (arr);
 }
 
