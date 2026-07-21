@@ -163,14 +163,14 @@ public class SearchService : GLib.Object {
                 // 流式拼接文件内容, 避免一次性把整个文件读入内存
                 // (总大小已由 scan_directory 的 MAX_FILE_SIZE 上限控制).
                 var content_builder = new StringBuilder ();
-                content_builder.append_len ((string) head_data, head_data.length);
+                content_builder.append (EncodingHelper.bytes_to_string_safe (head_data, head_data.length));
 
                 const int BUFFER_SIZE = 8192;
                 uint8[] buffer = new uint8[BUFFER_SIZE];
                 ssize_t n;
                 while ((n = fis.read (buffer)) > 0) {
                     if (cancellable.is_cancelled ()) break;
-                    content_builder.append_len ((string) buffer[0:n], (ssize_t) n);
+                    content_builder.append (EncodingHelper.bytes_to_string_safe (buffer, (size_t) n));
                 }
                 if (cancellable.is_cancelled ()) return;
 

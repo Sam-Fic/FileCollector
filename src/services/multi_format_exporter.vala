@@ -330,15 +330,19 @@ public class MultiFormatExporter : GLib.Object {
             }
 
             var sb = new StringBuilder ();
-            sb.append_len ((string) head_buf[0:head_read], (ssize_t) head_read);
-            size_t remaining = (size_t) file_size - head_read;
+            // bytes_to_string_safe 显式添加 \0 终止符, 避免 (string) buf[0:n]
+            // 强转时若 buf 末尾无 \0 越界读取
+            sb.append (EncodingHelper.bytes_to_string_safe (head_buf, head_read));
+            // int64 避免 head_read > file_size 时无符号下溢
+            int64 remaining = file_size - (int64) head_read;
+            if (remaining < 0) remaining = 0;
             uint8[] chunk_buf = new uint8[8192];
             while (remaining > 0) {
-                size_t to_read = size_t.min (8192, remaining);
+                size_t to_read = (size_t) size_t.min (8192, (size_t) remaining);
                 ssize_t n = fis.read (chunk_buf[0:to_read]);
                 if (n <= 0) break;
-                sb.append_len ((string) chunk_buf[0:n], (ssize_t) n);
-                remaining -= (size_t) n;
+                sb.append (EncodingHelper.bytes_to_string_safe (chunk_buf, (size_t) n));
+                remaining -= n;
             }
             ri.kind = ItemKind.OK;
             ri.content = sb.str;

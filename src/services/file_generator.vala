@@ -133,16 +133,20 @@ public class FileGenerator : GLib.Object {
                         dis.put_string (_("[Binary file detected: text content reading skipped]\n"));
                     } else {
                         // 流式写入：先写入已 peek 的部分
-                        dis.put_string ((string) head_buf[0:head_read]);
+                        // 注意: (string) head_buf[0:head_read] 强转要求 buf 末尾有 \0,
+                        // 否则会越界读到下一个 \0 字节。用 bytes_to_string_safe 显式添加终止符。
+                        dis.put_string (EncodingHelper.bytes_to_string_safe (head_buf, head_read));
                         // 流式读取剩余部分，分块写入
-                        size_t remaining = (size_t) file_size - head_read;
+                        // 用 int64 避免 head_read > file_size 时无符号下溢
+                        int64 remaining = file_size - (int64) head_read;
+                        if (remaining < 0) remaining = 0;
                         uint8[] chunk_buf = new uint8[8192];
                         while (remaining > 0) {
-                            size_t to_read = size_t.min (8192, remaining);
+                            size_t to_read = (size_t) size_t.min (8192, (size_t) remaining);
                             ssize_t n = fis.read (chunk_buf[0:to_read]);
                             if (n <= 0) break;
-                            dis.put_string ((string) chunk_buf[0:n]);
-                            remaining -= (size_t) n;
+                            dis.put_string (EncodingHelper.bytes_to_string_safe (chunk_buf, (size_t) n));
+                            remaining -= n;
                         }
                     }
                 } catch (Error e) {

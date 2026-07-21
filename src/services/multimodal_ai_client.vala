@@ -58,13 +58,15 @@ public class MultimodalAIClient : GLib.Object {
             if (resp != null && resp.length > 0) {
                 uint8[] raw = resp.get_data ();
                 int safe_len = (int) int64.min (resp.length, 2048);
-                detail = ((string) raw).substring (0, safe_len);
+                // bytes_to_string_safe 显式添加 \0 终止符, 避免 (string) raw 越界
+                string raw_str = EncodingHelper.bytes_to_string_safe (raw, (size_t) safe_len);
+                detail = raw_str.substring (0, safe_len);
             }
             throw new IOError.FAILED ("HTTP %u: %s".printf (msg.status_code, detail));
         }
 
         var parser = new Json.Parser ();
-        parser.load_from_data ((string) resp.get_data ());
+        parser.load_from_data (EncodingHelper.bytes_to_string_safe (resp.get_data (), resp.length));
         var root = parser.get_root ();
         if (root == null || root.get_node_type () != Json.NodeType.OBJECT)
             throw new IOError.FAILED ("Invalid response format");

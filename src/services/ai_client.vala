@@ -475,7 +475,10 @@ public class AIClient : GLib.Object {
                 try {
                     uint8[] raw = resp_bytes.get_data ();
                     int safe_len = (int) int64.min (resp_bytes.length, 4096);
-                    detail = ((string) raw).substring (0, safe_len);
+                    // bytes_to_string_safe 显式添加 \0 终止符, 避免 (string) raw
+                    // 强转时若 raw 末尾无 \0 越界读取
+                    string raw_str = EncodingHelper.bytes_to_string_safe (raw, (size_t) safe_len);
+                    detail = raw_str.substring (0, safe_len);
                 } catch (Error e) { warning ("Failed to read error response body: %s", e.message); }
                 if (detail.length > 500) detail = detail.substring (0, 500);
             }
@@ -512,13 +515,14 @@ public class AIClient : GLib.Object {
             throw new GLib.IOError.FAILED (_("API returned error status code: %u").printf (msg.status_code));
         }
 
-        return (string) bytes.get_data ();
+        return EncodingHelper.bytes_to_string_safe (bytes.get_data (), bytes.length);
     }
 
     private static AIChatResult parse_response_bytes (uint8[] raw) throws AIClientError {
         var parser = new Json.Parser ();
         try {
-            parser.load_from_data ((string) raw, (long) raw.length);
+            // raw 末尾可能无 \0, 用 bytes_to_string_safe 安全转换
+            parser.load_from_data (EncodingHelper.bytes_to_string_safe (raw, raw.length), (long) raw.length);
         } catch (Error e) {
             throw new AIClientError.PROTOCOL (_("Response is not valid JSON: ") + e.message);
         }

@@ -1,6 +1,19 @@
 using Gee;
 
 public class EncodingHelper {
+    /**
+     * 安全地把 uint8[] 转 string: 显式添加 \0 终止符, 避免直接 (string) buf
+     * 强转时若 buf 末尾无 \0 会越界读取。
+     * len 为实际有效字节数 (<= buf.length), 用于 buf 容量大于实际数据的场景。
+     */
+    public static string bytes_to_string_safe (uint8[] buf, size_t len) {
+        size_t copy_len = size_t.min (len, buf.length);
+        uint8[] safe = new uint8[copy_len + 1];
+        Memory.copy (safe, buf, copy_len);
+        safe[copy_len] = 0;
+        return (string) safe;
+    }
+
     public static string decode_to_utf8 (uint8[] data) {
         size_t len = data.length;
         if (len == 0) return "";
