@@ -1384,6 +1384,11 @@ public class AIPanel : GLib.Object {
     // ─── 状态 ────────────────────────────────────────────────────────────
 
     private void set_busy (bool b) {
+        // 状态未变化时跳过冗余的 UI 更新。
+        // set_busy(false) 可从多个路径被调用 (on_api_finished / on_api_failed /
+        // request_stop / run_worker 的 Idle 回调), 重复调用会触发不必要的 widget
+        // 属性重置 (按钮文本/CSS 类/状态标签), 可能造成 UI 闪烁。
+        if (busy == b) return;
         busy = b;
         if (b) {
             lbl_send.set_text (_("Stop"));
