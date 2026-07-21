@@ -81,8 +81,22 @@ public class GlobHelper : GLib.Object {
 
             FileInfo info;
             while ((info = enumerator.next_file ()) != null && results.size < max_results) {
-                if (info.get_is_symlink () && info.get_file_type () == FileType.DIRECTORY) {
-                    continue;
+                // NOFOLLOW_SYMLINKS 下, 符号链接的 get_file_type() 返回 SYMBOLIC_LINK
+                // 而非目标类型, 原 info.get_is_symlink () && file_type == DIRECTORY
+                // 永远为 false, 死代码。改为显式查询 symlink 指向的文件类型:
+                // 跳过指向目录的符号链接, 避免递归陷入循环 (例如 dir/loop -> dir/).
+                if (info.get_is_symlink ()) {
+                    try {
+                        var target_info = dir.get_child (info.get_name ()).query_info (
+                            FileAttribute.STANDARD_TYPE, FileQueryInfoFlags.NONE);
+                        if (target_info.get_file_type () == FileType.DIRECTORY) {
+                            continue;
+                        }
+                    } catch (Error e) {
+                        // symlink 指向不存在 / 无法访问: 当作普通文件处理, 让 match_glob 决定
+                        debug ("glob_helper symlink target query failed for %s: %s",
+                               info.get_name (), e.message);
+                    }
                 }
                 var child_path = Path.build_filename (current_dir, info.get_name ());
                 string rel = child_path.substring (base_dir.length);
@@ -97,6 +111,7 @@ public class GlobHelper : GLib.Object {
                 }
             }
         } catch (Error e) {
+            debug ("glob_helper enumeration error for %s: %s", current_dir, e.message);
         }
     }
 }
