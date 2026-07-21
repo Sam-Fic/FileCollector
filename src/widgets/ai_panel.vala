@@ -68,6 +68,9 @@ public class AIPanel : GLib.Object {
     private GLib.Thread<void>? worker_thread = null;
     private bool busy = false;
     private bool stop_requested = false;
+    // panel 已被 shutdown 且其 widget 不再安全访问 (窗口关闭时设置)。
+    // 异步回调切回主线程后必须先检查此标志, 避免访问已销毁的 widget。
+    private bool panel_destroyed = false;
     private bool pending_welcome = true;
     private bool ai_enabled = false;
     private GLib.Cancellable? request_cancellable = null;
@@ -407,12 +410,14 @@ public class AIPanel : GLib.Object {
 
     public void shutdown () {
         stop_requested = true;
+        panel_destroyed = true;
         if (request_cancellable != null) {
             request_cancellable.cancel ();
         }
         // 不阻塞主线程等待 HTTP 请求超时。
         // cancel() 会令 libsoup 中断请求, worker 线程将自行退出。
-        // 窗口关闭时进程即将终止, 无需 join。
+        // 异步 run_worker 回调切回主线程后会通过 panel_destroyed 检查提前返回,
+        // 不会再访问已销毁的 widget。
         worker_thread = null;
     }
 
@@ -1131,14 +1136,18 @@ public class AIPanel : GLib.Object {
         }
         try {
             var result = local.chat (msgs, build_full_tool_schema (), request_cancellable);
-            if (stop_requested) {
-                GLib.Idle.add (() => { set_busy (false); return GLib.Source.REMOVE; });
+            if (stop_requested || panel_destroyed) {
+                if (!panel_destroyed) {
+                    GLib.Idle.add (() => { set_busy (false); return GLib.Source.REMOVE; });
+                }
                 return;
             }
             yield on_api_finished (result);
         } catch (Error e) {
-            if (stop_requested) {
-                GLib.Idle.add (() => { set_busy (false); return GLib.Source.REMOVE; });
+            if (stop_requested || panel_destroyed) {
+                if (!panel_destroyed) {
+                    GLib.Idle.add (() => { set_busy (false); return GLib.Source.REMOVE; });
+                }
                 return;
             }
             on_api_failed (e.message);
@@ -1155,8 +1164,9 @@ public class AIPanel : GLib.Object {
             });
             yield;
         }
-        if (stop_requested) {
-            set_busy (false);
+        // 窗口关闭后异步回调才切回主线程: widget 已销毁, 直接返回
+        if (panel_destroyed || stop_requested) {
+            if (!panel_destroyed) set_busy (false);
             return;
         }
 
@@ -1214,7 +1224,7 @@ public class AIPanel : GLib.Object {
     // 异步工具执行: 若已在主线程则直接调用 tool_executor;
     // 否则通过 Idle 投递到主线程, yield 等待结果, 不阻塞 worker 线程.
     private async string execute_tool_async (string name, string args_json) {
-        if (stop_requested) return "";
+        if (stop_requested || panel_destroyed) return "";
         if (GLib.MainContext.default ().is_owner ()) {
             try {
                 if (tool_executor == null) return _("Tool executor not configured");
@@ -1225,7 +1235,7 @@ public class AIPanel : GLib.Object {
         }
         string result = "";
         GLib.Idle.add (() => {
-            if (stop_requested) {
+            if (stop_requested || panel_destroyed) {
                 result = "";
             } else {
                 try {
@@ -1268,6 +1278,7 @@ public class AIPanel : GLib.Object {
 
     private void on_api_failed (string err) {
         GLib.Idle.add (() => {
+            if (panel_destroyed) return GLib.Source.REMOVE;
             set_busy (false);
             render_system (_("Call failed: %s").printf (err));
             return GLib.Source.REMOVE;
