@@ -153,19 +153,24 @@ public class ZipExporter : GLib.Object {
         // 注释之前写"<basename>-<hash>"但代码未实现 hash, 同名外部文件
         // (如 /tmp/notes.txt 与 /home/notes.txt) 会相互覆盖。
         // 用 size+mtime 作 hash, 兜底用 abs_path.hash ()。
+        // 注意: size 必须放在 hash 前部且不能被截断 —— 同名外部文件最可能的差异是
+        // 内容不同 (size 不同), mtime 可能完全相同 (同一秒创建). 旧实现 "%lx%x" +
+        // substring(0,8) 把 mtime 放前面并截断到 8 字符, 当前时间戳 (10 hex 字符)
+        // 会把 size 部分完全截掉, 导致同秒创建的不同 size 同名文件 hash 相同而相互覆盖.
         var basename = Path.get_basename (abs_path);
         string hash_part;
         try {
             var info = File.new_for_path (abs_path).query_info (
                 FileAttribute.STANDARD_SIZE + "," + FileAttribute.TIME_MODIFIED,
                 FileQueryInfoFlags.NONE);
-            hash_part = "%lx%x".printf (
-                (long) info.get_modification_time ().tv_sec,
-                (uint) info.get_size ());
+            // size 在前 (短, 且是最关键的区分维度), mtime 在后
+            hash_part = "%x-%lx".printf (
+                (uint) info.get_size (),
+                (long) info.get_modification_time ().tv_sec);
         } catch (Error e) {
             hash_part = "%x".printf (abs_path.hash ());
         }
-        return Path.build_filename ("_external", "%s-%s".printf (basename, hash_part.substring (0, 8)));
+        return Path.build_filename ("_external", "%s-%s".printf (basename, hash_part));
     }
 
     private static void copy_file (string src_path, string dest_path) throws Error {
