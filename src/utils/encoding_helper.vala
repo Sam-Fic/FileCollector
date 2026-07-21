@@ -18,6 +18,18 @@ public class EncodingHelper {
         size_t len = data.length;
         if (len == 0) return "";
 
+        // UTF-16 BOM 必须在二进制检测之前处理: UTF-16 编码的 ASCII 字符会包含大量 \0
+        // 字节 (例如 'H' 在 UTF-16BE 中是 0x00 0x48), 会被下面的二进制检测误判.
+        // 优先识别 UTF-16 BOM 并直接转码, 跳过二进制检测.
+        if (len >= 2) {
+            if (data[0] == 0xFE && data[1] == 0xFF) {
+                return convert_encoding (data[2:len], "UTF-16BE");
+            }
+            if (data[0] == 0xFF && data[1] == 0xFE) {
+                return convert_encoding (data[2:len], "UTF-16LE");
+            }
+        }
+
         // 检测二进制文件: 扫描前 1024 字节, 遇到 \0 即判定为二进制
         size_t inspect_len = size_t.min (len, 1024);
         for (size_t i = 0; i < inspect_len; i++) {
@@ -55,15 +67,6 @@ public class EncodingHelper {
             }
         }
 
-        if (len >= 2) {
-            if (data[0] == 0xFE && data[1] == 0xFF) {
-                return convert_encoding (data[2:len], "UTF-16BE");
-            }
-            if (data[0] == 0xFF && data[1] == 0xFE) {
-                return convert_encoding (data[2:len], "UTF-16LE");
-            }
-        }
-
         string[] candidates = {"GBK", "GB2312", "GB18030", "SHIFT_JIS", "EUC-JP", "EUC-KR", "ISO-8859-1", "WINDOWS-1252"};
         foreach (var enc in candidates) {
             string? result = convert_encoding (data, enc);
@@ -75,14 +78,15 @@ public class EncodingHelper {
 
     private static string? convert_encoding (uint8[] data, string from_enc) {
         if (data.length <= 1) return "";
-        // 添加 \0 终结符, 确保 GLib.convert 不越界
-        uint8[] safe = new uint8[data.length + 1];
-        Memory.copy (safe, data, data.length);
-        safe[data.length] = 0;
-        string input = (string)safe;
+        // 注意: 不能写 `string input = (string) data;` 再传 input 给 g_convert.
+        // Vala 会把数组→string 的赋值编译为 g_strdup((char*)data), 它按 strlen 语义
+        // 在首个 \0 处截断, 对 UTF-16 这类含 \0 字节的编码会把数据截断, 导致 g_convert
+        // 读到错误字节产生乱码. 必须用内联 (string) cast 直接作为实参传入 g_convert,
+        // 此时 Vala 只生成裸指针强转, 不做 g_strdup 拷贝. g_convert 的 len 参数显式
+        // 指定读取字节数, 不依赖 \0 终结.
         try {
             size_t bytes_read, bytes_written;
-            string converted = GLib.convert (input, (ssize_t)data.length,
+            string converted = GLib.convert ((string) data, (ssize_t)data.length,
                                              "UTF-8", from_enc,
                                              out bytes_read, out bytes_written);
             if (converted != null && converted.validate ()) {
