@@ -2,8 +2,27 @@ name: 🐧 Linux
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main, master ]
+  pull_request:
 
 jobs:
+  lint:
+    name: Vala-Lint
+    runs-on: ubuntu-latest
+    # 用官方 Docker 镜像, 避免在 runner 中从源码编译 vala-lint.
+    # 镜像内置 io.elementary.vala-lint, 挂载仓库到 /app 即可.
+    container:
+      image: valalang/lint:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run vala-lint
+        # --exit-zero 仅用于 CI 调试期, 当前阶段先不阻塞构建; 后续收紧为 error 后移除.
+        # 注: 当前 line-length=warn 已不阻塞; 但 naming-convention/double-spaces 等
+        # error 级规则可能因历史代码触发失败, 待逐步修复后移除 --exit-zero.
+        run: io.elementary.vala-lint -c vala-lint.conf --exit-zero src/
+
   linux:
     runs-on: ubuntu-latest
     steps:
@@ -25,6 +44,11 @@ jobs:
         run: |
           meson setup build
           meson compile -C build
+
+      - name: Test
+        # --print-errorlogs: 失败时打印完整日志; --num-processes=1: 避免并发日志交错.
+        # test_vlm_queue 含 ~8s 同步等待, 总耗时约 10s.
+        run: meson test -C build --print-errorlogs --num-processes=1
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

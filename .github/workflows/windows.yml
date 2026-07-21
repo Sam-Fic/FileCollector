@@ -2,6 +2,9 @@ name: 🏁 Windows
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main, master ]
+  pull_request:
 
 jobs:
   windows:
@@ -31,6 +34,8 @@ jobs:
             mingw-w64-x86_64-blueprint-compiler
             mingw-w64-x86_64-gettext
             mingw-w64-x86_64-libsecret
+            zip
+            unzip
 
       - name: Build cmark-gfm from source
         run: |
@@ -46,6 +51,11 @@ jobs:
         run: |
           meson setup build
           meson compile -C build
+
+      - name: Test
+        # test_zip_exporter 依赖 zip/unzip (上方 msys2 install 已装).
+        # 若 Windows runner 上有测试失败, 用 --suite 排查; 当前 9 个套件均应通过.
+        run: meson test -C build --print-errorlogs --num-processes=1
 
       - name: Stage portable package
         run: |

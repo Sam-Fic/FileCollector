@@ -2,6 +2,9 @@ name: 🍎 macOS
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main, master ]
+  pull_request:
 
 jobs:
   macos:
@@ -22,6 +25,10 @@ jobs:
         run: |
           meson setup build
           meson compile -C build
+
+      - name: Test
+        # macOS 上 test_zip_exporter 需要 zip 命令 (brew 安装时已带 zip).
+        run: meson test -C build --print-errorlogs --num-processes=1
 
       - name: Stage portable .app
         run: |
