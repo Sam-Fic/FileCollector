@@ -14,10 +14,6 @@ using Gee;
 //   - 不会因为 libzip 版本差异出 ABI 兼容问题
 public class ZipExporter : GLib.Object {
 
-    // 单个文件大小上限 (100 MB), 超过此大小仍会复制但加提示,
-    // 防止单个超大文件把 ZIP 卡住
-    private const int64 MAX_FILE_SIZE = 100 * 1024 * 1024;
-
     public static void export_to_zip (
         string zip_path,
         Gee.ArrayList<ItemData> items,
