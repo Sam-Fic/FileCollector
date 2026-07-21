@@ -136,14 +136,29 @@ public class CliController : GLib.Object {
             } else if (arg == "--move") {
                 i++;
                 if (i + 1 >= args.length) { show_missing_arg (arg); return false; }
-                int from = int.parse (args[i]);
-                int to = int.parse (args[i + 1]);
+                // int.parse 对非法字符串静默返回 0, 会把"索引 0"误当作目标操作。
+                // 用 try_parse 显式校验, 避免用户输入 "abc" 时静默操作第一项。
+                int from;
+                int to;
+                if (!int.try_parse (args[i], out from)) {
+                    stderr.printf (_("Error: Invalid index '%s' (not a number)\n"), args[i]);
+                    return false;
+                }
+                if (!int.try_parse (args[i + 1], out to)) {
+                    stderr.printf (_("Error: Invalid index '%s' (not a number)\n"), args[i + 1]);
+                    return false;
+                }
                 if (!move_item (from, to)) return false;
                 i++;
             } else if (arg == "--remove") {
                 i++;
                 if (i >= args.length) { show_missing_arg (arg); return false; }
-                if (!remove_item (int.parse (args[i]))) return false;
+                int idx;
+                if (!int.try_parse (args[i], out idx)) {
+                    stderr.printf (_("Error: Invalid index '%s' (not a number)\n"), args[i]);
+                    return false;
+                }
+                if (!remove_item (idx)) return false;
             } else if (arg == "--clear") {
                 clear_items ();
             } else if (arg == "--absolute") {
