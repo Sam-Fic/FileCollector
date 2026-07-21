@@ -33,13 +33,19 @@ public class PreprocessCache : GLib.Object {
     public static string compute_file_hash (string path) throws Error {
         var file = File.new_for_path (path);
         var stream = file.read ();
-        var checksum = new Checksum (ChecksumType.SHA256);
-        uint8[] buffer = new uint8[16384];
-        ssize_t read_bytes;
-        while ((read_bytes = stream.read (buffer)) > 0) {
-            checksum.update (buffer, read_bytes);
+        try {
+            var checksum = new Checksum (ChecksumType.SHA256);
+            uint8[] buffer = new uint8[16384];
+            ssize_t read_bytes;
+            while ((read_bytes = stream.read (buffer)) > 0) {
+                checksum.update (buffer, read_bytes);
+            }
+            return checksum.get_string ();
+        } finally {
+            try { stream.close (); } catch (Error e) {
+                debug ("Close hash stream failed: %s", e.message);
+            }
         }
-        return checksum.get_string ();
     }
 
     /**
