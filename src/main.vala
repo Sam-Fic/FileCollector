@@ -249,6 +249,9 @@ public class FileCollectorApp : Adw.Application {
 
     public static int main (string[] args) {
         var app = new FileCollectorApp ();
-        return app.run (args);
+        int ret = app.run (args);
+        // 清理 BinaryConverter 复用的临时基目录, 防止 /tmp 下泄漏
+        BinaryConverter.cleanup_temp_dir ();
+        return ret;
     }
 }

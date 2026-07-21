@@ -1,6 +1,35 @@
 public class BinaryConverter : GLib.Object {
     public const int MAX_IMAGE_DIMENSION = 2048;
 
+    // 复用临时基目录, 避免每次转换都创建/销毁顶层临时目录.
+    // 子目录以互斥锁保护的自增计数器命名, 保证 VLM 队列并发调用时不冲突.
+    private static string? temp_base_dir = null;
+    private static int task_counter = 0;
+    private static Mutex task_counter_lock = Mutex ();
+
+    private static string? get_temp_base () {
+        if (temp_base_dir == null) {
+            temp_base_dir = DirUtils.make_tmp ("fc_temp_XXXXXX");
+        }
+        return temp_base_dir;
+    }
+
+    private static int next_task_id () {
+        task_counter_lock.lock ();
+        int n = task_counter++;
+        task_counter_lock.unlock ();
+        return n;
+    }
+
+    // 程序退出时调用, 清理复用的基目录.
+    // main() 在 app.run() 返回后调用, 覆盖 GUI 与 CLI 两种退出路径.
+    public static void cleanup_temp_dir () {
+        if (temp_base_dir != null) {
+            cleanup_dir (temp_base_dir);
+            temp_base_dir = null;
+        }
+    }
+
     public static string? convert_image_to_base64 (string path) {
         try {
             var pixbuf = new Gdk.Pixbuf.from_file (path);
@@ -65,13 +94,31 @@ public class BinaryConverter : GLib.Object {
     }
 
     private static string? convert_office_to_pdf (string src) {
-        // 输出到临时目录, 避免 PDF 落在用户工作目录中被文件收集器扫描
-        string? tmp_dir = DirUtils.make_tmp ("fc_pdf_XXXXXX");
-        if (tmp_dir == null) {
-            warning ("Failed to create tmp dir for PDF");
-            return null;
+        // 复用基目录, 在其中创建本次任务的子目录, 避免并发冲突.
+        // 子目录名使用互斥锁保护的自增计数器, 保证 VLM 队列多线程下唯一.
+        string? tmp_base = get_temp_base ();
+        string task_dir;
+        if (tmp_base != null) {
+            int n = next_task_id ();
+            task_dir = Path.build_filename (tmp_base, "pdf_%d".printf (n));
+            if (DirUtils.create_with_parents (task_dir, 0700) < 0) {
+                // 子目录创建失败时回退到独立 mkdtemp, 保证转换流程能继续
+                task_dir = DirUtils.make_tmp ("fc_pdf_XXXXXX");
+                if (task_dir == null) {
+                    warning ("Failed to create tmp dir for PDF");
+                    return null;
+                }
+            }
+        } else {
+            // 基目录创建失败时回退到独立 mkdtemp
+            task_dir = DirUtils.make_tmp ("fc_pdf_XXXXXX");
+            if (task_dir == null) {
+                warning ("Failed to create tmp dir for PDF");
+                return null;
+            }
         }
-        string[] argv = {"soffice", "--headless", "--convert-to", "pdf", "--outdir", tmp_dir, src};
+
+        string[] argv = {"soffice", "--headless", "--convert-to", "pdf", "--outdir", task_dir, src};
         try {
             int status;
             Process.spawn_sync (null, argv, null, SpawnFlags.SEARCH_PATH, null, null, null, out status);
@@ -79,7 +126,7 @@ public class BinaryConverter : GLib.Object {
                 string basename = Path.get_basename (src);
                 int dot = basename.last_index_of (".");
                 string pdf_name = (dot > 0 ? basename.substring (0, dot) : basename) + ".pdf";
-                return Path.build_filename (tmp_dir, pdf_name);
+                return Path.build_filename (task_dir, pdf_name);
             }
         } catch (Error e) {
             warning ("LibreOffice conversion failed: %s", e.message);
