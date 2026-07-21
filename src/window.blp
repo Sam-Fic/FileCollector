@@ -405,6 +405,13 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                     }
                   }
                 }
+                Button btn_refresh_modified {
+                  halign: center;
+                  sensitive: false;
+                  icon-name: "view-refresh-symbolic";
+                  tooltip-text: _("Refresh all externally modified files");
+                  css-classes: ["refresh-modified-btn"];
+                }
                 Gtk.MenuButton btn_more_menu {
                   valign: center;
                   icon-name: "view-more-symbolic";

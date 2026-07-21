@@ -27,6 +27,9 @@ public class QueueListFactory : GLib.Object {
     public delegate void RefreshPreviewIfActive (ItemData data, uint position);
     public delegate void ClearTreeSelection ();
     public delegate void SetDropIndicator (Gtk.Widget? parent, bool after);
+    // 同步"⚠ 已修改"徽标可见性: 当 data.is_externally_modified 为 true 时显示徽标,
+    // 否则隐藏. 在 bind 初始同步与 notify["is-externally-modified"] 信号回调中均调用.
+    public delegate void UpdateModifiedBadge (ItemData data, Gtk.Label badge);
 
     // ─── 入口: 创建并返回配置好的 SignalListItemFactory ───────────────
     public static Gtk.SignalListItemFactory create (
@@ -38,7 +41,8 @@ public class QueueListFactory : GLib.Object {
         UpdatePreview update_preview,
         RefreshPreviewIfActive refresh_preview_if_active,
         ClearTreeSelection clear_tree_selection,
-        SetDropIndicator set_drop_indicator
+        SetDropIndicator set_drop_indicator,
+        UpdateModifiedBadge update_modified_badge
     ) {
         var factory = new Gtk.SignalListItemFactory ();
 
@@ -52,6 +56,14 @@ public class QueueListFactory : GLib.Object {
             label.ellipsize = Pango.EllipsizeMode.END;
             label.xalign = 0;
             label.hexpand = true;
+
+            // "⚠ 已修改"徽标: 文件被外部进程修改时由 Window 通过 update_modified_badge
+            // hook 切换可见性. 初始 hidden, 不抢占行宽; 文件类型 / 名称保持原布局.
+            var modified_badge = new Gtk.Label (_("⚠ Modified"));
+            modified_badge.add_css_class ("modified-badge");
+            modified_badge.xalign = 1;
+            modified_badge.valign = Gtk.Align.CENTER;
+            modified_badge.visible = false;
 
             // 拖拽排序手柄: 仅手柄作为拖拽源, 与行内已有的左/右键点击手势互不干扰.
             // 使用 Adwaita 原生的六点拖拽手柄图标 (list-drag-handle-symbolic), 而非
@@ -67,10 +79,12 @@ public class QueueListFactory : GLib.Object {
             // margin 在 allocation 之外, 行间 margin 缝隙会成为 DropTarget 盲区 —— 落在缝隙
             // 的 drop 会被 queue_list 上的 end_drop 捕获并错误地移到列表末尾, 与指示线不一致.
             box.add_css_class ("queue-row-box");
-            // 顺序: 拖拽手柄(最左) -> 文件类型图标 -> 文件名. 手柄居左可避开右侧滚动条.
+            // 顺序: 拖拽手柄(最左) -> 文件类型图标 -> 文件名 -> 已修改徽标(最右).
+            // 手柄居左可避开右侧滚动条; 徽标居右贴近行尾, 不与文件名争抢空间(label hexpand).
             box.append (grip);
             box.append (icon);
             box.append (label);
+            box.append (modified_badge);
 
             var drag = new Gtk.DragSource ();
             drag.set_actions (Gdk.DragAction.MOVE);
@@ -151,7 +165,7 @@ public class QueueListFactory : GLib.Object {
             // 存储 ItemData 引用到 box 上, 供 list_drop 的 pick() 定位目标行
             box.set_data<ItemData> ("queue-item", data);
 
-            // 行内子控件顺序: 拖拽手柄(grip) -> 文件图标(icon) -> 文件名(label).
+            // 行内子控件顺序: 拖拽手柄(grip) -> 文件图标(icon) -> 文件名(label) -> 已修改徽标(modified_badge).
             // 手柄现为首个子控件, 故取图标需跳过它 (get_first_child 返回的是 grip).
             var grip = box.get_first_child () as Gtk.Image;
             var icon = grip != null ? grip.get_next_sibling () as Gtk.Image : box.get_first_child () as Gtk.Image;
@@ -160,8 +174,13 @@ public class QueueListFactory : GLib.Object {
             var label = icon.get_next_sibling () as Gtk.Label;
             if (label == null) return;
 
+            var modified_badge = label.get_next_sibling () as Gtk.Label;
+            if (modified_badge == null) return;
+
             // 初始渲染
             render_row (list_item, data, label, icon);
+            // 初始同步"已修改"徽标可见性(刚 bind 时 data 可能已被标记为已修改)
+            update_modified_badge (data, modified_badge);
 
             // 监听 position 变化: 上下移动时 ListView 可能复用 ListItem 跟随 item 移动,
             // 而不触发 bind, 仅更新 position; 需监听 position 以重新渲染编号
@@ -202,12 +221,22 @@ public class QueueListFactory : GLib.Object {
                 }
             });
 
+            // 监听 is_externally_modified 变化: FileWatcherService 检测到外部修改时
+            // 标记此属性, 触发徽标显示/隐藏. 单纯切换徽标可见性即可, 不需要重渲染整行
+            // (文件名/图标不受外部修改影响).
+            ulong modified_handler_id = data.notify["is-externally-modified"].connect (() => {
+                if (list_item != null && list_item.get_item () != null) {
+                    update_modified_badge (data, modified_badge);
+                }
+            });
+
             // 将句柄 ID 与所监视的数据模型指针弱挂载到 ListItem 容器上,
             // 供 unbind 时双重校验安全剥离信号
             list_item.set_data<ulong> ("content_notify_id", handler_id);
             list_item.set_data<ulong> ("status_notify_id", status_handler_id);
             list_item.set_data<ulong> ("cache_notify_id", cache_handler_id);
             list_item.set_data<ulong> ("position_notify_id", pos_handler);
+            list_item.set_data<ulong> ("modified_notify_id", modified_handler_id);
             list_item.set_data<ItemData> ("monitored_data_ptr", data);
         });
 
@@ -219,6 +248,7 @@ public class QueueListFactory : GLib.Object {
             ulong status_handler_id = list_item.get_data<ulong> ("status_notify_id");
             ulong cache_handler_id = list_item.get_data<ulong> ("cache_notify_id");
             ulong pos_handler = list_item.get_data<ulong> ("position_notify_id");
+            ulong modified_handler_id = list_item.get_data<ulong> ("modified_notify_id");
             var data = list_item.get_data<ItemData> ("monitored_data_ptr");
 
             // 安全双重校验: 确认句柄未失效且数据对象依然存在于内存中, 方能安全剥离信号
@@ -233,6 +263,9 @@ public class QueueListFactory : GLib.Object {
             }
             if (pos_handler != 0 && GLib.SignalHandler.is_connected (list_item, pos_handler)) {
                 GLib.SignalHandler.disconnect (list_item, pos_handler);
+            }
+            if (modified_handler_id != 0 && data != null && GLib.SignalHandler.is_connected (data, modified_handler_id)) {
+                GLib.SignalHandler.disconnect (data, modified_handler_id);
             }
 
             // 显式清空存储节点引用, 防止生命周期残留导致内存泄露

@@ -20,6 +20,9 @@ public class ItemData : GLib.Object {
     public bool from_cache { get; set; default = false; }
     public int start_line { get; set; default = 0; }
     public int end_line { get; set; default = 0; }
+    // 文件被外部进程修改(例如用户切回 IDE 保存代码)时由 FileWatcherService 标记.
+    // notify["is-externally-modified"] 信号触发 QueueListFactory 刷新"⚠ 已修改"徽标.
+    public bool is_externally_modified { get; set; default = false; }
 
     private static string[] DOCUMENT_EXTENSIONS = {
         ".pdf", ".docx", ".pptx", ".doc", ".ppt",
