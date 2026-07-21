@@ -24,7 +24,16 @@ public class ProjectManager : GLib.Object {
         var parser = new Json.Parser ();
         parser.load_from_data (content);
 
-        var root = parser.get_root ().get_object ();
+        var root_node = parser.get_root ();
+        if (root_node == null || root_node.get_node_type () != Json.NodeType.OBJECT) {
+            throw new IOError.INVALID_DATA (
+                _("Project file %s has invalid format: root is not a JSON object").printf (file_path));
+        }
+        var root = root_node.get_object ();
+        if (root == null) {
+            throw new IOError.INVALID_DATA (
+                _("Project file %s has invalid format: root object is null").printf (file_path));
+        }
 
         var wd_str = root.get_string_member_with_default ("work_dir", "");
         if (wd_str != "") {
@@ -63,9 +72,10 @@ public class ProjectManager : GLib.Object {
             for (int i = 0; i < items_arr.get_length (); i++) {
                 var obj = items_arr.get_object_element (i);
                 if (obj == null) continue;
-                var type = obj.get_string_member ("type");
+                var type = obj.get_string_member_with_default ("type", "file");
                 if (type == "file") {
-                    var p = obj.get_string_member ("path");
+                    var p = obj.get_string_member_with_default ("path", "");
+                    if (p == "") continue;  // 没有 path 的 file 项无意义, 跳过
                     var fa = obj.get_boolean_member_with_default ("force_absolute", false);
                     var sl = (int) obj.get_int_member_with_default ("start_line", 0);
                     var el = (int) obj.get_int_member_with_default ("end_line", 0);
@@ -118,9 +128,10 @@ public class ProjectManager : GLib.Object {
                     for (int j = 0; j < sitems.get_length (); j++) {
                         var io = sitems.get_object_element (j);
                         if (io == null) continue;
-                        var itype = io.get_string_member ("type");
+                        var itype = io.get_string_member_with_default ("type", "file");
                         if (itype == "file") {
-                            var p = io.get_string_member ("path");
+                            var p = io.get_string_member_with_default ("path", "");
+                            if (p == "") continue;
                             var fa = io.get_boolean_member_with_default ("force_absolute", false);
                             var sl = (int) io.get_int_member_with_default ("start_line", 0);
                             var el = (int) io.get_int_member_with_default ("end_line", 0);

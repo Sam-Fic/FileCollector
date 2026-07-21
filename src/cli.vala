@@ -435,7 +435,16 @@ public class CliController : GLib.Object {
             var parser = new Json.Parser ();
             parser.load_from_data (content);
 
-            var root = parser.get_root ().get_object ();
+            var root_node = parser.get_root ();
+            if (root_node == null || root_node.get_node_type () != Json.NodeType.OBJECT) {
+                printerr ("Invalid project file: root is not a JSON object\n");
+                return false;
+            }
+            var root = root_node.get_object ();
+            if (root == null) {
+                printerr ("Invalid project file: root object is null\n");
+                return false;
+            }
             project_loaded = true;
 
             var wd_str = root.get_string_member_with_default ("work_dir", "");
@@ -473,9 +482,10 @@ public class CliController : GLib.Object {
                 for (int i = 0; i < items_arr.get_length (); i++) {
                     var obj = items_arr.get_object_element (i);
                     if (obj == null) continue;
-                    var type = obj.get_string_member ("type");
+                    var type = obj.get_string_member_with_default ("type", "file");
                     if (type == "file") {
-                        var p = obj.get_string_member ("path");
+                        var p = obj.get_string_member_with_default ("path", "");
+                        if (p == "") continue;
                         var fa = obj.get_boolean_member_with_default ("force_absolute", false);
                         var miss = obj.get_boolean_member_with_default ("missing", false);
                         var item = new ItemData ("file", p, null, fa, miss);
