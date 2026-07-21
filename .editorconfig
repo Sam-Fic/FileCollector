@@ -1,0 +1,39 @@
+# EditorConfig: https://editorconfig.org
+# 帮助编辑器/IDE 在不同平台保持一致的编码风格.
+# 本仓库为 Vala + Meson + Blueprint 项目, 主代码风格为 4 空格缩进、UTF-8、LF.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+max_line_length = 120
+
+# Vala 源码
+[*.{vala,vapi}]
+indent_size = 4
+
+# Meson 构建脚本
+[meson.build]
+indent_size = 2
+
+# Blueprint UI 文件
+[*.blp]
+indent_size = 2
+
+# YAML (CI workflows)
+[*.{yml,yaml}]
+indent_size = 2
+
+# Markdown: 保留行尾两空格 (硬换行)
+[*.md]
+trim_trailing_whitespace = false
+max_line_length = off
+
+# Makefile 必须用 TAB
+[Makefile]
+indent_style = tab
