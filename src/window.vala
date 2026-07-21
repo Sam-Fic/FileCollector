@@ -12,6 +12,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.Overlay queue_overlay;
     [GtkChild] private unowned Gtk.Stack queue_stack;
     [GtkChild] private unowned Gtk.Box drop_indicator;
+    [GtkChild] private unowned Gtk.Box left_panel_card;
+    [GtkChild] private unowned Gtk.Box middle_panel_card;
     private Adw.StatusPage queue_empty_page;
     [GtkChild] private unowned Gtk.Stack preview_stack;
     [GtkChild] private unowned Gtk.Box preview_markdown_box;
@@ -38,7 +40,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.Paned outer_paned;
     [GtkChild] private unowned Gtk.Paned inner_paned;
     [GtkChild] private unowned Gtk.Button btn_ai_toggle;
-    [GtkChild] private unowned Gtk.Button btn_toggle_snapshot;
+    [GtkChild] private unowned Gtk.ToggleButton btn_toggle_snapshot;
     [GtkChild] private unowned Gtk.Paned ai_paned;
     [GtkChild] private unowned Gtk.Box ai_sidebar;
 
@@ -659,10 +661,29 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // 编排列表接收外部文件 / 文件夹: 文件→入列; 文件夹→递归收集其中所有文件入列.
     // 与内部 ItemData 重排 DropTarget 共存, 通过 content type 路由互不干扰.
+    // 外部拖拽悬停高亮: 拖拽进入/离开目标区域时给该区域的卡片面板增删
+    // .drop-target-active 类, 由 CSS 呈现为圆角 accent 描边 + 淡背景, 作为
+    // "松手即可放入" 的原生提示. 高亮作用在整个卡片面板 (而非内部 widget),
+    // 框线与卡片轮廓一致, 不与内部内容贴边, 与面板边距统一.
+    private void set_external_drop_highlight (Gtk.Widget target, bool active) {
+        if (target == null) return;
+        if (active) {
+            target.add_css_class ("drop-target-active");
+        } else {
+            target.remove_css_class ("drop-target-active");
+        }
+    }
+
     private void setup_external_drop_on_queue () {
+        // 挂在 middle_panel_card (整个中栏卡片, 含标题/列表/按钮区), 使栏内所有
+        // 区域(不仅限于列表内容区)都能接收拖拽, 与 .drop-target-active 高亮覆盖
+        // 整栏的视觉一致. 子 widget(按钮/列表行)无 FileList 类型 DropTarget,
+        // 拖拽文件时事件自然冒泡到本卡片的 DropTarget.
         var ext_drop = new Gtk.DropTarget (typeof (Gdk.FileList), Gdk.DragAction.COPY);
+        ext_drop.enter.connect (() => { set_external_drop_highlight (middle_panel_card, true); return Gdk.DragAction.COPY; });
+        ext_drop.leave.connect (() => { set_external_drop_highlight (middle_panel_card, false); });
         ext_drop.drop.connect (on_external_drop_on_queue);
-        queue_list.add_controller (ext_drop);
+        middle_panel_card.add_controller (ext_drop);
     }
 
     private bool on_external_drop_on_queue (GLib.Value val, double x, double y) {
@@ -687,40 +708,74 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // 目录树接收外部文件夹: 单一文件夹 → 切换工作目录; 其它(文件 / 多文件夹) →
     // 作为外部文件加入编排列表, 复用 add_external_path_to_batch 的递归收集逻辑.
     private void setup_external_drop_on_tree () {
+        // 挂在 left_panel_card (整个左栏卡片, 含标题/搜索框/树区), 使栏内所有区域
+        // 都能接收拖拽, 与 .drop-target-active 高亮覆盖整栏的视觉一致. ColumnView 是
+        // 复合 widget, 拖拽 hover 的 enter 事件不稳定, 挂在卡片上更可靠.
         var ext_drop = new Gtk.DropTarget (typeof (Gdk.FileList), Gdk.DragAction.COPY);
+        ext_drop.enter.connect (() => { set_external_drop_highlight (left_panel_card, true); return Gdk.DragAction.COPY; });
+        ext_drop.leave.connect (() => { set_external_drop_highlight (left_panel_card, false); });
         ext_drop.drop.connect (on_external_drop_on_tree);
-        dir_column_view.add_controller (ext_drop);
+        left_panel_card.add_controller (ext_drop);
     }
 
+    // 目录树栏接收外部拖拽的语义是"切换工作目录", 而非加入编排列表:
+    // 拖入文件夹 → 以其自身为工作目录; 拖入文件 → 以其父目录为工作目录.
+    // 多个条目时优先取第一个文件夹, 否则用第一个文件的父目录.
     private bool on_external_drop_on_tree (GLib.Value val, double x, double y) {
         var file_list = val as Gdk.FileList;
         if (file_list == null) return false;
         var files = file_list.get_files ();
-        // 单一文件夹: 切换工作目录, 与 AI 工具 set_work_dir / 打开文件夹按钮一致的行为.
-        // SList.data 直接取首元素数据(无须 .first().data).
-        if (files.length () == 1) {
-            unowned var single = files.data;
-            string? path = single.get_path ();
-            if (path != null && FileUtils.test (path, FileTest.IS_DIR)) {
-                ai_apply_set_work_dir (path);
-                show_toast (_("Working directory: %s").printf (path));
-                return true;
+        if (files.length () == 0) return false;
+
+        // 优先取列表中的第一个文件夹作为工作目录
+        File? target_dir = null;
+        foreach (unowned var f in files) {
+            string? p = f.get_path ();
+            if (p != null && FileUtils.test (p, FileTest.IS_DIR)) {
+                target_dir = f;
+                break;
             }
         }
-        // 其它情况(文件 / 多文件夹 / 混合): 收集所有文件加入编排列表.
-        var to_add = new Gee.ArrayList<ItemData> ();
-        int skipped = 0;
-        foreach (unowned var f in files) {
-            string? path = f.get_path ();
-            if (path == null) continue;
-            add_external_path_to_batch (path, to_add, ref skipped);
+        // 没有文件夹(全是文件): 取第一个文件的父目录作为工作目录
+        if (target_dir == null) {
+            var parent = files.data.get_parent ();
+            if (parent != null) target_dir = parent;
         }
-        int added = commit_external_batch (to_add);
-        if (added > 0) {
-            show_toast (_("Added %d external file(s)").printf (added));
-        } else if (skipped > 0) {
-            show_toast (_("All %d file(s) already in list").printf (skipped));
+        if (target_dir == null) return false;
+
+        string? work_dir_path = target_dir.get_path ();
+        if (work_dir_path == null) return false;
+        ai_apply_set_work_dir (work_dir_path);
+        show_toast (_("Working directory: %s").printf (work_dir_path));
+        return true;
+    }
+
+    // 首次打开 (未设工作目录) 时, 主内容区显示 empty_page_widget. 拖入任意文件/
+    // 文件夹即设为工作目录: 文件夹直接取自身, 文件取所在父目录. 与打开文件夹按钮 /
+    // 拖目录树单一文件夹行为一致 (复用 ai_apply_set_work_dir, 会清空编排列表并加载树).
+    private bool on_external_drop_on_empty_state (GLib.Value val, double x, double y) {
+        var file_list = val as Gdk.FileList;
+        if (file_list == null) return false;
+        var files = file_list.get_files ();
+        if (files.length () == 0) return false;
+
+        unowned var first = files.data;
+        string? path = first.get_path ();
+        if (path == null) return false;
+
+        string work_dir_path;
+        if (FileUtils.test (path, FileTest.IS_DIR)) {
+            work_dir_path = path;
+        } else {
+            // 拖入的是文件: 以其所在父目录作为工作目录
+            var parent = first.get_parent ();
+            string? parent_path = parent != null ? parent.get_path () : null;
+            if (parent_path == null) return false;
+            work_dir_path = parent_path;
         }
+
+        ai_apply_set_work_dir (work_dir_path);
+        show_toast (_("Working directory: %s").printf (work_dir_path));
         return true;
     }
 
@@ -1407,6 +1462,15 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         empty_page_widget = new Adw.StatusPage ();
         empty_page_widget.icon_name = "folder-open-symbolic";
         empty_page_widget.title = _("No Working Directory Selected");
+        empty_page_widget.add_css_class ("empty-page");
+        // 常态即离窗口 18px 四周, 与正常三栏整体 (ai_paned 的 margin-start/end: 18)
+        // 到窗口的距离一致. 这样拖拽高亮框 (画在 widget 边缘的 inset 描边) 距窗口
+        // 也是 18px, 而非贴边.
+        // 注意: 用 margin 而非 padding, 因为 inset box-shadow 始终画在 border 内侧,
+        // padding 不会让描边内缩, 只有 widget 自身离窗口才能拉开高亮框距离.
+        empty_page_widget.margin_start = 18;
+        empty_page_widget.margin_end = 18;
+        empty_page_widget.margin_bottom = 18;
         empty_page_widget.description = _("Open a folder as the working directory to start collecting and orchestrating files.");
 
         var empty_btn = new Gtk.Button ();
@@ -1416,6 +1480,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         empty_btn.halign = Gtk.Align.CENTER;
         empty_btn.clicked.connect (() => on_open_folder_clicked.begin ());
         empty_page_widget.child = empty_btn;
+
+        // 首次打开 (无工作目录) 时允许直接拖入文件/文件夹设定工作目录, 无需先点按钮.
+        // 文件夹取其自身, 文件取其父目录 (见 on_external_drop_on_empty_state).
+        var empty_drop = new Gtk.DropTarget (typeof (Gdk.FileList), Gdk.DragAction.COPY);
+        empty_drop.enter.connect (() => { set_external_drop_highlight (empty_page_widget, true); return Gdk.DragAction.COPY; });
+        empty_drop.leave.connect (() => { set_external_drop_highlight (empty_page_widget, false); });
+        empty_drop.drop.connect (on_external_drop_on_empty_state);
+        empty_page_widget.add_controller (empty_drop);
 
         update_empty_state ();
     }
@@ -1891,10 +1963,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         btn_new_snapshot.clicked.connect (() => on_new_snapshot ());
 
         // 顶栏开关: 展开 / 收起快照栏 (窄屏时自动以覆盖层呈现)
-        btn_toggle_snapshot.clicked.connect (() => {
-            snapshot_split.show_sidebar = !snapshot_split.show_sidebar;
-            sync_snapshot_toggle_button ();
-        });
+        // 按钮的 active (按下/高亮态) 双向绑定到快照侧栏可见性:
+        //   - 侧栏显示时按钮自动呈按下态, 用持久激活态提醒用户功能已开启;
+        //   - 点击按钮切换 active 会自动翻转 show_sidebar, 无需手动维护.
+        btn_toggle_snapshot.bind_property (
+            "active", snapshot_split, "show-sidebar",
+            GLib.BindingFlags.BIDIRECTIONAL | GLib.BindingFlags.SYNC_CREATE
+        );
+        btn_toggle_snapshot.toggled.connect (sync_snapshot_toggle_button);
         sync_snapshot_toggle_button ();
 
         // 列表变更 → 重建侧栏
@@ -1955,12 +2031,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         app_state.snapshots.set (active_workspace_index, snap);
     }
 
-    // 同步顶栏开关按钮的图标与提示 (反映快照栏是否可见)
+    // 同步顶栏开关按钮的提示文案 (反映快照栏是否可见).
+    // 按钮的按下/高亮态由 active 属性经 bind_property 自动跟随 show_sidebar,
+    // 这里只更新 tooltip 以说明当前点击会执行的操作.
     private void sync_snapshot_toggle_button () {
-        var visible = snapshot_split.show_sidebar;
-        // 主题仅提供 sidebar-show-symbolic (无 hide 变体); 侧栏出现即覆盖顶栏,
-        // 无需为按钮做额外的激活态高亮
-        btn_toggle_snapshot.icon_name = "sidebar-show-symbolic";
+        var visible = btn_toggle_snapshot.active;
         btn_toggle_snapshot.tooltip_text = visible
             ? _("Hide Workspaces Sidebar")
             : _("Show Workspaces Sidebar");
@@ -2923,7 +2998,17 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             skipped++;
             return;
         }
-        batch.add (new ItemData ("file", path, null, true));
+        // 仅当文件位于当前工作目录之外才标记为外部文件 (force_absolute=true,
+        // 列表显示 [External file] + 强制绝对路径). 工作目录内的文件拖入应按常规项
+        // 处理 (相对路径、无外部标记), 与从目录树勾选加入的行为一致.
+        bool is_external = !is_path_inside_work_dir (path);
+        batch.add (new ItemData ("file", path, null, is_external));
+    }
+
+    // 判断路径是否位于当前工作目录之内 (含子目录). work_dir 为 null 时一律视为外部.
+    private bool is_path_inside_work_dir (string path) {
+        if (work_dir == null) return false;
+        return File.new_for_path (path).has_prefix (work_dir);
     }
 
     // 递归收集目录下所有非忽略 / 非隐藏目录中的文件路径. 与 SearchService /
@@ -2958,13 +3043,36 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private int commit_external_batch (Gee.ArrayList<ItemData> batch) {
         if (batch.size == 0) return 0;
         push_undo_state ();
+        // 工作目录内的拖入文件需同步勾选状态到目录树, 与从树勾选加入的行为一致
+        // (常规勾选会 toggle_file + 加 items; 外部拖入已加 items, 这里补 check_model).
+        var in_tree_paths = new Gee.ArrayList<string> ();
         int added = 0;
         foreach (var item in batch) {
             items.add (item);
             if (item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
                 enqueue_item_for_preprocess (item);
             }
+            // force_absolute=false 表示文件位于工作目录内, 应勾选对应树节点
+            if (!item.force_absolute && item.item_type == "file" && item.file_path != null) {
+                if (!(item.file_path in check_model.checked_files)) {
+                    in_tree_paths.add (item.file_path);
+                }
+            }
             added++;
+        }
+        if (in_tree_paths.size > 0) {
+            check_model.add_files ((string[]) in_tree_paths.to_array ());
+            // 增量刷新受影响的树节点: 按父目录去重, 逐个刷新 (向上覆盖整条祖先链),
+            // 避免对大量文件逐一遍历祖先造成重复开销.
+            var parent_dirs = new Gee.HashSet<string> ();
+            foreach (var p in in_tree_paths) {
+                var parent = File.new_for_path (p).get_parent ();
+                if (parent != null) parent_dirs.add (parent.get_path ());
+            }
+            foreach (var d in parent_dirs) {
+                refresh_tree_state_for_path_str (d);
+            }
+            dir_column_view.queue_draw ();
         }
         refresh_list ();
         return added;

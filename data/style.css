@@ -132,6 +132,33 @@ row:selected .queue-drag-handle {
     opacity: 1;
 }
 
+/* 外部文件拖拽悬停高亮: 拖拽进入可放置区域时, 给该区域的卡片面板加此类,
+   呈现为圆角 accent 描边 + 淡 accent 背景, 作为"松手即可放入"的原生提示.
+   高亮作用在整个卡片面板 (left_panel_card / middle_panel_card), 框线与卡片
+   轮廓一致, 不与内部内容贴边, 与面板内其它组件边距统一. 替代 GTK 默认的方角
+   :drop(active) 描边(已在下方压制). 用 inset box-shadow 而非 outline, 避免被
+   widget 裁剪; 圆角与卡片一致(--radius-lg), 不出现直角矩形. */
+.drop-target-active {
+    border-radius: var(--radius-lg);
+    box-shadow: inset 0 0 0 2px @accent_color;
+    background-color: alpha(@accent_bg_color, 0.10);
+    transition: box-shadow 120ms ease, background-color 120ms ease;
+}
+
+/* 首次打开的空状态页 (StatusPage) 已通过 margin-start/end: 18 常态离窗口
+   18px (见 window.vala setup_empty_state), 与三栏到窗口距离一致, 故高亮框
+   (画在 widget 边缘的 inset 描边) 自然距窗口 18px, 无需在此额外内缩.
+   注意不能用 padding: inset box-shadow 始终画在 border 内侧, padding 不会让
+   描边内缩, 只有 widget 自身的 margin 才能拉开高亮框与窗口的距离. */
+
+/* 压制 GTK 默认的落点方角描边, 避免与外部拖拽的圆角高亮叠加出现"直角矩形".
+   内部重排已用水平指示线替代, 外部文件拖拽改用 .drop-target-active, 均不依赖
+   原生 :drop(active) 外观. */
+*:drop(active) {
+    outline: none;
+    box-shadow: none;
+}
+
 .paned-no-handle {
     background: none;
 }

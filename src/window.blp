@@ -13,9 +13,12 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
     Adw.ToolbarView main_view {
       [top]
       Adw.HeaderBar {
-        Button btn_toggle_snapshot {
+        ToggleButton btn_toggle_snapshot {
           icon-name: "sidebar-show-symbolic";
           tooltip-text: _("Show / Hide Workspaces Sidebar");
+          // active 绑定到快照侧栏可见性: 侧栏显示时按钮呈按下/高亮态,
+          // 用持久的激活态提醒用户该功能当前是否开启.
+          active: false;
         }
 
         Button btn_ai_toggle {
@@ -100,7 +103,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
        css-classes: ["paned-no-handle"];
 
         // 左栏 - 目录树 / Git 历史
-        Box {
+        Box left_panel_card {
            hexpand: true;
            vexpand: true;
            width-request: 200;
@@ -186,7 +189,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
         css-classes: ["paned-no-handle"];
 
         // 中栏 - 输出编排
-        Box {
+        Box middle_panel_card {
            hexpand: true;
            vexpand: true;
            width-request: 400;
