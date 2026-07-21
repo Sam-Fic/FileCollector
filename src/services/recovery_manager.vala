@@ -94,8 +94,15 @@ public class RecoveryManager : GLib.Object {
             try {
                 var recovery_info = recovery_file.query_info (FileAttribute.TIME_MODIFIED, FileQueryInfoFlags.NONE);
                 var project_info = File.new_for_path (project_file).query_info (FileAttribute.TIME_MODIFIED, FileQueryInfoFlags.NONE);
-                if (project_info.get_modification_time ().tv_sec >= recovery_info.get_modification_time ().tv_sec) {
-                    // 项目文件比恢复文件新，不需要恢复
+                // 用 tv_sec + tv_usec 合成微秒级时间戳比较, 避免只比较秒导致
+                // 同一秒内修改的文件被误判 (项目文件晚于恢复文件但同秒, 会被当作
+                // "项目更新"而丢弃恢复文件)。
+                var recovery_time = recovery_info.get_modification_time ();
+                var project_time = project_info.get_modification_time ();
+                int64 recovery_us = (int64) recovery_time.tv_sec * 1000000LL + recovery_time.tv_usec;
+                int64 project_us = (int64) project_time.tv_sec * 1000000LL + project_time.tv_usec;
+                if (project_us >= recovery_us) {
+                    // 项目文件比恢复文件新（或同时），不需要恢复
                     delete_file ();
                     return;
                 }
