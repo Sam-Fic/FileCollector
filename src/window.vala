@@ -1520,6 +1520,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 btn_global_search.visible = false;
                 btn_undo.visible = false;
                 btn_redo.visible = false;
+                // 工作区侧栏按钮: 首次打开 (无工作目录) 时侧栏无意义, 一并隐藏
+                btn_toggle_snapshot.visible = false;
             }
         } else {
             // 恢复 ToolbarView 的 content
@@ -1535,6 +1537,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             btn_global_search.visible = true;
             btn_undo.visible = true;
             btn_redo.visible = true;
+            btn_toggle_snapshot.visible = true;
         }
     }
 
