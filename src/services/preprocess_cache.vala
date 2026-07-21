@@ -179,39 +179,40 @@ public class PreprocessCache : GLib.Object {
     }
 
     private Json.Object load_manifest_unlocked () {
+        // 全程持锁: 避免 check-then-set 间隙多个线程同时加载磁盘并各自构造
+        // Json.Object, 后写入的会覆盖前者, 导致 manifest 更新丢失。
         manifest_cache_mutex.lock ();
-        if (manifest_cache.has_key (manifest_path)) {
-            var cached = manifest_cache.get (manifest_path);
-            manifest_cache_mutex.unlock ();
-            return cached;
-        }
-        manifest_cache_mutex.unlock ();
+        try {
+            if (manifest_cache.has_key (manifest_path)) {
+                return manifest_cache.get (manifest_path);
+            }
 
-        Json.Object result;
-        if (FileUtils.test (manifest_path, FileTest.EXISTS)) {
-            try {
-                string content;
-                FileUtils.get_contents (manifest_path, out content);
-                var parser = new Json.Parser ();
-                parser.load_from_data (content);
-                if (parser.get_root () != null && parser.get_root ().get_node_type () == Json.NodeType.OBJECT) {
-                    result = parser.get_root ().get_object ();
-                } else {
+            Json.Object result;
+            if (FileUtils.test (manifest_path, FileTest.EXISTS)) {
+                try {
+                    string content;
+                    FileUtils.get_contents (manifest_path, out content);
+                    var parser = new Json.Parser ();
+                    parser.load_from_data (content);
+                    if (parser.get_root () != null && parser.get_root ().get_node_type () == Json.NodeType.OBJECT) {
+                        result = parser.get_root ().get_object ();
+                    } else {
+                        result = new Json.Object ();
+                    }
+                } catch (Error e) {
+                    warning ("Load manifest failed: %s", e.message);
                     result = new Json.Object ();
                 }
-            } catch (Error e) {
-                warning ("Load manifest failed: %s", e.message);
+            } else {
                 result = new Json.Object ();
             }
-        } else {
-            result = new Json.Object ();
-        }
 
-        // 写入静态缓存共享: 后续 new PreprocessCache 复用同一对象, save/clear 均原地修改
-        manifest_cache_mutex.lock ();
-        manifest_cache.set (manifest_path, result);
-        manifest_cache_mutex.unlock ();
-        return result;
+            // 写入静态缓存共享: 后续 new PreprocessCache 复用同一对象, save/clear 均原地修改
+            manifest_cache.set (manifest_path, result);
+            return result;
+        } finally {
+            manifest_cache_mutex.unlock ();
+        }
     }
 
     public void clear_all () {
