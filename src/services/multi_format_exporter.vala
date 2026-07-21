@@ -10,8 +10,6 @@ using Gee;
 // 避免每种格式各自重复处理。preprocessed_content (VLM 转写后的 Markdown) 优先使用。
 public class MultiFormatExporter : GLib.Object {
 
-    private const int64 MAX_FILE_CONTENT_SIZE = 10 * 1024 * 1024;
-
     public enum ItemKind {
         OK,         // 文本内容已就绪, content 字段可用
         MISSING,    // 文件不存在
@@ -291,68 +289,42 @@ public class MultiFormatExporter : GLib.Object {
             return ri;
         }
 
-        int64 file_size = 0;
-        try {
-            var info = f.query_info (FileAttribute.STANDARD_SIZE, FileQueryInfoFlags.NONE);
-            file_size = info.get_size ();
-        } catch (Error e) {
-            ri.kind = ItemKind.READ_ERROR;
-            ri.error_message = _("[Unable to get file info: %s]").printf (e.message);
-            return ri;
-        }
-        if (file_size > MAX_FILE_CONTENT_SIZE) {
-            ri.kind = ItemKind.TOO_LARGE;
-            ri.error_message = _("[File too large (%s), content reading skipped]").printf (UIHelpers.format_size (file_size));
-            return ri;
-        }
-
-        FileInputStream? fis = null;
-        try {
-            fis = f.read ();
-            const int PEEK_SIZE = 8192;
-            uint8[] head_buf = new uint8[PEEK_SIZE];
-            var peek_bytes = fis.read_bytes (PEEK_SIZE);
-            unowned uint8[] peek_data = peek_bytes.get_data ();
-            size_t head_read = peek_data.length;
-            Memory.copy (head_buf, peek_data, head_read);
-
-            bool is_binary = false;
-            for (size_t j = 0; j < head_read; j++) {
-                if (head_buf[j] == 0) {
-                    is_binary = true;
-                    break;
-                }
+        // 文件内容读取 (size 检查 + 二进制探测 + 分块读取) 委托给 FileContentReader.
+        // 行为与原内联实现一致: 仅 OK 时把数据填进 ri.content; 其他情况 ri.content
+        // 保持 null (调用方按 ri.kind/ri.error_message 显示).
+        var sb = new StringBuilder ();
+        var outcome = FileContentReader.read_text_streaming (
+            data.file_path,
+            (buf, len) => {
+                sb.append (EncodingHelper.bytes_to_string_safe (buf, len));
             }
-            if (is_binary) {
+        );
+        switch (outcome.result) {
+            case FileContentReader.ReadResult.OK:
+                ri.kind = ItemKind.OK;
+                ri.content = sb.str;
+                break;
+            case FileContentReader.ReadResult.TOO_LARGE:
+                ri.kind = ItemKind.TOO_LARGE;
+                ri.error_message = _("[File too large (%s), content reading skipped]").printf (
+                    UIHelpers.format_size (outcome.file_size));
+                break;
+            case FileContentReader.ReadResult.BINARY:
                 ri.kind = ItemKind.BINARY;
                 ri.error_message = _("[Binary file detected: text content reading skipped]");
-                return ri;
-            }
-
-            var sb = new StringBuilder ();
-            // bytes_to_string_safe 显式添加 \0 终止符, 避免 (string) buf[0:n]
-            // 强转时若 buf 末尾无 \0 越界读取
-            sb.append (EncodingHelper.bytes_to_string_safe (head_buf, head_read));
-            // int64 避免 head_read > file_size 时无符号下溢
-            int64 remaining = file_size - (int64) head_read;
-            if (remaining < 0) remaining = 0;
-            uint8[] chunk_buf = new uint8[8192];
-            while (remaining > 0) {
-                size_t to_read = (size_t) size_t.min (8192, (size_t) remaining);
-                ssize_t n = fis.read (chunk_buf[0:to_read]);
-                if (n <= 0) break;
-                sb.append (EncodingHelper.bytes_to_string_safe (chunk_buf, (size_t) n));
-                remaining -= n;
-            }
-            ri.kind = ItemKind.OK;
-            ri.content = sb.str;
-        } catch (Error e) {
-            ri.kind = ItemKind.READ_ERROR;
-            ri.error_message = _("[Failed to read file: %s]").printf (e.message);
-        } finally {
-            if (fis != null) {
-                try { fis.close (); } catch (Error e) {}
-            }
+                break;
+            case FileContentReader.ReadResult.READ_ERROR:
+                // 与原实现一致: 错误时丢弃已收集的 sb (ri.content 保持 null),
+                // 仅返回错误. file_size == 0 表示 query_info 失败 (走 "Unable to
+                // get file info"); file_size > 0 表示 read 流式阶段失败 (走
+                // "Failed to read file").
+                ri.kind = ItemKind.READ_ERROR;
+                if (outcome.file_size == 0) {
+                    ri.error_message = _("[Unable to get file info: %s]").printf (outcome.error_message ?? "");
+                } else {
+                    ri.error_message = _("[Failed to read file: %s]").printf (outcome.error_message ?? "");
+                }
+                break;
         }
         return ri;
     }

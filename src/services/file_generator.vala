@@ -2,9 +2,6 @@ using Gee;
 
 public class FileGenerator : GLib.Object {
 
-    // 单个文件内容大小上限 (10 MB), 超过此大小跳过内容读取
-    private const int64 MAX_FILE_CONTENT_SIZE = 10 * 1024 * 1024;
-
     public static void write_items_to_stream (
         DataOutputStream dis,
         Gee.ArrayList<ItemData> items,
@@ -94,67 +91,32 @@ public class FileGenerator : GLib.Object {
                     continue;
                 }
 
-                // 检查文件大小, 超过上限则跳过内容读取, 避免 OOM
-                int64 file_size = 0;
-                try {
-                    var info = f.query_info (FileAttribute.STANDARD_SIZE, FileQueryInfoFlags.NONE);
-                    file_size = info.get_size ();
-                } catch (Error e) {
-                    dis.put_string (_("[Unable to get file info: %s]\n").printf (e.message));
-                    continue;
-                }
-                if (file_size > MAX_FILE_CONTENT_SIZE) {
-                    dis.put_string (_("[File too large (%s), content reading skipped]\n").printf (UIHelpers.format_size (file_size)));
-                    continue;
-                }
-
-                // 流式读取文件内容, 使用 try-finally 确保流关闭
-                FileInputStream? fis = null;
-                try {
-                    fis = f.read ();
-                    // 扫描前 8192 字节判定是否为二进制文件 (含 NULL 字节)
-                    const int PEEK_SIZE = 8192;
-                    uint8[] head_buf = new uint8[PEEK_SIZE];
-                    size_t head_read = 0;
-                    var peek_bytes = fis.read_bytes (PEEK_SIZE);
-                    unowned uint8[] peek_data = peek_bytes.get_data ();
-                    head_read = peek_data.length;
-                    Memory.copy (head_buf, peek_data, head_read);
-
-                    bool is_binary = false;
-                    for (size_t j = 0; j < head_read; j++) {
-                        if (head_buf[j] == 0) {
-                            is_binary = true;
-                            break;
-                        }
+                // 文件内容读取 (size 检查 + 二进制探测 + 分块流式写入) 委托给
+                // FileContentReader. 行为与原内联实现一致:
+                //   - TOO_LARGE / BINARY: 回调从未被调用, 仅写出错误消息
+                //   - READ_ERROR: 回调可能已被调用 N 次 (半截内容已落盘),
+                //                 再追加错误消息. 与原 catch 行为一致.
+                var outcome = FileContentReader.read_text_streaming (
+                    data.file_path,
+                    (buf, len) => {
+                        // bytes_to_string_safe 显式添加 \0 终止符, 避免
+                        // (string) buf[0:len] 强转时若 buf 末尾无 \0 越界读取.
+                        dis.put_string (EncodingHelper.bytes_to_string_safe (buf, len));
                     }
-
-                    if (is_binary) {
+                );
+                switch (outcome.result) {
+                    case FileContentReader.ReadResult.OK:
+                        break;  // 内容已由回调写出
+                    case FileContentReader.ReadResult.TOO_LARGE:
+                        dis.put_string (_("[File too large (%s), content reading skipped]\n").printf (
+                            UIHelpers.format_size (outcome.file_size)));
+                        break;
+                    case FileContentReader.ReadResult.BINARY:
                         dis.put_string (_("[Binary file detected: text content reading skipped]\n"));
-                    } else {
-                        // 流式写入：先写入已 peek 的部分
-                        // 注意: (string) head_buf[0:head_read] 强转要求 buf 末尾有 \0,
-                        // 否则会越界读到下一个 \0 字节。用 bytes_to_string_safe 显式添加终止符。
-                        dis.put_string (EncodingHelper.bytes_to_string_safe (head_buf, head_read));
-                        // 流式读取剩余部分，分块写入
-                        // 用 int64 避免 head_read > file_size 时无符号下溢
-                        int64 remaining = file_size - (int64) head_read;
-                        if (remaining < 0) remaining = 0;
-                        uint8[] chunk_buf = new uint8[8192];
-                        while (remaining > 0) {
-                            size_t to_read = (size_t) size_t.min (8192, (size_t) remaining);
-                            ssize_t n = fis.read (chunk_buf[0:to_read]);
-                            if (n <= 0) break;
-                            dis.put_string (EncodingHelper.bytes_to_string_safe (chunk_buf, (size_t) n));
-                            remaining -= n;
-                        }
-                    }
-                } catch (Error e) {
-                    dis.put_string (_("[Failed to read file: %s]\n").printf (e.message));
-                } finally {
-                    if (fis != null) {
-                        try { fis.close (); } catch (Error e) { debug ("Close failed: %s", e.message); }
-                    }
+                        break;
+                    case FileContentReader.ReadResult.READ_ERROR:
+                        dis.put_string (_("[Failed to read file: %s]\n").printf (outcome.error_message ?? ""));
+                        break;
                 }
             } else {
                 dis.put_string (data.content ?? "");

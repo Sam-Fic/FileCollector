@@ -43,6 +43,7 @@ zip_exporter_src          = files(join_paths(src_dir, 'services', 'zip_exporter.
 ai_client_src             = files(join_paths(src_dir, 'services', 'ai_client.vala'))
 multi_format_exporter_src = files(join_paths(src_dir, 'services', 'multi_format_exporter.vala'))
 file_generator_src        = files(join_paths(src_dir, 'services', 'file_generator.vala'))
+file_content_reader_src   = files(join_paths(src_dir, 'services', 'file_content_reader.vala'))
 ui_helpers_src            = files(join_paths(src_dir, 'utils',   'ui_helpers.vala'))
 
 stubs_src = files('stubs.vala')
@@ -118,9 +119,11 @@ test('test_ai_client', test_ai_client_exe)
 # 依赖 UIHelpers.format_size (仅错误消息路径), 链接 gtk4 满足符号解析.
 # ui_helpers.vala 引用 ConfigManager.get_ignored_dirs (仅 enumerate_dir_children 用到)
 # 和 DirChildInfo, 故需 stubs_src + directory_item_src 满足链接.
+# multi_format_exporter 现依赖 FileContentReader, 需一并链接.
 test_multi_format_exporter_exe = executable('test_multi_format_exporter',
   'test_multi_format_exporter.vala',
   multi_format_exporter_src,
+  file_content_reader_src,
   item_data_src,
   token_estimator_src,
   encoding_helper_src,
@@ -133,9 +136,11 @@ test('test_multi_format_exporter', test_multi_format_exporter_exe)
 
 # ─── 9. FileGenerator.write_items_to_stream (用内存流验证) ─────────
 # stubs.vala 用 Json.Generator/Node → 需要 json_dep.
+# file_generator 现依赖 FileContentReader, 需一并链接.
 test_file_generator_exe = executable('test_file_generator',
   'test_file_generator.vala',
   file_generator_src,
+  file_content_reader_src,
   item_data_src,
   token_estimator_src,
   encoding_helper_src,
@@ -145,3 +150,13 @@ test_file_generator_exe = executable('test_file_generator',
   dependencies: [glib_dep, gio_dep, gee_dep, json_dep, gtk_dep, m_dep],
 )
 test('test_file_generator', test_file_generator_exe)
+
+# ─── 10. FileContentReader.read_text_streaming (统一文件读取服务) ────
+# 纯逻辑 + Gio.File, 无项目依赖.
+test_file_content_reader_exe = executable('test_file_content_reader',
+  'test_file_content_reader.vala',
+  file_content_reader_src,
+  encoding_helper_src,
+  dependencies: [glib_dep, gio_dep, gee_dep],
+)
+test('test_file_content_reader', test_file_content_reader_exe)

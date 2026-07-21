@@ -123,6 +123,7 @@ sources = files(
   'src/services/token_estimator.vala',
   'src/services/binary_preprocessor.vala',
   'src/services/config_manager.vala',
+  'src/services/file_content_reader.vala',
   'src/services/file_generator.vala',
   'src/services/multi_format_exporter.vala',
   'src/services/zip_exporter.vala',
