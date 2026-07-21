@@ -118,6 +118,7 @@ sources = files(
   'src/controllers/project_controller.vala',
   'src/controllers/ai_controller.vala',
   'src/services/ai_client.vala',
+  'src/services/ai_prompt_builder.vala',
   'src/services/ai_types.vala',
   'src/services/binary_converter.vala',
   'src/services/token_estimator.vala',
