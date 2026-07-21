@@ -562,3 +562,8 @@ popover.ctx-menu separator {
     background-color: alpha(@window_fg_color, 0.14);
     color: @window_fg_color;
 }
+
+/* 去掉列表第一项与侧栏顶部的间距 (Adw.Sidebar 内建的上 padding) */
+.navigation-sidebar {
+    padding-top: 0;
+}

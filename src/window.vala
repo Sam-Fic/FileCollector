@@ -2248,7 +2248,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         snapshot_store = new GLib.ListStore (typeof (Adw.SidebarItem));
         snapshot_section = new Adw.SidebarSection ();
-        snapshot_section.set_title (_("Snapshots"));
         snapshot_sidebar.append (snapshot_section);
 
         // 应用菜单动作 (重命名 / 另存为 / 删除)
