@@ -8,9 +8,13 @@ public class BinaryConverter : GLib.Object {
     private static Mutex task_counter_lock = Mutex ();
 
     private static string? get_temp_base () {
+        // 用互斥锁保护 check-then-set, 防止 VLM 队列多线程并发初始化
+        // 导致前一个 mkdtemp 目录被覆盖而泄漏.
+        task_counter_lock.lock ();
         if (temp_base_dir == null) {
             temp_base_dir = DirUtils.make_tmp ("fc_temp_XXXXXX");
         }
+        task_counter_lock.unlock ();
         return temp_base_dir;
     }
 
@@ -192,11 +196,18 @@ public class BinaryConverter : GLib.Object {
     }
 
     private static void cleanup_dir (string dir_path) {
+        // 递归清理: 基目录下可能含子目录 (例如复用基目录场景下的 pdf_N/),
+        // 单层 FileUtils.unlink 无法删除子目录, 必须先递归清空再 remove.
         try {
             var dir = Dir.open (dir_path);
             string? name;
             while ((name = dir.read_name ()) != null) {
-                FileUtils.unlink (Path.build_filename (dir_path, name));
+                string child = Path.build_filename (dir_path, name);
+                if (FileUtils.test (child, FileTest.IS_DIR)) {
+                    cleanup_dir (child);
+                } else {
+                    FileUtils.unlink (child);
+                }
             }
             DirUtils.remove (dir_path);
         } catch (Error e) {
