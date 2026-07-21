@@ -81,11 +81,20 @@ public class VLMQueueManager : GLib.Object {
      * 阻塞等待所有活动任务退出 (带超时)。
      * 主程序退出前必须调用, 否则工作线程可能在 BinaryConverter.cleanup_temp_dir
      * 之后仍访问已释放的 temp_base_dir, 导致 use-after-free。
+     *
+     * 实现注意: 必须在循环中调用 MainContext.iteration(false) 处理挂起的 Idle
+     * 回调. 否则 finish_task (通过 notify_finished → Idle.add 调度) 永远不会
+     * 执行, active_set 永远不会清空, 函数必然超时. 这在主线程上调用时尤其严重
+     * (on_close_request 场景), 旧实现用纯 Thread.usleep 阻塞 5 秒后超时退出,
+     * 既浪费用户时间又无法真正等待工作线程退出.
      */
     public void wait_for_completion (uint timeout_ms = 5000) {
         uint elapsed = 0;
         const uint STEP_MS = 10;
+        var ctx = MainContext.default ();
         while (active_set.size > 0 && elapsed < timeout_ms) {
+            // 非阻塞地处理挂起的主循环事件, 让 finish_task 的 Idle 回调能执行
+            ctx.iteration (false);
             Thread.usleep (STEP_MS * 1000);
             elapsed += STEP_MS;
         }
