@@ -130,7 +130,7 @@ public class RecoveryManager : GLib.Object {
                         out wd, out pf, out ua, out sh
                     );
 
-                    app_state.replace_from (wd, ua, sh, new_items, new_checked, new_dirs, new_phrases);
+                    app_state.replace_from (wd, ua, sh, new_items, new_checked, new_dirs, new_phrases, new_snaps);
                     restored (wd);
                 } catch (Error e) {
                     warning ("Recovery failed: %s", e.message);

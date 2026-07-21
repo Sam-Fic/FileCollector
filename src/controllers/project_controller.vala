@@ -27,11 +27,8 @@ public class ProjectController : GLib.Object {
             out work_dir, out project_file, out use_absolute, out show_header
         );
 
-        app_state.replace_from (work_dir, use_absolute, show_header, items, checked_paths, checked_dirs, common_phrases);
-        app_state.snapshots.clear ();
-        foreach (var snap in snapshots) app_state.snapshots.add (snap);
+        app_state.replace_from (work_dir, use_absolute, show_header, items, checked_paths, checked_dirs, common_phrases, snapshots);
         app_state.project_file = project_file;
-        app_state.snapshots_changed ();
     }
 
     // 保存当前 AppState 到 .fcol 文件

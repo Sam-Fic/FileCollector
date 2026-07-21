@@ -127,7 +127,8 @@ public class AppState : GLib.Object {
         Gee.ArrayList<ItemData> new_items,
         Gee.HashSet<string> new_checked_paths,
         Gee.HashSet<string>? new_checked_dirs,
-        Gee.ArrayList<string> new_common_phrases
+        Gee.ArrayList<string> new_common_phrases,
+        Gee.ArrayList<WorkspaceSnapshot>? new_snapshots = null
     ) {
         work_dir = new_work_dir;
         use_absolute = new_use_absolute;
@@ -144,6 +145,13 @@ public class AppState : GLib.Object {
         common_phrases.clear ();
         for (int i = 0; i < new_common_phrases.size; i++) {
             common_phrases.add (new_common_phrases.get (i));
+        }
+
+        // 同步替换工作区快照, 避免 recovery / project load 路径遗漏快照还原
+        if (new_snapshots != null) {
+            snapshots.clear ();
+            foreach (var s in new_snapshots) snapshots.add (s);
+            snapshots_changed ();
         }
 
         items_changed ();
