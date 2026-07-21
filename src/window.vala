@@ -2173,11 +2173,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var snapshot_menu = new GLib.Menu ();
         var sec1 = new GLib.Menu ();
         sec1.append (_("Rename Snapshot"), "win.rename_snapshot");
+        sec1.append (_("Change Icon..."), "win.change_snapshot_icon");
         sec1.append (_("Save Snapshot As Project..."), "win.snapshot_save_as");
         snapshot_menu.append_section (null, sec1);
-        var sec_icon = new GLib.Menu ();
-        sec_icon.append (_("Change Icon..."), "win.change_snapshot_icon");
-        snapshot_menu.append_section (null, sec_icon);
         var sec2 = new GLib.Menu ();
         sec2.append (_("Delete Snapshot"), "win.delete_snapshot");
         snapshot_menu.append_section (null, sec2);
