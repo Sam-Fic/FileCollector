@@ -600,196 +600,29 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void setup_tree_view () {
-        root_store = new GLib.ListStore (typeof (DirectoryItem));
-
-        tree_list_model = new Gtk.TreeListModel (
-            root_store,
-            false,
-            false,
-            (item) => ((DirectoryItem)item).children
+        // factory 三回调 + 数据模型链 (root_store → TreeListModel → FilterListModel
+        // → SingleSelection) 抽到 FileTreeFactory, 通过 Hooks 委托回 Window.
+        var result = FileTreeFactory.create (
+            filter_tree_func,
+            on_tree_selection_changed,
+            on_column_view_activated,
+            preview_tree_item_at,
+            () => queue_selection.unselect_all (),
+            show_tree_context_menu,
+            on_check_toggled,
+            highlight_tree_label,
+            load_directory_children_lazy
         );
 
-        tree_filter = new Gtk.CustomFilter (filter_tree_func);
-        filter_model = new Gtk.FilterListModel (tree_list_model, tree_filter);
+        root_store = result.root_store;
+        tree_list_model = result.tree_list_model;
+        tree_filter = result.tree_filter;
+        filter_model = result.filter_model;
+        tree_selection = result.tree_selection;
+        dir_column_view = result.view;
 
-        tree_selection = new Gtk.SingleSelection (filter_model);
-        tree_selection.set_autoselect (false);
-
-        dir_column_view = new Gtk.ColumnView (tree_selection);
-        dir_column_view.add_css_class ("file-tree");
-
-        var expander_factory = new Gtk.SignalListItemFactory ();
-        expander_factory.setup.connect ((obj) => {
-            var list_item = obj as Gtk.ListItem;
-
-            var expander = new Gtk.TreeExpander ();
-            expander.set_indent_for_icon (true);
-
-            var check = new Gtk.CheckButton ();
-            check.add_css_class ("tree-check");
-            check.valign = Gtk.Align.CENTER;
-
-            var label = new Gtk.Label ("");
-            label.ellipsize = Pango.EllipsizeMode.END;
-            label.xalign = 0;
-            label.hexpand = true;
-            label.valign = Gtk.Align.CENTER;
-
-            var click = new Gtk.GestureClick ();
-            click.pressed.connect (() => {
-                var row = list_item.get_item () as Gtk.TreeListRow;
-                if (row == null) return;
-                var item = row.get_item () as DirectoryItem;
-                if (item == null || item.is_dir) return;
-
-                var pos = list_item.get_position ();
-                tree_selection.selected = pos;
-                // preview_tree_item_at 已包含缓存检查, 不要再用
-                // 无缓存的 temp_item 调用 update_preview, 否则会覆盖正确预览
-                preview_tree_item_at (pos);
-                queue_selection.unselect_all ();
-            });
-            label.add_controller (click);
-
-            var box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
-            box.margin_top = 0;
-            box.margin_bottom = 0;
-            box.margin_start = 2;
-            box.margin_end = 2;
-            box.append (check);
-            box.append (label);
-
-            var right_click_tree = new Gtk.GestureClick ();
-            right_click_tree.set_button (Gdk.BUTTON_SECONDARY);
-            right_click_tree.pressed.connect ((n_press, gx, gy) => {
-                var li = obj as Gtk.ListItem;
-                if (li == null) return;
-                var row = li.get_item () as Gtk.TreeListRow;
-                if (row == null) return;
-                var dir_item = row.get_item () as DirectoryItem;
-                if (dir_item == null) return;
-                tree_selection.selected = li.get_position ();
-                // 传 box 而非 li.get_child() (expander), 保证 popover parent 与
-                // 手势坐标的参考系一致, 否则菜单会偏移到 expander 左上角附近
-                show_tree_context_menu (box, dir_item, (int)gx, (int)gy);
-            });
-            box.add_controller (right_click_tree);
-
-            expander.set_child (box);
-            list_item.set_child (expander);
-        });
-
-        expander_factory.bind.connect ((obj) => {
-            var list_item = obj as Gtk.ListItem;
-            if (list_item == null) return;
-
-            var row = list_item.get_item () as Gtk.TreeListRow;
-            if (row == null) return;
-
-            var item = row.get_item () as DirectoryItem;
-            if (item == null) return;
-
-            var expander = list_item.get_child () as Gtk.TreeExpander;
-            if (expander == null) return;
-
-            var box = expander.get_child () as Gtk.Box;
-            if (box == null) return;
-
-            var check = box.get_first_child () as Gtk.CheckButton;
-            if (check == null) return;
-
-            var label = check.get_next_sibling () as Gtk.Label;
-            if (label == null) return;
-
-            expander.set_list_row (row);
-            expander.set_hide_expander (!item.is_dir);
-
-            check.active = item.checked;
-            check.inconsistent = item.inconsistent;
-
-            check.set_data<DirectoryItem> ("item", item);
-            ulong handler_id = check.notify["active"].connect (on_check_toggled);
-            check.set_data<ulong?> ("handler_id", handler_id);
-
-            ulong state_handler_id = item.state_changed.connect (() => {
-                var hid = check.get_data<ulong?> ("handler_id");
-                if (hid != null) {
-                    SignalHandler.block (check, hid);
-                }
-                check.active = item.checked;
-                check.inconsistent = item.inconsistent;
-                if (hid != null) {
-                    SignalHandler.unblock (check, hid);
-                }
-            });
-            check.set_data<ulong?> ("state_handler_id", state_handler_id);
-
-            highlight_tree_label (label, item.name);
-
-            if (item.is_dir) {
-                ulong expanded_handler_id = row.notify["expanded"].connect (() => {
-                    if (row.get_expanded () && item.children.get_n_items () == 0 && !item.children_loading) {
-                        load_directory_children_lazy (item);
-                    }
-                });
-                row.set_data<ulong?> ("expanded-handler", expanded_handler_id);
-            }
-        });
-
-        expander_factory.unbind.connect ((obj) => {
-            var list_item = obj as Gtk.ListItem;
-            if (list_item == null) return;
-
-            var expander = list_item.get_child () as Gtk.TreeExpander;
-            if (expander == null) return;
-
-            var box = expander.get_child () as Gtk.Box;
-            if (box == null) return;
-
-            var check = box.get_first_child () as Gtk.CheckButton;
-            if (check == null) return;
-
-            var handler_id = check.get_data<ulong?> ("handler_id");
-            if (handler_id != null) {
-                GLib.SignalHandler.disconnect (check, handler_id);
-            }
-
-            var state_handler_id = check.get_data<ulong?> ("state_handler_id");
-            var item = check.get_data<DirectoryItem> ("item");
-            if (state_handler_id != null && item != null) {
-                GLib.SignalHandler.disconnect (item, state_handler_id);
-            }
-
-            var row = list_item.get_item () as Gtk.TreeListRow;
-            if (row != null) {
-                var expanded_handler_id = row.get_data<ulong?> ("expanded-handler");
-                if (expanded_handler_id != null) {
-                    GLib.SignalHandler.disconnect (row, expanded_handler_id);
-                }
-            }
-
-            expander.set_list_row (null);
-        });
-
-        var column = new Gtk.ColumnViewColumn (null, expander_factory);
-        column.set_expand (true);
-        dir_column_view.append_column (column);
-
-        dir_column_view.show_column_separators = false;
-        dir_column_view.show_row_separators = false;
-
-        GLib.Idle.add (() => {
-            var child = dir_column_view.get_first_child ();
-            if (child != null) {
-                child.visible = false;
-            }
-            return Source.REMOVE;
-        });
-
+        // dir_scrolled 是 [GtkChild] 模板绑定, factory 不应接触, 故挂载留在这里.
         dir_scrolled.set_child (dir_column_view);
-
-        tree_selection.selection_changed.connect (on_tree_selection_changed);
-        dir_column_view.activate.connect (on_column_view_activated);
     }
 
     private void on_column_view_activated (uint position) {
@@ -913,10 +746,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         return false;
     }
 
-    private void on_check_toggled (GLib.Object obj, GLib.ParamSpec pspec) {
-        var check = obj as Gtk.CheckButton;
-        if (check == null) return;
-
+    // 由 FileTreeFactory 通过 CheckToggled Hook 调用 (factory 内部已把 notify 信号
+    // 的 (Object, ParamSpec) 签名包装成 (CheckButton)).
+    private void on_check_toggled (Gtk.CheckButton check) {
         var item = check.get_data<DirectoryItem> ("item");
         if (item == null) return;
 

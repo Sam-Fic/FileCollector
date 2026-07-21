@@ -152,7 +152,8 @@ sources = files(
   'src/widgets/shortcuts_helper.vala',
   'src/widgets/templates_manager.vala',
   'src/widgets/vlm_queue_controller.vala',
-  'src/widgets/queue_list_factory.vala'
+  'src/widgets/queue_list_factory.vala',
+  'src/widgets/file_tree_factory.vala'
 )
 
 # win32_dpapi_shim.c 仅 Windows 构建需要 (DPAPI 封装), 其它平台不存在该文件。
