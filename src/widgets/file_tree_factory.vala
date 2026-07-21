@@ -246,8 +246,14 @@ public class FileTreeFactory : GLib.Object {
             return Source.REMOVE;
         });
 
-        tree_selection.selection_changed.connect (selection_changed);
-        dir_column_view.activate.connect (activated);
+        // 注意: 不能直接 connect 传入的实例方法 delegate. SelectionChanged /
+        // Activated 是无 target 的 delegate 类型, 若把 window 实例方法直接注册为
+        // GTK 信号处理器, Vala 生成的 thunk 会把 self 当作第三个隐藏参数, 而 GTK
+        // 发射信号时只传 (position[, n_items]), 导致 self 取到栈垃圾 (0x1) 且
+        // position 错乱, 进而解引用失效对象崩溃. 用 lambda 包装后编译为无 target
+        // 静态函数, 签名与 GTK 信号精确匹配, self 通过闭包正确持有.
+        tree_selection.selection_changed.connect ((pos, n) => selection_changed (pos, n));
+        dir_column_view.activate.connect ((pos) => activated (pos));
 
         var result = new Result ();
         result.view = dir_column_view;
