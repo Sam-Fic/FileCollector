@@ -125,12 +125,19 @@ public class BinaryConverter : GLib.Object {
         string[] argv = {"soffice", "--headless", "--convert-to", "pdf", "--outdir", task_dir, src};
         try {
             int status;
-            Process.spawn_sync (null, argv, null, SpawnFlags.SEARCH_PATH, null, null, null, out status);
+            string stdout_str, stderr_str;
+            Process.spawn_sync (null, argv, null, SpawnFlags.SEARCH_PATH, null,
+                                out stdout_str, out stderr_str, out status);
             if (status == 0) {
                 string basename = Path.get_basename (src);
                 int dot = basename.last_index_of (".");
                 string pdf_name = (dot > 0 ? basename.substring (0, dot) : basename) + ".pdf";
                 return Path.build_filename (task_dir, pdf_name);
+            } else {
+                // 捕获 soffice 的 stderr 输出, 便于诊断转换失败原因
+                // (如文件损坏/格式不支持/LibreOffice 未安装等)
+                warning ("LibreOffice conversion failed (status %d): %s",
+                         status, (stderr_str ?? "").strip ());
             }
         } catch (Error e) {
             warning ("LibreOffice conversion failed: %s", e.message);
@@ -149,9 +156,14 @@ public class BinaryConverter : GLib.Object {
         string[] argv = {"pdftoppm", "-png", "-r", "200", pdf_path, prefix};
         try {
             int status;
-            Process.spawn_sync (null, argv, null, SpawnFlags.SEARCH_PATH, null, null, null, out status);
+            string stdout_str, stderr_str;
+            // 捕获 stderr: pdftoppm 失败时 (如 PDF 损坏/poppler 未安装) 会把
+            // 诊断信息写到 stderr, 原实现丢弃 stderr 只打印退出码, 无法诊断。
+            Process.spawn_sync (null, argv, null, SpawnFlags.SEARCH_PATH, null,
+                                out stdout_str, out stderr_str, out status);
             if (status != 0) {
-                warning ("pdftoppm failed with status %d", status);
+                warning ("pdftoppm failed (status %d): %s",
+                         status, (stderr_str ?? "").strip ());
                 cleanup_dir (tmp_dir);
                 return null;
             }
