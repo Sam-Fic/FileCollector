@@ -26,11 +26,21 @@ public class BinaryPreprocessor : GLib.Object {
         }
 
         // 2. 完整哈希路径 (兼容既有磁盘缓存)
-        string hash = PreprocessCache.compute_file_hash (item.file_path);
-        cached = cache.get_cached_markdown (item.file_path, hash);
-        if (cached != null) {
-            from_cache = true;
-            return cached;
+        //    哈希计算失败时 hash_valid 留 false, 后续跳过 save_markdown 避免污染缓存
+        string hash = "";
+        bool hash_valid = false;
+        try {
+            hash = PreprocessCache.compute_file_hash (item.file_path);
+            hash_valid = true;
+        } catch (Error e) {
+            warning ("Hash computation failed for %s: %s", item.file_path, e.message);
+        }
+        if (hash_valid) {
+            cached = cache.get_cached_markdown (item.file_path, hash);
+            if (cached != null) {
+                from_cache = true;
+                return cached;
+            }
         }
 
         // 3. Load VLM settings
@@ -76,8 +86,10 @@ public class BinaryPreprocessor : GLib.Object {
         );
         string md = client.process_images (base64_images, mime_types);
 
-        // 7. Save to cache
-        cache.save_markdown (item.file_path, hash, md);
+        // 7. Save to cache (仅在 hash 有效时保存, 避免空 hash 污染 manifest)
+        if (hash_valid) {
+            cache.save_markdown (item.file_path, hash, md);
+        }
 
         return md;
     }

@@ -82,6 +82,7 @@ public class VLMTaskRunner : GLib.Object {
         // 1. 检查缓存
         string? cached_md = null;
         string hash = "";
+        bool hash_valid = false;
         try {
             // 先走轻量指纹 (size:mtime) 快速命中, 跳过对大文件计算 SHA256
             string quick = PreprocessCache.compute_file_hash_fast (file_path);
@@ -90,10 +91,12 @@ public class VLMTaskRunner : GLib.Object {
                 cached_md = cache.get_cached_markdown_quick (file_path, quick);
                 if (cached_md == null) {
                     hash = PreprocessCache.compute_file_hash (file_path);
+                    hash_valid = true;
                     cached_md = cache.get_cached_markdown (file_path, hash);
                 }
             } else {
                 hash = PreprocessCache.compute_file_hash (file_path);
+                hash_valid = true;
             }
         } catch (Error e) {
             warning ("Cache check failed: %s", e.message);
@@ -159,7 +162,7 @@ public class VLMTaskRunner : GLib.Object {
 
                 if (manager.check_cancelled ()) { manager.notify_finished (file_path); return; }
 
-                if (local_work_dir != null) {
+                if (local_work_dir != null && hash_valid) {
                     var cache = new PreprocessCache (local_work_dir.get_path ());
                     cache.save_markdown (file_path, hash, md);
                 }
