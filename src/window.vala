@@ -167,17 +167,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private RecoveryManager recovery_manager;
     private PaneLayoutManager pane_layout_manager;
 
-    // VLM 预处理队列
-    private VLMQueueManager vlm_queue;
-    // 必须作为字段持有: vlm_queue.executor 是 unowned 委托, 不会对 runner 做 ref.
-    // 若 runner 仅是 setup_vlm_queue 的局部变量, 函数返回后 runner 即被释放,
-    // 后续 vlm-queue-task 线程调用 executor() 会解引用悬空指针导致 SIGSEGV.
-    private VLMTaskRunner vlm_runner;
-    private Gtk.Revealer vlm_progress_revealer;
-    private Gtk.Label lbl_vlm_status;
-    private Gtk.Button btn_vlm_pause;
-    private Gtk.Button btn_vlm_cancel;
-    private Gtk.ProgressBar progress_vlm;
+    // VLM 预处理队列控制器: 封装 VLMQueueManager/VLMTaskRunner + 悬浮进度卡片.
+    // 字段持有理由: 必须跨 setup_vlm_queue 生命周期存活 (vlm_queue.executor 是
+    // unowned 委托, Controller 必须长寿); on_close_request 也要通过它取消并等待
+    // 工作线程退出.
+    private VlmQueueController? vlm_controller;
 
     // Token 估算
     private int current_context_limit = 128000;
@@ -369,11 +363,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             app_state.app_cancellable.cancel ();
         }
         cancel_preview_loading ();
-        if (vlm_queue != null) {
-            vlm_queue.cancel ();
+        if (vlm_controller != null) {
             // 阻塞等待活动 VLM 任务退出 (带超时), 避免主程序退出后
             // 工作线程仍访问已释放的 BinaryConverter.temp_base_dir
-            vlm_queue.wait_for_completion ();
+            vlm_controller.cancel_and_wait ();
         }
         if (ai_panel_instance != null) {
             ai_panel_instance.shutdown ();
@@ -2003,132 +1996,27 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // ─── VLM 预处理队列 ────────────────────────────────────────────────
 
     private void setup_vlm_queue () {
-        vlm_queue = new VLMQueueManager ();
-        vlm_runner = new VLMTaskRunner (
-            work_dir,
-            (file_path) => { return BinaryPreprocessor.get_default_prompt_for_path (file_path); }
-        );
-        // 绑定 work_dir: 用户切换工作目录时, vlm_runner.work_dir 自动同步,
-        // 工作线程执行时即可读取到最新的 work_dir 用于缓存读写.
-        app_state.bind_property (
-            "work-dir", vlm_runner, "work-dir", GLib.BindingFlags.SYNC_CREATE
-        );
-        vlm_queue.executor = vlm_runner.execute;
+        vlm_controller = new VlmQueueController (app_state);
+        // Controller 在 task_completed 中已更新 ItemData 属性, 仅把刷新请求
+        // 委托回 Window (Window 才知道如何合并刷新以避免 O(n) 扫描 + 预览级联).
+        vlm_controller.refresh_list_requested.connect (schedule_refresh_list);
 
-        // 工作线程的结果回送: 在 items 中按 file_path 查找 ItemData,
-        // 在主线程上更新其属性并刷新 UI. 工作线程不直接接触 ItemData.
-        vlm_queue.task_completed.connect ((file_path, md, status, from_cache) => {
-            for (int i = 0; i < items.size; i++) {
-                var it = items.get (i);
-                if (it.item_type == "file" && it.file_path == file_path) {
-                    if (md != null) it.preprocessed_content = md;
-                    it.preprocess_status = status;
-                    it.from_cache = from_cache;
-                    // 合并刷新: 批量预处理完成时每个文件完成都会触发, 直接 refresh_list
-                    // 会形成 N 次 O(n) 扫描 + 末尾预览级联. 合并到 150ms 窗口只刷新一次.
-                    schedule_refresh_list ();
-                    break;
-                }
-            }
-        });
-
-        // 构建悬浮进度卡片 (programmatic, 避免 Blueprint 嵌套问题)
-        lbl_vlm_status = new Gtk.Label (_("Preprocessing 0/0 files..."));
-        lbl_vlm_status.hexpand = true;
-        lbl_vlm_status.xalign = 0;
-        lbl_vlm_status.ellipsize = Pango.EllipsizeMode.END;
-        lbl_vlm_status.add_css_class ("heading");
-
-        btn_vlm_pause = new Gtk.Button.from_icon_name ("media-playback-pause-symbolic");
-        btn_vlm_pause.tooltip_text = _("Pause");
-        btn_vlm_pause.add_css_class ("flat");
-        btn_vlm_pause.add_css_class ("circular");
-
-        btn_vlm_cancel = new Gtk.Button.from_icon_name ("media-record-symbolic");
-        btn_vlm_cancel.tooltip_text = _("Cancel All");
-        btn_vlm_cancel.add_css_class ("flat");
-        btn_vlm_cancel.add_css_class ("circular");
-
-        var header_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
-        header_box.append (lbl_vlm_status);
-        header_box.append (btn_vlm_pause);
-        header_box.append (btn_vlm_cancel);
-
-        progress_vlm = new Gtk.ProgressBar ();
-        progress_vlm.add_css_class ("osd");
-
-        var card_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
-        card_box.margin_top = 12;
-        card_box.margin_bottom = 12;
-        card_box.margin_start = 12;
-        card_box.margin_end = 12;
-        card_box.set_size_request (280, -1);
-        card_box.append (header_box);
-        card_box.append (progress_vlm);
-
-        var card_frame = new Gtk.Frame (null);
-        card_frame.add_css_class ("card");
-        card_frame.add_css_class ("vlm-progress-card");
-        card_frame.set_child (card_box);
-
-        vlm_progress_revealer = new Gtk.Revealer ();
-        vlm_progress_revealer.transition_type = Gtk.RevealerTransitionType.SLIDE_UP;
-        vlm_progress_revealer.reveal_child = false;
-        vlm_progress_revealer.halign = Gtk.Align.END;
-        vlm_progress_revealer.valign = Gtk.Align.END;
-        vlm_progress_revealer.margin_end = 12;
-        vlm_progress_revealer.margin_bottom = 12;
-        vlm_progress_revealer.set_child (card_frame);
-
-        // 用 Gtk.Overlay 包裹 ToolbarView, 使进度卡片能悬浮在窗口右下角
+        // 用 Gtk.Overlay 包裹 ToolbarView, 使进度卡片能悬浮在窗口右下角.
+        // overlay reparenting 留在 Window: 涉及 Window 模板绑定的 [GtkChild]
+        // main_view 和 Window 私有的 snapshot_split, Controller 不应接触这些.
         var main_overlay = new Gtk.Overlay ();
         // main_view 当前是 snapshot_split.content, 需先摘除再挂入 overlay,
         // 否则 gtk_overlay_set_child 会因 main_view 已持有父节点而报断言错误。
         snapshot_split.content = null;
         main_overlay.child = main_view;
-        main_overlay.add_overlay (vlm_progress_revealer);
+        main_overlay.add_overlay (vlm_controller.progress_revealer);
         snapshot_split.content = main_overlay;
-
-        // 信号连接
-        vlm_queue.progress_changed.connect (on_vlm_progress_changed);
-        vlm_queue.state_changed.connect (on_vlm_state_changed);
-
-        btn_vlm_pause.clicked.connect (() => {
-            if (vlm_queue.is_paused) {
-                vlm_queue.resume ();
-                btn_vlm_pause.icon_name = "media-playback-pause-symbolic";
-                btn_vlm_pause.tooltip_text = _("Pause");
-            } else {
-                vlm_queue.pause ();
-                btn_vlm_pause.icon_name = "media-playback-start-symbolic";
-                btn_vlm_pause.tooltip_text = _("Continue Saving");
-            }
-        });
-
-        btn_vlm_cancel.clicked.connect (() => {
-            vlm_queue.cancel ();
-        });
     }
 
-    private void on_vlm_progress_changed (int completed, int total, int active) {
-        lbl_vlm_status.set_text (_("Preprocessing %d/%d files...").printf (completed, total));
-        progress_vlm.set_fraction (total > 0 ? (double) completed / total : 0);
-    }
-
-    private void on_vlm_state_changed (bool has_tasks) {
-        vlm_progress_revealer.set_reveal_child (has_tasks);
-    }
-
-    // 调用方包装: 保留原 enqueue 内部的状态守卫, 防止重复入队已经在处理中的项.
-    // 内部以 file_path (string) 入队, 不向 VLM 队列传递 ItemData GObject.
+    // 调用方包装: 保留为 thin wrapper 避免更新 9 个调用点. 状态守卫和并发数同步
+    // 已下沉到 VlmQueueController.enqueue.
     private void enqueue_item_for_preprocess (ItemData item) {
-        if (item.file_path == null) return;
-        if (item.preprocess_status == PreprocessStatus.PROCESSING ||
-            item.preprocess_status == PreprocessStatus.CHECKING) return;
-        // 每次入队前同步最新的并发数设置 (用户可能在设置里改过), 无需重启即可生效
-        var mm = ConfigManager.load_multimodal_ai_settings ();
-        vlm_queue.max_concurrency = mm.max_concurrency > 0 ? mm.max_concurrency : 3;
-        vlm_queue.enqueue (item.file_path);
+        vlm_controller.enqueue (item);
     }
 
     // ─── Keyboard Shortcuts ───────────────────────────────────────────────
