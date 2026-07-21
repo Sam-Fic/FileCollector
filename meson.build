@@ -201,3 +201,6 @@ install_data('data/io.github.sam_fic.filecollector.metainfo.xml',
 install_data('data/io.github.sam_fic.filecollector.svg',
   install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', 'scalable', 'apps')
 )
+
+# 单元测试 (meson test)
+subdir('tests')

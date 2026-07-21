@@ -518,7 +518,8 @@ public class AIClient : GLib.Object {
         return EncodingHelper.bytes_to_string_safe (bytes.get_data (), bytes.length);
     }
 
-    private static AIChatResult parse_response_bytes (uint8[] raw) throws AIClientError {
+    // 公开为 public 仅为单元测试可访问 (纯函数, 无内部状态泄漏风险)
+    public static AIChatResult parse_response_bytes (uint8[] raw) throws AIClientError {
         var parser = new Json.Parser ();
         try {
             // raw 末尾可能无 \0, 用 bytes_to_string_safe 安全转换
