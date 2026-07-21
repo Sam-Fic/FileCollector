@@ -42,14 +42,19 @@ public class GitService : GLib.Object {
         var proc = launcher.spawnv (argv);
         string out_str, err_str;
         proc.communicate_utf8 (null, null, out out_str, out err_str);
+        // communicate_utf8 的 out 参数在 C 层可能为 NULL (如 git 无 stderr 输出),
+        // Vala 绑定声明为 string 但运行时可能为 null, 直接调用 .contains/.strip
+        // 会 null deref。显式兜底为空串。
+        string safe_err = err_str ?? "";
+        string safe_out = out_str ?? "";
 
         if (!proc.get_successful ()) {
-            if (err_str.contains ("not a git repository")) {
+            if (safe_err.contains ("not a git repository")) {
                 throw new IOError.NOT_SUPPORTED ("Not a git repository: " + work_dir);
             }
-            throw new IOError.FAILED ("Git error: " + err_str.strip ());
+            throw new IOError.FAILED ("Git error: " + safe_err.strip ());
         }
-        return out_str;
+        return safe_out;
     }
 
     public static ArrayList<GitCommit> get_log (string work_dir, int max_count = 50) throws GLib.Error {
@@ -70,8 +75,12 @@ public class GitService : GLib.Object {
         foreach (var line in output.split ("\n")) {
             string trimmed = line.strip ();
             if (trimmed.length == 0) continue;
+            // 用 max_tokens=4 限制 split: 即使 commit subject 含 \x1f 也不会拆出
+            // 超过 4 个字段。parts.length < 4 跳过字段不全的畸形行 (如 git 输出
+            // 被截断或混入非 commit 行)。
             string[] parts = trimmed.split ("\x1f", 4);
             if (parts.length < 4) continue;
+            // parts[3] 是 commit subject, 可能为空串 (空提交信息), 仍视为有效
             commits.add (new GitCommit (parts[0], parts[1], parts[2], parts[3]));
         }
         return commits;
