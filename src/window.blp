@@ -5,6 +5,9 @@ using GtkSource 5;
 template $FileCollectorWindow : Adw.ApplicationWindow {
   default-width: 1200;
   default-height: 750;
+  // 设最小高度, 消除 libadwaita "does not have a minimum height" 警告,
+  // 并避免窗口被拖拽到过矮导致布局异常.
+  height-request: 480;
   title: _("FileCollector - File Collection & Orchestration Tool");
   content: Adw.ToastOverlay toast_overlay {
     Adw.ToolbarView main_view {
