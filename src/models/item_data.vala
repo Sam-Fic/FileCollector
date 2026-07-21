@@ -64,6 +64,14 @@ public class ItemData : GLib.Object {
         });
     }
 
+    ~ItemData () {
+        // 析构时取消挂起的 Idle source, 避免回调触发时访问已释放的对象
+        if (token_stats_source != 0) {
+            GLib.Source.remove (token_stats_source);
+            token_stats_source = 0;
+        }
+    }
+
     public string get_effective_content () {
         if (preprocessed_content != null && preprocessed_content.length > 0) return preprocessed_content;
         if (content != null && content.length > 0) return content;
