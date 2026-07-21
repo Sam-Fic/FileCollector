@@ -76,26 +76,34 @@ public class SearchService : GLib.Object {
      * 故此处无需路径规范化。结果按原始配置内容做静态缓存, 配置不变时直接复用,
      * 避免每次搜索都重建去重列表.
      */
+    private static Mutex sanitize_lock;
     private static string[]? cached_raw_dirs = null;
     private static string[]? cached_sanitized_dirs = null;
     private static string[] sanitize_ignored_dirs (string[] raw) {
-        if (cached_raw_dirs != null && cached_raw_dirs.length == raw.length) {
-            bool same = true;
-            for (int i = 0; i < raw.length; i++) {
-                if (cached_raw_dirs[i] != raw[i]) { same = false; break; }
+        // 静态缓存可能被多个搜索线程并发访问, 必须加锁保护
+        // (Gee.ArrayList / 数组重写不是线程安全的, 并发写会破坏内部状态)
+        sanitize_lock.lock ();
+        try {
+            if (cached_raw_dirs != null && cached_raw_dirs.length == raw.length) {
+                bool same = true;
+                for (int i = 0; i < raw.length; i++) {
+                    if (cached_raw_dirs[i] != raw[i]) { same = false; break; }
+                }
+                if (same && cached_sanitized_dirs != null) return cached_sanitized_dirs;
             }
-            if (same && cached_sanitized_dirs != null) return cached_sanitized_dirs;
+            var cleaned = new Gee.ArrayList<string> ();
+            foreach (var d in raw) {
+                if (d == null) continue;
+                string s = d.strip ();
+                if (s.length == 0) continue;
+                if (!cleaned.contains (s)) cleaned.add (s);
+            }
+            cached_raw_dirs = raw;
+            cached_sanitized_dirs = cleaned.to_array ();
+            return cached_sanitized_dirs;
+        } finally {
+            sanitize_lock.unlock ();
         }
-        var cleaned = new Gee.ArrayList<string> ();
-        foreach (var d in raw) {
-            if (d == null) continue;
-            string s = d.strip ();
-            if (s.length == 0) continue;
-            if (!cleaned.contains (s)) cleaned.add (s);
-        }
-        cached_raw_dirs = raw;
-        cached_sanitized_dirs = cleaned.to_array ();
-        return cached_sanitized_dirs;
     }
 
     private void scan_directory (string root, string current_dir, string keyword, bool case_sensitive,
