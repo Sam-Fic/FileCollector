@@ -101,7 +101,9 @@ public class CliController : GLib.Object {
     }
 
     public static bool is_cli_mode (string[] args) {
-        foreach (var arg in args) {
+        // args[0] 是程序名, 跳过; 仅检查实际参数
+        for (int i = 1; i < args.length; i++) {
+            var arg = args[i];
             if (arg == "--work-dir" || arg == "--select-file" || arg == "--add-text" ||
                 arg == "--move" || arg == "--remove" || arg == "--clear" ||
                 arg == "--export" || arg == "--load" || arg == "--save" ||
@@ -114,6 +116,8 @@ public class CliController : GLib.Object {
     }
 
     public bool parse_args (string[] args) {
+        // args[0] 通常是程序名, 跳过; 空数组或仅程序名时直接返回
+        if (args.length <= 1) return true;
         int i = 1;
         while (i < args.length) {
             string arg = args[i];

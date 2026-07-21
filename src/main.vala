@@ -75,6 +75,11 @@ public class FileCollectorApp : Adw.Application {
     protected override int command_line (ApplicationCommandLine command_line) {
         var args = command_line.get_arguments ();
 
+        // 防御: get_arguments 理论上至少返回程序名, 但显式校验避免边界情况下越界
+        if (args.length == 0) {
+            return 0;
+        }
+
         bool force_gui = false;
         var filtered = new Gee.ArrayList<string> ();
         filtered.add (args[0]);
