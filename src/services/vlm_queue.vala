@@ -21,7 +21,9 @@ public class VLMQueueManager : GLib.Object {
     private Gee.LinkedList<string> pending_queue;
     private Gee.HashSet<string> pending_set;
     private Gee.HashSet<string> active_set;
+    // bg_threads 跨线程访问 (worker 启动 / 退出都 touch), 必须加锁保护
     private Gee.ArrayList<Thread<void*>> bg_threads;
+    private Mutex bg_threads_lock;
 
     private int completed_count;
     private int total_count;
@@ -145,15 +147,30 @@ public class VLMQueueManager : GLib.Object {
             Thread<void*>? thread = null;
             thread = new Thread<void*> ("vlm-queue-task", () => {
                 executor (file_path, this);
-                if (thread != null) {
-                    Idle.add (() => {
-                        bg_threads.remove (thread);
-                        return Source.REMOVE;
-                    });
-                }
+                // 用 Thread.self 获取当前线程引用, 避免闭包捕获 thread 变量的竞态:
+                // new Thread 内部会立即启动工作线程, 而主线程的赋值
+                // `thread = new Thread...` 可能尚未完成, 此时闭包看到的 thread 仍是 null,
+                // 会导致 bg_threads 中的引用无法被清除 (内存泄漏 + 无法 join)。
+                Thread<void*>? self = Thread.self<void*> ();
+                Idle.add (() => {
+                    bg_threads_lock.lock ();
+                    try {
+                        bg_threads.remove (self);
+                    } finally {
+                        bg_threads_lock.unlock ();
+                    }
+                    return Source.REMOVE;
+                });
                 return null;
             });
-            bg_threads.add (thread);
+            // bg_threads 同时被主线程 (add) 和 worker 通过 Idle 回调 (remove) 访问,
+            // 虽然 Idle 在主线程上执行, 但加锁可明确同步语义, 防止未来重构引入竞态。
+            bg_threads_lock.lock ();
+            try {
+                bg_threads.add (thread);
+            } finally {
+                bg_threads_lock.unlock ();
+            }
         } catch (ThreadError e) {
             warning ("Failed to create VLM thread: %s", e.message);
             Idle.add (() => {
