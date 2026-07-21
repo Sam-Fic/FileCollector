@@ -89,6 +89,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private GLib.ListStore snapshot_store;
     private Adw.SidebarSection snapshot_section;
     private int snapshot_selected_index = -1;
+    // 删除工作区动作, 提升为字段以便在 snapshots 数量变化时动态启用/禁用.
+    private GLib.SimpleAction delete_snapshot_act;
     // 当前激活的工作区索引: 正在编辑的内容始终属于该 Workspace,
     // 打开目录 / 切换 / 新建前都会把当前状态同步回它, 避免内容游离在列表之外.
     private int active_workspace_index = -1;
@@ -2262,6 +2264,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var del_act = new GLib.SimpleAction ("delete_snapshot", null);
         del_act.activate.connect (() => on_delete_snapshot ());
         add_action (del_act);
+        delete_snapshot_act = del_act;
 
         var icon_act = new GLib.SimpleAction ("change_snapshot_icon", null);
         icon_act.activate.connect (() => on_change_snapshot_icon ());
@@ -2282,6 +2285,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 右键菜单: 记录当前项的索引, 供菜单动作使用 (item 可能为 null)
         snapshot_sidebar.setup_menu.connect ((item) => {
             snapshot_selected_index = (int) index_of_sidebar_item (item);
+            // 仅剩一个工作区时禁用删除项, 使菜单项直接灰显而非点了才提示.
+            update_delete_action_enabled ();
         });
 
         // 新建快照
@@ -2296,6 +2301,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         // 列表变更 → 重建侧栏
         app_state.snapshots_changed.connect (rebuild_snapshot_sidebar);
+        // 列表数量变化 (新建/删除/加载) 时同步删除动作的可用状态
+        app_state.snapshots_changed.connect (update_delete_action_enabled);
         // 首次启动 / 无快照时, 保证侧栏至少有一个默认工作区 (Workspace 1)
         app_state.ensure_default_snapshot ();
         active_workspace_index = 0;
@@ -2315,6 +2322,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         });
     }
 
+    // 仅剩一个工作区时禁用删除动作, 使右键菜单的 Delete 项灰显.
+    private void update_delete_action_enabled () {
+        if (delete_snapshot_act != null) {
+            delete_snapshot_act.set_enabled (app_state.snapshots.size > 1);
+        }
+    }
+
     private void rebuild_snapshot_sidebar () {
         snapshot_store.remove_all ();
         snapshot_section.remove_all ();
@@ -2332,8 +2346,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // 当前内容已归属于 active_workspace_index 对应的 Workspace, 不会游离在列表之外.
     private void sync_active_snapshot () {
         if (active_workspace_index < 0 || active_workspace_index >= app_state.snapshots.size) return;
-        var name = app_state.snapshots.get (active_workspace_index).name;
-        var snap = WorkspaceSnapshot.from_app_state (app_state, name);
+        var old_snap = app_state.snapshots.get (active_workspace_index);
+        var snap = WorkspaceSnapshot.from_app_state (app_state, old_snap.name);
+        // from_app_state 会把 icon_name / id / created_at 重置为默认值,
+        // 此处保留原快照的展示属性, 否则用户更改的图标会在每次切换 / 新建 / 打开目录
+        // 时被静默还原为 view-grid-symbolic, 且唯一 id 也会改变 (影响持久化一致性).
+        snap.icon_name = old_snap.icon_name;
+        snap.id = old_snap.id;
+        snap.created_at = old_snap.created_at;
         app_state.snapshots.set (active_workspace_index, snap);
     }
 
@@ -2362,8 +2382,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 否则当前内容会丢失 / 游离. 然后切换到目标并标记为激活.
         sync_active_snapshot ();
         active_workspace_index = index;
-        app_state.apply_snapshot (index);
-        snapshot_sidebar.set_selected ((uint) index);
+        apply_active_snapshot_to_ui ();
+    }
+
+    // 将 active_workspace_index 对应的快照应用到 AppState 并同步全部相关 UI.
+    // 供 switch_to_snapshot / on_delete_snapshot 复用, 保证切换 / 删除后界面与
+    // 当前激活工作区一致. 不调用 sync_active_snapshot (调用方负责, 避免覆盖).
+    private void apply_active_snapshot_to_ui () {
+        if (active_workspace_index < 0 || active_workspace_index >= app_state.snapshots.size) return;
+        app_state.apply_snapshot (active_workspace_index);
+        snapshot_sidebar.set_selected ((uint) active_workspace_index);
         // apply_snapshot 通过 replace_from 触发 items_changed / state_changed,
         // 但工作目录是直接写入 app_state (绕过 work_dir 属性 setter), 需在此手动
         // 同步目录树 / 标题 / 空状态, 使切换快照后界面与对应工作区一致.
@@ -2387,52 +2415,44 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_new_snapshot () {
-        var dialog = new Adw.AlertDialog (_("New Workspace"), null);
-        dialog.set_body (_("Save the current orchestration state as a new workspace."));
-        dialog.add_response ("cancel", _("Cancel"));
-        dialog.add_response ("save", _("Save"));
-        dialog.set_response_appearance ("save", Adw.ResponseAppearance.SUGGESTED);
-        dialog.set_default_response ("save");
-
-        var entry = new Gtk.Entry ();
-        entry.placeholder_text = _("Workspace name");
-        entry.text = _("Workspace %d").printf (app_state.snapshots.size + 1);
-        entry.activate.connect (() => dialog.response ("save"));
-        dialog.set_extra_child (entry);
-        dialog.response.connect ((resp) => {
-            if (resp == "save") {
-                var name = entry.text.strip ();
-                if (name.length == 0) name = _("Workspace %d").printf (app_state.snapshots.size + 1);
-                // 语义: 把"当前正在编辑的内容"固化进当前激活的工作区 (如 Workspace 1 = 目录A),
-                // 再新建一个空白 Workspace 并激活它, 当前变为空白等待打开新目录.
-                // 这样目录A 归属于原 Workspace, 新建的 Workspace 2 才是空白.
-                push_undo_state ();
-                // (1) 先把当前内容存回激活工作区
-                sync_active_snapshot ();
-                // (2) 清空当前状态 — 直接写 app_state 绕过 work_dir 属性 setter,
-                //     避免 setter 的 sync_active_snapshot 把刚存好的目录A 覆盖成空.
-                app_state.clear_items ();
-                app_state.common_phrases.clear ();
-                app_state.work_dir = null;
-                // (3) 此时当前为空, 新建快照捕获的即是空白 Workspace
-                app_state.save_snapshot (name);
-                active_workspace_index = app_state.snapshots.size - 1;
-                refresh_list ();
-                update_workdir_dependent_buttons ();
-                update_empty_state ();
-                // 先重建侧栏 (save_snapshot 已触发过一次重建, 这里确保 item 与索引一致),
-                // 再设置高亮到新建的 Workspace, 否则重建会清空选中态.
-                rebuild_snapshot_sidebar ();
-                snapshot_sidebar.set_selected ((uint) active_workspace_index);
-            }
-            dialog.destroy ();
-        });
-        dialog.present (this);
+        // 直接以默认名创建, 不弹命名弹窗: 先固化当前内容再开空白工作区,
+        // 名称可事后在右键菜单 Rename 修改. 这样降低操作阻力, 与删除/重命名路径一致.
+        var name = _("Workspace %d").printf (app_state.snapshots.size + 1);
+        // 语义: 把"当前正在编辑的内容"固化进当前激活的工作区 (如 Workspace 1 = 目录A),
+        // 再新建一个空白 Workspace 并激活它, 当前变为空白等待打开新目录.
+        // 这样目录A 归属于原 Workspace, 新建的 Workspace 2 才是空白.
+        push_undo_state ();
+        // (1) 先把当前内容存回激活工作区
+        sync_active_snapshot ();
+        // (2) 清空当前状态 — 直接写 app_state 绕过 work_dir 属性 setter,
+        //     避免 setter 的 sync_active_snapshot 把刚存好的目录A 覆盖成空.
+        app_state.clear_items ();
+        app_state.common_phrases.clear ();
+        app_state.work_dir = null;
+        // 直接写 app_state.work_dir 绕过了窗口 work_dir setter, 需手动同步
+        // 依赖 work_dir 的 UI: 副标题 / 目录树 / 搜索框可见性 / 空状态.
+        // 否则新空白工作区仍显示原目录路径与残留树结构.
+        update_subtitle (_("No working directory set"));
+        root_store.remove_all ();
+        search_entry.visible = false;
+        // (3) 此时当前为空, 新建快照捕获的即是空白 Workspace
+        app_state.save_snapshot (name);
+        active_workspace_index = app_state.snapshots.size - 1;
+        refresh_list ();
+        update_workdir_dependent_buttons ();
+        update_empty_state ();
+        // 先重建侧栏 (save_snapshot 已触发过一次重建, 这里确保 item 与索引一致),
+        // 再设置高亮到新建的 Workspace, 否则重建会清空选中态.
+        rebuild_snapshot_sidebar ();
+        snapshot_sidebar.set_selected ((uint) active_workspace_index);
     }
 
     private void on_rename_snapshot () {
-        if (snapshot_selected_index < 0 || snapshot_selected_index >= app_state.snapshots.size) return;
-        var snap = app_state.snapshots.get (snapshot_selected_index);
+        // 捕获索引到局部变量: 对话框为异步回调, 期间 setup_menu(item=null) 可能
+        // 把 snapshot_selected_index 重置为 -1, 直接读取会导致 rename 静默失效.
+        var idx = snapshot_selected_index;
+        if (idx < 0 || idx >= app_state.snapshots.size) return;
+        var snap = app_state.snapshots.get (idx);
         var dialog = new Adw.AlertDialog (_("Rename Snapshot"), null);
         dialog.set_body (_("Enter a new name for this snapshot."));
         dialog.add_response ("cancel", _("Cancel"));
@@ -2448,7 +2468,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             if (resp == "rename") {
                 var name = entry.text.strip ();
                 if (name.length > 0) {
-                    app_state.rename_snapshot (snapshot_selected_index, name);
+                    app_state.rename_snapshot (idx, name);
+                    // rename_snapshot 触发 snapshots_changed → rebuild_snapshot_sidebar,
+                    // 重建会清空选中态, 需重新高亮激活工作区, 否则侧栏无任何选中项.
+                    snapshot_sidebar.set_selected ((uint) active_workspace_index);
                 }
             }
             dialog.destroy ();
@@ -2457,8 +2480,18 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_delete_snapshot () {
-        if (snapshot_selected_index < 0 || snapshot_selected_index >= app_state.snapshots.size) return;
-        var snap = app_state.snapshots.get (snapshot_selected_index);
+        // 捕获索引到局部变量: 确认对话框为异步回调, 期间 setup_menu(item=null) 可能
+        // 把 snapshot_selected_index 重置为 -1, 直接读取会让 remove_snapshot 静默
+        // 失败 (表现为弹了 toast 但列表删不掉).
+        var idx = snapshot_selected_index;
+        if (idx < 0 || idx >= app_state.snapshots.size) return;
+        // 至少保留一个工作区: 唯一工作区不允许删除, 否则侧栏会空置且若干
+        // 依赖 active_workspace_index 的逻辑会越界.
+        if (app_state.snapshots.size <= 1) {
+            show_toast (_("At least one workspace must remain"));
+            return;
+        }
+        var snap = app_state.snapshots.get (idx);
         var dialog = new Adw.AlertDialog (
             _("Delete Snapshot"),
             _("Delete snapshot \"%s\"? This cannot be undone.").printf (snap.name)
@@ -2470,21 +2503,24 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         dialog.response.connect ((resp) => {
             if (resp == "delete") {
                 // 删除前, 把当前编辑内容存回激活工作区 (若它正是被删项, 则丢弃)
-                if (snapshot_selected_index != active_workspace_index) {
+                if (idx != active_workspace_index) {
                     sync_active_snapshot ();
                 }
-                app_state.remove_snapshot (snapshot_selected_index);
+                app_state.remove_snapshot (idx);
                 // 修正激活索引: 删的是数组中部/末尾时, 后续项前移
-                if (active_workspace_index > snapshot_selected_index) {
+                if (active_workspace_index > idx) {
                     active_workspace_index--;
-                } else if (active_workspace_index == snapshot_selected_index) {
+                } else if (active_workspace_index == idx) {
                     active_workspace_index = app_state.snapshots.size > 0
                         ? int.min (active_workspace_index, app_state.snapshots.size - 1)
                         : -1;
                 }
                 snapshot_selected_index = -1;
                 if (active_workspace_index >= 0) {
-                    snapshot_sidebar.set_selected ((uint) active_workspace_index);
+                    // 删除的若是激活工作区, 此处需把新激活工作区的快照应用到 AppState,
+                    // 否则界面仍显示已删除工作区的内容, 后续 sync_active_snapshot 会把
+                    // 该内容错误地写入新激活工作区 (覆盖其真实数据).
+                    apply_active_snapshot_to_ui ();
                 }
                 show_toast (_("Workspace deleted"));
             }
@@ -2513,8 +2549,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     };
 
     private void on_change_snapshot_icon () {
-        if (snapshot_selected_index < 0 || snapshot_selected_index >= app_state.snapshots.size) return;
-        var snap = app_state.snapshots.get (snapshot_selected_index);
+        // 捕获索引到局部变量: 图标选择对话框为异步回调, 期间 setup_menu(item=null)
+        // 可能把 snapshot_selected_index 重置为 -1.
+        var idx = snapshot_selected_index;
+        if (idx < 0 || idx >= app_state.snapshots.size) return;
+        var snap = app_state.snapshots.get (idx);
         var current_icon = snap.icon_name;
 
         var dialog = new Adw.Dialog ();
@@ -2549,7 +2588,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 用 Gtk.Grid 而非 FlowBox: FlowBox 的 homogeneous 仅保证列等宽,
         // 无法保证格子宽=高, 实际会变成长方形. Grid + 固定 64x64 按钮可得到
         // 严格的正方形格子.
-        int target_index = snapshot_selected_index;
+        int target_index = idx;
 
         var grid = new Gtk.Grid ();
         grid.column_spacing = 12;
@@ -2597,8 +2636,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void on_snapshot_save_as () {
-        if (snapshot_selected_index < 0 || snapshot_selected_index >= app_state.snapshots.size) return;
-        var snap = app_state.snapshots.get (snapshot_selected_index);
+        // 捕获索引到局部变量: 文件对话框为异步回调, 期间 setup_menu(item=null)
+        // 可能把 snapshot_selected_index 重置为 -1.
+        var idx = snapshot_selected_index;
+        if (idx < 0 || idx >= app_state.snapshots.size) return;
+        var snap = app_state.snapshots.get (idx);
         var temp_state = new AppState ();
         snap.apply_to (temp_state);
 
