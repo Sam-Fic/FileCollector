@@ -196,7 +196,16 @@ public class ZipExporter : GLib.Object {
             while (true) {
                 ssize_t n = fis.read (buf);
                 if (n <= 0) break;
-                fos.write (buf[0:n]);
+                // 必须循环写入, OutputStream.write 可能部分写入 (磁盘满 / 管道断裂)
+                ssize_t written = 0;
+                while (written < n) {
+                    ssize_t w = fos.write (buf[written:n]);
+                    if (w <= 0) {
+                        throw new IOError.FAILED (
+                            "Short write at byte %s".printf (((int64) written).to_string ()));
+                    }
+                    written += w;
+                }
             }
         } finally {
             if (fis != null) try { fis.close (); } catch (Error e) { }
