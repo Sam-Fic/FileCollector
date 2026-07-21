@@ -2538,6 +2538,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 导致与标题栏出现背景色差 (卡片感).
         root_box.add_css_class ("background");
         var header = new Adw.HeaderBar ();
+        // flat: 移除 HeaderBar 底部阴影/分隔线, 使标题栏与内容区背景连续,
+        // 避免短内容下出现分割感 (与 Preferences 对话框一致的观感).
+        header.add_css_class ("flat");
         root_box.append (header);
 
         var scrolled = new Gtk.ScrolledWindow ();
