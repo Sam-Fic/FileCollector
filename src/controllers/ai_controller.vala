@@ -589,7 +589,8 @@ public class AIController : GLib.Object {
             }
             case "set_max_files": {
                 if (args.get_node_type () != Json.NodeType.OBJECT) return _("Invalid parameters");
-                int n = (int) args.get_object ().get_int_member ("max_files");
+                // 用 _with_default 兼容 LLM 漏字段的情况
+                int n = (int) args.get_object ().get_int_member_with_default ("max_files", 0);
                 if (n < 1) n = 1;
                 app_state.ai_max_files = n;
                 return "max_files=" + app_state.ai_max_files.to_string ();
@@ -811,8 +812,9 @@ public class AIController : GLib.Object {
         if (args.get_node_type () != Json.NodeType.OBJECT) return _("Invalid parameters");
         var o = args.get_object ();
         string path = o.get_string_member_with_default ("path", "");
-        int sl = (int) o.get_int_member ("start_line");
-        int el = (int) o.get_int_member ("end_line");
+        // 用 _with_default 兼容 LLM 漏字段的情况, 避免抛错中断工具调用链
+        int sl = (int) o.get_int_member_with_default ("start_line", 0);
+        int el = (int) o.get_int_member_with_default ("end_line", 0);
 
         if (path == "" || sl <= 0 || el <= 0) return _("Invalid parameters");
         // 起始/结束填反时自动纠正顺序，并在返回信息中说明。
