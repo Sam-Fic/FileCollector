@@ -85,8 +85,11 @@ namespace SecretStore {
             DATA_BLOB out_blob = DATA_BLOB ();
             if (CryptUnprotectData (&in_blob, null, null, null, null, 0, &out_blob) == 0)
                 return null;
-            uint8[] buf = new uint8[out_blob.cbData];
+            // DPAPI 解密后的 buf 不保证末尾有 \0, (string) buf 会越界。
+            // 显式分配 +1 字节并补 \0。
+            uint8[] buf = new uint8[out_blob.cbData + 1];
             Memory.copy (buf, out_blob.pbData, out_blob.cbData);
+            buf[out_blob.cbData] = 0;
             string result = (string) buf;
             LocalFree (out_blob.pbData);
             return result;
@@ -155,9 +158,11 @@ namespace SecretStore {
             (uint32) slot.length, slot,
             &len, &data, &item);
         if (rc != 0 || data == null) return null;
-        unowned uint8[] view = (uint8[]) ((uint8*) data);
-        view.length = (int) len;
-        string result = (string) view;
+        // Keychain 返回的 data 不保证末尾有 \0, 显式拷贝并补 \0
+        uint8[] buf = new uint8[len + 1];
+        Memory.copy (buf, data, len);
+        buf[len] = 0;
+        string result = (string) buf;
         SecKeychainItemFreeContent (null, data);
         if (item != null) {
             SecKeychainItemDelete (item);

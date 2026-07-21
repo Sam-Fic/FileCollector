@@ -41,7 +41,9 @@ namespace Platform {
         uint8[] buf = new uint8[4096];
         uint32 size = (uint32) buf.length;
         if (_NSGetExecutablePath (buf, ref size) == 0) {
-            return (string) buf;
+            // _NSGetExecutablePath 写入的 buf 不保证末尾有 \0,
+            // 用 EncodingHelper.bytes_to_string_safe 显式补 \0
+            return EncodingHelper.bytes_to_string_safe (buf, buf.length);
         }
         return ".";
 #else
