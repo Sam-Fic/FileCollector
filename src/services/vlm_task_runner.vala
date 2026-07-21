@@ -75,6 +75,11 @@ public class VLMTaskRunner : GLib.Object {
     }
 
     public void execute (string file_path, VLMQueueManager manager) {
+        // 工作线程持有 manager 的强引用, 防止主线程在窗口关闭且
+        // wait_for_completion 超时后释放 manager, 导致工作线程访问
+        // 已释放的对象 (UAF)。所有 return 路径通过 finally 保证 unref。
+        manager.@ref ();
+        try {
         // 读取属性: Vala 为局部 owned 变量添加 ref, 即使主线程在此期间
         // 更新了 vlm_runner.work_dir, local_work_dir 持有的 GFile 也不会被释放.
         File? local_work_dir = work_dir;
@@ -183,5 +188,8 @@ public class VLMTaskRunner : GLib.Object {
         }
 
         manager.notify_finished (file_path);
+        } finally {
+            manager.unref ();
+        }
     }
 }
