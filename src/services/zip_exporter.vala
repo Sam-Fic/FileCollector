@@ -84,12 +84,28 @@ public class ZipExporter : GLib.Object {
             run_zip_command (zip_path, staging_dir);
 
         } finally {
-            // 不管成功失败都清掉 staging
-            try {
-                DirUtils.remove (staging_dir);
-            } catch (Error e) {
-                debug ("清理 ZIP staging 失败: %s", e.message);
+            // 不管成功失败都清掉 staging (递归删除, 因为目录中已复制文件 / README)
+            cleanup_staging_dir (staging_dir);
+        }
+    }
+
+    // 递归清理 staging 目录: 先删子文件 / 子目录, 再 remove 父目录。
+    // DirUtils.remove 只能删空目录, 直接调用必然抛错导致每次导出都泄漏文件。
+    private static void cleanup_staging_dir (string dir_path) {
+        try {
+            var dir = Dir.open (dir_path);
+            string? name;
+            while ((name = dir.read_name ()) != null) {
+                string child = Path.build_filename (dir_path, name);
+                if (FileUtils.test (child, FileTest.IS_DIR)) {
+                    cleanup_staging_dir (child);
+                } else {
+                    FileUtils.unlink (child);
+                }
             }
+            DirUtils.remove (dir_path);
+        } catch (Error e) {
+            debug ("清理 ZIP staging 失败: %s", e.message);
         }
     }
 
