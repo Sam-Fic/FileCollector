@@ -371,6 +371,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         cancel_preview_loading ();
         if (vlm_queue != null) {
             vlm_queue.cancel ();
+            // 阻塞等待活动 VLM 任务退出 (带超时), 避免主程序退出后
+            // 工作线程仍访问已释放的 BinaryConverter.temp_base_dir
+            vlm_queue.wait_for_completion ();
         }
         if (ai_panel_instance != null) {
             ai_panel_instance.shutdown ();

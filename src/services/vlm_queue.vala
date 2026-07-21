@@ -70,6 +70,27 @@ public class VLMQueueManager : GLib.Object {
         if (active_set.size == 0) {
             state_changed (false);
         }
+        // 注: 活动任务通过 check_cancelled () 主动检查并自行退出,
+        // 这里不阻塞等待, 避免在 UI 线程上卡死。
+        // 主程序退出前应调用 wait_for_completion 等待活动任务退出。
+    }
+
+    /**
+     * 阻塞等待所有活动任务退出 (带超时)。
+     * 主程序退出前必须调用, 否则工作线程可能在 BinaryConverter.cleanup_temp_dir
+     * 之后仍访问已释放的 temp_base_dir, 导致 use-after-free。
+     */
+    public void wait_for_completion (uint timeout_ms = 5000) {
+        uint elapsed = 0;
+        const uint STEP_MS = 10;
+        while (active_set.size > 0 && elapsed < timeout_ms) {
+            Thread.usleep (STEP_MS * 1000);
+            elapsed += STEP_MS;
+        }
+        if (active_set.size > 0) {
+            warning ("VLM queue wait_for_completion timed out: %d tasks still active",
+                     active_set.size);
+        }
     }
 
     public bool check_cancelled () {
