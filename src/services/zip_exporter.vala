@@ -150,8 +150,22 @@ public class ZipExporter : GLib.Object {
             return abs_path.substring (wd.length + 1);
         }
         // 文件在工作目录外: 用 _external/<basename>-<hash> 隔离
+        // 注释之前写"<basename>-<hash>"但代码未实现 hash, 同名外部文件
+        // (如 /tmp/notes.txt 与 /home/notes.txt) 会相互覆盖。
+        // 用 size+mtime 作 hash, 兜底用 abs_path.hash ()。
         var basename = Path.get_basename (abs_path);
-        return Path.build_filename ("_external", basename);
+        string hash_part;
+        try {
+            var info = File.new_for_path (abs_path).query_info (
+                FileAttribute.STANDARD_SIZE + "," + FileAttribute.TIME_MODIFIED,
+                FileQueryInfoFlags.NONE);
+            hash_part = "%lx%x".printf (
+                (long) info.get_modification_time ().tv_sec,
+                (uint) info.get_size ());
+        } catch (Error e) {
+            hash_part = "%x".printf (abs_path.hash ());
+        }
+        return Path.build_filename ("_external", "%s-%s".printf (basename, hash_part.substring (0, 8)));
     }
 
     private static void copy_file (string src_path, string dest_path) throws Error {
