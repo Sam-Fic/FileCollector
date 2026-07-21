@@ -538,6 +538,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         });
         queue_list.add_controller (list_drop);
 
+        // 外部拖拽 (Nautilus / 文件管理器): 第二个 DropTarget, 仅接收 Gdk.FileList,
+        // 与上面的内部重排 DropTarget(ItemData) 类型互斥, GTK 自动按 source 内容路由,
+        // 不会干扰现有手柄拖拽排序.
+        setup_external_drop_on_queue ();
+
         // 指示线覆盖层不拦截指针事件, 否则会挡在行上方吞掉该 2px 区域的拖拽/落点
         drop_indicator.can_target = false;
 
@@ -623,6 +628,78 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         // dir_scrolled 是 [GtkChild] 模板绑定, factory 不应接触, 故挂载留在这里.
         dir_scrolled.set_child (dir_column_view);
+
+        // 外部拖拽到目录树: 拖文件夹 → 切换工作目录; 拖文件 → 作为外部文件加入编排列表.
+        setup_external_drop_on_tree ();
+    }
+
+    // ─── 外部拖拽 (Nautilus / 系统文件管理器) ────────────────────────────────
+
+    // 编排列表接收外部文件 / 文件夹: 文件→入列; 文件夹→递归收集其中所有文件入列.
+    // 与内部 ItemData 重排 DropTarget 共存, 通过 content type 路由互不干扰.
+    private void setup_external_drop_on_queue () {
+        var ext_drop = new Gtk.DropTarget (typeof (Gdk.FileList), Gdk.DragAction.COPY);
+        ext_drop.drop.connect (on_external_drop_on_queue);
+        queue_list.add_controller (ext_drop);
+    }
+
+    private bool on_external_drop_on_queue (GLib.Value val, double x, double y) {
+        var file_list = val as Gdk.FileList;
+        if (file_list == null) return false;
+        var to_add = new Gee.ArrayList<ItemData> ();
+        int skipped = 0;
+        foreach (unowned var f in file_list.get_files ()) {
+            string? path = f.get_path ();
+            if (path == null) continue;
+            add_external_path_to_batch (path, to_add, ref skipped);
+        }
+        int added = commit_external_batch (to_add);
+        if (added > 0) {
+            show_toast (_("Dropped %d file(s), skipped %d duplicate(s)").printf (added, skipped));
+        } else if (skipped > 0) {
+            show_toast (_("All %d file(s) already in list").printf (skipped));
+        }
+        return true;
+    }
+
+    // 目录树接收外部文件夹: 单一文件夹 → 切换工作目录; 其它(文件 / 多文件夹) →
+    // 作为外部文件加入编排列表, 复用 add_external_path_to_batch 的递归收集逻辑.
+    private void setup_external_drop_on_tree () {
+        var ext_drop = new Gtk.DropTarget (typeof (Gdk.FileList), Gdk.DragAction.COPY);
+        ext_drop.drop.connect (on_external_drop_on_tree);
+        dir_column_view.add_controller (ext_drop);
+    }
+
+    private bool on_external_drop_on_tree (GLib.Value val, double x, double y) {
+        var file_list = val as Gdk.FileList;
+        if (file_list == null) return false;
+        var files = file_list.get_files ();
+        // 单一文件夹: 切换工作目录, 与 AI 工具 set_work_dir / 打开文件夹按钮一致的行为.
+        // SList.data 直接取首元素数据(无须 .first().data).
+        if (files.length () == 1) {
+            unowned var single = files.data;
+            string? path = single.get_path ();
+            if (path != null && FileUtils.test (path, FileTest.IS_DIR)) {
+                ai_apply_set_work_dir (path);
+                show_toast (_("Working directory: %s").printf (path));
+                return true;
+            }
+        }
+        // 其它情况(文件 / 多文件夹 / 混合): 收集所有文件加入编排列表.
+        var to_add = new Gee.ArrayList<ItemData> ();
+        int skipped = 0;
+        foreach (unowned var f in files) {
+            string? path = f.get_path ();
+            if (path == null) continue;
+            add_external_path_to_batch (path, to_add, ref skipped);
+        }
+        int added = commit_external_batch (to_add);
+        if (added > 0) {
+            show_toast (_("Added %d external file(s)").printf (added));
+        } else if (skipped > 0) {
+            show_toast (_("All %d file(s) already in list").printf (skipped));
+        }
+        return true;
     }
 
     private void on_column_view_activated (uint position) {
@@ -2778,42 +2855,94 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             try {
                 var files = dialog.open_multiple.end (res);
                 if (files.get_n_items () == 0) return;
-                int added = 0;
-                int skipped = 0;
                 var to_add = new Gee.ArrayList<ItemData> ();
+                int skipped = 0;
                 for (uint i = 0; i < files.get_n_items (); i++) {
                     var file = (File) files.get_item (i);
                     var path = file.get_path ();
-                    bool exists = false;
-                    for (int j = 0; j < items.size; j++) {
-                        var existing = items.get (j);
-                        if (existing.item_type == "file" && existing.file_path == path) {
-                            exists = true;
-                            break;
-                        }
-                    }
-                    if (exists) {
-                        skipped++;
-                    } else {
-                        to_add.add (new ItemData ("file", path, null, true));
-                    }
+                    add_external_path_to_batch (path, to_add, ref skipped);
                 }
-                if (to_add.size > 0) {
-                    push_undo_state ();
-                    foreach (var item in to_add) {
-                        items.add (item);
-                        if (item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
-                            enqueue_item_for_preprocess (item);
-                        }
-                        added++;
-                    }
-                    refresh_list ();
+                int added = commit_external_batch (to_add);
+                if (added > 0) {
+                    show_toast (_("Added %d external file(s)").printf (added));
+                } else if (skipped > 0) {
+                    show_toast (_("All %d file(s) already in list").printf (skipped));
                 }
             } catch (Error e) {
                 if (e is GLib.IOError.CANCELLED) return;
                 warning ("添加文件失败: %s", e.message);
             }
         });
+    }
+
+    // ─── 外部拖拽 / 添加 共用辅助 ───────────────────────────────────────
+    // 把单个路径(文件或文件夹)展开为 ItemData 批次. 文件夹递归收集所有非忽略目录的
+    // 文件, 跳过隐藏目录与配置中忽略的目录. 已在 items 中的路径计入 skipped,
+    // 不会重复加入. 调用方负责 commit_external_batch 与 push_undo_state.
+    private void add_external_path_to_batch (string path, Gee.ArrayList<ItemData> batch, ref int skipped) {
+        // 文件夹: 递归收集, 复用 collect_files_recursive. 收集到的每个文件再走
+        // 单文件入批逻辑, 共享去重.
+        if (FileUtils.test (path, FileTest.IS_DIR)) {
+            var collected = new Gee.ArrayList<string> ();
+            collect_files_recursive (path, collected, null);
+            foreach (var p in collected) {
+                add_single_external_file_to_batch (p, batch, ref skipped);
+            }
+            return;
+        }
+        add_single_external_file_to_batch (path, batch, ref skipped);
+    }
+
+    private void add_single_external_file_to_batch (string path, Gee.ArrayList<ItemData> batch, ref int skipped) {
+        if (path_in_items (path)) {
+            skipped++;
+            return;
+        }
+        batch.add (new ItemData ("file", path, null, true));
+    }
+
+    // 递归收集目录下所有非忽略 / 非隐藏目录中的文件路径. 与 SearchService /
+    // AIController.list_files_recursive 保持一致的过滤口径.
+    private void collect_files_recursive (string dir_path, Gee.ArrayList<string> collected, GLib.Cancellable? cancellable) {
+        var dir = File.new_for_path (dir_path);
+        if (!dir.query_exists ()) return;
+        try {
+            var en = dir.enumerate_children (
+                FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE,
+                FileQueryInfoFlags.NOFOLLOW_SYMLINKS);
+            string[] ignored = ConfigManager.get_ignored_dirs ();
+            FileInfo info;
+            while ((info = en.next_file ()) != null) {
+                if (cancellable != null && cancellable.is_cancelled ()) return;
+                string name = info.get_name ();
+                var child = dir.get_child (name);
+                if (info.get_file_type () == FileType.DIRECTORY) {
+                    if (name in ignored || name.has_prefix (".")) continue;
+                    collect_files_recursive (child.get_path (), collected, cancellable);
+                } else {
+                    collected.add (child.get_path ());
+                }
+            }
+        } catch (Error e) {
+            warning ("Failed to enumerate %s: %s", dir_path, e.message);
+        }
+    }
+
+    // 把批次原子地写入 items: push_undo_state 一次, 批量 add + 触发二进制预处理,
+    // 最后 refresh_list. 返回实际加入的数量. 空批次直接返回 0, 不污染 undo 栈.
+    private int commit_external_batch (Gee.ArrayList<ItemData> batch) {
+        if (batch.size == 0) return 0;
+        push_undo_state ();
+        int added = 0;
+        foreach (var item in batch) {
+            items.add (item);
+            if (item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())) {
+                enqueue_item_for_preprocess (item);
+            }
+            added++;
+        }
+        refresh_list ();
+        return added;
     }
 
     private void insert_text (bool above, string? existing_text = null, owned ItemData? edit_data = null) {
