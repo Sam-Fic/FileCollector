@@ -141,7 +141,7 @@ namespace SecretStore {
 
     private static int macos_store (string slot, string api_key) {
         // 先删后写, 避免重复条目
-        macos_lookup (slot);
+        macos_delete (slot);
         unowned uint8[] pw = api_key.data;
         return SecKeychainAddGenericPassword (
             null, (uint32) slot.length, slot,
@@ -149,7 +149,10 @@ namespace SecretStore {
             (uint32) pw.length, pw, null);
     }
 
-    private static string? macos_lookup (string slot) {
+    // 查询密钥: 仅读取, 不删除 keychain 条目.
+    // (历史 bug: 旧版 macos_lookup 同时调用 SecKeychainItemDelete,
+    //  导致每次查询都会清空已存的 API Key, 第二次启动就读不到了.)
+    private static string? macos_find (string slot) {
         uint32 len = 0;
         void* data = null;
         void* item = null;
@@ -157,31 +160,44 @@ namespace SecretStore {
             null, (uint32) slot.length, slot,
             (uint32) slot.length, slot,
             &len, &data, &item);
-        if (rc != 0 || data == null) return null;
+        if (rc != 0 || data == null) {
+            if (item != null) CFRelease (item);
+            return null;
+        }
         // Keychain 返回的 data 不保证末尾有 \0, 显式拷贝并补 \0
         uint8[] buf = new uint8[len + 1];
         Memory.copy (buf, data, len);
         buf[len] = 0;
         string result = (string) buf;
         SecKeychainItemFreeContent (null, data);
-        if (item != null) {
-            SecKeychainItemDelete (item);
-            CFRelease (item);
-        }
+        if (item != null) CFRelease (item);
         return result;
+    }
+
+    // 删除指定槽位的 keychain 条目 (供 store 的"先删后写"和清空流程使用).
+    // 查询流程绝不能调用此函数, 否则会破坏已存密钥.
+    private static void macos_delete (string slot) {
+        void* item = null;
+        int rc = SecKeychainFindGenericPassword (
+            null, (uint32) slot.length, slot,
+            (uint32) slot.length, slot,
+            null, null, &item);
+        if (rc != 0 || item == null) return;
+        SecKeychainItemDelete (item);
+        CFRelease (item);
     }
 
     public static bool store (string slot, string api_key) {
         if (api_key.length == 0) {
             // 清空: 找到即删
-            macos_lookup (slot);
+            macos_delete (slot);
             return true;
         }
         return macos_store (slot, api_key) == 0;
     }
 
     public static string? lookup (string slot) {
-        return macos_lookup (slot);
+        return macos_find (slot);
     }
 
 #else
