@@ -1112,7 +1112,12 @@ public class AIPanel : GLib.Object {
     }
 
     private void next_turn () {
-        if (client == null) return;
+        // 在主线程上快照 client 引用, 避免worker线程读取 client 字段时
+        // 与 configure() 并发写入竞态 (configure 可能从主线程设置 client = null
+        // 或 client = new AIClient(...), 若 worker 直接读字段可能看到 torn read
+        // 或使用已释放的旧 client).
+        AIClient? client_snapshot = client;
+        if (client_snapshot == null) return;
         set_busy (true);
 
         // 浅拷贝消息列表传给 worker 线程, 避免读写竞争 (加锁保护遍历)
@@ -1124,12 +1129,14 @@ public class AIPanel : GLib.Object {
         stop_requested = false;
         request_cancellable = new GLib.Cancellable ();
         worker_thread = new GLib.Thread<void> ("ai-worker", () => {
-            run_worker.begin (msgs_copy);
+            run_worker.begin (msgs_copy, client_snapshot);
         });
     }
 
-    private async void run_worker (Gee.ArrayList<Json.Node> msgs) {
-        AIClient local = client;
+    private async void run_worker (Gee.ArrayList<Json.Node> msgs, AIClient client_snapshot) {
+        // 使用主线程快照的 client 引用, 不直接读取 this.client 字段,
+        // 避免与 configure() 的并发写入竞态。
+        AIClient local = client_snapshot;
         if (local == null) {
             on_api_failed (_("Client not configured"));
             return;
