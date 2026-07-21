@@ -135,12 +135,13 @@ public class ProjectManager : GLib.Object {
                             var fa = io.get_boolean_member_with_default ("force_absolute", false);
                             var sl = (int) io.get_int_member_with_default ("start_line", 0);
                             var el = (int) io.get_int_member_with_default ("end_line", 0);
-                            var item = new ItemData ("file", p, null, fa);
+                            // is_missing 由当前磁盘状态决定, 与顶层 items 加载逻辑保持一致.
+                            // JSON 中的 missing 字段仅作为保存时的记录, 加载时不直接使用;
+                            // 否则文件被删除后快照仍显示为"存在", 或文件恢复后仍显示"缺失".
+                            bool missing = !File.new_for_path (p).query_exists ();
+                            var item = new ItemData ("file", p, null, fa, missing);
                             item.start_line = sl;
                             item.end_line = el;
-                            if (io.get_boolean_member_with_default ("missing", false)) {
-                                item.is_missing = true;
-                            }
                             snap.items.add (item);
                         } else {
                             var c = io.get_string_member_with_default ("content", "");

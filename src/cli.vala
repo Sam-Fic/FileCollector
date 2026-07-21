@@ -487,7 +487,9 @@ public class CliController : GLib.Object {
                         var p = obj.get_string_member_with_default ("path", "");
                         if (p == "") continue;
                         var fa = obj.get_boolean_member_with_default ("force_absolute", false);
-                        var miss = obj.get_boolean_member_with_default ("missing", false);
+                        // is_missing 由当前磁盘状态决定, 与 project_manager 加载逻辑保持一致.
+                        // JSON 中的 missing 字段仅作为保存时的记录, 加载时不直接使用.
+                        var miss = !File.new_for_path (p).query_exists ();
                         var item = new ItemData ("file", p, null, fa, miss);
                         items.add (item);
 
