@@ -1872,6 +1872,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         snapshot_split.pin_sidebar = true;
         snapshot_split.show_sidebar = true;
         snapshot_split.sidebar_position = Gtk.PackType.START;
+        // 侧栏宽度: 默认占窗口 25% (sidebar_width_fraction),
+        // 最小 180sp / 最大 280sp 约束, 防止极端窗口下过窄/过宽.
+        // 数值以 sp (缩放点) 描述, 按当前显示缩放因子换算成像素赋给
+        // Adw.OverlaySplitView 的 int 像素属性.
         // 侧栏宽度: 固定比例 (相对窗口宽度), 取 0.20.
         // min/max 约束防止极端窗口下过窄/过宽.
         snapshot_split.min_sidebar_width = 200;
