@@ -54,8 +54,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.Button btn_retry_preprocess;
     [GtkChild] private unowned Gtk.DrawingArea token_ring;
     [GtkChild] private unowned Gtk.ScrolledWindow preview_scrolled;
-    // 全局"刷新所有已修改"按钮: 放在生成按钮旁, 有外部修改时亮起, 否则灰色禁用.
-    [GtkChild] private unowned Gtk.Button btn_refresh_modified;
 
     // Git 模式切换
     [GtkChild] private unowned Gtk.Button btn_toggle_git;
@@ -171,10 +169,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private RecoveryManager recovery_manager;
     private PaneLayoutManager pane_layout_manager;
 
-    // 文件监听服务: 跟踪 items 中所有文件的外部修改, 触发"⚠ 已修改"徽标.
-    // 字段持有理由: 必须跨 setup_queue_list 生命周期存活, 且 items 变化时持续 sync.
-    private FileWatcherService file_watcher;
-
     // VLM 预处理队列控制器: 封装 VLMQueueManager/VLMTaskRunner + 悬浮进度卡片.
     // 字段持有理由: 必须跨 setup_vlm_queue 生命周期存活 (vlm_queue.executor 是
     // unowned 委托, Controller 必须长寿); on_close_request 也要通过它取消并等待
@@ -232,10 +226,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         ai_controller = new AIController (app_state);
         undo_manager = new UndoManager ();
         recovery_manager = new RecoveryManager (app_state);
-        // 文件监听服务: 必须在 bind_app_state_signals 之前创建, 否则
-        // sync_file_watcher 回调触发时 file_watcher 仍为 null.
-        file_watcher = new FileWatcherService ();
-        file_watcher.file_changed.connect (on_watched_file_changed);
 
         ConfigManager.load_common_phrases (app_state.common_phrases);
         load_css ();
@@ -317,9 +307,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void bind_app_state_signals () {
         app_state.items_changed.connect (refresh_list);
         app_state.items_changed.connect (() => recovery_manager.schedule ());
-        // 文件监听: items 变化时同步 watcher 集合 (新增的 path 建 monitor,
-        // 移除的 path 取消 monitor), 始终与当前 items 保持一致.
-        app_state.items_changed.connect (sync_file_watcher);
         app_state.state_changed.connect (() => {
             sync_path_mode_radios ();
             sync_header_checkbox ();
@@ -378,14 +365,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             app_state.app_cancellable.cancel ();
         }
         cancel_preview_loading ();
-        // 取消所有文件监听, 防止关闭后 FileMonitor 回调仍访问已释放的 items.
-        if (file_watcher != null) {
-            file_watcher.unwatch_all ();
-        }
-        if (refresh_modified_btn_idle != 0) {
-            GLib.Source.remove (refresh_modified_btn_idle);
-            refresh_modified_btn_idle = 0;
-        }
         if (vlm_controller != null) {
             // 阻塞等待活动 VLM 任务退出 (带超时), 避免主程序退出后
             // 工作线程仍访问已释放的 BinaryConverter.temp_base_dir
@@ -486,8 +465,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             update_preview,
             refresh_preview_if_active,
             clear_tree_selection,
-            set_drop_indicator,
-            update_modified_badge
+            set_drop_indicator
         );
 
         queue_list.model = queue_selection;
@@ -1626,9 +1604,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         btn_delete.clicked.connect (on_delete_item);
         btn_clear.clicked.connect (on_clear_items_with_confirm);
         btn_generate.clicked.connect (on_generate_clicked);
-        btn_refresh_modified.clicked.connect (on_refresh_modified_clicked);
-        // 初始无任何修改, 按钮灰色禁用. file_watcher 检测到外部修改时再点亮.
-        btn_refresh_modified.sensitive = false;
         radio_absolute_path.notify["active"].connect (on_path_mode_changed);
         radio_relative_path.notify["active"].connect (on_path_mode_changed);
         check_write_header.notify["active"].connect (on_header_check_changed);
@@ -3935,121 +3910,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         refresh_list ();
         update_preview (item);
         enqueue_item_for_preprocess (item);
-    }
-
-    // ─── 文件外部修改监听 ─────────────────────────────────────────────────
-
-    // QueueListFactory.UpdateModifiedBadge hook: 切换行内"⚠ 已修改"徽标可见性.
-    // 由 factory.bind 初始同步与 notify["is-externally-modified"] 信号回调触发.
-    private void update_modified_badge (ItemData data, Gtk.Label badge) {
-        bool show = data.is_externally_modified
-            && data.item_type == "file"
-            && !data.is_missing;
-        badge.visible = show;
-    }
-
-    // app_state.items_changed 回调: 把当前 items 中所有文件类路径同步给 watcher.
-    // sync 内部做 diff, 只对新增 / 移除的路径操作, 避免整体重建造成抖动.
-    private void sync_file_watcher () {
-        if (file_watcher == null) return;
-        var paths = new Gee.HashSet<string> ();
-        for (int i = 0; i < items.size; i++) {
-            var it = items.get (i);
-            if (it.item_type == "file" && it.file_path != null) {
-                paths.add (it.file_path);
-            }
-        }
-        file_watcher.sync (paths);
-    }
-
-    // FileWatcherService.file_changed 回调: 文件被外部进程修改 / 删除 / 重命名.
-    // 标记对应 ItemData, 触发 notify["is-externally-modified"] → 徽标显示.
-    // 同一 path 可能在 items 中出现多次(同一文件以不同 snippet 入列), 全部标记.
-    private void on_watched_file_changed (string path, GLib.FileMonitorEvent event) {
-        bool modified_changed = false;
-        bool missing_changed = false;
-        for (int i = 0; i < items.size; i++) {
-            var it = items.get (i);
-            if (it.item_type != "file" || it.file_path != path) continue;
-
-            if (event == GLib.FileMonitorEvent.DELETED) {
-                if (!it.is_missing) {
-                    it.is_missing = true;
-                    missing_changed = true;
-                }
-            } else {
-                // CHANGES_DONE_HINT / CREATED / RENAMED → 文件内容已变(或原子保存后被替换)
-                if (it.is_missing) {
-                    it.is_missing = false;
-                    missing_changed = true;
-                }
-                if (!it.is_externally_modified) {
-                    it.is_externally_modified = true;
-                    modified_changed = true;
-                }
-            }
-        }
-        if (modified_changed || missing_changed) {
-            // 同步刷行渲染: missing 状态影响文件名/图标, 需 render_row; modified 仅切徽标.
-            // 通过 refresh_list 触发 ListView 重 bind 是过度的, 这里手动 schedule 一次
-            // 全局按钮状态刷新即可, 行内渲染由 notify 信号自动驱动.
-            schedule_refresh_modified_btn_update ();
-        }
-    }
-
-    // 用 Idle 去抖: FileMonitor 可能短时间内对多个文件连发事件, 每次都同步遍历
-    // items 计算按钮状态会浪费主线程时间. 合并到一次 Idle 回调统一更新.
-    private uint refresh_modified_btn_idle = 0;
-    private void schedule_refresh_modified_btn_update () {
-        if (refresh_modified_btn_idle != 0) return;
-        refresh_modified_btn_idle = GLib.Idle.add (() => {
-            refresh_modified_btn_idle = 0;
-            update_refresh_modified_btn_state ();
-            return Source.REMOVE;
-        });
-    }
-
-    // 全局"刷新所有已修改"按钮状态: 任意 item.is_externally_modified == true 则亮起.
-    private void update_refresh_modified_btn_state () {
-        bool any = false;
-        for (int i = 0; i < items.size; i++) {
-            var it = items.get (i);
-            if (it.is_externally_modified) {
-                any = true;
-                break;
-            }
-        }
-        btn_refresh_modified.sensitive = any;
-    }
-
-    // 全局刷新按钮点击: 批量清掉所有 is_externally_modified 标记, 同时
-    // - 二进制目标 → 复用 on_retry_preprocess 重新走 VLM 缓存失效 + 预处理
-    // - 当前预览项 → 调用 update_preview 重读磁盘内容
-    // refresh_list 触发 ListView 重 bind 让所有行同步新状态.
-    private void on_refresh_modified_clicked () {
-        bool any = false;
-        for (int i = 0; i < items.size; i++) {
-            var it = items.get (i);
-            if (!it.is_externally_modified) continue;
-            any = true;
-            it.is_externally_modified = false;
-            if (it.item_type == "file"
-                && it.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())
-                && !it.is_missing) {
-                on_retry_preprocess (it);
-            }
-        }
-        if (!any) return;
-        // 若当前预览项也在本次刷新集合中, 重读磁盘内容. on_retry_preprocess 内部
-        // 已对二进制目标调过 update_preview, 这里再补一刀覆盖普通文本 / snippet 场景.
-        if (current_preview_item != null && current_preview_item.is_externally_modified == false) {
-            // 上面循环里 is_externally_modified 已被清掉, 用 is_missing 判是否仍有效.
-            // 通过 update_preview 重新触发磁盘读取与预览重建.
-            update_preview (current_preview_item);
-        }
-        refresh_list ();
-        update_refresh_modified_btn_state ();
-        show_toast (_("Refreshed all externally modified files"));
     }
 
     public void on_clear_cache () {

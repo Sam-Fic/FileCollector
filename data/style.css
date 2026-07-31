@@ -591,27 +591,4 @@ popover.ctx-menu separator {
     padding-top: 0;
 }
 
-/* ─── 文件外部修改徽标 / 全局刷新按钮 ────────────────────────────────────
-   编排列表行内 "⚠ 已修改" 徽标: 用 warning_color 半透明背景 + 警告色前景,
-   圆角小标签贴合 GNOME HIG 的 status chip 风格; 仅当 FileWatcherService
-   检测到外部修改时由 QueueListFactory 切换 visible. */
 
-.modified-badge {
-    background: alpha(@warning_color, 0.18);
-    color: @warning_color;
-    border-radius: var(--radius-sm);
-    padding: 1px 6px;
-    font-size: var(--font-sm);
-    font-weight: 600;
-}
-
-/* 顶部 "刷新所有已修改" 按钮: 默认禁用(灰色), 任何文件被外部修改后由
-   update_refresh_modified_btn_state() 把 sensitive 置 true, 提示用户
-   点击批量刷新, 避免导出过期内容. 按钮自身用普通样式即可, 不抢视觉焦点. */
-.refresh-modified-btn {
-    padding: 4px;
-}
-
-.refresh-modified-btn image {
-    -gtk-icon-size: 16px;
-}
