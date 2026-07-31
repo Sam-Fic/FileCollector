@@ -159,6 +159,18 @@ public class FileCollectorApp : Adw.Application {
     protected override void startup () {
         base.startup ();
 
+        // Windows HiDPI：GTK4 的 Win32 后端只做整数缩放（150% DPI 被 floor 成 1×），
+        // 且忽略 GDK_SCALE，导致组件布局锁在 1× 而文字按真实 144 DPI 渲染成 1.5×，
+        // 出现「组件小、文字大」的错位。这里强制把文字 DPI 设为 96（1×），与组件对齐，
+        // 使两者比例正确、清晰（代价：在 150% 屏上整体偏小）。无需 DPI 感知 hack，
+        // 与 Setzer 的「真原生 1×」方案一致。仅 Windows 需要。
+#if WINDOWS
+        var hidpi_settings = Gtk.Settings.get_default ();
+        if (hidpi_settings != null) {
+            hidpi_settings.gtk_xft_dpi = 96 * 1024;
+        }
+#endif
+
         add_action (new GLib.SimpleAction ("open_project", null));
         add_action (new GLib.SimpleAction ("save_project", null));
         add_action (new GLib.SimpleAction ("save_as_project", null));

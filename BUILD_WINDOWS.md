@@ -289,6 +289,20 @@ filecollector-windows-X.Y.Z-x64.zip
 └── locale/                            ← 翻译 .mo 文件
 ```
 
+### 4.4 Windows HiDPI（组件与文字比例）
+
+GTK4 的 Win32 后端只做整数缩放（150% DPI 被 `floor` 成 1×）且忽略 `GDK_SCALE`，
+导致组件布局锁在 1× 而文字按真实 144 DPI 渲染成 1.5×，出现「组件小、文字大」的错位。
+
+源码 `src/main.vala` 的 `startup()` 已对此处理：仅在 `WINDOWS` 下把
+`Gtk.Settings.gtk_xft_dpi` 强制设为 `96 * 1024`（即 1×），使文字与组件对齐、比例正确、清晰。
+无需 `SetProcessDpiAwareness` 等 hack，也无需构建期特殊处理——该 `#if WINDOWS` 块由 meson
+在 Windows 上自动启用（`-DWINDOWS`）。
+
+> ⚠️ 该处理是**有意设计**，不要为“让界面更大”而移除或改成 2× 拉伸（如 `SetProcessDpiAwareness`
+> 或 `GDK_SCALE`）。若用户反馈 150% 屏上整体偏小，那是该方案的已知代价（与 Setzer 的“真原生 1×”方案一致）。
+> 修改前请先与用户确认缩放策略。
+
 ## 五、常见问题排查
 
 ### 5.1 构建失败：找不到 cmark-gfm 头文件
