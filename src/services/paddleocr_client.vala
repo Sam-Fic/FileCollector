@@ -12,7 +12,9 @@ using Soup;
  *   (3) fetch_and_merge: GET 返回的 jsonUrl (预签名, 不带鉴权头), 逐行解析
  *                       JSONL, 把各页 markdown.text 顺序拼接为最终 Markdown.
  *
- * 仅提取 Markdown 文本, 结果中的配图一律忽略 (按需求确认).
+ * 仅提取 Markdown 文本; 但 Markdown 中引用的配图 (markdown.images) 会被下载并
+ * 落盘到缓存目录的 imgs/ 子文件夹, 使 Markdown 内相对路径 "imgs/xxx.jpg" 可正确
+ * 命中本地图片 (方案 B: 缓存独立子文件夹 md/ + imgs/).
  *
  * 取消机制: 轮询在每 500ms 小睡眠后检查 CancelCheck 委托, 若返回 true 则
  * 立即抛出 IOError.CANCELLED, 避免取消队列时线程卡死在 5s 睡眠中.
@@ -42,16 +44,17 @@ public class PaddleOCRClient : GLib.Object {
      * 上传文件 → 轮询 → 下载 → 拼接, 返回合并后的 Markdown.
      *
      * @param file_path 已解析好的上传源 (图片/PDF 原文件或 Office 转出的临时 PDF)
+     * @param cache_key 缓存主键 (SHA256), 用于把配图落盘到对应缓存子文件夹
      * @param is_cancelled 取消检查回调, CLI 路径传 null 表示不可取消
      * @return 各页 Markdown 顺序拼接后的字符串
      * @throws IOError.CANCELLED 任务被取消
      * @throws IOError.TIMED_OUT 轮询超过总时长上限
      * @throws IOError.FAILED 提交失败 / 作业失败 / 网络错误 / 解析错误
      */
-    public string process_file (string file_path, CancelCheck? is_cancelled = null) throws Error {
+    public string process_file (string file_path, string cache_key, PreprocessCache? cache, CancelCheck? is_cancelled = null) throws Error {
         string job_id = submit_job (file_path);
         string json_url = poll_job (job_id, is_cancelled);
-        return fetch_and_merge (json_url);
+        return fetch_and_merge (json_url, cache_key, cache, is_cancelled);
     }
 
     // (1) 提交作业: multipart 上传文件, 返回 jobId
@@ -182,8 +185,8 @@ public class PaddleOCRClient : GLib.Object {
         }
     }
 
-    // (3) 下载 JSONL 并拼接各页 Markdown 文本
-    private string fetch_and_merge (string json_url) throws Error {
+    // (3) 下载 JSONL 并拼接各页 Markdown 文本, 同时下载 markdown.images 中的配图落盘
+    private string fetch_and_merge (string json_url, string cache_key, PreprocessCache? cache, CancelCheck? is_cancelled) throws Error {
         // 预签名 URL, 不带鉴权头 (与 Python 示例 requests.get(jsonl_url) 一致)
         var msg = new Soup.Message ("GET", json_url);
         var resp = session.send_and_read (msg, null);
@@ -225,15 +228,48 @@ public class PaddleOCRClient : GLib.Object {
                 var markdown = item.get_object_member ("markdown");
                 if (markdown == null) continue;
                 string? text = markdown.get_string_member ("text");
-                if (text == null || text.length == 0) continue;
+                if (text != null && text.length > 0) {
+                    if (!first) builder.append ("\n\n");
+                    first = false;
+                    builder.append (text);
+                }
 
-                if (!first) builder.append ("\n\n");
-                first = false;
-                builder.append (text);
+                // 下载 markdown.images 内引用的配图: {相对路径: 预签名下载URL}
+                var images = markdown.get_object_member ("images");
+                if (images != null) {
+                    foreach (string relpath in images.get_members ()) {
+                        if (is_cancelled != null && is_cancelled ()) {
+                            throw new IOError.CANCELLED (_("PaddleOCR image download cancelled"));
+                        }
+                        string? url = images.get_string_member (relpath);
+                        if (url == null || url.length == 0) continue;
+                        uint8[]? img_data = download_image (url, is_cancelled);
+                        if (img_data != null && img_data.length > 0 && cache != null) {
+                            cache.save_image (cache_key, relpath, img_data);
+                        }
+                    }
+                }
             }
         }
 
         return builder.str;
+    }
+
+    // 下载单张配图: 图片 URL 为带鉴权的预签名链接, 直接 GET 即可, 无需额外请求头.
+    // 返回图片二进制; 失败时返回 null (不中断主流程, 单图失败不影响整体 Markdown).
+    private uint8[]? download_image (string url, CancelCheck? is_cancelled) {
+        try {
+            var msg = new Soup.Message ("GET", url);
+            var resp = session.send_and_read (msg, null);
+            if (msg.status_code != 200) {
+                warning ("PaddleOCR: image download failed (HTTP %u)", msg.status_code);
+                return null;
+            }
+            return resp.get_data ();
+        } catch (Error e) {
+            warning ("PaddleOCR: image download error: %s", e.message);
+            return null;
+        }
     }
 
     // 根据扩展名猜测上传用的 MIME 类型 (PaddleOCR 接受宽松的 content-type).

@@ -65,7 +65,8 @@ public class BinaryPreprocessor : GLib.Object {
             }
             try {
                 var client = new PaddleOCRClient (settings.paddleocr_token, settings.timeout);
-                md = client.process_file (upload_source, null);
+                // 仅在哈希有效时传入缓存, 使配图落盘到对应缓存子文件夹
+                md = client.process_file (upload_source, hash_valid ? hash : "", hash_valid ? cache : null);
             } finally {
                 if (is_temp) BinaryConverter.cleanup_dir (Path.get_dirname (upload_source));
             }

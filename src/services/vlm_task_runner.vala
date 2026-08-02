@@ -158,14 +158,17 @@ public class VLMTaskRunner : GLib.Object {
                     throw new IOError.FAILED (_("Failed to prepare upload source for %s").printf (file_path));
                 }
                 try {
+                    // 仅在哈希有效且有工作目录时构造缓存实例, 供配图落盘与 md 保存复用
+                    PreprocessCache? pd_cache = (local_work_dir != null && hash_valid)
+                        ? new PreprocessCache (local_work_dir.get_path ()) : null;
                     var client = new PaddleOCRClient (settings.paddleocr_token, settings.timeout);
-                    md = client.process_file (upload_source, (CancelCheck) manager.check_cancelled);
+                    md = client.process_file (
+                        upload_source, hash_valid ? hash : "", pd_cache, (CancelCheck) manager.check_cancelled);
 
                     if (manager.check_cancelled ()) { manager.notify_finished (file_path); return; }
 
-                    if (local_work_dir != null && hash_valid) {
-                        var cache = new PreprocessCache (local_work_dir.get_path ());
-                        cache.save_markdown (file_path, hash, md);
+                    if (pd_cache != null) {
+                        pd_cache.save_markdown (file_path, hash, md);
                     }
                 } finally {
                     if (is_temp) BinaryConverter.cleanup_dir (Path.get_dirname (upload_source));

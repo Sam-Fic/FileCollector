@@ -81,9 +81,8 @@ public class PreprocessCache : GLib.Object {
             var entry = manifest.get_object_member (rel_path);
             string cached_hash = entry.get_string_member_with_default ("hash", "");
             if (cached_hash == current_hash) {
-                string md_filename = entry.get_string_member_with_default ("md_file", "");
-                string md_path = GLib.Path.build_filename (md_dir, md_filename);
-                if (FileUtils.test (md_path, FileTest.EXISTS)) {
+                string? md_path = resolve_md_path (entry, cached_hash);
+                if (md_path != null && FileUtils.test (md_path, FileTest.EXISTS)) {
                     try {
                         FileUtils.get_contents (md_path, out result);
                         result = result.strip ();
@@ -95,6 +94,20 @@ public class PreprocessCache : GLib.Object {
         }
         cache_mutex.unlock ();
         return result;
+    }
+
+    // 根据 manifest 条目解析 markdown 文件绝对路径: 优先新结构 {hash}/md/content.md,
+    // 回退旧平铺结构 md_dir/{hash}.md
+    private string? resolve_md_path (Json.Object entry, string fallback_hash) {
+        string subdir = entry.get_string_member_with_default ("cache_subdir", "");
+        if (subdir != "") {
+            string p = GLib.Path.build_filename (cache_dir, subdir, "md", "content.md");
+            if (FileUtils.test (p, FileTest.EXISTS)) {
+                return p;
+            }
+        }
+        string md_filename = entry.get_string_member_with_default ("md_file", fallback_hash + ".md");
+        return GLib.Path.build_filename (md_dir, md_filename);
     }
 
     /**
@@ -112,9 +125,8 @@ public class PreprocessCache : GLib.Object {
             var entry = manifest.get_object_member (rel_path);
             string cached_quick = entry.get_string_member_with_default ("quick", "");
             if (cached_quick == quick_fp) {
-                string md_filename = entry.get_string_member_with_default ("md_file", "");
-                string md_path = GLib.Path.build_filename (md_dir, md_filename);
-                if (FileUtils.test (md_path, FileTest.EXISTS)) {
+                string? md_path = resolve_md_path (entry, entry.get_string_member_with_default ("hash", ""));
+                if (md_path != null && FileUtils.test (md_path, FileTest.EXISTS)) {
                     try {
                         FileUtils.get_contents (md_path, out result);
                         result = result.strip ();
@@ -130,17 +142,25 @@ public class PreprocessCache : GLib.Object {
 
     public void save_markdown (string abs_path, string current_hash, string markdown_content) {
         string rel_path = get_rel_path (abs_path);
-        string md_filename = current_hash + ".md";
-        string md_path = GLib.Path.build_filename (md_dir, md_filename);
+        // 新结构: 以 hash 命名的独立子文件夹 cache_dir/{hash}/md/content.md,
+        // 与同级的 imgs/ 形成 {hash}/md/ + {hash}/imgs/ 布局, 使 markdown 内
+        // 相对路径 "imgs/xxx.jpg" 可正确命中图片目录.
+        string sub_dir = GLib.Path.build_filename (cache_dir, current_hash);
+        string md_dir_new = GLib.Path.build_filename (sub_dir, "md");
+        string md_path = GLib.Path.build_filename (md_dir_new, "content.md");
 
         cache_mutex.lock ();
         try {
+            DirUtils.create_with_parents (md_dir_new, 0755);
             FileUtils.set_contents (md_path, markdown_content);
             var entry = new Json.Object ();
             entry.set_string_member ("hash", current_hash);
             // 记录轻量指纹, 供后续 get_cached_markdown_quick 跳过 SHA256 计算
             entry.set_string_member ("quick", compute_file_hash_fast (abs_path));
-            entry.set_string_member ("md_file", md_filename);
+            // 新结构标记: 缓存子文件夹名 (= hash), 读取时据此定位独立目录
+            entry.set_string_member ("cache_subdir", current_hash);
+            entry.set_string_member ("md_file", current_hash + ".md"); // 兼容旧平铺结构
+            entry.set_boolean_member ("has_images", has_imgs_for (current_hash));
             entry.set_int_member ("timestamp", new DateTime.now_utc ().to_unix ());
             manifest.set_member (rel_path, AI.SchemaHelper.obj_to_node (entry));
             save_manifest_unlocked ();
@@ -148,6 +168,53 @@ public class PreprocessCache : GLib.Object {
             warning ("Save cache failed: %s", e.message);
         }
         cache_mutex.unlock ();
+    }
+
+    // 将缓存图片落盘到 cache_dir/{hash}/imgs/<relpath>, 供 markdown 内相对路径引用.
+    // 调用时机: PaddleOCR 解析完成后, 逐张下载并写盘. 同时把 has_images 标记写回 manifest.
+    public void save_image (string current_hash, string relpath, uint8[] data) {
+        string sub_dir = GLib.Path.build_filename (cache_dir, current_hash);
+        // 以 {hash}/ 为基点: relpath = "imgs/xxx.jpg" → {hash}/imgs/xxx.jpg,
+        // 与 {hash}/md/content.md 内 "imgs/xxx.jpg" (相对 {hash}/) 形成一致映射.
+        string img_dir = GLib.Path.build_filename (sub_dir, GLib.Path.get_dirname (relpath));
+        string img_path = GLib.Path.build_filename (sub_dir, relpath);
+
+        cache_mutex.lock ();
+        try {
+            DirUtils.create_with_parents (img_dir, 0755);
+            FileUtils.set_data (img_path, data);
+            mark_has_images (current_hash);
+        } catch (Error e) {
+            warning ("Save image cache failed: %s", e.message);
+        }
+        cache_mutex.unlock ();
+    }
+
+    private bool has_imgs_for (string current_hash) {
+        var imgs_dir = GLib.Path.build_filename (cache_dir, current_hash, "imgs");
+        return FileUtils.test (imgs_dir, FileTest.IS_DIR);
+    }
+
+    private void mark_has_images (string current_hash) {
+        // 遍历 manifest 找到 cache_subdir 匹配当前 hash 的条目, 标记为含图片
+        var members = manifest.get_members ();
+        foreach (var m in members) {
+            var entry = manifest.get_object_member (m);
+            if (entry.get_string_member_with_default ("cache_subdir", "") == current_hash) {
+                entry.set_boolean_member ("has_images", true);
+                save_manifest_unlocked ();
+                return;
+            }
+        }
+    }
+
+    // 返回某缓存图片的本地绝对路径 (存在时), 供预览/导出未来使用
+    public string? get_cached_image_path (string current_hash, string relpath) {
+        string img_path = GLib.Path.build_filename (cache_dir, current_hash, relpath);
+        if (FileUtils.test (img_path, FileTest.EXISTS)) {
+            return img_path;
+        }
+        return null;
     }
 
     public void invalidate_cache (string abs_path) {
@@ -161,6 +228,19 @@ public class PreprocessCache : GLib.Object {
 
             if (FileUtils.test (md_path, FileTest.EXISTS)) {
                 FileUtils.unlink (md_path);
+            }
+
+            // 新结构: 删除整个 hash 子文件夹 (含 md/ 与 imgs/)
+            string subdir = entry.get_string_member_with_default ("cache_subdir", "");
+            if (subdir != "") {
+                string sub_path = GLib.Path.build_filename (cache_dir, subdir);
+                if (FileUtils.test (sub_path, FileTest.EXISTS)) {
+                    try {
+                        delete_recursive (File.new_for_path (sub_path));
+                    } catch (Error e) {
+                        warning ("Delete cache subdir failed: %s", e.message);
+                    }
+                }
             }
 
             manifest.remove_member (rel_path);
