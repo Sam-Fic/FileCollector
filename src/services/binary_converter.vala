@@ -207,7 +207,41 @@ public class BinaryConverter : GLib.Object {
         return result;
     }
 
-    private static void cleanup_dir (string dir_path) {
+    /**
+     * 解析适合直传给 PaddleOCR 云端 API 的源文件路径。
+     *
+     * 策略 (按用户确认):
+     *   - PDF / 图片: 直接返回原文件路径, is_temp = false (不上传过程中创建临时文件)
+     *   - Office 文档 (docx/pptx/xlsx/odt/...): 调用 LibreOffice 先转成 PDF,
+     *     返回临时 PDF 路径, is_temp = true. 调用方处理完毕后须调用
+     *     cleanup_dir(Path.get_dirname(result)) 清理临时目录.
+     *
+     * 返回 null 表示无法解析/转换失败.
+     */
+    public static string? resolve_upload_source (string path, out bool is_temp) {
+        is_temp = false;
+        string lower = path.down ();
+
+        // 图片与 PDF: 直接原文件上传
+        if (lower.has_suffix (".pdf") ||
+            lower.has_suffix (".png") || lower.has_suffix (".jpg") ||
+            lower.has_suffix (".jpeg") || lower.has_suffix (".webp") ||
+            lower.has_suffix (".bmp") || lower.has_suffix (".tiff") ||
+            lower.has_suffix (".tif")) {
+            is_temp = false;
+            return path;
+        }
+
+        // 其余 (Office 等): 转 PDF 后上传
+        string? tmp_pdf = convert_office_to_pdf (path);
+        if (tmp_pdf == null) return null;
+        is_temp = true;
+        return tmp_pdf;
+    }
+
+    // 公开供调用方清理 resolve_upload_source 生成的临时 PDF 所在目录:
+    // cleanup_dir(Path.get_dirname(upload_source)).
+    public static void cleanup_dir (string dir_path) {
         // 递归清理: 基目录下可能含子目录 (例如复用基目录场景下的 pdf_N/),
         // 单层 FileUtils.unlink 无法删除子目录, 必须先递归清空再 remove.
         try {

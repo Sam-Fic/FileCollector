@@ -23,12 +23,15 @@ public class PreferencesDialog : GLib.Object {
     private Button btn_sidebar_test;
 
     private Switch chk_mm_enabled;
+    private Adw.ComboRow combo_mm_provider;
     private EntryRow edit_mm_base_url;
     private PasswordEntryRow edit_mm_api_key;
     private EntryRow edit_mm_model;
     private SpinRow spin_mm_timeout;
     private SpinRow spin_mm_concurrency;
     private EntryRow edit_mm_prompt;
+    private PasswordEntryRow edit_mm_paddleocr_token;
+    private ActionRow edit_mm_paddleocr_token_help;
     private Button btn_mm_test;
     private EntryRow edit_mm_allowed_exts;
     private Button btn_mm_reset_exts;
@@ -148,6 +151,17 @@ public class PreferencesDialog : GLib.Object {
         mm_enabled_row.set_activatable_widget (chk_mm_enabled);
         mm_group.add (mm_enabled_row);
 
+        // 服务商下拉: OpenAI 兼容 / PaddleOCR 云端
+        // 用 StringList 直接提供显示文本 (与现有 combo_language 一致),
+        // 选中索引 0 = OpenAI 兼容, 1 = PaddleOCR 云端.
+        var provider_model = new StringList (new string[] {
+            _("OpenAI Compatible"), _("PaddleOCR Cloud")
+        });
+        combo_mm_provider = new Adw.ComboRow ();
+        combo_mm_provider.set_title (_("Provider"));
+        combo_mm_provider.set_model (provider_model);
+        mm_group.add (combo_mm_provider);
+
         var mm_url_row = new EntryRow ();
         mm_url_row.set_title (_("API Base URL"));
         mm_url_row.set_show_apply_button (false);
@@ -164,6 +178,37 @@ public class PreferencesDialog : GLib.Object {
         mm_model_row.set_show_apply_button (false);
         edit_mm_model = mm_model_row;
         mm_group.add (mm_model_row);
+
+        // PaddleOCR Access Token 行 (仅 PaddleOCR 模式可见)
+        var mm_token_row = new PasswordEntryRow ();
+        mm_token_row.set_title (_("Access Token"));
+        mm_token_row.set_show_apply_button (false);
+        edit_mm_paddleocr_token = mm_token_row;
+        mm_group.add (mm_token_row);
+
+        // Token 获取引导: 标题 + 右侧"Open AI Studio"按钮 (链接跳转, 样式同测试按钮)
+        var mm_token_help = new ActionRow ();
+        mm_token_help.set_title (_("Get your token from AI Studio"));
+        var mm_token_btn = new Button.with_label (_("Open AI Studio"));
+        mm_token_btn.valign = Align.CENTER;
+        mm_token_btn.add_css_class ("suggested-action");
+        mm_token_btn.clicked.connect (() => {
+            try {
+                Gtk.UriLauncher launcher = new Gtk.UriLauncher ("https://aistudio.baidu.com/account/accessToken");
+                launcher.launch.begin (null, null, (obj, res) => {
+                    try {
+                        launcher.launch.end (res);
+                    } catch (Error e) {
+                        show_toast (_("Failed to open link: %s").printf (e.message));
+                    }
+                });
+            } catch (Error e) {
+                show_toast (_("Failed to open link: %s").printf (e.message));
+            }
+        });
+        mm_token_help.add_suffix (mm_token_btn);
+        edit_mm_paddleocr_token_help = mm_token_help;
+        mm_group.add (mm_token_help);
 
         var mm_timeout_row = new SpinRow.with_range (5.0, 600.0, 5.0);
         mm_timeout_row.set_title (_("Request Timeout (seconds)"));
@@ -239,6 +284,7 @@ public class PreferencesDialog : GLib.Object {
         edit_mm_base_url.notify["text"].connect (schedule_ai_auto_save);
         edit_mm_api_key.notify["text"].connect (schedule_ai_auto_save);
         edit_mm_model.notify["text"].connect (schedule_ai_auto_save);
+        edit_mm_paddleocr_token.notify["text"].connect (schedule_ai_auto_save);
         spin_mm_timeout.notify["value"].connect (schedule_ai_auto_save);
         spin_mm_concurrency.notify["value"].connect (schedule_ai_auto_save);
         edit_mm_prompt.notify["text"].connect (schedule_ai_auto_save);
@@ -253,6 +299,34 @@ public class PreferencesDialog : GLib.Object {
         btn_mm_reset_exts.clicked.connect (() => {
             edit_mm_allowed_exts.set_text (string.joinv (", ", ConfigManager.DEFAULT_ALLOWED_BINARY_EXTS));
         });
+
+        combo_mm_provider.notify["selected"].connect (() => {
+            update_provider_visibility ();
+            schedule_ai_auto_save ();
+        });
+
+        // 根据当前服务商初始化显隐状态
+        update_provider_visibility ();
+    }
+
+    // 按服务商切换 base_url/api_key/model/自定义提示词 与 token 行的可见性:
+    //   OpenAI 兼容 → 显示前四项, 隐藏 token
+    //   PaddleOCR 云端 → 隐藏前四项 (写死服务端点和模型), 仅显示 token
+    private void update_provider_visibility () {
+        string provider = current_mm_provider ();
+        bool is_paddleocr = (provider == ConfigManager.PROVIDER_PADDLEOCR);
+        edit_mm_base_url.visible = !is_paddleocr;
+        edit_mm_api_key.visible = !is_paddleocr;
+        edit_mm_model.visible = !is_paddleocr;
+        edit_mm_prompt.visible = !is_paddleocr;
+        edit_mm_paddleocr_token.visible = is_paddleocr;
+        edit_mm_paddleocr_token_help.visible = is_paddleocr;
+    }
+
+    private string current_mm_provider () {
+        uint sel = combo_mm_provider.get_selected ();
+        if (sel == 1) return ConfigManager.PROVIDER_PADDLEOCR;
+        return ConfigManager.PROVIDER_OPENAI;
     }
 
     private void build_context_page () {
@@ -428,12 +502,16 @@ public class PreferencesDialog : GLib.Object {
         edit_sidebar_prompt.set_text (sidebar_current.system_prompt_override ?? "");
 
         chk_mm_enabled.set_active (mm_current.enabled);
+        combo_mm_provider.set_selected (
+            mm_current.provider == ConfigManager.PROVIDER_PADDLEOCR ? 1 : 0);
         edit_mm_base_url.set_text (mm_current.base_url ?? "");
         edit_mm_api_key.set_text (mm_current.api_key ?? "");
         edit_mm_model.set_text (mm_current.model ?? "");
+        edit_mm_paddleocr_token.set_text (mm_current.paddleocr_token ?? "");
         spin_mm_timeout.set_value (mm_current.timeout > 0 ? mm_current.timeout : 120.0);
         spin_mm_concurrency.set_value (mm_current.max_concurrency > 0 ? (double) mm_current.max_concurrency : 3.0);
         edit_mm_prompt.set_text (mm_current.system_prompt_override ?? "");
+        update_provider_visibility ();
 
         string[] current_exts = ConfigManager.get_allowed_binary_extensions ();
         edit_mm_allowed_exts.set_text (string.joinv (", ", current_exts));
@@ -500,9 +578,11 @@ public class PreferencesDialog : GLib.Object {
     private ConfigManager.MultimodalAISettings collect_mm_from_ui () {
         return ConfigManager.MultimodalAISettings () {
             enabled = chk_mm_enabled.get_active (),
+            provider = current_mm_provider (),
             base_url = edit_mm_base_url.get_text ().strip (),
             api_key = edit_mm_api_key.get_text ().strip (),
             model = edit_mm_model.get_text ().strip (),
+            paddleocr_token = edit_mm_paddleocr_token.get_text ().strip (),
             system_prompt_override = edit_mm_prompt.get_text (),
             timeout = spin_mm_timeout.get_value (),
             max_concurrency = (int) spin_mm_concurrency.get_value ()
@@ -519,11 +599,15 @@ public class PreferencesDialog : GLib.Object {
         string base_url, api_key, model;
         double timeout;
 
-        if (testing_sidebar) {
-            var s = collect_sidebar_from_ui ();
+        if (!testing_sidebar) {
+            var s = collect_mm_from_ui ();
+            if (s.provider == ConfigManager.PROVIDER_PADDLEOCR) {
+                on_paddleocr_test (s);
+                return;
+            }
             base_url = s.base_url; api_key = s.api_key; model = s.model; timeout = s.timeout;
         } else {
-            var s = collect_mm_from_ui ();
+            var s = collect_sidebar_from_ui ();
             base_url = s.base_url; api_key = s.api_key; model = s.model; timeout = s.timeout;
         }
 
@@ -618,5 +702,72 @@ public class PreferencesDialog : GLib.Object {
             show_toast (_("✗ Failed: %s").printf (e.message));
         }
         test_session = null;
+    }
+
+    // PaddleOCR 模式下的"测试连接": 上传一个最小 PNG 验证 Token 鉴权.
+    // 仅检查提交阶段 (submit_job) 的响应: 200 表示 Token 有效, 4xx 表示鉴权失败.
+    private void on_paddleocr_test (ConfigManager.MultimodalAISettings s) {
+        if (s.paddleocr_token.length == 0) {
+            show_toast (_("Please fill in the Access Token first."));
+            return;
+        }
+
+        btn_mm_test.set_sensitive (false);
+        show_toast (_("Testing..."));
+
+        if (test_cancellable != null) { test_cancellable.cancel (); }
+        if (test_session != null) { test_session.abort (); }
+
+        var session = new Soup.Session ();
+        session.timeout = (uint) (s.timeout > 0 ? s.timeout : 120.0);
+        var cancellable = new Cancellable ();
+        test_session = session;
+        test_cancellable = cancellable;
+
+        // 1x1 透明 PNG (最小合法图片), 仅用于触发鉴权校验
+        uint8[] png = {
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+            0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+            0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
+            0x0D, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+            0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49,
+            0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82
+        };
+
+        var multipart = new Soup.Multipart ("multipart/form-data");
+        multipart.append_form_string ("model", PaddleOCRClient.MODEL);
+        multipart.append_form_file ("file", "test.png", "image/png", new Bytes (png));
+
+        var msg = new Soup.Message.from_multipart (PaddleOCRClient.JOB_URL, multipart);
+        msg.request_headers.append ("Authorization", "bearer " + s.paddleocr_token);
+
+        weak PreferencesDialog self = this;
+        session.send_and_read_async (msg, Priority.DEFAULT, cancellable, (obj, res) => {
+            if (self.dialog == null) return;
+            if (self.test_session != session) return;
+            self.test_session = null;
+            self.test_cancellable = null;
+            self.btn_mm_test.set_sensitive (true);
+            try {
+                var bytes = session.send_and_read_async.end (res);
+                uint status = msg.status_code;
+                if (status >= 200 && status < 300) {
+                    show_toast (_("Connected successfully (token valid)"));
+                } else {
+                    string detail = "";
+                    if (bytes != null && bytes.length > 0) {
+                        uint8[] raw = bytes.get_data ();
+                        int safe_len = (int) int64.min (bytes.length, 4096);
+                        detail = ((string) raw).substring (0, safe_len);
+                        if (detail.length > 200) detail = detail.substring (0, 200) + "…";
+                    }
+                    string phrase = Soup.Status.get_phrase (status);
+                    show_toast (_("✗ Failed: HTTP %u %s").printf (status, phrase)
+                        + (detail.length > 0 ? " — " + detail : ""));
+                }
+            } catch (Error e) {
+                show_toast (_("✗ Failed: %s").printf (e.message));
+            }
+        });
     }
 }

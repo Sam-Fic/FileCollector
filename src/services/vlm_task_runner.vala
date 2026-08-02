@@ -28,7 +28,10 @@ public class VLMTaskRunner : GLib.Object {
     private const int POOL_CAP = 8;
 
     private static string settings_signature (ConfigManager.MultimodalAISettings s) {
-        return "%s|%s|%s|%g".printf (s.base_url, s.api_key, s.model, s.timeout);
+        // 加入 provider 与 paddleocr_token: 切换服务商或更新 Token 后必须清空
+        // OpenAI 客户端池, 否则会复用陈旧凭据/模型发出错误请求.
+        string token_key = (s.provider == ConfigManager.PROVIDER_PADDLEOCR) ? s.paddleocr_token : s.api_key;
+        return "%s|%s|%s|%s|%g".printf (s.provider, token_key, s.base_url, s.model, s.timeout);
     }
 
     // 取一个与当前设置匹配的客户端; 池空或参数不匹配则新建. 调用方需在 finally 中
@@ -129,7 +132,12 @@ public class VLMTaskRunner : GLib.Object {
         });
 
         var settings = ConfigManager.load_multimodal_ai_settings ();
-        if (!settings.enabled || settings.api_key == "") {
+
+        // 校验启用状态与对应服务商所需凭据
+        bool has_credential = (settings.provider == ConfigManager.PROVIDER_PADDLEOCR)
+            ? settings.paddleocr_token.length > 0
+            : settings.api_key.length > 0;
+        if (!settings.enabled || !has_credential) {
             Idle.add (() => {
                 manager.task_completed (file_path, null, PreprocessStatus.FAILED, false);
                 return Source.REMOVE;
@@ -139,46 +147,72 @@ public class VLMTaskRunner : GLib.Object {
         }
 
         try {
-            string[] base64_images;
-            string[] mime_types;
+            string md = "";
 
-            if (ItemData.is_image_file (file_path)) {
-                string? b64 = BinaryConverter.convert_image_to_base64 (file_path);
-                if (b64 == null) throw new IOError.FAILED ("Image load failed");
-                base64_images = { b64 };
-                mime_types = { BinaryConverter.get_output_mime_for_image (file_path) };
+            if (settings.provider == ConfigManager.PROVIDER_PADDLEOCR) {
+                // ── PaddleOCR 云端路径 ──
+                // 上传原文件 (PDF/图片直传, Office 先转 PDF), 轮询并合并 Markdown.
+                bool is_temp;
+                string? upload_source = BinaryConverter.resolve_upload_source (file_path, out is_temp);
+                if (upload_source == null) {
+                    throw new IOError.FAILED (_("Failed to prepare upload source for %s").printf (file_path));
+                }
+                try {
+                    var client = new PaddleOCRClient (settings.paddleocr_token, settings.timeout);
+                    md = client.process_file (upload_source, (CancelCheck) manager.check_cancelled);
+
+                    if (manager.check_cancelled ()) { manager.notify_finished (file_path); return; }
+
+                    if (local_work_dir != null && hash_valid) {
+                        var cache = new PreprocessCache (local_work_dir.get_path ());
+                        cache.save_markdown (file_path, hash, md);
+                    }
+                } finally {
+                    if (is_temp) BinaryConverter.cleanup_dir (Path.get_dirname (upload_source));
+                }
             } else {
-                string[]? images = BinaryConverter.convert_to_base64_images (file_path);
-                if (images == null) throw new IOError.FAILED ("Document render failed");
-                base64_images = images;
-                mime_types = new string[images.length];
-                for (int i = 0; i < images.length; i++) mime_types[i] = "image/png";
-            }
+                // ── OpenAI 兼容路径 (现有行为, 渲染为 base64 图片序列) ──
+                string[] base64_images;
+                string[] mime_types;
 
-            if (manager.check_cancelled ()) { manager.notify_finished (file_path); return; }
-
-            string prompt = (settings.system_prompt_override != null && settings.system_prompt_override.length > 0)
-                ? settings.system_prompt_override
-                : prompt_provider (file_path);
-
-            var client = acquire_client (settings, prompt);
-            try {
-                string md = client.process_images (base64_images, mime_types);
+                if (ItemData.is_image_file (file_path)) {
+                    string? b64 = BinaryConverter.convert_image_to_base64 (file_path);
+                    if (b64 == null) throw new IOError.FAILED ("Image load failed");
+                    base64_images = { b64 };
+                    mime_types = { BinaryConverter.get_output_mime_for_image (file_path) };
+                } else {
+                    string[]? images = BinaryConverter.convert_to_base64_images (file_path);
+                    if (images == null) throw new IOError.FAILED ("Document render failed");
+                    base64_images = images;
+                    mime_types = new string[images.length];
+                    for (int i = 0; i < images.length; i++) mime_types[i] = "image/png";
+                }
 
                 if (manager.check_cancelled ()) { manager.notify_finished (file_path); return; }
 
-                if (local_work_dir != null && hash_valid) {
-                    var cache = new PreprocessCache (local_work_dir.get_path ());
-                    cache.save_markdown (file_path, hash, md);
-                }
+                string prompt = (settings.system_prompt_override != null && settings.system_prompt_override.length > 0)
+                    ? settings.system_prompt_override
+                    : prompt_provider (file_path);
 
-                Idle.add (() => {
-                    manager.task_completed (file_path, md, PreprocessStatus.COMPLETED, false);
-                    return Source.REMOVE;
-                });
-            } finally {
-                release_client (client);
+                var client = acquire_client (settings, prompt);
+                try {
+                    md = client.process_images (base64_images, mime_types);
+
+                    if (manager.check_cancelled ()) { manager.notify_finished (file_path); return; }
+
+                    if (local_work_dir != null && hash_valid) {
+                        var cache = new PreprocessCache (local_work_dir.get_path ());
+                        cache.save_markdown (file_path, hash, md);
+                    }
+                } finally {
+                    release_client (client);
+                }
             }
+
+            Idle.add (() => {
+                manager.task_completed (file_path, md, PreprocessStatus.COMPLETED, false);
+                return Source.REMOVE;
+            });
         } catch (Error e) {
             warning ("VLM Task failed: %s", e.message);
             Idle.add (() => {

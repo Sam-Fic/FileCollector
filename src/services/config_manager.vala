@@ -18,6 +18,11 @@ public class ConfigManager : GLib.Object {
         ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"
     };
 
+    // VLM 服务商枚举. "openai" 为现有 OpenAI 兼容路径; "paddleocr" 为百度
+    // 智能云 PaddleOCR 云端 API 预设 (仅需填写一个 TOKEN).
+    public const string PROVIDER_OPENAI = "openai";
+    public const string PROVIDER_PADDLEOCR = "paddleocr";
+
     public struct AISettings {
         public bool enabled;
         public string base_url;
@@ -227,9 +232,11 @@ public class ConfigManager : GLib.Object {
 
     public struct MultimodalAISettings {
         public bool enabled;
+        public string provider;  // PROVIDER_OPENAI | PROVIDER_PADDLEOCR, 缺省 "openai"
         public string base_url;
         public string api_key;
         public string model;
+        public string paddleocr_token;  // 仅 PaddleOCR 模式使用, 走 SecretStore
         public string system_prompt_override;
         public double timeout;
         // 并发预处理任务的线程数. 不同模型提供商的速率限制/并发上限不同,
@@ -245,12 +252,22 @@ public class ConfigManager : GLib.Object {
         return SecretStore.load_multimodal_api_key ();
     }
 
+    private static bool store_paddleocr_token_to_keyring (string token) {
+        return SecretStore.store_paddleocr_token (token);
+    }
+
+    private static string? load_paddleocr_token_from_keyring () {
+        return SecretStore.load_paddleocr_token ();
+    }
+
     public static MultimodalAISettings load_multimodal_ai_settings () {
         var defaults = MultimodalAISettings () {
             enabled = false,
+            provider = PROVIDER_OPENAI,
             base_url = "https://api.openai.com/v1",
             api_key = "",
             model = "gpt-4o",
+            paddleocr_token = "",
             system_prompt_override = "",
             timeout = 120.0,
             max_concurrency = 3
@@ -262,12 +279,14 @@ public class ConfigManager : GLib.Object {
             var ai = root.has_member ("multimodal_ai") ? root.get_object_member ("multimodal_ai") : null;
             if (ai == null) return defaults;
             defaults.enabled = ai.get_boolean_member_with_default ("enabled", false);
+            defaults.provider = ai.get_string_member_with_default ("provider", PROVIDER_OPENAI);
             defaults.base_url = ai.get_string_member_with_default ("base_url", defaults.base_url);
             defaults.model = ai.get_string_member_with_default ("model", defaults.model);
             defaults.system_prompt_override = ai.get_string_member_with_default ("system_prompt_override", "");
             defaults.timeout = ai.get_double_member_with_default ("timeout", defaults.timeout);
             defaults.max_concurrency = (int) ai.get_int_member_with_default ("max_concurrency", defaults.max_concurrency);
 
+            // OpenAI 兼容路径的密钥: 优先密钥环, 其次从 JSON 明文迁移
             string? keyring_key = load_mm_api_key_from_keyring ();
             if (keyring_key != null && keyring_key.length > 0) {
                 defaults.api_key = keyring_key;
@@ -277,6 +296,21 @@ public class ConfigManager : GLib.Object {
                     defaults.api_key = json_key;
                     if (store_mm_api_key_to_keyring (json_key)) {
                         ai.set_string_member ("api_key", "");
+                        write_settings_root_unlocked (root);
+                    }
+                }
+            }
+
+            // PaddleOCR 路径的 TOKEN: 同样优先密钥环, 其次从 JSON 明文迁移
+            string? keyring_token = load_paddleocr_token_from_keyring ();
+            if (keyring_token != null && keyring_token.length > 0) {
+                defaults.paddleocr_token = keyring_token;
+            } else {
+                string json_token = ai.get_string_member_with_default ("paddleocr_token", "");
+                if (json_token.length > 0) {
+                    defaults.paddleocr_token = json_token;
+                    if (store_paddleocr_token_to_keyring (json_token)) {
+                        ai.set_string_member ("paddleocr_token", "");
                         write_settings_root_unlocked (root);
                     }
                 }
@@ -295,15 +329,18 @@ public class ConfigManager : GLib.Object {
             Json.Object root = load_settings_root_unlocked () ?? new Json.Object ();
             var ai = new Json.Object ();
             ai.set_boolean_member ("enabled", s.enabled);
+            ai.set_string_member ("provider", s.provider ?? PROVIDER_OPENAI);
             ai.set_string_member ("base_url", s.base_url ?? "");
             ai.set_string_member ("api_key", "");
             ai.set_string_member ("model", s.model ?? "");
+            ai.set_string_member ("paddleocr_token", "");
             ai.set_string_member ("system_prompt_override", s.system_prompt_override ?? "");
             ai.set_double_member ("timeout", s.timeout > 0 ? s.timeout : 120.0);
             ai.set_int_member ("max_concurrency", s.max_concurrency > 0 ? s.max_concurrency : 3);
             root.set_member ("multimodal_ai", AI.SchemaHelper.obj_to_node (ai));
             write_settings_root_unlocked (root);
             store_mm_api_key_to_keyring (s.api_key ?? "");
+            store_paddleocr_token_to_keyring (s.paddleocr_token ?? "");
         } catch (Error e) {
             warning ("Failed to save multimodal AI settings: %s", e.message);
         } finally {

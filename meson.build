@@ -130,6 +130,7 @@ sources = files(
   'src/services/zip_exporter.vala',
   'src/services/git_service.vala',
   'src/services/multimodal_ai_client.vala',
+  'src/services/paddleocr_client.vala',
   'src/services/preprocess_cache.vala',
   'src/services/project_manager.vala',
   'src/services/recovery_manager.vala',

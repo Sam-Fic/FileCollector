@@ -425,15 +425,24 @@ FileCollector can automatically convert binary files into Markdown format, elimi
 - **Conversion cache**: Converted results are cached in the `.filecollector_cache/` directory under the working directory. The system uses SHA256 file hashes to determine whether re-conversion is needed, avoiding redundant processing.
 - **Configurable extensions**: In the AI Settings dialog, you can customize the list of binary file extensions allowed for VLM processing. Changes automatically trigger re-evaluation of the preprocessing queue.
 
+### VLM Providers
+
+VLM pre-conversion supports two providers, switchable via the **Provider** dropdown in the **AI Settings → VLM** tab. Both configurations are saved independently:
+
+- **OpenAI Compatible** (default): Sends image sequences via the OpenAI Chat Completions protocol. Requires API Base URL, Key, and Model Name (see below). Works with GPT-4o, Claude, Ollama, etc.
+- **PaddleOCR Cloud**: Baidu AI Studio's document OCR/parsing service. Only requires an **Access Token**; the endpoint `https://paddleocr.aistudio-app.com/api/v2/ocr/jobs` and model `PaddleOCR-VL-1.6` are hardcoded.
+  - **Getting a Token**: Go to <https://aistudio.baidu.com/account/accessToken>, sign in, copy your personal Access Token, and paste it into the setting.
+  - **File handling**: Images and PDFs are uploaded as-is (original fidelity, no local scaling or page rendering). Office documents (DOCX/PPTX/XLSX/ODT etc.) are still converted to PDF via LibreOffice first, then uploaded. After submission the job is polled automatically; multi-page results are concatenated in page order into the final Markdown (embedded images in results are ignored by default).
+
 ### VLM Configuration
 
 Open **AI Settings** (Menu → AI Settings) and switch to the **VLM** tab:
 
 1. Check **Enable VLM**.
-2. Enter the **API Base URL** (compatible with OpenAI Chat Completions protocol, e.g., `https://api.openai.com/v1`).
-3. Enter the **API Key** and **Model Name** (e.g., `gpt-4o`, `claude-3-opus`, or other vision-capable models).
-4. (Optional) Customize the **Preprocessing Prompt** — leave empty to use the built-in prompt.
-5. Click **Test Connection** to verify the configuration, then save.
+2. In the **Provider** dropdown, select **OpenAI Compatible** or **PaddleOCR Cloud**.
+   - **OpenAI Compatible**: Enter the **API Base URL** (OpenAI Chat Completions protocol, e.g., `https://api.openai.com/v1`), **API Key**, and **Model Name** (e.g., `gpt-4o`, `claude-3-opus`, or other vision-capable models). (Optional) Customize the **Preprocessing Prompt** — leave empty to use the built-in prompt.
+   - **PaddleOCR Cloud**: Only the **Access Token** is required (see above). All other parameters (endpoint, model) are built-in.
+3. Click **Test Connection** to verify the configuration, then save.
 
 ### Configuration
 

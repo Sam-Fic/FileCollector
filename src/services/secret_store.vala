@@ -17,6 +17,7 @@ namespace SecretStore {
     // 标识不同密钥槽的属性键 (用于 libsecret schema / 文件名)
     private const string SCHEMA_NAME_API_KEY = "io.github.sam_fic.filecollector.api_key";
     private const string SCHEMA_NAME_MM_API_KEY = "io.github.sam_fic.filecollector.mm_api_key";
+    private const string SCHEMA_NAME_PADDLEOCR_TOKEN = "io.github.sam_fic.filecollector.paddleocr_token";
 
 #if WINDOWS
     // ─── Windows: DPAPI ────────────────────────────────────────────────
@@ -254,5 +255,13 @@ namespace SecretStore {
 
     public static string? load_multimodal_api_key () {
         return lookup (SCHEMA_NAME_MM_API_KEY);
+    }
+
+    public static bool store_paddleocr_token (string token) {
+        return store (SCHEMA_NAME_PADDLEOCR_TOKEN, token);
+    }
+
+    public static string? load_paddleocr_token () {
+        return lookup (SCHEMA_NAME_PADDLEOCR_TOKEN);
     }
 }

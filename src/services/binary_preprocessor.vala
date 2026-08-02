@@ -45,46 +45,66 @@ public class BinaryPreprocessor : GLib.Object {
 
         // 3. Load VLM settings
         var settings = ConfigManager.load_multimodal_ai_settings ();
-        if (!settings.enabled || settings.api_key == "") {
+        bool has_credential = (settings.provider == ConfigManager.PROVIDER_PADDLEOCR)
+            ? settings.paddleocr_token.length > 0
+            : settings.api_key.length > 0;
+        if (!settings.enabled || !has_credential) {
             throw new IOError.FAILED (
-                "多模态 AI 未启用或 API Key 为空, 无法转换二进制文件"
+                "多模态 AI 未启用或凭据为空, 无法转换二进制文件"
             );
         }
 
-        // 4. Convert binary to base64
-        string[] base64_images;
-        string[] mime_types;
-        if (item.is_image_target ()) {
-            string? b64 = BinaryConverter.convert_image_to_base64 (item.file_path);
-            if (b64 == null) {
-                throw new IOError.FAILED ("图片转换失败: " + item.file_path);
+        // 4. Convert & call VLM, 按服务商分流
+        string md = "";
+        if (settings.provider == ConfigManager.PROVIDER_PADDLEOCR) {
+            // PaddleOCR 云端路径: 上传原文件, 轮询并合并 Markdown
+            bool is_temp;
+            string? upload_source = BinaryConverter.resolve_upload_source (item.file_path, out is_temp);
+            if (upload_source == null) {
+                throw new IOError.FAILED ("准备上传源失败: " + item.file_path);
             }
-            base64_images = { b64 };
-            mime_types = { BinaryConverter.get_output_mime_for_image (item.file_path) };
+            try {
+                var client = new PaddleOCRClient (settings.paddleocr_token, settings.timeout);
+                md = client.process_file (upload_source, null);
+            } finally {
+                if (is_temp) BinaryConverter.cleanup_dir (Path.get_dirname (upload_source));
+            }
         } else {
-            string[]? images = BinaryConverter.convert_to_base64_images (item.file_path);
-            if (images == null) {
-                throw new IOError.FAILED ("文档渲染失败: " + item.file_path);
+            // OpenAI 兼容路径 (现有行为): 渲染为 base64 图片序列
+            string[] base64_images;
+            string[] mime_types;
+            if (item.is_image_target ()) {
+                string? b64 = BinaryConverter.convert_image_to_base64 (item.file_path);
+                if (b64 == null) {
+                    throw new IOError.FAILED ("图片转换失败: " + item.file_path);
+                }
+                base64_images = { b64 };
+                mime_types = { BinaryConverter.get_output_mime_for_image (item.file_path) };
+            } else {
+                string[]? images = BinaryConverter.convert_to_base64_images (item.file_path);
+                if (images == null) {
+                    throw new IOError.FAILED ("文档渲染失败: " + item.file_path);
+                }
+                base64_images = images;
+                mime_types = new string[images.length];
+                for (int i = 0; i < images.length; i++) mime_types[i] = "image/png";
             }
-            base64_images = images;
-            mime_types = new string[images.length];
-            for (int i = 0; i < images.length; i++) mime_types[i] = "image/png";
+
+            // 5. Get prompt
+            string prompt = (
+                settings.system_prompt_override != null &&
+                settings.system_prompt_override.length > 0
+            )
+                ? settings.system_prompt_override
+                : get_default_prompt (item);
+
+            // 6. Call VLM
+            var client = new MultimodalAIClient (
+                settings.base_url, settings.api_key, settings.model,
+                prompt, settings.timeout
+            );
+            md = client.process_images (base64_images, mime_types);
         }
-
-        // 5. Get prompt
-        string prompt = (
-            settings.system_prompt_override != null &&
-            settings.system_prompt_override.length > 0
-        )
-            ? settings.system_prompt_override
-            : get_default_prompt (item);
-
-        // 6. Call VLM
-        var client = new MultimodalAIClient (
-            settings.base_url, settings.api_key, settings.model,
-            prompt, settings.timeout
-        );
-        string md = client.process_images (base64_images, mime_types);
 
         // 7. Save to cache (仅在 hash 有效时保存, 避免空 hash 污染 manifest)
         if (hash_valid) {

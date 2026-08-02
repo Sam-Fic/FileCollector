@@ -425,15 +425,24 @@ FileCollector 支持自动将二进制文件转换为 Markdown 格式，无需�
 - **转换缓存**：转换结果缓存在工作目录下的 `.filecollector_cache/` 目录中，基于文件 SHA256 哈希判断是否需要重新转换，避免重复处理。
 - **可配置扩展名**：在 AI 设置对话框中可自定义允许被 VLM 处理的二进制文件扩展名列表，修改后自动重新评估预处理队列。
 
+### VLM 服务商
+
+VLM 预转换支持两种服务商，可在 **AI 设置 → VLM** 选项卡的 **服务商** 下拉中切换，两套配置各自独立保存：
+
+- **OpenAI 兼容**（默认）：通过 OpenAI Chat Completions 协议发送图片序列，需填写 API 基础地址、密钥、模型名（见下）。适用于 GPT-4o、Claude、Ollama 等视觉模型。
+- **PaddleOCR 云端**：百度 AI Studio 提供的文档 OCR/解析服务。仅需填写一个 **Access Token**，服务端点 `https://paddleocr.aistudio-app.com/api/v2/ocr/jobs` 与模型 `PaddleOCR-VL-1.6` 已内置写死。
+  - **获取 Token**：前往 <https://aistudio.baidu.com/account/accessToken> 登录后复制个人 Access Token，粘贴到设置项即可。
+  - **文件处理**：图片与 PDF 直接原文件上传（保留原始精度，不做本地缩放或分页渲染）；Office 文档（DOCX/PPTX/XLSX/ODT 等）仍先通过 LibreOffice 转为 PDF 后再上传。提交后自动轮询作业进度，多页结果按页序直接拼接为 Markdown 输出（结果中的配图默认忽略）。
+
 ### VLM 配置
 
 打开 **AI 设置**（菜单栏 → AI 设置），切换到 **VLM** 选项卡：
 
 1. 勾选 **启用 VLM**。
-2. 填入 **API 基础地址**（兼容 OpenAI Chat Completions 协议，例如 `https://api.openai.com/v1`）。
-3. 填入 **API 密钥** 和 **模型名称**（如 `gpt-4o`、`claude-3-opus` 等支持视觉的模型）。
-4. （可选）自定义 **预处理提示词**，留空则使用内置提示。
-5. 点击 **测试连接** 验证配置后保存。
+2. 在 **服务商** 下拉选择 **OpenAI 兼容** 或 **PaddleOCR 云端**。
+   - 选择 **OpenAI 兼容**：填入 **API 基础地址**（兼容 OpenAI Chat Completions 协议，例如 `https://api.openai.com/v1`）、**API 密钥** 和 **模型名称**（如 `gpt-4o`、`claude-3-opus` 等支持视觉的模型）。（可选）自定义 **预处理提示词**，留空则使用内置提示。
+   - 选择 **PaddleOCR 云端**：仅需填入 **Access Token**（获取方式见上）。其余参数（端点、模型）已内置。
+3. 点击 **测试连接** 验证配置后保存。
 
 ### 配置方法
 
