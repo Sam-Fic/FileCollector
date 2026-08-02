@@ -23,6 +23,19 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="4.7.0" date="2026-08-03">
+      <description>
+        <p>新特性与修复：</p>
+        <ul>
+          <li>OCR 支持：新增 PaddleOCR 本地/云端预处理能力，支持配图落盘与缓存结构重构</li>
+          <li>缓存重构：简化缓存目录结构，新增导出缓存文件夹功能</li>
+          <li>VLM 增强：新增 PaddleOCR Cloud provider，扩展视觉语言模型预处理选项</li>
+          <li>Windows 修复：修复 HiDPI 下组件与文字比例错位问题</li>
+          <li>构建优化：新增 deb 包构建与发布说明，完善 .gitignore 与 CI 工作流管理</li>
+          <li>代码清理：移除文件外部修改监听功能，精简冗余逻辑</li>
+        </ul>
+      </description>
+    </release>
     <release version="4.6.0" date="2026-07-14">
       <description>
         <p>新特性与修复：</p>
