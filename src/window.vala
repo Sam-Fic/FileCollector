@@ -52,6 +52,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private Gtk.Button btn_new_snapshot;
 
     [GtkChild] private unowned Gtk.Button btn_retry_preprocess;
+    [GtkChild] private unowned Gtk.Button btn_export_cache;
+    [GtkChild] private unowned Gtk.Box preview_action_buttons;
     [GtkChild] private unowned Gtk.DrawingArea token_ring;
     [GtkChild] private unowned Gtk.ScrolledWindow preview_scrolled;
 
@@ -285,6 +287,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 if (sel >= 0 && sel < items.size) {
                     on_retry_preprocess (items.get (sel));
                 }
+            }
+        });
+
+        btn_export_cache.clicked.connect (() => {
+            if (current_preview_item != null) {
+                export_item_cache (current_preview_item);
             }
         });
 
@@ -572,6 +580,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         ctx_item = item;
         ctx_index = index;
         var indices = get_selected_indices ();
+        bool can_export = can_export_item_cache (item);
         ContextMenus.show_queue_menu (
             parent, item, index, gx, gy,
             indices, items, work_dir, use_absolute,
@@ -585,7 +594,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             on_ctx_push_undo,
             on_ctx_retry_preprocess,
             on_ctx_copy_path,
-            on_ctx_show_folder
+            on_ctx_show_folder,
+            () => on_ctx_export_cache (item),
+            can_export
         );
     }
 
@@ -3492,7 +3503,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             }
         }
 
-        btn_retry_preprocess.visible = show_action_bar;
+        preview_action_buttons.visible = show_action_bar;
+        // 导出缓存按钮可用性: 仅当该项确有已落盘的完整缓存子文件夹时才可点击.
+        bool exportable = show_action_bar && item.item_type == "file" && item.file_path != null
+                          && work_dir != null;
+        if (exportable) {
+            var cache = new PreprocessCache (work_dir.get_path ());
+            string hash = PreprocessCache.compute_file_hash (item.file_path);
+            exportable = hash.length > 0 && cache.has_cache (hash);
+        }
+        btn_export_cache.sensitive = exportable;
 
         if (item.item_type == "text") {
             apply_preview_content_full (item, item.content.make_valid ());
@@ -4009,6 +4029,59 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         on_retry_preprocess (it);
     }
 
+    private void on_ctx_export_cache (ItemData it) {
+        export_item_cache (it);
+    }
+
+    // 判断某 ItemData 是否可导出缓存: 需为文件、有源路径、处于 work_dir 下, 且对应的
+    // 完整缓存子文件夹 ({hash}/ md + imgs) 已落盘.
+    private bool can_export_item_cache (ItemData item) {
+        if (item == null || item.item_type != "file" || item.file_path == null || work_dir == null) {
+            return false;
+        }
+        var cache = new PreprocessCache (work_dir.get_path ());
+        string hash = PreprocessCache.compute_file_hash (item.file_path);
+        return hash.length > 0 && cache.has_cache (hash);
+    }
+
+    // 把某文件对应的完整独立缓存子文件夹 ({hash}/, 内含 md/content.md 与 imgs/) 导出为
+    // 扁平结构到用户用 Gtk.FileDialog 选定的目标父目录: report_md/content.md + report_md/imgs/.
+    // 目标文件夹默认命名为原文件名去扩展名 + "_md" 后缀 (例: report.pdf -> report_md),
+    // 与磁盘缓存的 {hash} 命名解耦. 若用户选定父目录下已存在同名文件夹, 自动追加 _1/_2 ... 避免覆盖.
+    private void export_item_cache (ItemData item) {
+        if (item == null || item.item_type != "file" || item.file_path == null || work_dir == null) {
+            show_toast (_("Cannot export cache: no source file or workspace."));
+            return;
+        }
+        var cache = new PreprocessCache (work_dir.get_path ());
+        string hash = PreprocessCache.compute_file_hash (item.file_path);
+        if (hash.length == 0 || !cache.has_cache (hash)) {
+            show_toast (_("No cache folder found for this item."));
+            return;
+        }
+        string? folder_name = item.export_folder_name ();
+        if (folder_name == null || folder_name.length == 0) {
+            folder_name = hash;
+        }
+
+        var dialog = new Gtk.FileDialog ();
+        dialog.title = _("Export Cache Folder");
+        dialog.initial_folder = work_dir;
+        dialog.select_folder.begin (this, null, (obj, res) => {
+            try {
+                File dest_parent = dialog.select_folder.end (res);
+                if (dest_parent == null) return;
+                string dest_path = cache.export_cache_folder (hash, dest_parent, folder_name);
+                show_toast (_("Cache folder exported to %s").printf (dest_path));
+            } catch (GLib.Error err) {
+                if (!(err is Gtk.DialogError.DISMISSED)) {
+                    GLib.warning ("Export cache folder failed: %s", err.message);
+                    show_toast (_("Export failed: %s").printf (err.message));
+                }
+            }
+        });
+    }
+
     // show_queue_context_menu 已移至 setup_queue_list 附近, 集成右键 selection
     // 同步逻辑 (原来 selection 同步在 QueueListFactory 内部完成, 抽离后由
     // Window 集中处理).
@@ -4162,12 +4235,17 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void show_tree_context_menu (Gtk.Widget parent, DirectoryItem item, int gx, int gy) {
         ctx_tree_item = item;
+        // 目录树右键导出: 用 item.path 构造一个临时 ItemData 以复用导出逻辑与判定.
+        var tmp = new ItemData ("file", item.path, null, false);
+        bool can_export = !item.is_dir && can_export_item_cache (tmp);
         ContextMenus.show_tree_menu (
             parent, item, gx, gy, work_dir,
             on_ctx_tree_copy_path,
             on_ctx_tree_show_folder,
             on_ctx_tree_copy_content,
-            on_ctx_tree_select_lines
+            on_ctx_tree_select_lines,
+            () => export_item_cache (tmp),
+            can_export
         );
     }
 

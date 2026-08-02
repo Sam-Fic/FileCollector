@@ -137,4 +137,17 @@ public class ItemData : GLib.Object {
         if (lower.has_suffix (".tiff") || lower.has_suffix (".tif")) return "image/tiff";
         return "image/png";
     }
+
+    // 导出缓存文件夹时的默认目标名: 原文件名去扩展名 + "_md" 后缀.
+    // 例: report.pdf -> report_md, 与磁盘缓存的 {hash} 命名解耦, 对用户更可读.
+    public string? export_folder_name () {
+        if (file_path == null) return null;
+        string name = GLib.Path.get_basename (file_path);
+        // 去掉最后一个扩展名 (若有的话)
+        int dot = name.last_index_of (".");
+        if (dot > 0) {
+            name = name.substring (0, dot);
+        }
+        return name + "_md";
+    }
 }

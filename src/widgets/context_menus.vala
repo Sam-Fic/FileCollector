@@ -44,7 +44,9 @@ public class ContextMenus : GLib.Object {
         ContextMenuAction on_push_undo,
         ContextMenuFileAction on_retry_preprocess,
         ContextMenuAction on_copy_path,
-        ContextMenuAction on_show_folder
+        ContextMenuAction on_show_folder,
+        ContextMenuAction on_export_cache,
+        bool can_export_cache
     ) {
         var menu_model = new GLib.Menu ();
         var action_group = new GLib.SimpleActionGroup ();
@@ -146,6 +148,12 @@ public class ContextMenus : GLib.Object {
             act_show_folder.activate.connect (() => { on_show_folder (); });
             action_group.add_action (act_show_folder);
             section_file.append (_("Show in File Manager"), "ctx.ctx_show_folder");
+
+            var act_export_cache = new GLib.SimpleAction ("ctx_export_cache", null);
+            act_export_cache.set_enabled (can_export_cache);
+            act_export_cache.activate.connect (() => { on_export_cache (); });
+            action_group.add_action (act_export_cache);
+            section_file.append (_("Export Cache Folder"), "ctx.ctx_export_cache");
         }
 
         if (section_file.get_n_items () > 0) {
@@ -195,7 +203,9 @@ public class ContextMenus : GLib.Object {
         ContextMenuAction on_copy_path,
         ContextMenuAction on_show_folder,
         ContextMenuAction on_copy_content,
-        ContextMenuAction on_select_lines
+        ContextMenuAction on_select_lines,
+        ContextMenuAction on_export_cache,
+        bool can_export_cache
     ) {
         var menu_model = new GLib.Menu ();
         var action_group = new GLib.SimpleActionGroup ();
@@ -228,6 +238,12 @@ public class ContextMenus : GLib.Object {
             act_select_lines.activate.connect (() => { on_select_lines (); });
             action_group.add_action (act_select_lines);
             menu_model.append (_("Select lines..."), "tree.tree_select_lines");
+
+            var act_export_cache = new GLib.SimpleAction ("tree_export_cache", null);
+            act_export_cache.set_enabled (can_export_cache);
+            act_export_cache.activate.connect (() => { on_export_cache (); });
+            action_group.add_action (act_export_cache);
+            menu_model.append (_("Export Cache Folder"), "tree.tree_export_cache");
         }
 
         show_popover (parent, menu_model, action_group, "tree", gx, gy);

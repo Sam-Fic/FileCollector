@@ -483,14 +483,24 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
                 };
 
                [overlay]
-               Button btn_retry_preprocess {
+               Box preview_action_buttons {
                  visible: false;
                  halign: end;
                  valign: start;
                  margin-top: 6;
                  margin-end: 6;
-                 icon-name: "view-refresh-symbolic";
-                 tooltip-text: _("Re-run AI Conversion");
+                 spacing: 6;
+                 orientation: horizontal;
+
+                 Button btn_export_cache {
+                   icon-name: "folder-download-symbolic";
+                   tooltip-text: _("Export Cache Folder");
+                 }
+
+                 Button btn_retry_preprocess {
+                   icon-name: "view-refresh-symbolic";
+                   tooltip-text: _("Re-run AI Conversion");
+                 }
                }
              }
            }

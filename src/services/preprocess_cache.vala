@@ -12,16 +12,14 @@ public class PreprocessCache : GLib.Object {
     private string work_dir_path;
     private string cache_dir;
     private string manifest_path;
-    private string md_dir;
     private Json.Object manifest;
 
     public PreprocessCache (string work_dir) {
         work_dir_path = work_dir;
         cache_dir = GLib.Path.build_filename (work_dir, ".filecollector_cache");
         manifest_path = GLib.Path.build_filename (cache_dir, "manifest.json");
-        md_dir = GLib.Path.build_filename (cache_dir, "markdown");
 
-        DirUtils.create_with_parents (md_dir, 0755);
+        DirUtils.create_with_parents (cache_dir, 0755);
         manifest = load_manifest_unlocked ();
     }
 
@@ -96,18 +94,16 @@ public class PreprocessCache : GLib.Object {
         return result;
     }
 
-    // 根据 manifest 条目解析 markdown 文件绝对路径: 优先新结构 {hash}/md/content.md,
-    // 回退旧平铺结构 md_dir/{hash}.md
+    // 根据 manifest 条目解析 markdown 文件绝对路径: 扁平结构 {hash}/content.md.
     private string? resolve_md_path (Json.Object entry, string fallback_hash) {
         string subdir = entry.get_string_member_with_default ("cache_subdir", "");
         if (subdir != "") {
-            string p = GLib.Path.build_filename (cache_dir, subdir, "md", "content.md");
+            string p = GLib.Path.build_filename (cache_dir, subdir, "content.md");
             if (FileUtils.test (p, FileTest.EXISTS)) {
                 return p;
             }
         }
-        string md_filename = entry.get_string_member_with_default ("md_file", fallback_hash + ".md");
-        return GLib.Path.build_filename (md_dir, md_filename);
+        return null;
     }
 
     /**
@@ -142,16 +138,15 @@ public class PreprocessCache : GLib.Object {
 
     public void save_markdown (string abs_path, string current_hash, string markdown_content) {
         string rel_path = get_rel_path (abs_path);
-        // 新结构: 以 hash 命名的独立子文件夹 cache_dir/{hash}/md/content.md,
-        // 与同级的 imgs/ 形成 {hash}/md/ + {hash}/imgs/ 布局, 使 markdown 内
-        // 相对路径 "imgs/xxx.jpg" 可正确命中图片目录.
+        // 扁平结构: 以 hash 命名的独立子文件夹 cache_dir/{hash}/, 内含 content.md 与
+        // (可选) imgs/; markdown 内相对路径 "imgs/xxx.jpg" 相对 {hash}/ 基点, 可正确
+        // 命中图片目录. 无插图时仅有 content.md, 不创建 imgs/.
         string sub_dir = GLib.Path.build_filename (cache_dir, current_hash);
-        string md_dir_new = GLib.Path.build_filename (sub_dir, "md");
-        string md_path = GLib.Path.build_filename (md_dir_new, "content.md");
+        string md_path = GLib.Path.build_filename (sub_dir, "content.md");
 
         cache_mutex.lock ();
         try {
-            DirUtils.create_with_parents (md_dir_new, 0755);
+            DirUtils.create_with_parents (sub_dir, 0755);
             FileUtils.set_contents (md_path, markdown_content);
             var entry = new Json.Object ();
             entry.set_string_member ("hash", current_hash);
@@ -159,7 +154,6 @@ public class PreprocessCache : GLib.Object {
             entry.set_string_member ("quick", compute_file_hash_fast (abs_path));
             // 新结构标记: 缓存子文件夹名 (= hash), 读取时据此定位独立目录
             entry.set_string_member ("cache_subdir", current_hash);
-            entry.set_string_member ("md_file", current_hash + ".md"); // 兼容旧平铺结构
             entry.set_boolean_member ("has_images", has_imgs_for (current_hash));
             entry.set_int_member ("timestamp", new DateTime.now_utc ().to_unix ());
             manifest.set_member (rel_path, AI.SchemaHelper.obj_to_node (entry));
@@ -175,7 +169,7 @@ public class PreprocessCache : GLib.Object {
     public void save_image (string current_hash, string relpath, uint8[] data) {
         string sub_dir = GLib.Path.build_filename (cache_dir, current_hash);
         // 以 {hash}/ 为基点: relpath = "imgs/xxx.jpg" → {hash}/imgs/xxx.jpg,
-        // 与 {hash}/md/content.md 内 "imgs/xxx.jpg" (相对 {hash}/) 形成一致映射.
+        // 与 {hash}/content.md 内 "imgs/xxx.jpg" (相对 {hash}/) 形成一致映射.
         string img_dir = GLib.Path.build_filename (sub_dir, GLib.Path.get_dirname (relpath));
         string img_path = GLib.Path.build_filename (sub_dir, relpath);
 
@@ -223,14 +217,7 @@ public class PreprocessCache : GLib.Object {
 
         if (manifest.has_member (rel_path)) {
             var entry = manifest.get_object_member (rel_path);
-            string md_filename = entry.get_string_member_with_default ("md_file", "");
-            string md_path = GLib.Path.build_filename (md_dir, md_filename);
-
-            if (FileUtils.test (md_path, FileTest.EXISTS)) {
-                FileUtils.unlink (md_path);
-            }
-
-            // 新结构: 删除整个 hash 子文件夹 (含 md/ 与 imgs/)
+            // 删除整个 hash 子文件夹 (含 content.md 与 imgs/)
             string subdir = entry.get_string_member_with_default ("cache_subdir", "");
             if (subdir != "") {
                 string sub_path = GLib.Path.build_filename (cache_dir, subdir);
@@ -301,7 +288,7 @@ public class PreprocessCache : GLib.Object {
             var dir = File.new_for_path (cache_dir);
             if (dir.query_exists ()) {
                 delete_recursive (dir);
-                DirUtils.create_with_parents (md_dir, 0755);
+                DirUtils.create_with_parents (cache_dir, 0755);
             }
             // 原地清空共享 manifest 对象 (而非 new 一个新对象), 保证静态缓存引用仍有效,
             // 且其它 PreprocessCache 实例立即可见清空结果. Json.Object 无 remove_all,
@@ -329,6 +316,69 @@ public class PreprocessCache : GLib.Object {
                 delete_recursive (child);
             }
             child.delete ();
+        }
+    }
+
+    /**
+     * 判断指定 hash 对应的完整独立缓存子文件夹 ({hash}/) 是否存在.
+     * 供 UI 在导出前判断该项是否可导出.
+     */
+    public bool has_cache (string hash) {
+        string sub_path = GLib.Path.build_filename (cache_dir, hash);
+        return FileUtils.test (sub_path, FileTest.IS_DIR);
+    }
+
+    /**
+     * 把完整独立缓存子文件夹 ({hash}/, 扁平结构内含 content.md 与 imgs/) 整体递归拷贝到
+     * dest_parent 下, 目标文件夹命名为 folder_name (由调用方基于原二进制文件名 + "_md"
+     * 后缀生成, 例如 report.pdf -> report_md). 目标布局:
+     *   report_md/content.md
+     *   report_md/imgs/...
+     * markdown 内相对路径 "imgs/xxx.jpg" 在导出后仍可命中图片.
+     *
+     * @param hash          缓存子文件夹名 (SHA256)
+     * @param dest_parent   用户选定的目标父目录
+     * @param folder_name   导出后的目标文件夹名 (不含路径, 不带尾斜杠)
+     * @return              实际写入的目标文件夹绝对路径
+     */
+    public string export_cache_folder (string hash, File dest_parent, string folder_name) throws Error {
+        File src = File.new_for_path (GLib.Path.build_filename (cache_dir, hash));
+        if (!src.query_exists ()) {
+            throw new IOError.NOT_FOUND (_("Cache folder not found for %s").printf (hash));
+        }
+        // 目标文件夹可能已存在 (同名文件重复导出), 先在父目录下寻找一个不冲突的命名.
+        File dest = File.new_for_path (GLib.Path.build_filename (dest_parent.get_path (), folder_name));
+        if (dest.query_exists ()) {
+            int n = 1;
+            while (true) {
+                File cand = File.new_for_path (
+                    GLib.Path.build_filename (dest_parent.get_path (), "%s_%d".printf (folder_name, n)));
+                if (!cand.query_exists ()) { dest = cand; break; }
+                n++;
+            }
+        }
+        copy_recursive (src, dest);
+        return dest.get_path ();
+    }
+
+    // 递归拷贝目录: 在 dest 下重建 src 的完整子结构.
+    private void copy_recursive (File src, File dest) throws Error {
+        FileInfo info = src.query_info (
+            FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE,
+            FileQueryInfoFlags.NOFOLLOW_SYMLINKS);
+        if (info.get_file_type () == FileType.DIRECTORY) {
+            DirUtils.create_with_parents (dest.get_path (), 0755);
+            var enumerator = src.enumerate_children (
+                FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE,
+                FileQueryInfoFlags.NOFOLLOW_SYMLINKS);
+            FileInfo child_info;
+            while ((child_info = enumerator.next_file ()) != null) {
+                copy_recursive (src.get_child (child_info.get_name ()),
+                                dest.get_child (child_info.get_name ()));
+            }
+        } else {
+            DirUtils.create_with_parents (GLib.Path.get_dirname (dest.get_path ()), 0755);
+            src.copy (dest, FileCopyFlags.NONE);
         }
     }
 
