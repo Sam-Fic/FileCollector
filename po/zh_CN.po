@@ -415,7 +415,7 @@ msgstr "尚未收集任何文件"
 msgid ""
 "Check files in the directory tree or add custom text to build your "
 "collection."
-msgstr ""
+msgstr "在目录树中勾选文件，或添加自定义文本以构建你的集合。"
 
 #: ../src/window.vala:775
 #, fuzzy, c-format
@@ -508,7 +508,7 @@ msgstr "工作区"
 #: ../src/window.vala:2168
 #, fuzzy
 msgid "Save Current State as New Snapshot"
-msgstr "将当前状态保存到项目文件"
+msgstr "将当前状态保存为新快照"
 
 #: ../src/window.vala:2175 ../src/window.vala:2434 ../src/window.blp:526
 msgid "Rename Snapshot"
@@ -563,12 +563,12 @@ msgstr "保存"
 #: ../src/window.vala:2396
 #, fuzzy
 msgid "Workspace name"
-msgstr "清除工作区缓存"
+msgstr "工作区名称"
 
 #: ../src/window.vala:2397 ../src/window.vala:2403
 #, fuzzy, c-format
 msgid "Workspace %d"
-msgstr "工作区缓存已清除"
+msgstr "工作区 %d"
 
 #: ../src/window.vala:2435
 msgid "Enter a new name for this snapshot."
@@ -593,7 +593,7 @@ msgstr "删除"
 #: ../src/window.vala:2487
 #, fuzzy
 msgid "Workspace deleted"
-msgstr "工作区缓存已清除"
+msgstr "工作区已删除"
 
 #: ../src/window.vala:2519
 msgid "Change Icon"
@@ -602,7 +602,7 @@ msgstr "更改图标"
 #: ../src/window.vala:2604
 #, fuzzy
 msgid "Save Snapshot As Project"
-msgstr "保存项目"
+msgstr "将快照保存为项目"
 
 #: ../src/window.vala:2606
 #, fuzzy
@@ -612,7 +612,7 @@ msgstr "项目文件 (*.fcol)"
 #: ../src/window.vala:2625
 #, fuzzy, c-format
 msgid "Saved: %s"
-msgstr "保存"
+msgstr "已保存: %s"
 
 #: ../src/window.vala:2628 ../src/window.vala:4511 ../src/window.vala:4737
 #: ../src/window.vala:4762
@@ -663,7 +663,7 @@ msgstr "选择一个文件以预览其内容。"
 #: ../src/window.vala:3147
 #, fuzzy
 msgid "No file selected"
-msgstr "已选择 %d 个项目"
+msgstr "未选择文件"
 
 #: ../src/window.vala:3148
 msgid "Select a file from the list or directory tree to preview it here."
@@ -987,7 +987,7 @@ msgstr "编辑常用语"
 #: ../src/window.vala:4975
 #, fuzzy
 msgid "# Working directory absolute path: "
-msgstr "工作目录已切换到: %s"
+msgstr "# 工作目录绝对路径: "
 
 #: ../src/window.vala:5003
 #, c-format
@@ -1274,7 +1274,7 @@ msgstr "，跳过 %d 个"
 #: ../src/controllers/ai_controller.vala:354
 #, fuzzy, c-format
 msgid "Added %d files (requested %d)"
-msgstr "AI 添加了 %d 个文件"
+msgstr "已添加 %d 个文件 (请求 %d 个)"
 
 #: ../src/controllers/ai_controller.vala:356
 #, c-format
@@ -1293,7 +1293,7 @@ msgstr "AI 移除了 %d 个文件"
 #: ../src/controllers/ai_controller.vala:391
 #, fuzzy, c-format
 msgid "Removed %d files (requested %d)"
-msgstr "AI 移除了 %d 个文件"
+msgstr "已移除 %d 个文件 (请求 %d 个)"
 
 #: ../src/controllers/ai_controller.vala:399
 msgid "Missing text / content"
@@ -1317,7 +1317,7 @@ msgstr "索引越界: %d (列表共 %d 项)"
 #: ../src/controllers/ai_controller.vala:456
 #, fuzzy, c-format
 msgid "Deleted item %d (%s)"
-msgstr "删除 (%d 项)"
+msgstr "已删除项目 %d (%s)"
 
 #: ../src/controllers/ai_controller.vala:462
 msgid "Missing from_index / to_index"
@@ -1379,7 +1379,7 @@ msgstr "当前没有已暂存的改动。"
 #: ../src/controllers/ai_controller.vala:628
 #, fuzzy
 msgid "No unstaged changes."
-msgstr "当前没有已暂存的改动。"
+msgstr "当前没有未暂存的改动。"
 
 #: ../src/controllers/ai_controller.vala:631
 msgid ""
@@ -1394,13 +1394,13 @@ msgstr ""
 #: ../src/controllers/ai_controller.vala:651
 #, fuzzy
 msgid "No commits found."
-msgstr "未找到匹配项"
+msgstr "未找到提交记录。"
 
 #: ../src/controllers/ai_controller.vala:659
 #: ../src/controllers/ai_controller.vala:703
 #, fuzzy
 msgid "Missing commit_hash"
-msgstr "缺少 paths"
+msgstr "缺少 commit_hash"
 
 #: ../src/controllers/ai_controller.vala:661
 msgid "Error: Invalid commit hash format."
@@ -1443,17 +1443,17 @@ msgstr "已成功将 Commit %s 的 Diff 注入编排列表 (%d 行)。"
 #: ../src/controllers/ai_controller.vala:737
 #, fuzzy
 msgid "Missing from_hash"
-msgstr "缺少 path"
+msgstr "缺少 from_hash"
 
 #: ../src/controllers/ai_controller.vala:741
 #, fuzzy
 msgid "Invalid from_hash."
-msgstr "参数错误"
+msgstr "无效的 from_hash。"
 
 #: ../src/controllers/ai_controller.vala:742
 #, fuzzy
 msgid "Invalid to_hash."
-msgstr "无效 mode: "
+msgstr "无效的 to_hash。"
 
 #: ../src/controllers/ai_controller.vala:779
 #, c-format
@@ -1486,7 +1486,7 @@ msgstr "已添加片段: %s [L%d-L%d]"
 #: ../src/models/app_state.vala:190
 #, fuzzy
 msgid "Workspace 1"
-msgstr "导出工作区 Diff"
+msgstr "工作区 1"
 
 #: ../src/services/ai_client.vala:426
 msgid "API Base URL not configured. Please fill it in Settings → AI Settings."
@@ -1578,12 +1578,14 @@ msgstr "[读取文件失败: %s]\n"
 msgid ""
 "# Working directory: %s\n"
 "\n"
-msgstr "工作目录: %s\n"
+msgstr ""
+"# 工作目录: %s\n"
+"\n"
 
 #: ../src/services/multi_format_exporter.vala:198
 #, fuzzy, c-format
 msgid "Working directory: `%s`\n"
-msgstr "工作目录: %s\n"
+msgstr "工作目录: `%s`\n"
 
 #: ../src/services/multi_format_exporter.vala:284
 #, c-format
@@ -1622,7 +1624,7 @@ msgstr "无法覆盖已存在的 ZIP 文件: %s"
 #: ../src/services/zip_exporter.vala:153
 #, fuzzy, c-format
 msgid "Failed to copy file (%s → %s): %s"
-msgstr "[读取文件失败: %s]"
+msgstr "复制文件失败 (%s → %s): %s"
 
 #: ../src/services/zip_exporter.vala:227
 #, c-format
@@ -1640,7 +1642,11 @@ msgid ""
 "\n"
 "`%s`\n"
 "\n"
-msgstr "工作目录: %s\n"
+msgstr ""
+"## 工作目录\n"
+"\n"
+"`%s`\n"
+"\n"
 
 #: ../src/services/zip_exporter.vala:232
 msgid ""
@@ -1659,7 +1665,9 @@ msgstr ""
 msgid ""
 "## Custom Text\n"
 "\n"
-msgstr "AI 插入了自定义文本"
+msgstr ""
+"## 自定义文本\n"
+"\n"
 
 #: ../src/services/zip_exporter.vala:252
 msgid ""
@@ -1683,7 +1691,9 @@ msgstr ""
 msgid ""
 "## Missing Files\n"
 "\n"
-msgstr "[缺失文件: %s]\n"
+msgstr ""
+"## 缺失文件\n"
+"\n"
 
 #: ../src/services/zip_exporter.vala:268
 msgid ""
@@ -2247,7 +2257,7 @@ msgstr "正在测试..."
 #: ../src/widgets/preferences_dialog.vala:601
 #, fuzzy
 msgid "Connected successfully"
-msgstr "✓ 连接成功"
+msgstr "连接成功"
 
 #: ../src/widgets/preferences_dialog.vala:613
 #, c-format
