@@ -4,7 +4,7 @@
   <img src="data/io.github.sam_fic.filecollector.svg" alt="FileCollector" width="128" height="128">
 </div>
 
-[中文版](README.md) · [English Version](README_EN.md)
+[简体中文](README.md)
 
 ---
 
