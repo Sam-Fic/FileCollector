@@ -2319,6 +2319,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         filters.append (filter_fcol);
         dialog.set_filters (filters);
         dialog.set_default_filter (filter_fcol);
+        if (work_dir != null) dialog.initial_folder = work_dir;
         dialog.set_initial_name ("%s.fcol".printf (snap.name.replace (" ", "_")));
 
         dialog.save.begin (this, null, (obj, res) => {
@@ -2944,6 +2945,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void on_add_external_files () {
         var dialog = new Gtk.FileDialog ();
         dialog.title = _("Select External Files");
+        if (work_dir != null) dialog.initial_folder = work_dir;
         dialog.open_multiple.begin (this, null, (obj, res) => {
             try {
                 var files = dialog.open_multiple.end (res);
@@ -4317,6 +4319,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         filters_list.append (filter_all);
         dialog.set_filters (filters_list);
         dialog.set_default_filter (filter_txt);
+        if (work_dir != null) dialog.initial_folder = work_dir;
 
         var now = new DateTime.now_local ();
         dialog.set_initial_name (
@@ -4393,6 +4396,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         filters_list.append (filter_all);
         dialog.set_filters (filters_list);
         dialog.set_default_filter (filter_zip);
+        if (work_dir != null) dialog.initial_folder = work_dir;
 
         // 默认文件名: filecollector-export-2026-06-28-143012.zip
         var now = new DateTime.now_local ();
@@ -4509,6 +4513,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var filters_list = new GLib.ListStore (typeof (Gtk.FileFilter));
         filters_list.append (filter);
         dialog.set_filters (filters_list);
+        if (work_dir != null) dialog.initial_folder = work_dir;
 
         dialog.open.begin (this, null, (obj, res) => {
             try {
@@ -4592,6 +4597,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var filters_list = new GLib.ListStore (typeof (Gtk.FileFilter));
         filters_list.append (filter);
         dialog.set_filters (filters_list);
+        if (work_dir != null) dialog.initial_folder = work_dir;
 
         dialog.save.begin (this, null, (obj, res) => {
             try {
