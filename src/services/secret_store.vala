@@ -24,25 +24,25 @@ namespace SecretStore {
     // 通过 CCode 直接声明 Win32 API, 不引入额外依赖。
     // Vala 生成 secret_store_* wrapper, 内部调用下面这些唯一命名的 C 函数,
     // 真实实现见 src/win32_dpapi_shim.c (封装 CryptProtectData/LocalFree)。
-    [CCode (cname = "fc_CryptProtectData")]
+    [CCode (cname = "fc_CryptProtectData", cheader_filename = "src/win32_dpapi_shim.h")]
     private extern static uint CryptProtectData (
         void* pDataIn, string? szDataDescr,
         void* pOptionalEntropy, void* pReserved,
         void* pPromptStruct, uint dwFlags, void* pDataOut);
 
-    [CCode (cname = "fc_CryptUnprotectData")]
+    [CCode (cname = "fc_CryptUnprotectData", cheader_filename = "src/win32_dpapi_shim.h")]
     private extern static uint CryptUnprotectData (
         void* pDataIn, void* ppszDataDescr,
         void* pOptionalEntropy, void* pReserved,
         void* pPromptStruct, uint dwFlags, void* pDataOut);
 
-    [CCode (cname = "FC_DATA_BLOB", has_type_id = false)]
+    [CCode (cname = "FC_DATA_BLOB", has_type_id = false, cheader_filename = "src/win32_dpapi_shim.h")]
     private struct DATA_BLOB {
         public uint cbData;
         public void* pbData;
     }
 
-    [CCode (cname = "fc_LocalFree")]
+    [CCode (cname = "fc_LocalFree", cheader_filename = "src/win32_dpapi_shim.h")]
     private extern static void LocalFree (void* hMem);
 
     private static string secret_file (string slot) {
