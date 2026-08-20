@@ -29,6 +29,7 @@ pacman -S --needed \
   mingw-w64-x86_64-ninja \
   mingw-w64-x86_64-gcc \
   mingw-w64-x86_64-pkgconf \
+  mingw-w64-x86_64-vala \
   mingw-w64-x86_64-gtk4 \
   mingw-w64-x86_64-libadwaita \
   mingw-w64-x86_64-json-glib \

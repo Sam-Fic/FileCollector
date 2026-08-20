@@ -117,27 +117,27 @@ namespace SecretStore {
 
 #elif MACOS
     // ─── macOS: SecKeychain ────────────────────────────────────────────
-    [CCode (cheader_filename = "Security/Security.h")]
+    [CCode (cheader_filename = "Security/Security.h", cname = "SecKeychainAddGenericPassword")]
     private extern static int SecKeychainAddGenericPassword (
         void* keychain, uint32 serviceNameLength, string serviceName,
         uint32 accountNameLength, string accountName,
         uint32 passwordLength, void* passwordData,
         void* itemRef);
 
-    [CCode (cheader_filename = "Security/Security.h")]
+    [CCode (cheader_filename = "Security/Security.h", cname = "SecKeychainFindGenericPassword")]
     private extern static int SecKeychainFindGenericPassword (
         void* keychainOrArray, uint32 serviceNameLength, string serviceName,
         uint32 accountNameLength, string accountName,
         uint32* passwordLength, void** passwordData, void* itemRef);
 
-    [CCode (cheader_filename = "Security/Security.h")]
+    [CCode (cheader_filename = "Security/Security.h", cname = "SecKeychainItemFreeContent")]
     private extern static int SecKeychainItemFreeContent (
         void* attrList, void* data);
 
-    [CCode (cheader_filename = "Security/Security.h")]
+    [CCode (cheader_filename = "Security/Security.h", cname = "SecKeychainItemDelete")]
     private extern static int SecKeychainItemDelete (void* itemRef);
 
-    [CCode (cheader_filename = "CoreFoundation/CoreFoundation.h")]
+    [CCode (cheader_filename = "CoreFoundation/CoreFoundation.h", cname = "CFRelease")]
     private extern static void CFRelease (void* cf);
 
     private static int macos_store (string slot, string api_key) {

@@ -62,7 +62,7 @@ namespace Platform {
 
 #if MACOS
     [CCode (cheader_filename = "mach-o/dyld.h", cname = "_NSGetExecutablePath")]
-    private extern static int _NSGetExecutablePath (uint8[] buf, ref uint32 bufsize);
+    private extern static int _NSGetExecutablePath ([CCode (array_length = false)] uint8[] buf, ref uint32 bufsize);
 #endif
 
     /**
