@@ -4,29 +4,26 @@
 #include <windows.h>
 #include <wincrypt.h>
 
-struct _FC_DATA_BLOB {
-    DWORD cbData;
-    BYTE *pbData;
-};
-
+/* Vala owns the FC_DATA_BLOB declaration in generated sources.  Keep the
+ * ABI boundary opaque here so this header can be included before that code. */
 BOOL fc_CryptProtectData(
-    struct _FC_DATA_BLOB *input,
+    void *input,
     const char *description,
-    struct _FC_DATA_BLOB *optional_entropy,
+    void *optional_entropy,
     void *reserved,
     void *prompt_struct,
     DWORD flags,
-    struct _FC_DATA_BLOB *output
+    void *output
 );
 
 BOOL fc_CryptUnprotectData(
-    struct _FC_DATA_BLOB *input,
+    void *input,
     void *description,
-    struct _FC_DATA_BLOB *optional_entropy,
+    void *optional_entropy,
     void *reserved,
     void *prompt_struct,
     DWORD flags,
-    struct _FC_DATA_BLOB *output
+    void *output
 );
 
 void fc_LocalFree(void *memory);

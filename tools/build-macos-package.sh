@@ -81,9 +81,23 @@ cat > "${CONTENTS_PATH}/Info.plist" <<EOF
 EOF
 
 python3 tools/fix_rpaths.py "${MACOS_PATH}/${APP_NAME}" "${MACOS_PATH}"
-if otool -L "${MACOS_PATH}/${APP_NAME}" | grep -Eq '(/opt/homebrew|/usr/local)/(lib|opt)/'; then
+
+# Homebrew's opt/ symlinks can leave absolute install names after dependency
+# collection. Rewrite every copied Mach-O binary to use its colocated copy.
+for target in "${MACOS_PATH}"/*; do
+  [[ -f "${target}" ]] || continue
+  while IFS= read -r dependency; do
+    case "${dependency}" in
+      /opt/homebrew/*|/usr/local/*)
+        install_name_tool -change "${dependency}" "@executable_path/$(basename "${dependency}")" "${target}"
+        ;;
+    esac
+  done < <(otool -L "${target}" | tail -n +2 | sed -E 's/^[[:space:]]*([^[:space:]]+).*/\1/')
+done
+
+if otool -L "${MACOS_PATH}"/* | grep -Eq '(/opt/homebrew|/usr/local)/(lib|opt)/'; then
   echo "Homebrew runtime references remain in the app bundle:" >&2
-  otool -L "${MACOS_PATH}/${APP_NAME}" >&2
+  otool -L "${MACOS_PATH}"/* >&2
   exit 1
 fi
 

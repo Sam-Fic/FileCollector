@@ -24,13 +24,13 @@ static wchar_t *utf8_to_wide(const char *text) {
 }
 
 BOOL fc_CryptProtectData(
-    struct _FC_DATA_BLOB *input,
+    void *input,
     const char *description,
-    struct _FC_DATA_BLOB *optional_entropy,
+    void *optional_entropy,
     void *reserved,
     void *prompt_struct,
     DWORD flags,
-    struct _FC_DATA_BLOB *output
+    void *output
 ) {
     wchar_t *wide_description = utf8_to_wide(description);
     BOOL success = CryptProtectData(
@@ -49,13 +49,13 @@ BOOL fc_CryptProtectData(
 }
 
 BOOL fc_CryptUnprotectData(
-    struct _FC_DATA_BLOB *input,
+    void *input,
     void *description,
-    struct _FC_DATA_BLOB *optional_entropy,
+    void *optional_entropy,
     void *reserved,
     void *prompt_struct,
     DWORD flags,
-    struct _FC_DATA_BLOB *output
+    void *output
 ) {
     return CryptUnprotectData(
         (DATA_BLOB *) input,
