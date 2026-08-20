@@ -212,5 +212,19 @@ install_data('data/io.github.sam_fic.filecollector.svg',
   install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', 'scalable', 'apps')
 )
 
+# GtkSourceView 预览配色方案由运行时从 ${datadir}/filecollector/ 读取。
+# Windows/macOS 便携包复制整个 data/ 目录；此规则保证 DEB 与 Flatpak 也分发同一资源。
+install_subdir('data/gtksourceview-5',
+  install_dir: join_paths(get_option('datadir'), 'filecollector')
+)
+
+# 仅包含项目实际使用的两个 XApp symbolic SVG，叠加到标准 hicolor 主题中。
+install_subdir('data/icons/hicolor',
+  install_dir: join_paths(get_option('datadir'), 'icons')
+)
+
+# 在每次 Meson 安装（含 DESTDIR 和 Flatpak 构建）后验证关键运行时资源。
+meson.add_install_script('tools/verify_installed_resources.py', get_option('datadir'))
+
 # 单元测试 (meson test)
 subdir('tests')

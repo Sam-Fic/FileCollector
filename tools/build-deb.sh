@@ -23,6 +23,11 @@ meson compile -C "${BUILD_DIR}"
 meson test -C "${BUILD_DIR}" --print-errorlogs --num-processes=1
 
 DESTDIR="${PWD}/${STAGING_DIR}" meson install -C "${BUILD_DIR}"
+# Meson 安装阶段已校验资源；这里再断言 DEB 暂存树中的最终位置，避免回归。
+test -f "${STAGING_DIR}/usr/share/filecollector/gtksourceview-5/styles/filecollector-dark.xml"
+test -f "${STAGING_DIR}/usr/share/filecollector/gtksourceview-5/styles/filecollector-light.xml"
+test -f "${STAGING_DIR}/usr/share/icons/hicolor/scalable/actions/xsi-git-symbolic.svg"
+test -f "${STAGING_DIR}/usr/share/icons/hicolor/scalable/actions/xsi-text-case-symbolic.svg"
 install -d "${STAGING_DIR}/DEBIAN" debian "${DIST_DIR}"
 
 cat > debian/control <<'EOF'

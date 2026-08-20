@@ -19,6 +19,8 @@ FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排
 
 图形界面使用流程与 Tips，请参阅 [使用说明文档](docs/USAGE.md)。
 
+正式发布、四平台 CI 状态与 Release 资产规则，请参阅 [桌面端自动打包与发布](docs/GITHUB_ACTIONS_DESKTOP.md)。本地复现或排错请使用 [本地构建指南](docs/building/)。
+
 ## 功能特性
 
 - **命令行模式 (CLI)**：支持通过终端命令完成所有核心操作，便于脚本化和自动化
@@ -79,7 +81,7 @@ filecollector-windows-X.Y.Z-x64.zip
 └── locale/
 ```
 
-详细的构建与打包流程见 [BUILD_WINDOWS.md](BUILD_WINDOWS.md)。
+本地构建、打包与排错流程见 [Windows 便携包指南](docs/building/windows.md)。
 
 ## 自行构建
 
@@ -131,7 +133,7 @@ flatpak-builder build-dir io.github.sam_fic.filecollector.json --user --install 
 flatpak run io.github.sam_fic.filecollector
 ```
 
-也可以将 [BUILD_FLATPAK.md](BUILD_FLATPAK.md) 直接交给编程工具或 AI Agent，利用现有成熟流程完成规范化打包。
+本地 Flatpak 打包与排错请参阅 [Flatpak 指南](docs/building/flatpak.md)。正式 Release 无需手动上传资产。
 
 ### Windows
 
@@ -190,11 +192,11 @@ export PYTHONUTF8=1
 
 #### 打包为便携包
 
-若要从源码自行打包成上面「预编译 Windows 便携包」那样的便携 zip，请参考 [BUILD_WINDOWS.md](BUILD_WINDOWS.md)：它会自动收集 DLL、打包图像加载器与 GSettings schema，并生成 `filecollector-launch.bat` 启动器。注意启动器里的 `GDK_PIXBUF_MODULEDIR` 是图片正常渲染的关键。
+若要从源码自行打包成上面「预编译 Windows 便携包」那样的便携 zip，请参考 [Windows 便携包指南](docs/building/windows.md)：它会自动收集 DLL、打包图像加载器与 GSettings schema，并生成 `filecollector-launch.bat` 启动器。注意启动器里的 `GDK_PIXBUF_MODULEDIR` 是图片正常渲染的关键。
 
-### macOS（暂未验证）
+### macOS（Apple Silicon）
 
-> 本平台的从源码构建流程**尚未验证**，相关内容待补充。
+macOS ARM64 包已在持续集成中验证。用于本地复现、构建和签名限制说明，请参阅 [macOS ARM64 指南](docs/building/macos.md)。当前包使用 ad-hoc 签名，未进行 Apple Developer ID 签名或公证。
 
 ## 项目结构
 
@@ -249,8 +251,10 @@ export PYTHONUTF8=1
 │       ├── phrases_picker.vala            # 常用语选择器与管理
 │       ├── settings_dialog.vala           # 设置对话框
 │       └── templates_manager.vala         # 场景化编排模板管理对话框
-├── docs/                                  # 使用说明文档
+├── docs/                                  # 使用、构建与 CI 文档
+│   ├── building/                          # 本地构建与排错指南
 │   ├── images/                            # 文档图片
+│   ├── GITHUB_ACTIONS_DESKTOP.md          # 四平台自动构建与发布
 │   ├── USAGE.md                           # 中文使用说明
 │   └── USAGE_EN.md                        # 英文使用说明
 ├── po/                                     # gettext 翻译目录
@@ -259,9 +263,7 @@ export PYTHONUTF8=1
 │   ├── POTFILES                            # 可翻译源文件列表（供 gettext 使用）
 │   ├── LINGUAS                             # 支持的语言列表
 │   └── meson.build                         # i18n 构建配置
-├── BUILD_FLATPAK.md                       # Flatpak 构建指南（供 AI 助手参考）
-├── BUILD_WINDOWS.md                       # Windows 便携包构建指南（供 AI 助手参考）
-├── meson.build                            # Meson 构建配置
+├── meson.build                            # 唯一版本源与 Meson 构建配置
 └── io.github.sam_fic.filecollector.json   # Flatpak 构建清单
 ```
 

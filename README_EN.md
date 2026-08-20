@@ -19,6 +19,8 @@ It provides a checkable directory tree, flexible organization list, text inserti
 
 For the usage process and tips of the graphical interface, please refer to the [Usage Guide](docs/USAGE_EN.md).
 
+For the canonical four-platform CI/release flow, see [Desktop Packaging and Publishing](docs/GITHUB_ACTIONS_DESKTOP.md). Local build and troubleshooting guides are available in [docs/building/](docs/building/).
+
 ## Features
 
 - **CLI Mode**: Complete all core operations via terminal commands, ideal for scripting and automation
@@ -79,7 +81,7 @@ filecollector-windows-X.Y.Z-x64.zip
 └── locale/
 ```
 
-For the detailed build & packaging workflow, see [BUILD_WINDOWS.md](BUILD_WINDOWS.md).
+For local build, packaging, and troubleshooting, see the [Windows portable package guide](docs/building/windows.md).
 
 ## Build from Source
 
@@ -131,7 +133,7 @@ flatpak-builder build-dir io.github.sam_fic.filecollector.json --user --install 
 flatpak run io.github.sam_fic.filecollector
 ```
 
-You can also hand [BUILD_FLATPAK.md](BUILD_FLATPAK.md) directly to programming tools or AI Agents to leverage the existing mature workflow for standardized packaging.
+For local Flatpak packaging and troubleshooting, see the [Flatpak guide](docs/building/flatpak.md). Release assets are uploaded by CI and do not require manual publication.
 
 ### Windows
 
@@ -190,11 +192,11 @@ export PYTHONUTF8=1
 
 #### Package as Portable Zip
 
-To package a portable zip like the "Pre-built Windows Portable Package" above from source, follow [BUILD_WINDOWS.md](BUILD_WINDOWS.md): it collects the DLLs, bundles the image loaders and GSettings schemas, and generates the `filecollector-launch.bat` launcher. Note that the `GDK_PIXBUF_MODULEDIR` set by the launcher is what makes image rendering work correctly.
+To package a portable zip like the "Pre-built Windows Portable Package" above from source, follow the [Windows portable package guide](docs/building/windows.md): it collects the DLLs, bundles the image loaders and GSettings schemas, and generates the `filecollector-launch.bat` launcher. Note that the `GDK_PIXBUF_MODULEDIR` set by the launcher is what makes image rendering work correctly.
 
-### macOS (Unverified)
+### macOS (Apple Silicon)
 
-> The from-source build flow for this platform is **not yet verified**; content to be added.
+The macOS ARM64 package is verified in CI. For local reproduction, packaging, and signing limitations, see the [macOS ARM64 guide](docs/building/macos.md). The current package uses an ad-hoc signature and is not Apple Developer ID-signed or notarized.
 
 ## Project Structure
 
@@ -249,8 +251,10 @@ To package a portable zip like the "Pre-built Windows Portable Package" above fr
 │       ├── phrases_picker.vala            # Common phrases picker and management
 │       ├── settings_dialog.vala           # Settings dialog
 │       └── templates_manager.vala         # Scene prompt template management dialog
-├── docs/                                  # Usage documentation
+├── docs/                                  # Usage, build, and CI documentation
+│   ├── building/                          # Local build and troubleshooting guides
 │   ├── images/                            # Documentation images
+│   ├── GITHUB_ACTIONS_DESKTOP.md          # Four-platform automated packaging and publishing
 │   ├── USAGE.md                           # Chinese usage guide
 │   └── USAGE_EN.md                        # English usage guide
 ├── po/                                     # gettext translation directory
@@ -259,9 +263,7 @@ To package a portable zip like the "Pre-built Windows Portable Package" above fr
 │   ├── POTFILES                            # List of translatable source files (for gettext)
 │   ├── LINGUAS                             # List of supported languages
 │   └── meson.build                         # i18n build configuration
-├── BUILD_FLATPAK.md                       # Flatpak build guide (for AI assistants)
-├── BUILD_WINDOWS.md                       # Windows portable package build guide (for AI assistants)
-├── meson.build                            # Meson build configuration
+├── meson.build                            # Single version source and Meson build configuration
 └── io.github.sam_fic.filecollector.json   # Flatpak build manifest
 ```
 
