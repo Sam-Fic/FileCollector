@@ -60,6 +60,8 @@ cp -R data "${RESOURCES_PATH}/data"
 # 与 Linux 相同的 Adwaita symbolic 图标名解析所有 UI 图标。
 cp -R "${ADWAITA_ICON_PREFIX}/share/icons/Adwaita" "${RESOURCES_PATH}/share/icons/"
 cp -R "${HICOLOR_ICON_PREFIX}/share/icons/hicolor" "${RESOURCES_PATH}/share/icons/"
+# 叠加项目随附的原始 XApp symbolic 图标，保留 xsi-* 的既有界面语义。
+cp -R data/icons/hicolor/. "${RESOURCES_PATH}/share/icons/hicolor/"
 test -f "${RESOURCES_PATH}/share/icons/Adwaita/index.theme"
 test -f "${RESOURCES_PATH}/share/icons/hicolor/index.theme"
 test -n "$(find "${RESOURCES_PATH}/share/icons/Adwaita" -type f -name '*-symbolic.svg' -print -quit)"

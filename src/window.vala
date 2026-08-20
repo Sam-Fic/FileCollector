@@ -1708,7 +1708,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         } else {
             left_stack.visible_child_name = "tree_page";
             action_stack.visible_child_name = "normal_actions";
-            btn_toggle_git.icon_name = "view-refresh-symbolic";
+            btn_toggle_git.icon_name = "xsi-git-symbolic";
             btn_toggle_git.tooltip_text = _("Switch to Git commit history");
             lbl_left_title.label = _("File Browser");
         }

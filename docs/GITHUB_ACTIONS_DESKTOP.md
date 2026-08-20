@@ -13,9 +13,9 @@ DEB 打包使用 `tools/build-deb.sh`。脚本从 `meson.build` 读取唯一版�
 
 Flatpak 打包采用官方维护的 Flatpak 构建动作，并使用与项目清单一致的 GNOME 50 构建环境。该动作会依照 `io.github.sam_fic.filecollector.json` 创建名为 `filecollector-<版本>.flatpak` 的 bundle；其缓存由 manifest 和提交 SHA 区分，以加快重复构建同时避免复用不兼容的构建状态。[2]
 
-Windows 打包在 MSYS2 的 MINGW64 环境中编译。构建脚本会从源码编译 cmark-gfm、运行测试、递归收集 MinGW DLL，并额外打包 GTK 图像加载器、GSettings、完整的 GNOME `Adwaita` 与 `hicolor` 图标主题，以及 GIO TLS 模块。应用启动时会明确注册包内主题目录，因此 Windows 不依赖宿主系统图标；所有代码中引用的 `*-symbolic` 图标都会在打包阶段与实际主题资产逐一校验。下载后应解压并通过 `bin/filecollector-launch.bat` 启动，以正确设置图片加载器与 HTTPS 模块路径。[3]
+Windows 打包在 MSYS2 的 MINGW64 环境中编译。构建脚本会从源码编译 cmark-gfm、运行测试、递归收集 MinGW DLL，并额外打包 GTK 图像加载器、GSettings、完整的 GNOME `Adwaita` 与 `hicolor` 图标主题、项目随附且实际使用的两个原始 XApp symbolic（`xsi-*`）图标，以及 GIO TLS 模块。应用启动时会明确注册包内主题目录，因此 Windows 不依赖宿主系统图标；所有代码中引用的 `*-symbolic` 图标都会在打包阶段与实际主题资产逐一校验。下载后应解压并通过 `bin/filecollector-launch.bat` 启动，以正确设置图片加载器与 HTTPS 模块路径。[3]
 
-macOS 打包固定在 Apple Silicon 的 `macos-14` 运行器上，产出 ARM64 `.app` 并将 Homebrew 动态库重定位到应用包内。`FileCollector.app/Contents/Resources/share/icons/` 同样携带完整的 GNOME `Adwaita` 与 `hicolor` 主题，应用会优先在该目录解析所有 symbolic 图标，从而保持与 GNOME 桌面一致的图标来源与视觉语义。产物使用临时的 ad-hoc 签名用于完整性验证，但**不含 Apple Developer ID 签名或公证**；首次在其他 Mac 上打开时，系统仍可能显示未验证开发者提示。[4]
+macOS 打包固定在 Apple Silicon 的 `macos-14` 运行器上，产出 ARM64 `.app` 并将 Homebrew 动态库重定位到应用包内。`FileCollector.app/Contents/Resources/share/icons/` 同样携带完整的 GNOME `Adwaita` 与 `hicolor` 主题，并叠加项目随附且实际使用的两个原始 XApp symbolic（`xsi-*`）图标；应用会优先在该目录解析所有 symbolic 图标，从而保持与 GNOME 桌面一致的图标来源与原有界面语义。产物使用临时的 ad-hoc 签名用于完整性验证，但**不含 Apple Developer ID 签名或公证**；首次在其他 Mac 上打开时，系统仍可能显示未验证开发者提示。[4]
 
 ## 日常使用
 

@@ -71,6 +71,8 @@ cp /mingw64/share/glib-2.0/schemas/gschemas.compiled \
 # 这样 Windows 与 GNOME 桌面使用同一套 Adwaita 图标名称和视觉语言。
 cp -r /mingw64/share/icons/Adwaita "${STAGING_DIR}/share/icons/"
 cp -r /mingw64/share/icons/hicolor "${STAGING_DIR}/share/icons/"
+# 叠加项目随附的原始 XApp symbolic 图标，保留 xsi-* 的既有界面语义。
+cp -r data/icons/hicolor/. "${STAGING_DIR}/share/icons/hicolor/"
 test -f "${STAGING_DIR}/share/icons/Adwaita/index.theme"
 test -f "${STAGING_DIR}/share/icons/hicolor/index.theme"
 test -n "$(find "${STAGING_DIR}/share/icons/Adwaita" -type f -name '*-symbolic.svg' -print -quit)"
