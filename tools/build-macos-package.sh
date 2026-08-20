@@ -82,7 +82,8 @@ EOF
 
 python3 tools/fix_rpaths.py "${MACOS_PATH}/${APP_NAME}" "${MACOS_PATH}"
 if otool -L "${MACOS_PATH}/${APP_NAME}" | grep -Eq '(/opt/homebrew|/usr/local)/(lib|opt)/'; then
-  echo "Homebrew runtime references remain in the app bundle." >&2
+  echo "Homebrew runtime references remain in the app bundle:" >&2
+  otool -L "${MACOS_PATH}/${APP_NAME}" >&2
   exit 1
 fi
 
