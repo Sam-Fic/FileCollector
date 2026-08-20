@@ -27,12 +27,10 @@ public class FileGenerator : GLib.Object {
                 if (data.force_absolute || use_absolute || work_dir == null) {
                     display = data.file_path;
                 } else {
-                    var wd_path = work_dir.get_path () + "/";
-                    if (data.file_path.has_prefix (wd_path)) {
-                        display = data.file_path.substring (wd_path.length);
-                    } else {
-                        display = data.file_path;
-                    }
+                    string? relative = work_dir.get_relative_path (f);
+                    display = relative ?? data.file_path;
+                    // 导出格式使用 POSIX 分隔符，确保不同平台的内容可复现且易读。
+                    display = display.replace ("\\", "/");
                 }
                 dis.put_string ("%s:\n".printf (display));
 

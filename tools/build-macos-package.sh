@@ -83,7 +83,13 @@ EOF
 python3 tools/fix_rpaths.py "${MACOS_PATH}/${APP_NAME}" "${MACOS_PATH}"
 
 # Homebrew's opt/ symlinks can leave absolute install names after dependency
-# collection. Rewrite every copied Mach-O binary to use its colocated copy.
+# collection. Give each copied dylib a relative install ID, then rewrite every
+# copied Mach-O binary to use its colocated copy.
+for dylib in "${MACOS_PATH}"/*.dylib; do
+  [[ -f "${dylib}" ]] || continue
+  install_name_tool -id "@executable_path/$(basename "${dylib}")" "${dylib}"
+done
+
 for target in "${MACOS_PATH}"/*; do
   [[ -f "${target}" ]] || continue
   while IFS= read -r dependency; do
