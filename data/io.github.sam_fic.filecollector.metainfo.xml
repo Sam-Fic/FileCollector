@@ -23,6 +23,18 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="4.8.0" date="2026-08-21">
+      <description>
+        <p>跨平台发行与运行时资源更新：</p>
+        <ul>
+          <li>新增统一的 GitHub Actions 桌面端打包与发布流程，自动构建 DEB、Flatpak、Windows x64 便携包和 macOS ARM64 应用包</li>
+          <li>Windows 便携包与 macOS 应用包携带完整 GNOME Adwaita 和 hicolor 图标主题，保证 symbolic 图标在非 GNOME 系统上也保持一致</li>
+          <li>应用启动时自动注册便携包内图标、翻译和数据目录，改进 Windows/macOS 的独立运行体验</li>
+          <li>完善 Windows DPAPI 原生密钥存储与 macOS Security/CoreFoundation 平台链接配置</li>
+          <li>统一跨平台相对路径导出格式，修复 Windows 环境的路径分隔符差异</li>
+        </ul>
+      </description>
+    </release>
     <release version="4.7.0" date="2026-08-03">
       <description>
         <p>新特性与修复：</p>
