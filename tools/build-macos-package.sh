@@ -15,6 +15,7 @@ if [[ -z "${VERSION}" ]]; then
 fi
 
 brew install \
+  adwaita-icon-theme \
   blueprint-compiler \
   cmark-gfm \
   gettext \
