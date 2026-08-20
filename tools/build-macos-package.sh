@@ -20,6 +20,7 @@ brew install \
   cmark-gfm \
   gettext \
   gtk4 \
+  hicolor-icon-theme \
   json-glib \
   libadwaita \
   libgee \
@@ -32,6 +33,8 @@ brew install \
   vala
 
 BREW_PREFIX="$(brew --prefix)"
+ADWAITA_ICON_PREFIX="$(brew --prefix adwaita-icon-theme)"
+HICOLOR_ICON_PREFIX="$(brew --prefix hicolor-icon-theme)"
 export PKG_CONFIG_PATH="${BREW_PREFIX}/lib/pkgconfig:${BREW_PREFIX}/share/pkgconfig:${PKG_CONFIG_PATH:-}"
 export LDFLAGS="-L${BREW_PREFIX}/lib ${LDFLAGS:-}"
 export CPPFLAGS="-I${BREW_PREFIX}/include ${CPPFLAGS:-}"
@@ -55,8 +58,8 @@ cp -R data "${RESOURCES_PATH}/data"
 
 # 将完整 GNOME 图标主题随 .app 分发，使 non-GNOME macOS 环境也能按
 # 与 Linux 相同的 Adwaita symbolic 图标名解析所有 UI 图标。
-cp -R "${BREW_PREFIX}/share/icons/Adwaita" "${RESOURCES_PATH}/share/icons/"
-cp -R "${BREW_PREFIX}/share/icons/hicolor" "${RESOURCES_PATH}/share/icons/"
+cp -R "${ADWAITA_ICON_PREFIX}/share/icons/Adwaita" "${RESOURCES_PATH}/share/icons/"
+cp -R "${HICOLOR_ICON_PREFIX}/share/icons/hicolor" "${RESOURCES_PATH}/share/icons/"
 test -f "${RESOURCES_PATH}/share/icons/Adwaita/index.theme"
 test -f "${RESOURCES_PATH}/share/icons/hicolor/index.theme"
 test -n "$(find "${RESOURCES_PATH}/share/icons/Adwaita" -type f -name '*-symbolic.svg' -print -quit)"
