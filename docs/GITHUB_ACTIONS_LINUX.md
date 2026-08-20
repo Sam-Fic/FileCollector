@@ -15,7 +15,7 @@ Flatpak 打包采用官方维护的 Flatpak 构建动作，并使用与项目清
 
 ## 日常使用
 
-正常开发时直接推送到 `main` 或创建拉取请求即可。打开对应的 Actions 运行记录，在 **Artifacts** 区域下载 `filecollector-deb-amd64` 或 `filecollector-flatpak-x86_64`，可用于安装前测试。
+正常开发时直接推送到 `main` 或创建拉取请求即可。打开对应的 Actions 运行记录，在 **Artifacts** 区域下载 `filecollector-deb-amd64` 或 `filecollector-<版本>-x86_64.flatpak`，可用于安装前测试。
 
 准备发布版本时，先完成版本提交（包括 `meson.build` 与 AppStream 元数据），然后推送版本标签。无需再在本地打包或手动上传文件：工作流通过仓库提供的令牌创建或更新同标签 Release，并上传以下三个文件。
 

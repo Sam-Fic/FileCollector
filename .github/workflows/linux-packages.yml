@@ -85,7 +85,6 @@ jobs:
           bundle: filecollector-${{ steps.version.outputs.value }}.flatpak
           manifest-path: io.github.sam_fic.filecollector.json
           cache-key: flatpak-builder-${{ github.sha }}
-          artifact-name: filecollector-flatpak-x86_64
           arch: x86_64
           run-tests: true
           verbose: true
@@ -98,6 +97,10 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Extract release version
+        id: version
+        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
       - name: Download DEB package
         uses: actions/download-artifact@v4
         with:
@@ -107,7 +110,7 @@ jobs:
       - name: Download Flatpak bundle
         uses: actions/download-artifact@v4
         with:
-          name: filecollector-flatpak-x86_64
+          name: filecollector-${{ steps.version.outputs.value }}-x86_64.flatpak
           path: release-assets
 
       - name: Verify release assets
