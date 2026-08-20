@@ -62,7 +62,7 @@ public class GlobalSearchDialog : Adw.Dialog {
         search_box.append (search_entry);
 
         btn_case_sensitive = new Gtk.ToggleButton ();
-        btn_case_sensitive.icon_name = "xsi-text-case-symbolic";
+        btn_case_sensitive.icon_name = "text-editor-symbolic";
         btn_case_sensitive.tooltip_text = _("Case Sensitive");
         search_box.append (btn_case_sensitive);
 

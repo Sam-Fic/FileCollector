@@ -141,6 +141,30 @@ namespace Platform {
     }
 
     /**
+     * 便携包内完整 GTK 图标主题目录。Windows 使用 <root>/share/icons，
+     * macOS 使用 .app/Contents/Resources/share/icons；其中必须含 Adwaita/index.theme。
+     */
+    public static string? get_portable_icon_theme_dir () {
+#if WINDOWS
+        string exe = get_executable_path ();
+        if (exe == "." || exe.length == 0) return null;
+        var candidate = Path.build_filename (Path.get_dirname (exe), "..", "share", "icons");
+        if (FileUtils.test (Path.build_filename (candidate, "Adwaita", "index.theme"), FileTest.EXISTS))
+            return candidate;
+        return null;
+#elif MACOS
+        string exe = get_executable_path ();
+        if (exe == "." || exe.length == 0) return null;
+        var candidate = Path.build_filename (Path.get_dirname (exe), "..", "Resources", "share", "icons");
+        if (FileUtils.test (Path.build_filename (candidate, "Adwaita", "index.theme"), FileTest.EXISTS))
+            return candidate;
+        return null;
+#else
+        return null;
+#endif
+    }
+
+    /**
      * locale 目录查找 (供 main.vala 的 setup_i18n 使用)。
      * 返回绿色版场景下的 locale 目录候选, 找不到返回 null。
      */

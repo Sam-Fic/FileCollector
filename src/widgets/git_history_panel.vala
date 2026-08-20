@@ -98,7 +98,7 @@ public class GitHistoryPanel : GLib.Object {
         git_commit_store = new GLib.ListStore (typeof (GitCommit));
         git_selection = new Gtk.MultiSelection (git_commit_store);
         git_empty_page_widget = new Adw.StatusPage ();
-        git_empty_page_widget.icon_name = "xsi-git-symbolic";
+        git_empty_page_widget.icon_name = "emblem-synchronizing-symbolic";
 
         var factory = new Gtk.SignalListItemFactory ();
         factory.setup.connect (setup_git_list_item);

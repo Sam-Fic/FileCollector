@@ -198,6 +198,14 @@ public class FileCollectorApp : Adw.Application {
         if (display == null) return;
 
         var icon_theme = Gtk.IconTheme.get_for_display (display);
+
+        // Windows/macOS 便携包携带完整的 Adwaita 与 hicolor 主题。显式加入
+        // 搜索路径，避免 GTK 在非 GNOME 系统环境中只查宿主系统图标而丢失 symbolic 图标。
+        var portable_theme_dir = Platform.get_portable_icon_theme_dir ();
+        if (portable_theme_dir != null) {
+            icon_theme.add_search_path (portable_theme_dir);
+        }
+
         var paths = icon_theme.resource_path ?? new string[] {};
         if (paths.length > 0 && paths[0] == "/io/github/sam_fic/filecollector/icons") {
             return;

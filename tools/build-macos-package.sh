@@ -47,10 +47,19 @@ APP_PATH="${DIST_DIR}/${APP_NAME}.app"
 CONTENTS_PATH="${APP_PATH}/Contents"
 MACOS_PATH="${CONTENTS_PATH}/MacOS"
 RESOURCES_PATH="${CONTENTS_PATH}/Resources"
-mkdir -p "${MACOS_PATH}" "${RESOURCES_PATH}"
+mkdir -p "${MACOS_PATH}" "${RESOURCES_PATH}/share/icons"
 
 cp "${BUILD_DIR}/filecollector" "${MACOS_PATH}/${APP_NAME}"
 cp -R data "${RESOURCES_PATH}/data"
+
+# 将完整 GNOME 图标主题随 .app 分发，使 non-GNOME macOS 环境也能按
+# 与 Linux 相同的 Adwaita symbolic 图标名解析所有 UI 图标。
+cp -R "${BREW_PREFIX}/share/icons/Adwaita" "${RESOURCES_PATH}/share/icons/"
+cp -R "${BREW_PREFIX}/share/icons/hicolor" "${RESOURCES_PATH}/share/icons/"
+test -f "${RESOURCES_PATH}/share/icons/Adwaita/index.theme"
+test -f "${RESOURCES_PATH}/share/icons/hicolor/index.theme"
+test -n "$(find "${RESOURCES_PATH}/share/icons/Adwaita" -type f -name '*-symbolic.svg' -print -quit)"
+python3 tools/verify_gnome_icon_theme.py "${RESOURCES_PATH}/share/icons"
 if [[ -d "${INSTALL_ROOT}/usr/share/locale" ]]; then
   cp -R "${INSTALL_ROOT}/usr/share/locale" "${RESOURCES_PATH}/locale"
 fi

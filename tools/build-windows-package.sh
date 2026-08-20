@@ -67,8 +67,14 @@ cp /mingw64/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache \
   "${STAGING_DIR}/lib/gdk-pixbuf-2.0/2.10.0/"
 cp /mingw64/share/glib-2.0/schemas/gschemas.compiled \
   "${STAGING_DIR}/share/glib-2.0/schemas/"
+# 打包完整 GNOME 图标主题（含全部 symbolic SVG），而非仅应用图标。
+# 这样 Windows 与 GNOME 桌面使用同一套 Adwaita 图标名称和视觉语言。
 cp -r /mingw64/share/icons/Adwaita "${STAGING_DIR}/share/icons/"
 cp -r /mingw64/share/icons/hicolor "${STAGING_DIR}/share/icons/"
+test -f "${STAGING_DIR}/share/icons/Adwaita/index.theme"
+test -f "${STAGING_DIR}/share/icons/hicolor/index.theme"
+test -n "$(find "${STAGING_DIR}/share/icons/Adwaita" -type f -name '*-symbolic.svg' -print -quit)"
+python3 tools/verify_gnome_icon_theme.py "${STAGING_DIR}/share/icons"
 cp /mingw64/lib/gio/modules/libgiognutls.dll "${STAGING_DIR}/lib/gio/modules/"
 python3 tools/collect_dlls.py "${STAGING_DIR}/lib/gio/modules/libgiognutls.dll" "${STAGING_DIR}/bin"
 
