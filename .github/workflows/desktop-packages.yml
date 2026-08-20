@@ -1,4 +1,4 @@
-name: Linux packages
+name: Desktop packages
 
 on:
   push:
@@ -89,9 +89,76 @@ jobs:
           run-tests: true
           verbose: true
 
+  windows:
+    name: Build Windows portable ZIP (x64)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up MSYS2 MINGW64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-blueprint-compiler
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-gtk4
+            mingw-w64-x86_64-gtksourceview5
+            mingw-w64-x86_64-json-glib
+            mingw-w64-x86_64-libadwaita
+            mingw-w64-x86_64-libgee
+            mingw-w64-x86_64-libsecret
+            mingw-w64-x86_64-libsoup3
+            mingw-w64-x86_64-meson
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-pkgconf
+            unzip
+            zip
+
+      - name: Build and validate Windows portable package
+        run: |
+          chmod +x tools/build-windows-package.sh
+          tools/build-windows-package.sh
+
+      - name: Upload Windows portable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: filecollector-windows-x64
+          path: |
+            dist/filecollector-windows-*-x64.zip
+            dist/filecollector-windows-*-x64.zip.sha256
+          if-no-files-found: error
+
+  macos:
+    name: Build macOS app bundle (ARM64)
+    runs-on: macos-14
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Build and validate macOS application package
+        run: |
+          chmod +x tools/build-macos-package.sh
+          tools/build-macos-package.sh
+
+      - name: Upload macOS application package
+        uses: actions/upload-artifact@v4
+        with:
+          name: filecollector-macos-arm64
+          path: |
+            dist/filecollector-macos-*-arm64.zip
+            dist/filecollector-macos-*-arm64.zip.sha256
+          if-no-files-found: error
+
   publish:
-    name: Publish Linux packages
-    needs: [deb, flatpak]
+    name: Publish desktop packages
+    needs: [deb, flatpak, windows, macos]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     permissions:
@@ -113,12 +180,26 @@ jobs:
           name: filecollector-${{ steps.version.outputs.value }}-x86_64.flatpak
           path: release-assets
 
+      - name: Download Windows package
+        uses: actions/download-artifact@v4
+        with:
+          name: filecollector-windows-x64
+          path: release-assets
+
+      - name: Download macOS package
+        uses: actions/download-artifact@v4
+        with:
+          name: filecollector-macos-arm64
+          path: release-assets
+
       - name: Verify release assets
         run: |
           find release-assets -maxdepth 1 -type f -printf '%f\n' | sort
           test "$(find release-assets -maxdepth 1 -name '*.deb' -type f | wc -l)" -eq 1
           test "$(find release-assets -maxdepth 1 -name '*.flatpak' -type f | wc -l)" -eq 1
-          test "$(find release-assets -maxdepth 1 -name '*.deb.sha256' -type f | wc -l)" -eq 1
+          test "$(find release-assets -maxdepth 1 -name 'filecollector-windows-*-x64.zip' -type f | wc -l)" -eq 1
+          test "$(find release-assets -maxdepth 1 -name 'filecollector-macos-*-arm64.zip' -type f | wc -l)" -eq 1
+          test "$(find release-assets -maxdepth 1 -name '*.sha256' -type f | wc -l)" -eq 3
 
       - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v2

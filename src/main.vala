@@ -234,7 +234,7 @@ public class FileCollectorApp : Adw.Application {
         var appdir = GLib.Environment.get_variable ("APPDIR");
         if (!mo_found && appdir != null && appdir.length > 0) {
             var candidate = Path.build_filename (appdir, "usr", "share", "locale");
-            if (FileUtils.test (Path.build_filename (candidate, "en", "LC_MESSAGES", Config.GETTEXT_PACKAGE + ".mo"), FileTest.EXISTS)) {
+            if (FileUtils.test (Path.build_filename (candidate, "zh_CN", "LC_MESSAGES", Config.GETTEXT_PACKAGE + ".mo"), FileTest.EXISTS)) {
                 locale_dir = candidate;
                 mo_found = true;
             }
@@ -244,7 +244,7 @@ public class FileCollectorApp : Adw.Application {
         if (!mo_found) {
             var user_data = GLib.Environment.get_user_data_dir ();
             var candidate = Path.build_filename (user_data, "locale");
-            if (FileUtils.test (Path.build_filename (candidate, "en", "LC_MESSAGES", Config.GETTEXT_PACKAGE + ".mo"), FileTest.EXISTS)) {
+            if (FileUtils.test (Path.build_filename (candidate, "zh_CN", "LC_MESSAGES", Config.GETTEXT_PACKAGE + ".mo"), FileTest.EXISTS)) {
                 locale_dir = candidate;
                 mo_found = true;
             }
@@ -254,7 +254,7 @@ public class FileCollectorApp : Adw.Application {
         if (!mo_found) {
             foreach (unowned string data_dir in GLib.Environment.get_system_data_dirs ()) {
                 var candidate = Path.build_filename (data_dir, "locale");
-                if (FileUtils.test (Path.build_filename (candidate, "en", "LC_MESSAGES", Config.GETTEXT_PACKAGE + ".mo"), FileTest.EXISTS)) {
+                if (FileUtils.test (Path.build_filename (candidate, "zh_CN", "LC_MESSAGES", Config.GETTEXT_PACKAGE + ".mo"), FileTest.EXISTS)) {
                     locale_dir = candidate;
                     break;
                 }

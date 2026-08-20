@@ -6,6 +6,8 @@
 > ⚠️ **流程顺序约定**：本项目的发布流程**默认先打包 Flatpak，再打包 Windows 版本**。即：
 > 1. 先按 `BUILD_FLATPAK.md` 完成版本号更新、commit、tag、push、Flatpak 构建、bundle 导出、**创建 GitHub Release**；
 > 2. 本文档的流程**不新建 Release**，而是把 Windows 包**追加上传到最新一次 Release**（即 Flatpak 已创建的那个）。
+>
+> **自动化发布入口**：日常发布应优先使用 `.github/workflows/desktop-packages.yml`。推送 `vX.Y.Z` 标签后，该工作流会自动构建并发布 Linux、Windows 与 macOS 产物；本文件保留为本地排错和手动复现参考。
 
 ## 一、前置条件
 
@@ -59,7 +61,7 @@ pacman -S --needed \
 > 💡 **`ldd` 必须在 PATH 中**：`tools/collect_dlls.py` 通过 `ldd` 收集 DLL，`ldd` 位于 `/usr/bin`
 > （不属于 `/mingw64/bin`）。请始终在完整的 MINGW64 终端中执行本流程，确保 `/usr/bin` 在 PATH 中。
 
-> 💡 上述依赖与 `.github/workflows/windows.yml` 中的 `install:` 列表保持一致，本地构建与 CI 结果应一致。
+> 💡 上述依赖与 `.github/workflows/desktop-packages.yml` 的 Windows 作业中 `install:` 列表保持一致，本地构建与 CI 结果应一致。
 > 在 MSYS2 中请始终使用 **MINGW64** 终端（开始菜单 → `MSYS2 MINGW64`），不要使用默认的 MSYS/UCRT64 终端，否则会链接到错误的运行时。
 
 ## 二、版本发布完整流程
@@ -251,8 +253,7 @@ meson.build                                  ← Meson 构建配置（**唯一�
 src/config.vala.in                           ← 版本号模板，构建时从 meson.build 读取版本自动生成
 src/win32_dpapi_shim.c                       ← Windows DPAPI (CryptProtectData) 封装
 tools/collect_dlls.py                        ← 自动收集 MinGW 运行时 DLL 到 exe 目录
-.github/workflows/windows.yml                ← Windows CI 构建工作流（本地构建步骤与其一致）
-.github/workflows/release.yml                ← 多平台发布工作流（含 gh release 上传）
+.github/workflows/desktop-packages.yml       ← 统一桌面端 CI 与标签发布工作流（含 Windows 作业）
 ```
 
 > 在 `meson.build` 中，`host_machine.system() == 'windows'` 分支会：

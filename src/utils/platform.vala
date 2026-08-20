@@ -90,6 +90,20 @@ namespace Platform {
             dir = Path.get_dirname (dir);
         }
         return Path.build_filename (Environment.get_current_dir (), "data");
+#elif WINDOWS
+        string exe_dir = Path.get_dirname (get_executable_path ());
+        string portable_data = Path.build_filename (exe_dir, "..", "share", "data");
+        if (FileUtils.test (portable_data, FileTest.EXISTS)) {
+            return portable_data;
+        }
+        return Path.build_filename (Environment.get_current_dir (), "data");
+#elif MACOS
+        string exe_dir = Path.get_dirname (get_executable_path ());
+        string bundle_data = Path.build_filename (exe_dir, "..", "Resources", "data");
+        if (FileUtils.test (bundle_data, FileTest.EXISTS)) {
+            return bundle_data;
+        }
+        return Path.build_filename (Environment.get_current_dir (), "data");
 #else
         return Path.build_filename (Environment.get_current_dir (), "data");
 #endif
@@ -136,7 +150,7 @@ namespace Platform {
         var appdir = Environment.get_variable ("APPDIR");
         if (appdir != null && appdir.length > 0) {
             var candidate = Path.build_filename (appdir, "usr", "share", "locale");
-            if (FileUtils.test (Path.build_filename (candidate, "en", "LC_MESSAGES",
+            if (FileUtils.test (Path.build_filename (candidate, "zh_CN", "LC_MESSAGES",
                     "filecollector.mo"), FileTest.EXISTS))
                 return candidate;
         }
@@ -144,19 +158,30 @@ namespace Platform {
         try {
             string exe_link = FileUtils.read_link ("/proc/self/exe");
             var candidate = Path.build_filename (Path.get_dirname (exe_link), "locale");
-            if (FileUtils.test (Path.build_filename (candidate, "en", "LC_MESSAGES",
+            if (FileUtils.test (Path.build_filename (candidate, "zh_CN", "LC_MESSAGES",
                     "filecollector.mo"), FileTest.EXISTS))
                 return candidate;
         } catch (Error e) { }
         return null;
-#else
-        // Windows/macOS 便携版: 相对 exe 的 locale 子目录
+#elif WINDOWS
+        // Windows 便携包: <root>/bin/filecollector.exe 与 <root>/locale/ 并列。
         string exe = get_executable_path ();
         if (exe == "." || exe.length == 0) return null;
-        var candidate = Path.build_filename (Path.get_dirname (exe), "locale");
-        if (FileUtils.test (Path.build_filename (candidate, "en", "LC_MESSAGES",
+        var candidate = Path.build_filename (Path.get_dirname (exe), "..", "locale");
+        if (FileUtils.test (Path.build_filename (candidate, "zh_CN", "LC_MESSAGES",
                 "filecollector.mo"), FileTest.EXISTS))
             return candidate;
+        return null;
+#elif MACOS
+        // .app: <App>.app/Contents/MacOS/FileCollector，locale 位于 Resources。
+        string exe = get_executable_path ();
+        if (exe == "." || exe.length == 0) return null;
+        var candidate = Path.build_filename (Path.get_dirname (exe), "..", "Resources", "locale");
+        if (FileUtils.test (Path.build_filename (candidate, "zh_CN", "LC_MESSAGES",
+                "filecollector.mo"), FileTest.EXISTS))
+            return candidate;
+        return null;
+#else
         return null;
 #endif
     }
