@@ -430,9 +430,9 @@ public class MultiFormatExporter : GLib.Object {
         if (force_absolute || use_absolute || work_dir == null) {
             return file_path;
         }
-        var wd_path = work_dir.get_path () + "/";
-        if (file_path.has_prefix (wd_path)) {
-            return file_path.substring (wd_path.length);
+        var relative = work_dir.get_relative_path (File.new_for_path (file_path));
+        if (relative != null) {
+            return relative.replace ("\\", "/");
         }
         return file_path;
     }
