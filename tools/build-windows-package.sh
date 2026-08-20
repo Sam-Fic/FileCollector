@@ -19,9 +19,9 @@ fi
 
 export PYTHONUTF8=1
 export LANG=C.UTF-8
-export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
-export CPATH="/usr/local/include:${CPATH:-}"
-export LIBRARY_PATH="/usr/local/lib:${LIBRARY_PATH:-}"
+export PKG_CONFIG_PATH="/mingw64/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+export CPATH="/mingw64/include:${CPATH:-}"
+export LIBRARY_PATH="/mingw64/lib:${LIBRARY_PATH:-}"
 
 rm -rf "${BUILD_DIR}" "${STAGING_DIR}" "${DIST_DIR}" "${INSTALL_ROOT}" "${CMARK_SOURCE}" "${CMARK_BUILD}"
 mkdir -p "${DIST_DIR}"
@@ -32,7 +32,7 @@ tar -xzf "${CMARK_ARCHIVE}" -C /tmp
 
 cmake -S "${CMARK_SOURCE}" -B "${CMARK_BUILD}" \
   -G Ninja \
-  -DCMAKE_INSTALL_PREFIX=/usr/local \
+  -DCMAKE_INSTALL_PREFIX=/mingw64 \
   -DCMARK_TESTS=OFF \
   -DCMARK_STATIC=ON \
   -DCMARK_SHARED=OFF \

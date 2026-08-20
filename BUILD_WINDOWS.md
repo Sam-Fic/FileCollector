@@ -98,12 +98,12 @@ Windows 环境下没有现成的 cmark-gfm 包，必须从源码编译（与 `wi
 curl -L -o /tmp/cmark-gfm.tar.gz https://github.com/github/cmark-gfm/archive/refs/tags/0.29.0.gfm.13.tar.gz
 tar -xzf /tmp/cmark-gfm.tar.gz -C /tmp
 cmake -S /tmp/cmark-gfm-0.29.0.gfm.13 -B /tmp/cmark-gfm-build \
-  -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local \
+  -G Ninja -DCMAKE_INSTALL_PREFIX=/mingw64 \
   -DCMARK_TESTS=OFF -DCMARK_STATIC=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 cmake --build /tmp/cmark-gfm-build
 cmake --install /tmp/cmark-gfm-build
 # 验证：应输出版本号 0.29.0.gfm.13
-PKG_CONFIG_PATH=/usr/local/lib/pkgconfig pkg-config --modversion libcmark-gfm
+PKG_CONFIG_PATH=/mingw64/lib/pkgconfig pkg-config --modversion libcmark-gfm
 ```
 
 > 💡 新版本 CMake 已移除对 `cmake_minimum_required` 低于 3.5 的兼容，cmark-gfm 的 `CMakeLists.txt`
@@ -115,7 +115,7 @@ PKG_CONFIG_PATH=/usr/local/lib/pkgconfig pkg-config --modversion libcmark-gfm
 
 ### 2.3 使用 Meson 构建 Windows 二进制
 
-cmark-gfm 安装到 `/usr/local`（头文件 `/usr/local/include`、静态库 `/usr/local/lib`、`.pc` 在 `/usr/local/lib/pkgconfig`）。
+cmark-gfm 安装到 `/mingw64`（头文件 `/mingw64/include`、静态库 `/mingw64/lib`、`.pc` 在 `/mingw64/lib/pkgconfig`）。
 Meson 的 `cc.find_library('cmark-gfm')` 与 `cc.has_header('cmark-gfm.h')` 需要把这些路径加入搜索范围，否则 configure 阶段报找不到 cmark：
 
 ```bash
@@ -123,10 +123,10 @@ Meson 的 `cc.find_library('cmark-gfm')` 与 `cc.has_header('cmark-gfm.h')` 需�
 export PYTHONUTF8=1
 export LANG=C.UTF-8
 
-# 让编译器/链接器/pkg-config 找到 /usr/local 下自行编译安装的 cmark-gfm
-export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
-export CPATH=/usr/local/include:$CPATH
-export LIBRARY_PATH=/usr/local/lib:$LIBRARY_PATH
+# 让编译器/链接器/pkg-config 找到 /mingw64 下自行编译安装的 cmark-gfm
+export PKG_CONFIG_PATH=/mingw64/lib/pkgconfig:$PKG_CONFIG_PATH
+export CPATH=/mingw64/include:$CPATH
+export LIBRARY_PATH=/mingw64/lib:$LIBRARY_PATH
 
 # 清理旧构建目录，避免缓存冲突
 rm -rf build
@@ -139,7 +139,7 @@ meson compile -C build
 
 构建产物为 `build/filecollector.exe`。
 
-> 💡 若 configure 阶段找不到蓝图编译器或 cmark 头文件，请确认 `blueprint-compiler` 已安装且 cmark-gfm 2.2 节已正确安装到 `/usr/local`。
+> 💡 若 configure 阶段找不到蓝图编译器或 cmark 头文件，请确认 `blueprint-compiler` 已安装且 cmark-gfm 2.2 节已正确安装到 `/mingw64`。
 
 ### 2.4 打包便携 zip（含 DLL 与资源）
 
@@ -313,7 +313,7 @@ GTK4 的 Win32 后端只做整数缩放（150% DPI 被 `floor` 成 1×）且忽�
 Run-time dependency cmark-gfm found: NO
 ```
 
-**解决**：确认 2.2 节已从源码编译并 `cmake --install` 到 `/usr/local`，且 `pkgconf` 能找到 `cmark-gfm.pc`。可在 MINGW64 终端执行 `pkg-config --modversion cmark-gfm` 验证。
+**解决**：确认 2.2 节已从源码编译并 `cmake --install` 到 `/mingw64`，且 `pkgconf` 能找到 `cmark-gfm.pc`。可在 MINGW64 终端执行 `pkg-config --modversion cmark-gfm` 验证。
 
 ### 5.2 编译失败：dpapi.h / windows.h 宏未定义
 

@@ -43,6 +43,9 @@ elif host_machine.system() == 'darwin'
   platform_vala_args = ['-D', 'MACOS']
   platform_link_args = ['-framework', 'Security']
   libsecret_dep = dependency('libsecret-1', required: false)
+  # GTK 的 Vala 绑定将泛型回调生成 void* 参数；生成 C 的 GObject* 参数在 ABI 上兼容，
+  # 但新版 Apple Clang 将该类函数指针转换默认视为错误。保留诊断但不阻断构建。
+  add_project_arguments('-Wno-error=incompatible-function-pointer-types', language: 'c')
 else
   # Linux (及其他类 Unix)
   platform_vala_args = ['-D', 'LINUX', '--pkg', 'libsecret-1']
