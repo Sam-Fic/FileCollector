@@ -1,0 +1,127 @@
+name: Linux packages
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deb:
+    name: Build DEB (amd64)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Build and validate DEB package
+        run: |
+          docker run --rm \
+            --volume "${GITHUB_WORKSPACE}:/workspace" \
+            --workdir /workspace \
+            --env DEBIAN_FRONTEND=noninteractive \
+            ubuntu:26.04 \
+            bash -euc '
+              apt-get update
+              apt-get install -y --no-install-recommends \
+                build-essential \
+                ca-certificates \
+                dpkg-dev \
+                gettext \
+                libadwaita-1-dev \
+                libcmark-gfm-dev \
+                libcmark-gfm-extensions-dev \
+                libgee-0.8-dev \
+                libgtk-4-dev \
+                libgtksourceview-5-dev \
+                libjson-glib-dev \
+                libsecret-1-dev \
+                libsoup-3.0-dev \
+                meson \
+                ninja-build \
+                pkg-config \
+                python3 \
+                valac \
+                blueprint-compiler
+              chmod +x tools/build-deb.sh
+              tools/build-deb.sh
+            '
+
+      - name: Upload DEB package
+        uses: actions/upload-artifact@v4
+        with:
+          name: filecollector-deb-amd64
+          path: |
+            dist/*.deb
+            dist/*.deb.sha256
+          if-no-files-found: error
+
+  flatpak:
+    name: Build Flatpak (x86_64)
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
+      options: --privileged
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Read application version
+        id: version
+        shell: bash
+        run: |
+          version="$(sed -n "s/^[[:space:]]*version:[[:space:]]*'\([^']*\)'.*/\1/p" meson.build | head -n 1)"
+          test -n "${version}"
+          echo "value=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Flatpak bundle
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: filecollector-${{ steps.version.outputs.value }}.flatpak
+          manifest-path: io.github.sam_fic.filecollector.json
+          cache-key: flatpak-builder-${{ github.sha }}
+          artifact-name: filecollector-flatpak-x86_64
+          arch: x86_64
+          run-tests: true
+          verbose: true
+
+  publish:
+    name: Publish Linux packages
+    needs: [deb, flatpak]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download DEB package
+        uses: actions/download-artifact@v4
+        with:
+          name: filecollector-deb-amd64
+          path: release-assets
+
+      - name: Download Flatpak bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: filecollector-flatpak-x86_64
+          path: release-assets
+
+      - name: Verify release assets
+        run: |
+          find release-assets -maxdepth 1 -type f -printf '%f\n' | sort
+          test "$(find release-assets -maxdepth 1 -name '*.deb' -type f | wc -l)" -eq 1
+          test "$(find release-assets -maxdepth 1 -name '*.flatpak' -type f | wc -l)" -eq 1
+          test "$(find release-assets -maxdepth 1 -name '*.deb.sha256' -type f | wc -l)" -eq 1
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: FileCollector ${{ github.ref_name }}
+          generate_release_notes: true
+          files: release-assets/*
+          fail_on_unmatched_files: true
