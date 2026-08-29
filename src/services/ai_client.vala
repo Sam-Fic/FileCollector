@@ -533,7 +533,7 @@ public class AIClient : GLib.Object {
     // 可被窗口关闭或用户点击"停止"时通过 cancellable 即时打断, 绝不卡死 UI.
     public async string chat_async (string json_payload, GLib.Cancellable? cancellable) throws GLib.Error {
         string url = base_url.has_suffix ("/") ? base_url + "chat/completions"
-                                              : base_url + "/chat/completions";
+                                               : base_url + "/chat/completions";
         var msg = new Soup.Message ("POST", url);
         msg.request_headers.append ("Authorization", "Bearer " + api_key);
         msg.request_headers.append ("Content-Type", "application/json");
@@ -551,6 +551,167 @@ public class AIClient : GLib.Object {
         }
 
         return EncodingHelper.bytes_to_string_safe (bytes.get_data (), bytes.length);
+    }
+
+    // 流式增量回调: content_delta 为本次新增的文本片段.
+    // 回调在调用 chat_stream 的线程 (worker) 中触发, 消费方需自行切换到主线程.
+    public delegate void StreamChunkCallback (string content_delta);
+
+    // 流式 chat: SSE 逐块读取 OpenAI 兼容流式响应, 边收边回调 on_delta.
+    // 与 chat() 一样在 worker 线程中同步执行, 返回拼装完成的最终结果
+    // (content + 按流式 index 重建的 tool_calls), 上层逻辑无需区分流式/非流式.
+    public AIChatResult chat_stream (Gee.ArrayList<Json.Node> messages, Json.Node? tools_node,
+            GLib.Cancellable? cancellable, StreamChunkCallback? on_delta)
+            throws AIClientError {
+        if (base_url == "")
+            throw new AIClientError.CONFIG (_("API Base URL not configured. Please fill it in Settings → AI Settings."));
+        if (api_key == "")
+            throw new AIClientError.CONFIG (_("API Key not configured. Please fill it in Settings → AI Settings."));
+        if (model == "")
+            throw new AIClientError.CONFIG (_("Model Name not configured. Please fill it in Settings → AI Settings."));
+
+        var payload = new Json.Object ();
+        payload.set_string_member ("model", model);
+        payload.set_boolean_member ("stream", true);
+
+        var msgs_arr = new Json.Array ();
+        foreach (var m in messages) msgs_arr.add_element (m);
+        payload.set_member ("messages", AI.SchemaHelper.arr_to_node (msgs_arr));
+
+        if (tools_node != null) {
+            payload.set_member ("tools", tools_node);
+            payload.set_string_member ("tool_choice", "auto");
+        }
+
+        var gen = new Json.Generator ();
+        gen.set_root (AI.SchemaHelper.obj_to_node (payload));
+        gen.pretty = false;
+        size_t body_len = 0;
+        string body = gen.to_data (out body_len);
+
+        string url = base_url.has_suffix ("/") ? base_url + "chat/completions"
+                                               : base_url + "/chat/completions";
+
+        var msg = new Soup.Message ("POST", url);
+        uint8[] body_buf = new uint8[body_len];
+        GLib.Memory.copy (body_buf, body, body_len);
+        msg.set_request_body_from_bytes ("application/json", new Bytes (body_buf));
+        msg.request_headers.append ("Content-Type", "application/json");
+        msg.request_headers.append ("Authorization", "Bearer " + api_key);
+
+        GLib.InputStream instr;
+        try {
+            // 同步发送, 拿到响应流后逐行读取 SSE (worker 线程中执行, 不阻塞主线程)
+            instr = session.send (msg, cancellable);
+        } catch (Error e) {
+            throw new AIClientError.NETWORK (_("Network error: ") + e.message);
+        }
+
+        uint status = msg.status_code;
+        if (status >= 400) {
+            // 错误响应是普通 JSON body, 全部读出用于报错
+            string detail = "";
+            try {
+                uint8[] err_buf = new uint8[4096];
+                ssize_t n = instr.read (err_buf, cancellable);
+                if (n > 0) {
+                    string raw_str = EncodingHelper.bytes_to_string_safe (err_buf, (size_t) n);
+                    detail = raw_str.substring (0, (int) int64.min (n, 500));
+                }
+            } catch (Error e) { /* 忽略读取错误, 报状态码即可 */ }
+            try { instr.close (cancellable); } catch (Error e) { /* 忽略 */ }
+            throw new AIClientError.HTTP (
+                _("HTTP %u %s: %s").printf (status, Soup.status_get_phrase (status), detail).strip ());
+        }
+
+        var content_sb = new StringBuilder ();
+        // 流式 tool_calls 按 index 分块到达, 用 TreeMap 保持 index 升序
+        var tc_ids = new Gee.TreeMap<int, string> ();
+        var tc_names = new Gee.TreeMap<int, string> ();
+        var tc_args = new Gee.TreeMap<int, string> ();
+
+        var data_stream = new GLib.DataInputStream (instr);
+        // Vala 不允许从带 finally 的 try/catch 中 throw, 先记录错误再统一转换抛出
+        string? stream_error = null;
+        try {
+            size_t line_len = 0;
+            string? line;
+            while ((line = data_stream.read_line (out line_len, cancellable)) != null) {
+                if (cancellable != null && cancellable.is_cancelled ()) {
+                    stream_error = _("AI request was cancelled by user");
+                    break;
+                }
+                if (line.length < 6 || !line.has_prefix ("data:")) continue;
+                string data = line.substring (5).strip ();
+                if (data == "[DONE]") break;
+
+                var parser = new Json.Parser ();
+                try {
+                    parser.load_from_data (data);
+                } catch (Error e) {
+                    continue; // 跳过无法解析的心跳/注释行
+                }
+                var root = parser.get_root ();
+                if (root == null || root.get_node_type () != Json.NodeType.OBJECT) continue;
+                var obj = root.get_object ();
+                var choices = obj.has_member ("choices") ? obj.get_array_member ("choices") : null;
+                if (choices == null || choices.get_length () == 0) continue;
+                var choice = choices.get_object_element (0);
+                if (choice == null) continue;
+                var delta = choice.has_member ("delta") ? choice.get_object_member ("delta") : null;
+                if (delta == null) continue;
+
+                // 文本增量
+                string piece = delta.get_string_member_with_default ("content", "");
+                if (piece != null && piece.length > 0) {
+                    content_sb.append (piece);
+                    if (on_delta != null) on_delta (piece);
+                }
+
+                // 工具调用增量: 按 index 拼接 id/name/arguments
+                var tcs = delta.has_member ("tool_calls") ? delta.get_array_member ("tool_calls") : null;
+                if (tcs != null) {
+                    foreach (var el in tcs.get_elements ()) {
+                        if (el.get_node_type () != Json.NodeType.OBJECT) continue;
+                        var tc = el.get_object ();
+                        int idx = (int) tc.get_int_member_with_default ("index", 0);
+                        string? id = tc.get_string_member_with_default ("id", "");
+                        if (id != null && id.length > 0) tc_ids[idx] = id;
+                        var fn = tc.has_member ("function") ? tc.get_object_member ("function") : null;
+                        if (fn == null) continue;
+                        string name = fn.get_string_member_with_default ("name", "");
+                        if (name != null && name.length > 0) {
+                            tc_names[idx] = (tc_names.has_key (idx) ? tc_names[idx] : "") + name;
+                        }
+                        string args_piece = fn.get_string_member_with_default ("arguments", "");
+                        if (args_piece != null && args_piece.length > 0) {
+                            tc_args[idx] = (tc_args.has_key (idx) ? tc_args[idx] : "") + args_piece;
+                        }
+                    }
+                }
+            }
+        } catch (Error e) {
+            stream_error = e.message;
+        }
+        try {
+            data_stream.close ();
+        } catch (Error e) { /* 关闭失败不影响已读数据 */ }
+        if (stream_error != null) {
+            if (cancellable != null && cancellable.is_cancelled ()) {
+                throw new AIClientError.NETWORK (_("AI request was cancelled by user"));
+            }
+            throw new AIClientError.NETWORK (_("Network error: ") + stream_error);
+        }
+
+        var result = new AIChatResult (content_sb.str);
+        foreach (var idx in tc_ids.keys) {
+            string id = tc_ids[idx];
+            if (id.length == 0) id = "call_%d".printf (idx);
+            string name = tc_names.has_key (idx) ? tc_names[idx] : "";
+            string args = tc_args.has_key (idx) ? tc_args[idx] : "";
+            result.tool_calls.add (new AIToolCall (id, name, args));
+        }
+        return result;
     }
 
     // 公开为 public 仅为单元测试可访问 (纯函数, 无内部状态泄漏风险)

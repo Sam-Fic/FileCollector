@@ -50,6 +50,7 @@ public class AIPanel : GLib.Object {
     private Gtk.Button btn_clear;
     private Gtk.Button btn_scroll_bottom;
     private Gtk.Label lbl_status;
+    private Gtk.Spinner status_spinner;
 
     private Gtk.Frame completion_frame;
     private Gtk.ListBox completion_list;
@@ -343,6 +344,10 @@ public class AIPanel : GLib.Object {
         status_row.margin_start = 12;
         status_row.margin_end = 12;
         status_row.margin_bottom = 8;
+        status_spinner = new Gtk.Spinner ();
+        status_spinner.visible = false;
+        status_spinner.valign = Gtk.Align.CENTER;
+        status_row.append (status_spinner);
         lbl_status = new Gtk.Label (null);
         lbl_status.halign = Gtk.Align.START;
         lbl_status.add_css_class ("dim-label");
@@ -753,7 +758,21 @@ public class AIPanel : GLib.Object {
             request_cancellable.cancel ();
         }
         lbl_status.set_text (_("Stopped"));
+        // 停止时保留已流式生成的部分回复 (主流聊天应用行为):
+        // set_busy(false) 会移除流式气泡, 先取出文本, 再作为正式 assistant
+        // 消息渲染并写入历史, 保证上下文连贯
+        string? partial = null;
+        if (streaming_label != null) {
+            string text = streaming_label.label;
+            if (text.strip ().length > 0) partial = text;
+        }
         set_busy (false);
+        if (partial != null) {
+            messages_lock.lock ();
+            messages.add (build_chat_node ("assistant", partial));
+            messages_lock.unlock ();
+            render_assistant (partial);
+        }
     }
 
     private void on_input_changed () {
@@ -889,6 +908,7 @@ public class AIPanel : GLib.Object {
     }
 
     private void on_clear_chat () {
+        end_streaming ();
         UIHelpers.clear_container (chat_container);
         messages_lock.lock ();
         messages.clear ();
@@ -1029,7 +1049,15 @@ public class AIPanel : GLib.Object {
             return;
         }
         try {
-            var result = local.chat (msgs, build_full_tool_schema (), request_cancellable);
+            var result = local.chat_stream (msgs, build_full_tool_schema (), request_cancellable, (piece) => {
+                // 回调在 worker 线程触发, 切回主线程更新流式气泡
+                GLib.Idle.add (() => {
+                    if (!panel_destroyed && !stop_requested) {
+                        append_streaming_text (piece);
+                    }
+                    return GLib.Source.REMOVE;
+                });
+            });
             if (stop_requested || panel_destroyed) {
                 if (!panel_destroyed) {
                     GLib.Idle.add (() => { set_busy (false); return GLib.Source.REMOVE; });
@@ -1048,6 +1076,53 @@ public class AIPanel : GLib.Object {
         }
     }
 
+    // ─── 流式渲染 ────────────────────────────────────────────────────────
+
+    private Gtk.Box? streaming_box = null;
+    private Gtk.Label? streaming_label = null;
+
+    private void begin_streaming () {
+        end_streaming ();
+        // 样式与 build_bubble 的 assistant 气泡一致; 内容用轻量 Label 增量更新,
+        // 完成后由 rerender 重建为正式的 MarkdownView 气泡
+        var bubble = new Gtk.Box (Gtk.Orientation.VERTICAL, 4);
+        bubble.add_css_class ("ai-bubble");
+        bubble.add_css_class ("ai-bubble-assistant");
+        bubble.hexpand = true;
+        bubble.halign = Gtk.Align.FILL;
+        var lbl = new Gtk.Label ("");
+        lbl.xalign = 0;
+        lbl.wrap = true;
+        lbl.wrap_mode = Pango.WrapMode.WORD_CHAR;
+        lbl.selectable = true;
+        lbl.add_css_class ("ai-bubble-content");
+        bubble.append (lbl);
+
+        var outer = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
+        outer.append (bubble);
+        streaming_box = outer;
+        streaming_label = lbl;
+        chat_container.append (outer);
+    }
+
+    private void append_streaming_text (string piece) {
+        if (streaming_box == null) begin_streaming ();
+        if (streaming_label == null) return;
+        streaming_label.label = streaming_label.label + sanitize_utf8 (piece);
+        if (auto_scroll) scroll_to_bottom (false);
+    }
+
+    private void end_streaming () {
+        if (streaming_box != null) {
+            // rerender 重建后气泡已不在树上, 需检查 parent 避免 remove 警告
+            if (streaming_box.get_parent () == chat_container) {
+                chat_container.remove (streaming_box);
+            }
+            streaming_box = null;
+            streaming_label = null;
+        }
+    }
+
     private async void on_api_finished (AIChatResult result) {
         // 网络响应目前在 worker 线程; 先通过 yield 切换到主线程,
         // 后续所有 GTK/状态操作都在主线程执行, 避免跨线程访问 GTK4 widget.
@@ -1063,6 +1138,9 @@ public class AIPanel : GLib.Object {
             if (!panel_destroyed) set_busy (false);
             return;
         }
+
+        // 流式结束: 先移除临时流式气泡, 后续 render_assistant 重建正式气泡
+        end_streaming ();
 
         // 数据: 构建 assistant 消息并写入历史
         var assistant_msg = new Json.Object ();
@@ -1186,15 +1264,20 @@ public class AIPanel : GLib.Object {
             btn_send.remove_css_class ("suggested-action");
             btn_send.add_css_class ("destructive-action");
             lbl_status.set_text (_("Thinking..."));
+            status_spinner.visible = true;
+            status_spinner.spinning = true;
         } else {
             lbl_send.set_text (_("Send"));
             send_icon.icon_name = "mail-send-symbolic";
             btn_send.remove_css_class ("destructive-action");
             btn_send.add_css_class ("suggested-action");
             update_status ();
+            status_spinner.spinning = false;
+            status_spinner.visible = false;
+            end_streaming ();
         }
-        input_view.set_editable (!b);
-        input_view.set_cursor_visible (!b);
+        // 输入框保持可编辑: 忙碌时允许用户预输入下一条消息 (主流聊天应用行为),
+        // 发送按钮此时是 Stop, 不会误触发发送
         btn_clear.set_sensitive (!b);
     }
 
