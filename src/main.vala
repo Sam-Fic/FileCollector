@@ -216,18 +216,77 @@ public class FileCollectorApp : Adw.Application {
             icon_theme.add_search_path (portable_theme_dir);
         }
 
-        var paths = icon_theme.resource_path ?? new string[] {};
-        if (paths.length > 0 && paths[0] == "/io/github/sam_fic/filecollector/icons") {
-            return;
+        // xsi-* 图标 (XApp Symbolic Icons, 不在 Adwaita 中):
+        // 实测 GTK4 的 IconTheme 不会解析 resource path 中的主题——即使打包了
+        // index.theme + 图标 (结构与文件系统完全一致), lookup 仍返回 image-missing;
+        // 而相同结构经文件系统 search path 可以正常解析。因此未安装 (deb/flatpak
+        // 之外, 如 builddir 直接运行) 时, 把内置图标解包到应用缓存目录再注册,
+        // 对 Button / StatusPage 等 IconTheme 消费方统一生效。
+        if (!icon_theme.has_icon ("xsi-git-symbolic")) {
+            string? local_icons_dir = ensure_local_icons ();
+            if (local_icons_dir != null) {
+                icon_theme.add_search_path (local_icons_dir);
+            }
+        }
+    }
+
+    // 把 GResource 内置的 hicolor 最小主题解包到 ~/.cache/<app_id>/icons/,
+    // 返回该 icons 目录 (作为 IconTheme search path); 失败返回 null。
+    private string? ensure_local_icons () {
+        string theme_dir = GLib.Path.build_filename (
+            GLib.Environment.get_user_cache_dir (), application_id, "icons", "hicolor");
+        string actions_dir = GLib.Path.build_filename (theme_dir, "scalable", "actions");
+        string index_path = GLib.Path.build_filename (theme_dir, "index.theme");
+
+        try {
+            GLib.DirUtils.create_with_parents (actions_dir, 0755);
+
+            if (!GLib.FileUtils.test (index_path, GLib.FileTest.EXISTS)) {
+                GLib.FileUtils.set_contents (index_path, MINIMAL_HICOLOR_INDEX);
+            }
+            copy_resource_to (
+                "/io/github/sam_fic/filecollector/icons/hicolor/scalable/actions/xsi-git-symbolic.svg",
+                GLib.Path.build_filename (actions_dir, "xsi-git-symbolic.svg"));
+            copy_resource_to (
+                "/io/github/sam_fic/filecollector/icons/hicolor/scalable/actions/xsi-text-case-symbolic.svg",
+                GLib.Path.build_filename (actions_dir, "xsi-text-case-symbolic.svg"));
+        } catch (Error e) {
+            GLib.warning ("Failed to unpack local icons: %s", e.message);
+            return null;
         }
 
-        var new_paths = new string[paths.length + 1];
-        new_paths[0] = "/io/github/sam_fic/filecollector/icons";
-        for (int i = 0; i < paths.length; i++) {
-            new_paths[i + 1] = paths[i];
-        }
-        icon_theme.set_resource_path (new_paths);
+        // .../icons (hicolor 的父目录), 与 IconTheme search path 的主题目录约定一致
+        return GLib.Path.get_dirname (theme_dir);
     }
+
+    private void copy_resource_to (string resource_path, string dest_path) throws Error {
+        if (GLib.FileUtils.test (dest_path, GLib.FileTest.EXISTS)) return;
+        // 图标是 UTF-8 文本 SVG, 直接按字符串解包
+        var instr = GLib.resources_open_stream (resource_path, GLib.ResourceLookupFlags.NONE);
+        var sb = new StringBuilder ();
+        uint8[] tmp = new uint8[4096];
+        while (true) {
+            ssize_t n = instr.read (tmp);
+            if (n <= 0) break;
+            sb.append_len ((string) tmp, (ssize_t) n);
+        }
+        GLib.FileUtils.set_contents (dest_path, sb.str);
+    }
+
+    // 最小 hicolor index.theme: GTK 按 index.theme 声明的 Directories 扫描图标,
+    // 只列出本应用实际用到的 scalable/actions 子目录即可 (与系统 hicolor 主题合并)
+    private const string MINIMAL_HICOLOR_INDEX = """[Icon Theme]
+Name=Hicolor
+Comment=Fallback icon theme
+Directories=scalable/actions
+
+[scalable/actions]
+Context=Actions
+Type=Scalable
+Size=16
+MinSize=8
+MaxSize=512
+""";
 
     private static void setup_i18n (string locale_dir) {
         Intl.bindtextdomain (Config.GETTEXT_PACKAGE, locale_dir);

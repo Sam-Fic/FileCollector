@@ -5,5 +5,11 @@
     <file>style.css</file>
     <file alias="icons/io.github.sam_fic.filecollector.svg">io.github.sam_fic.filecollector.svg</file>
     <file alias="icons/scalable/apps/io.github.sam_fic.filecollector.svg">io.github.sam_fic.filecollector.svg</file>
+    <!-- xsi-* 是 XApp Symbolic Icons (不在 Adwaita 图标库中)。
+         打包进 GResource 并保持 hicolor/actions 目录结构, 配合 main.vala
+         把 /io/github/sam_fic/filecollector/icons 加入 IconTheme 搜索路径,
+         保证未安装到系统 (直接从 builddir 运行) 时也能加载。 -->
+    <file alias="icons/hicolor/scalable/actions/xsi-git-symbolic.svg" preprocess="xml-stripblanks">icons/hicolor/scalable/actions/xsi-git-symbolic.svg</file>
+    <file alias="icons/hicolor/scalable/actions/xsi-text-case-symbolic.svg" preprocess="xml-stripblanks">icons/hicolor/scalable/actions/xsi-text-case-symbolic.svg</file>
   </gresource>
 </gresources>
