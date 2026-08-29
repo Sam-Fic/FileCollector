@@ -2526,3 +2526,34 @@ msgstr "AI 驱动提示词"
 
 #~ msgid "Set Interface Language"
 #~ msgstr "设置界面语言"
+
+#: src/widgets/preferences_dialog.vala:104
+msgid "Model Profile"
+msgstr "模型配置方案"
+
+#: src/widgets/preferences_dialog.vala:106
+msgid ""
+"Switch between saved model profiles.\n"
+"Profiles are stored in: %s\n"
+"Edit the file to pre-configure multiple models."
+msgstr ""
+"在已保存的模型配置方案之间切换。\n"
+"方案存储于: %s\n"
+"可直接编辑该文件预置多个模型。"
+
+#: src/widgets/preferences_dialog.vala:110
+msgid "Create a new profile from the current settings"
+msgstr "以当前设置新建一个配置方案"
+
+#: src/widgets/preferences_dialog.vala:113
+msgid "Delete the selected profile"
+msgstr "删除当前选中的配置方案"
+
+#: src/widgets/preferences_dialog.vala:545 src/widgets/preferences_dialog.vala:548
+#, c-format
+msgid "Profile %d"
+msgstr "配置方案 %d"
+
+#: src/widgets/preferences_dialog.vala:569
+msgid "At least one profile must be kept."
+msgstr "至少需要保留一个配置方案。"

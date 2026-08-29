@@ -19,6 +19,7 @@ This document provides a detailed walkthrough of the FileCollector graphical int
   - [4. Save and Open Projects](#4-save-and-open-projects)
   - [5. Edit Inserted Text Items](#5-edit-inserted-text-items)
   - [6. File Search](#6-file-search)
+  - [7. AI Multi-Model Profiles and the Config File](#7-ai-multi-model-profiles-and-the-config-file)
 
 ## Workflow
 
@@ -114,3 +115,94 @@ Double-click any text item that has been inserted into the output organization l
 After selecting a working directory, use the search box at the top of the left-side file explorer to quickly find files by name. This is especially useful in large projects, allowing you to locate target files without manually expanding multiple levels of directories.
 
 ![Tip 6: File Search](./images/tip06-search.png)
+
+### 7. AI Multi-Model Profiles and the Config File
+
+Both **AI Assistant (Sidebar)** and **Vision-Language Model (VLM)** in "Settings → AI Settings" support **Model Profiles**: you can pre-configure multiple model setups and switch between them instantly from a dropdown menu.
+
+**Config file location**: `~/.config/filecollector/settings.json`
+
+#### Config file format
+
+Sidebar AI profiles live in the top-level `ai_models` array of `settings.json`, with `ai.active_profile` selecting the default; VLM profiles live in the `vlm_models` array, with `multimodal_ai.active_profile` selecting the default:
+
+```json
+{
+  "ai": {
+    "enabled": true,
+    "active_profile": "DeepSeek",
+    "base_url": "https://api.deepseek.com/v1",
+    "model": "deepseek-chat",
+    "timeout": 60.0,
+    "system_prompt_override": ""
+  },
+  "ai_models": [
+    {
+      "name": "DeepSeek",
+      "base_url": "https://api.deepseek.com/v1",
+      "api_key": "",
+      "model": "deepseek-chat",
+      "timeout": 60.0,
+      "system_prompt_override": ""
+    },
+    {
+      "name": "Ollama Local",
+      "base_url": "http://localhost:11434/v1",
+      "api_key": "ollama",
+      "model": "qwen2.5:14b",
+      "timeout": 120.0,
+      "system_prompt_override": "Keep answers concise"
+    }
+  ],
+  "vlm_models": [
+    {
+      "name": "GPT-4o Vision",
+      "provider": "openai",
+      "base_url": "https://api.openai.com/v1",
+      "api_key": "",
+      "model": "gpt-4o",
+      "paddleocr_token": "",
+      "timeout": 120.0,
+      "max_concurrency": 3,
+      "system_prompt_override": ""
+    },
+    {
+      "name": "PaddleOCR Cloud",
+      "provider": "paddleocr",
+      "paddleocr_token": "",
+      "timeout": 120.0,
+      "max_concurrency": 3
+    }
+  ]
+}
+```
+
+#### Fields (each entry of the `ai_models` array)
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | string | Yes | Unique profile name, used for the dropdown and addressing |
+| `base_url` | string | Yes | OpenAI-compatible API endpoint, e.g. `https://api.openai.com/v1` |
+| `model` | string | Yes | Model name, e.g. `gpt-4o-mini` |
+| `api_key` | string | No | API key. May be written in plaintext; it is automatically migrated to the system keyring and cleared from the file on load |
+| `timeout` | number | No | Request timeout in seconds, default 60 |
+| `system_prompt_override` | string | No | Overrides the default system prompt |
+
+#### Fields (each entry of the `vlm_models` array)
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | string | Yes | Unique profile name |
+| `provider` | string | No | `openai` (OpenAI-compatible, default) or `paddleocr` (Baidu PaddleOCR Cloud) |
+| `base_url` | string | No | OpenAI-compatible endpoint (used when `provider` is `openai`) |
+| `model` | string | No | Model name (used when `provider` is `openai`) |
+| `api_key` | string | No | API key (used when `provider` is `openai`); may be written in plaintext and is migrated to the system keyring on load |
+| `paddleocr_token` | string | No | PaddleOCR Access Token (used when `provider` is `paddleocr`); also migrated to the system keyring |
+| `timeout` | number | No | Request timeout in seconds, default 120 |
+| `max_concurrency` | number | No | Parallel preprocessing tasks, default 3 |
+| `system_prompt_override` | string | No | Overrides the default conversion prompt |
+
+#### Two-way sync rules
+
+- **Config file → GUI**: after manually adding/removing entries in `ai_models` / `vlm_models`, reopen the preferences dialog to see all profiles in the corresponding dropdown; `ai.active_profile` / `multimodal_ai.active_profile` determine the default selection.
+- **GUI → Config file**: with a profile selected, editing any field is automatically synced back to the matching entry. The "＋" button next to the dropdown saves the current form as a new profile, and "−" deletes the current one. API keys and PaddleOCR tokens are always stored only in the system keyring (GNOME Keyring / Keychain / DPAPI) and never written in plaintext to the config file.

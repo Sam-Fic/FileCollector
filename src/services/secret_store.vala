@@ -264,4 +264,56 @@ namespace SecretStore {
     public static string? load_paddleocr_token () {
         return lookup (SCHEMA_NAME_PADDLEOCR_TOKEN);
     }
+
+    // ─── 多模型配置 (profile) 槽位 ──────────────────────────────────────
+    // 每个模型配置方案的 API Key 独立存储, 槽位名 = 基础槽名 + "-" + 清洗后的
+    // profile 名 + "-" + 原名哈希 (g_str_hash 算法跨平台稳定, 用于区分中文等
+    // 清洗后同名的 profile; Windows 落盘文件名也依赖此清洗避免非法字符).
+
+    private static string profile_slot (string base_name, string profile_name) {
+        var sb = new StringBuilder ();
+        foreach (uint8 c in profile_name.data) {
+            char ch = (char) c;
+            if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')
+                || (ch >= '0' && ch <= '9') || ch == '-' || ch == '_' || ch == '.') {
+                sb.append_c (ch);
+            } else {
+                sb.append_c ('_');
+            }
+        }
+        return base_name + "-" + sb.str + "-" + profile_name.hash ().to_string ();
+    }
+
+    // 侧边栏 AI 助手方案的 API Key
+    public static bool store_profile_api_key (string profile_name, string api_key) {
+        if (profile_name.length == 0) return false;
+        return store (profile_slot (SCHEMA_NAME_API_KEY, profile_name), api_key);
+    }
+
+    public static string? load_profile_api_key (string profile_name) {
+        if (profile_name.length == 0) return null;
+        return lookup (profile_slot (SCHEMA_NAME_API_KEY, profile_name));
+    }
+
+    // VLM (多模态) 方案的 API Key (OpenAI 兼容路径)
+    public static bool store_profile_mm_api_key (string profile_name, string api_key) {
+        if (profile_name.length == 0) return false;
+        return store (profile_slot (SCHEMA_NAME_MM_API_KEY, profile_name), api_key);
+    }
+
+    public static string? load_profile_mm_api_key (string profile_name) {
+        if (profile_name.length == 0) return null;
+        return lookup (profile_slot (SCHEMA_NAME_MM_API_KEY, profile_name));
+    }
+
+    // VLM (多模态) 方案的 PaddleOCR Access Token (PaddleOCR 云端路径)
+    public static bool store_profile_paddleocr_token (string profile_name, string token) {
+        if (profile_name.length == 0) return false;
+        return store (profile_slot (SCHEMA_NAME_PADDLEOCR_TOKEN, profile_name), token);
+    }
+
+    public static string? load_profile_paddleocr_token (string profile_name) {
+        if (profile_name.length == 0) return null;
+        return lookup (profile_slot (SCHEMA_NAME_PADDLEOCR_TOKEN, profile_name));
+    }
 }

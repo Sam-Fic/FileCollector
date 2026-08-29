@@ -19,6 +19,7 @@
   - [4. 项目的保存与打开](#4-项目的保存与打开)
   - [5. 编辑已插入的文本](#5-编辑已插入的文本)
   - [6. 文件搜索](#6-文件搜索)
+  - [7. AI 多模型配置与配置文件](#7-ai-多模型配置与配置文件)
 
 ## 工作流程
 
@@ -115,3 +116,94 @@
 选定工作目录后，可在左侧资源管理器顶部的搜索框中按文件名快速搜索。该功能在大型项目中尤为实用，能够帮助您迅速定位目标文件，而无需手动展开多层目录。
 
 ![Tips 6：文件搜索](./images/tip06-search.png)
+
+### 7. AI 多模型配置与配置文件
+
+「设置 → AI 设置」中的 **AI 助手（侧边栏）** 与 **视觉语言模型（VLM）** 均支持**多模型配置方案（Model Profile）**：可同时预置多套模型配置，各自通过下拉菜单一键切换。
+
+**配置文件位置**：`~/.config/filecollector/settings.json`
+
+#### 配置文件格式
+
+侧边栏 AI 的多模型预置位于 `settings.json` 顶层的 `ai_models` 数组，`ai.active_profile` 指定默认激活的方案名；VLM 的多模型预置位于 `vlm_models` 数组，`multimodal_ai.active_profile` 指定默认激活项：
+
+```json
+{
+  "ai": {
+    "enabled": true,
+    "active_profile": "DeepSeek",
+    "base_url": "https://api.deepseek.com/v1",
+    "model": "deepseek-chat",
+    "timeout": 60.0,
+    "system_prompt_override": ""
+  },
+  "ai_models": [
+    {
+      "name": "DeepSeek",
+      "base_url": "https://api.deepseek.com/v1",
+      "api_key": "",
+      "model": "deepseek-chat",
+      "timeout": 60.0,
+      "system_prompt_override": ""
+    },
+    {
+      "name": "Ollama 本地",
+      "base_url": "http://localhost:11434/v1",
+      "api_key": "ollama",
+      "model": "qwen2.5:14b",
+      "timeout": 120.0,
+      "system_prompt_override": "回答保持简洁"
+    }
+  ],
+  "vlm_models": [
+    {
+      "name": "GPT-4o 视觉",
+      "provider": "openai",
+      "base_url": "https://api.openai.com/v1",
+      "api_key": "",
+      "model": "gpt-4o",
+      "paddleocr_token": "",
+      "timeout": 120.0,
+      "max_concurrency": 3,
+      "system_prompt_override": ""
+    },
+    {
+      "name": "PaddleOCR 云端",
+      "provider": "paddleocr",
+      "paddleocr_token": "",
+      "timeout": 120.0,
+      "max_concurrency": 3
+    }
+  ]
+}
+```
+
+#### 字段说明（`ai_models` 数组每一项）
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `name` | 字符串 | 是 | 方案名称，需唯一，用作下拉菜单显示与寻址 |
+| `base_url` | 字符串 | 是 | OpenAI 兼容 API 端点，如 `https://api.openai.com/v1` |
+| `model` | 字符串 | 是 | 模型名称，如 `gpt-4o-mini` |
+| `api_key` | 字符串 | 否 | API 密钥。可手写明文，加载时会自动迁移到系统密钥环并从文件中清空 |
+| `timeout` | 数字 | 否 | 请求超时秒数，默认 60 |
+| `system_prompt_override` | 字符串 | 否 | 覆盖默认系统提示词 |
+
+#### 字段说明（`vlm_models` 数组每一项）
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `name` | 字符串 | 是 | 方案名称，需唯一 |
+| `provider` | 字符串 | 否 | `openai`（OpenAI 兼容，默认）或 `paddleocr`（百度 PaddleOCR 云端） |
+| `base_url` | 字符串 | 否 | OpenAI 兼容端点（`provider` 为 `openai` 时使用） |
+| `model` | 字符串 | 否 | 模型名称（`provider` 为 `openai` 时使用） |
+| `api_key` | 字符串 | 否 | API 密钥（`provider` 为 `openai` 时使用），可手写明文，加载时自动迁移到系统密钥环 |
+| `paddleocr_token` | 字符串 | 否 | PaddleOCR Access Token（`provider` 为 `paddleocr` 时使用），同样自动迁移到系统密钥环 |
+| `timeout` | 数字 | 否 | 请求超时秒数，默认 120 |
+| `max_concurrency` | 数字 | 否 | 并发预处理任务数，默认 3 |
+| `system_prompt_override` | 字符串 | 否 | 覆盖默认转换提示词 |
+
+#### 双向同步规则
+
+- **配置文件 → GUI**：在文件中手工增删 `ai_models` / `vlm_models` 条目后，重新打开设置对话框即可在对应下拉菜单中看到全部方案；`ai.active_profile` / `multimodal_ai.active_profile` 决定默认选中项。
+- **GUI → 配置文件**：在下拉菜单选中某方案后编辑各字段，修改会自动同步回对应方案；点击下拉框旁的「＋」可把当前表单保存为新方案，「−」删除当前方案。API 密钥与 PaddleOCR Token 始终只存入系统密钥环（GNOME Keyring / Keychain / DPAPI），不会明文写入配置文件。
