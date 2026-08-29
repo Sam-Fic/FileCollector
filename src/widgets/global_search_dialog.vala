@@ -88,7 +88,8 @@ public class GlobalSearchDialog : Adw.Dialog {
 
         // 结果列表 / 空状态
         result_list = new Gtk.ListBox ();
-        result_list.set_selection_mode (Gtk.SelectionMode.NONE);
+        // SINGLE: 允许键盘 (方向键) 在结果行间遍历; NONE 会导致结果列表完全不可键盘操作
+        result_list.set_selection_mode (Gtk.SelectionMode.SINGLE);
         result_list.add_css_class ("boxed-list");
         result_list.add_css_class ("search-result-list");
 
@@ -150,6 +151,9 @@ public class GlobalSearchDialog : Adw.Dialog {
 
         toolbar_view.set_content (box);
         set_child (toolbar_view);
+
+        // Enter 触发默认按钮 (与 Adw 建议操作一致), 支持纯键盘完成"搜索→勾选→加入"流程
+        set_default_widget (btn_add_selected);
     }
 
     public void cancel_and_close () {

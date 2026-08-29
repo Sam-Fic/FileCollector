@@ -27,7 +27,6 @@ public class ContextMenus : GLib.Object {
     public static void show_queue_menu (
         Gtk.Widget parent,
         ItemData item,
-        int index,
         int gx,
         int gy,
         Gee.ArrayList<int> selected_indices,
@@ -35,11 +34,6 @@ public class ContextMenus : GLib.Object {
         File? work_dir,
         bool use_absolute,
         ContextMenuAction on_edit_text,
-        ContextMenuAction on_insert_above,
-        ContextMenuAction on_insert_below,
-        ContextMenuAction on_move_up,
-        ContextMenuAction on_move_down,
-        ContextMenuAction on_delete,
         ContextMenuAction on_refresh_list,
         ContextMenuAction on_push_undo,
         ContextMenuFileAction on_retry_preprocess,
@@ -61,35 +55,19 @@ public class ContextMenus : GLib.Object {
             act_edit.activate.connect (() => { on_edit_text (); });
             action_group.add_action (act_edit);
             section_edit.append (_("Edit Text"), "ctx.ctx_edit");
-
-            var act_insert_above = new GLib.SimpleAction ("ctx_insert_above", null);
-            act_insert_above.activate.connect (() => { on_insert_above (); });
-            action_group.add_action (act_insert_above);
-            section_edit.append (_("Insert Text Above"), "ctx.ctx_insert_above");
-
-            var act_insert_below = new GLib.SimpleAction ("ctx_insert_below", null);
-            act_insert_below.activate.connect (() => { on_insert_below (); });
-            action_group.add_action (act_insert_below);
-            section_edit.append (_("Insert Text Below"), "ctx.ctx_insert_below");
+            // 有全局等价快捷键的项直接引用 win.* action:
+            // PopoverMenu 会自动展示 action 注册的 accelerator, 并复用 window 侧
+            // 已有的崩溃规避逻辑 (delegate target 固定为 window 实例)
+            section_edit.append (_("Insert Text Above"), "win.insert_text");
+            section_edit.append (_("Insert Text Below"), "win.insert_text_no_header");
 
             menu_model.append_section (null, section_edit);
         }
 
         if (single) {
             var section_order = new GLib.Menu ();
-
-            var act_move_up = new GLib.SimpleAction ("ctx_move_up", null);
-            act_move_up.set_enabled (index > 0);
-            act_move_up.activate.connect (() => { on_move_up (); });
-            action_group.add_action (act_move_up);
-            section_order.append (_("Move Up"), "ctx.ctx_move_up");
-
-            var act_move_down = new GLib.SimpleAction ("ctx_move_down", null);
-            act_move_down.set_enabled (index < items.size - 1);
-            act_move_down.activate.connect (() => { on_move_down (); });
-            action_group.add_action (act_move_down);
-            section_order.append (_("Move Down"), "ctx.ctx_move_down");
-
+            section_order.append (_("Move Up"), "win.move_up");
+            section_order.append (_("Move Down"), "win.move_down");
             menu_model.append_section (null, section_order);
         }
 
@@ -161,32 +139,7 @@ public class ContextMenus : GLib.Object {
         }
 
         var section_delete = new GLib.Menu ();
-        var act_delete = new GLib.SimpleAction ("ctx_delete", null);
-        act_delete.activate.connect (() => {
-            // 关键修复: 推迟 on_delete 到 GLib.Idle.add + 用 try/catch 包住整个调用.
-            //
-            // 之前 on_delete 通过 ContextMenuAction delegate 链传递, delegate 持 self ref.
-            // 但 vala 编译 instance method 调用时, lambda 内部再次 g_object_ref(self),
-            // 加上 delegate copy 时再 +1, 加上 closure finalize 时 -1, refcount 复杂.
-            // 在 close_active_popover() → action_group dispose 链触发某些 unref 后,
-            // 后续 self 可能是已 finalize 状态, vala wrapper 'self != NULL' 断言失败.
-            //
-            // 修复:
-            // 1. 先 popdown popover (释放 box 引用, 避免 parent race)
-            // 2. GLib.Idle.add 把 on_delete 推到下一 tick
-            // 3. try/catch 包住, 即使 self 出问题也不 segfault
-            close_active_popover ();
-            GLib.Idle.add (() => {
-                try {
-                    on_delete ();
-                } catch (GLib.Error err) {
-                    GLib.warning ("on_delete failed: %s", err.message);
-                }
-                return Source.REMOVE;
-            });
-        });
-        action_group.add_action (act_delete);
-        section_delete.append (count > 1 ? _("Delete (%d items)").printf (count) : _("Delete"), "ctx.ctx_delete");
+        section_delete.append (count > 1 ? _("Delete (%d items)").printf (count) : _("Delete"), "win.delete_item");
         menu_model.append_section (null, section_delete);
 
         show_popover (parent, menu_model, action_group, "ctx", gx, gy);
@@ -276,5 +229,19 @@ public class ContextMenus : GLib.Object {
 
         active_popover = popover;
         popover.popup ();
+    }
+
+    // ─── 触屏支持 ─────────────────────────────────────────────────────
+
+    public delegate void ContextMenuPosCallback (int gx, int gy);
+
+    // 触屏长按等价鼠标右键 (HIG): 触屏设备没有 secondary button,
+    // 没有该手势则右键菜单完全无法唤出. 各右键 GestureClick 处应成对调用.
+    public static void attach_long_press (Gtk.Widget widget, ContextMenuPosCallback cb) {
+        var long_press = new Gtk.GestureLongPress ();
+        long_press.pressed.connect ((gx, gy) => {
+            cb ((int) gx, (int) gy);
+        });
+        widget.add_controller (long_press);
     }
 }

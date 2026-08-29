@@ -81,9 +81,26 @@ public class TemplatesManager : GLib.Object {
             del_btn.valign = Gtk.Align.CENTER;
             del_btn.tooltip_text = _("Delete");
             del_btn.clicked.connect (() => {
-                templates.remove (captured);
-                ConfigManager.save_templates (templates);
-                refresh_list ();
+                // 破坏性操作: 与项目其他删除一致, 先弹确认对话框
+                var confirm = new Adw.AlertDialog (
+                    _("Confirm Delete"),
+                    _("Are you sure you want to delete template \"%s\"?").printf (captured.name)
+                );
+                confirm.add_response ("cancel", _("Cancel"));
+                confirm.add_response ("delete", _("Delete"));
+                confirm.set_response_appearance ("delete", Adw.ResponseAppearance.DESTRUCTIVE);
+                confirm.set_default_response ("cancel");
+
+                confirm.response.connect ((response) => {
+                    if (response == "delete") {
+                        templates.remove (captured);
+                        ConfigManager.save_templates (templates);
+                        refresh_list ();
+                    }
+                    confirm.destroy ();
+                });
+
+                confirm.present (parent_window);
             });
             row.add_suffix (del_btn);
 

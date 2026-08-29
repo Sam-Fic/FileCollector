@@ -45,7 +45,8 @@ public class ShortcutsHelper : GLib.Object {
                 app.set_accels_for_action ("win.generate_to_clipboard", { "<Control><Shift>c" });
                 app.set_accels_for_action ("win.undo", { "<Control>z" });
                 app.set_accels_for_action ("win.redo", { "<Control><Shift>z" });
-                app.set_accels_for_action ("win.clear_items", { "<Control>n" });
+                // 清空列表为破坏性操作, 不设默认快捷键:
+                // <Control>n 是 HIG 中 "New" 的保留键, 不可挪作他用
                 app.set_accels_for_action ("win.delete_item", { "Delete" });
                 app.set_accels_for_action ("win.move_up", { "<Control>Up" });
                 app.set_accels_for_action ("win.move_down", { "<Control>Down" });
@@ -111,12 +112,6 @@ public class ShortcutsHelper : GLib.Object {
           <object class="AdwShortcutsItem">
             <property name="title" translatable="yes">保存项目</property>
             <property name="accelerator">&lt;Control&gt;s</property>
-          </object>
-        </child>
-        <child>
-          <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">清空列表</property>
-            <property name="action-name">win.clear_items</property>
           </object>
         </child>
         <child>

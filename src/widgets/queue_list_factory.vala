@@ -105,9 +105,8 @@ public class QueueListFactory : GLib.Object {
             // DropTarget 统一挂在 queue_list 上 (见 Window.setup_queue_list 中的 list_drop),
             // 不在每行 box 上单独挂, 避免行间缝隙导致 DropTarget 盲区.
 
-            var right_click = new Gtk.GestureClick ();
-            right_click.set_button (Gdk.BUTTON_SECONDARY);
-            right_click.pressed.connect ((n_press, gx, gy) => {
+            // 右键与触屏长按共用同一菜单逻辑 (触屏设备没有 secondary button)
+            ContextMenus.ContextMenuPosCallback open_menu = (gx, gy) => {
                 // 防御: 若队列模型正在突变 (删除/刷新), 忽略此次右键, 避免访问不稳定模型.
                 if (is_queue_updating ()) return;
 
@@ -121,8 +120,12 @@ public class QueueListFactory : GLib.Object {
                 if (data != null) {
                     show_context_menu (box, data, (int) pos, (int) gx, (int) gy);
                 }
-            });
+            };
+            var right_click = new Gtk.GestureClick ();
+            right_click.set_button (Gdk.BUTTON_SECONDARY);
+            right_click.pressed.connect ((n_press, gx, gy) => open_menu ((int) gx, (int) gy));
             box.add_controller (right_click);
+            ContextMenus.attach_long_press (box, open_menu);
 
             // 左键单击: 配合 MultiSelection, selection_changed 信号会自动处理预览更新.
             // 但点击"已选中的同一项"不会触发 selection_changed, 故此处主动重跑预览,

@@ -112,9 +112,8 @@ public class FileTreeFactory : GLib.Object {
             box.append (check);
             box.append (label);
 
-            var right_click_tree = new Gtk.GestureClick ();
-            right_click_tree.set_button (Gdk.BUTTON_SECONDARY);
-            right_click_tree.pressed.connect ((n_press, gx, gy) => {
+            // 右键与触屏长按共用同一菜单逻辑 (触屏设备没有 secondary button)
+            ContextMenus.ContextMenuPosCallback open_tree_menu = (gx, gy) => {
                 var li = obj as Gtk.ListItem;
                 if (li == null) return;
                 var row = li.get_item () as Gtk.TreeListRow;
@@ -125,8 +124,12 @@ public class FileTreeFactory : GLib.Object {
                 // 传 box 而非 li.get_child() (expander), 保证 popover parent 与
                 // 手势坐标的参考系一致, 否则菜单会偏移到 expander 左上角附近
                 show_tree_context_menu (box, dir_item, (int) gx, (int) gy);
-            });
+            };
+            var right_click_tree = new Gtk.GestureClick ();
+            right_click_tree.set_button (Gdk.BUTTON_SECONDARY);
+            right_click_tree.pressed.connect ((n_press, gx, gy) => open_tree_menu ((int) gx, (int) gy));
             box.add_controller (right_click_tree);
+            ContextMenus.attach_long_press (box, open_tree_menu);
 
             expander.set_child (box);
             list_item.set_child (expander);

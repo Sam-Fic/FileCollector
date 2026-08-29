@@ -582,14 +582,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         var indices = get_selected_indices ();
         bool can_export = can_export_item_cache (item);
         ContextMenus.show_queue_menu (
-            parent, item, index, gx, gy,
+            parent, item, gx, gy,
             indices, items, work_dir, use_absolute,
             on_ctx_edit_text,
-            on_ctx_insert_above,
-            on_ctx_insert_below,
-            on_move_up,
-            on_move_down,
-            on_delete_item,
             on_ctx_refresh_list,
             on_ctx_push_undo,
             on_ctx_retry_preprocess,
@@ -2429,11 +2424,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 messages.add (cli.operation_messages.get (i));
             }
             GLib.Idle.add (() => {
-                for (int i = 0; i < messages.size; i++) {
-                    var toast = new Adw.Toast (messages.get (i));
-                    toast.timeout = 2;
-                    toast_overlay.add_toast (toast);
-                }
+                // HIG: 批量操作合并为一条汇总通知, 逐条弹 Toast 会形成通知轰炸
+                var toast = new Adw.Toast (string.joinv (" · ", messages.to_array ()));
+                toast.timeout = 3;
+                toast_overlay.add_toast (toast);
                 return Source.REMOVE;
             });
         }
@@ -3992,14 +3986,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (ctx_item != null) {
             insert_text (false, ctx_item.content, ctx_item);
         }
-    }
-
-    private void on_ctx_insert_above () {
-        insert_text (true);
-    }
-
-    private void on_ctx_insert_below () {
-        insert_text (false);
     }
 
     private void on_ctx_copy_path () {
