@@ -52,6 +52,8 @@ public class GitHistoryPanel : GLib.Object {
     private bool git_loading = false;
     private bool git_all_loaded = false;
     private Adw.StatusPage git_empty_page_widget;
+    // 预览请求代数: 快速连续点击不同提交时, 丢弃过期线程的 diff 结果
+    private int preview_gen = 0;
 
     public bool is_git_mode { get; set; }
 
@@ -152,10 +154,8 @@ public class GitHistoryPanel : GLib.Object {
         box.append (msg_label);
         box.append (date_label);
 
-        // 右键菜单: 复制提交哈希
-        var right_click = new Gtk.GestureClick ();
-        right_click.set_button (Gdk.BUTTON_SECONDARY);
-        right_click.pressed.connect ((n_press, gx, gy) => {
+        // 右键菜单: 复制提交哈希 (右键与触屏长按共用同一菜单逻辑)
+        ContextMenus.ContextMenuPosCallback open_commit_menu = (gx, gy) => {
             var li = obj as Gtk.ListItem;
             if (li == null) return;
             var commit = li.get_item () as GitCommit;
@@ -193,11 +193,15 @@ public class GitHistoryPanel : GLib.Object {
             popover.add_css_class ("ctx-menu");
             popover.set_halign (Gtk.Align.START);
             popover.set_valign (Gtk.Align.START);
-            Gdk.Rectangle rect = { (int) gx, (int) gy, 1, 1 };
+            Gdk.Rectangle rect = { gx, gy, 1, 1 };
             popover.set_pointing_to (rect);
             popover.popup ();
-        });
+        };
+        var right_click = new Gtk.GestureClick ();
+        right_click.set_button (Gdk.BUTTON_SECONDARY);
+        right_click.pressed.connect ((n_press, gx, gy) => open_commit_menu ((int) gx, (int) gy));
         box.add_controller (right_click);
+        ContextMenus.attach_long_press (box, open_commit_menu);
 
         // 左键点击: 强制刷新预览 (解决点击同一行不触发 selection_changed 的问题)
         var left_click = new Gtk.GestureClick ();
@@ -359,24 +363,46 @@ public class GitHistoryPanel : GLib.Object {
         }
 
         btn_git_export_commit_diff.sensitive = true;
-        load_and_preview_commit_diff.begin (commit.hash);
+        load_and_preview_commit_diff (commit.hash);
     }
 
-    private async void load_and_preview_commit_diff (string hash) {
+    private void load_and_preview_commit_diff (string hash) {
         if (app_state.work_dir == null) return;
 
         btn_retry_preprocess.visible = false;
         apply_preview_raw (_("Loading Diff..."));
 
         string dir = app_state.work_dir.get_path ();
-        string diff_text = "";
+        int gen = ++preview_gen;
+
+        try {
+            GLib.Thread<void*>? thread = null;
+            thread = new Thread<void*> ("git-commit-diff", () => {
+                load_preview_diff_in_thread (dir, hash, gen, thread);
+                return null;
+            });
+            app_state.bg_threads.add (thread);
+        } catch (ThreadError e) {
+            warning ("Failed to create git-commit-diff thread: %s", e.message);
+        }
+    }
+
+    private void load_preview_diff_in_thread (string dir, string hash, int gen, GLib.Thread<void*>? thread) {
+        string diff_text;
         try {
             diff_text = GitService.get_commit_diff (dir, hash);
         } catch (Error e) {
             diff_text = "Error: " + e.message;
         }
 
-        render_diff_to_preview (diff_text);
+        Idle.add (() => {
+            if (thread != null) app_state.bg_threads.remove (thread);
+            if (app_state.window_closing) return Source.REMOVE;
+            // 已切换到其他提交或面板被重置: 丢弃过期结果, 避免旧 diff 覆盖新预览
+            if (gen != preview_gen) return Source.REMOVE;
+            render_diff_to_preview (diff_text);
+            return Source.REMOVE;
+        });
     }
 
     private void render_diff_to_preview (string diff_text) {
@@ -436,11 +462,39 @@ public class GitHistoryPanel : GLib.Object {
             return;
         }
 
+        string dir = app_state.work_dir.get_path ();
         try {
-            string status = GitService.get_status (app_state.work_dir.get_path ());
+            GLib.Thread<void*>? thread = null;
+            thread = new Thread<void*> ("git-status", () => {
+                git_add_all_changed_in_thread (dir, thread);
+                return null;
+            });
+            app_state.bg_threads.add (thread);
+        } catch (ThreadError e) {
+            warning ("Failed to create git-status thread: %s", e.message);
+        }
+    }
+
+    private void git_add_all_changed_in_thread (string dir, GLib.Thread<void*>? thread) {
+        string? error_msg = null;
+        string status = "";
+        try {
+            status = GitService.get_status (dir);
+        } catch (Error e) {
+            error_msg = e.message;
+        }
+
+        Idle.add (() => {
+            if (thread != null) app_state.bg_threads.remove (thread);
+            if (app_state.window_closing) return Source.REMOVE;
+            if (error_msg != null) {
+                error (_("Git Error"), error_msg);
+                return Source.REMOVE;
+            }
+
             if (status.strip ().length == 0) {
                 toast (_("No uncommitted changes in working tree"));
-                return;
+                return Source.REMOVE;
             }
 
             var files_to_add = new Gee.ArrayList<string> ();
@@ -462,7 +516,7 @@ public class GitHistoryPanel : GLib.Object {
 
             if (files_to_add.size == 0) {
                 toast (_("No files to add"));
-                return;
+                return Source.REMOVE;
             }
 
             undo_snapshot_requested ();
@@ -482,9 +536,8 @@ public class GitHistoryPanel : GLib.Object {
             }
             refresh_tree_states_requested ();
             refresh_list_requested ();
-        } catch (Error e) {
-            error (_("Git Error"), e.message);
-        }
+            return Source.REMOVE;
+        });
     }
 
     private void on_git_export_working_diff () {
@@ -493,19 +546,45 @@ public class GitHistoryPanel : GLib.Object {
             return;
         }
 
+        string dir = app_state.work_dir.get_path ();
         try {
-            string diff = GitService.get_working_tree_diff (app_state.work_dir.get_path ());
+            GLib.Thread<void*>? thread = null;
+            thread = new Thread<void*> ("git-working-diff", () => {
+                git_export_working_diff_in_thread (dir, thread);
+                return null;
+            });
+            app_state.bg_threads.add (thread);
+        } catch (ThreadError e) {
+            warning ("Failed to create git-working-diff thread: %s", e.message);
+        }
+    }
+
+    private void git_export_working_diff_in_thread (string dir, GLib.Thread<void*>? thread) {
+        string? error_msg = null;
+        string diff = "";
+        try {
+            diff = GitService.get_working_tree_diff (dir);
+        } catch (Error e) {
+            error_msg = e.message;
+        }
+
+        Idle.add (() => {
+            if (thread != null) app_state.bg_threads.remove (thread);
+            if (app_state.window_closing) return Source.REMOVE;
+            if (error_msg != null) {
+                error (_("Git Error"), error_msg);
+                return Source.REMOVE;
+            }
             if (diff.strip ().length == 0) {
                 toast (_("No uncommitted changes in working tree"));
-                return;
+                return Source.REMOVE;
             }
             undo_snapshot_requested ();
             string md_text = "# Git Working Tree Diff\n\n```diff\n%s\n```".printf (diff);
             app_state.items.insert (0, new ItemData ("text", null, md_text, false));
             refresh_list_requested ();
-        } catch (Error e) {
-            error (_("Git Error"), e.message);
-        }
+            return Source.REMOVE;
+        });
     }
 
     private void on_git_export_commit_diff () {
@@ -524,19 +603,50 @@ public class GitHistoryPanel : GLib.Object {
 
         if (selected_commits.size == 0) return;
 
+        string dir = app_state.work_dir.get_path ();
         try {
+            GLib.Thread<void*>? thread = null;
+            thread = new Thread<void*> ("git-commits-diff", () => {
+                git_export_commit_diff_in_thread (dir, selected_commits, thread);
+                return null;
+            });
+            app_state.bg_threads.add (thread);
+        } catch (ThreadError e) {
+            warning ("Failed to create git-commits-diff thread: %s", e.message);
+        }
+    }
+
+    private void git_export_commit_diff_in_thread (
+            string dir, Gee.ArrayList<GitCommit> selected_commits, GLib.Thread<void*>? thread) {
+        string? error_msg = null;
+        // 与选择顺序一致 (git_commit_store 中索引 0 为最新提交, 即最新在前)
+        var md_texts = new Gee.ArrayList<string> ();
+        foreach (var commit in selected_commits) {
+            try {
+                string diff = GitService.get_commit_diff (dir, commit.hash);
+                md_texts.add ("# Git Commit: %s (%s)\n\n```diff\n%s\n```".printf (
+                    commit.short_hash, commit.message, diff));
+            } catch (Error e) {
+                error_msg = e.message;
+                break;
+            }
+        }
+
+        Idle.add (() => {
+            if (thread != null) app_state.bg_threads.remove (thread);
+            if (app_state.window_closing) return Source.REMOVE;
+            if (error_msg != null) {
+                error (_("Git Error"), error_msg);
+                return Source.REMOVE;
+            }
             undo_snapshot_requested ();
-            // git_commit_store 中索引 0 为最新提交；依次在位置 0 插入，最终列表为提交先后顺序（最旧在前）
-            foreach (var commit in selected_commits) {
-                string diff = GitService.get_commit_diff (app_state.work_dir.get_path (), commit.hash);
-                string md_text = "# Git Commit: %s (%s)\n\n```diff\n%s\n```".printf (
-                    commit.short_hash, commit.message, diff);
+            // 依次在位置 0 插入, 最终列表为提交先后顺序（最旧在前）
+            foreach (var md_text in md_texts) {
                 app_state.items.insert (0, new ItemData ("text", null, md_text, false));
             }
             refresh_list_requested ();
-        } catch (Error e) {
-            error (_("Git Error"), e.message);
-        }
+            return Source.REMOVE;
+        });
     }
 
     // ─── 供窗口调用的公共 API ─────────────────────────────────────────
@@ -576,6 +686,7 @@ public class GitHistoryPanel : GLib.Object {
 
     // 工作目录变更: 重置并 (若处于 Git 模式) 重新加载
     public void on_work_dir_changed () {
+        preview_gen++; // 使在途的预览 diff 线程结果失效
         git_commits.clear ();
         git_commit_store.remove_all ();
         git_all_loaded = false;

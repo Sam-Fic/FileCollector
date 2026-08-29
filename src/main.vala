@@ -159,6 +159,16 @@ public class FileCollectorApp : Adw.Application {
     protected override void startup () {
         base.startup ();
 
+        // 启动时应用已保存的主题偏好，否则重启后会回退到跟随系统
+        string scheme = ConfigManager.load_color_scheme ();
+        if (scheme == "light") {
+            Adw.StyleManager.get_default ().set_color_scheme (Adw.ColorScheme.FORCE_LIGHT);
+        } else if (scheme == "dark") {
+            Adw.StyleManager.get_default ().set_color_scheme (Adw.ColorScheme.FORCE_DARK);
+        } else {
+            Adw.StyleManager.get_default ().set_color_scheme (Adw.ColorScheme.DEFAULT);
+        }
+
         // Windows HiDPI：GTK4 的 Win32 后端只做整数缩放（150% DPI 被 floor 成 1×），
         // 且忽略 GDK_SCALE，导致组件布局锁在 1× 而文字按真实 144 DPI 渲染成 1.5×，
         // 出现「组件小、文字大」的错位。这里强制把文字 DPI 设为 96（1×），与组件对齐，

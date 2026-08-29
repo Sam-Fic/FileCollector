@@ -3074,17 +3074,17 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void insert_text (bool above, string? existing_text = null, owned ItemData? edit_data = null) {
-        var window = new Adw.Window ();
-        window.set_transient_for (this);
-        window.set_modal (true);
-        window.set_default_size (450, 350);
-        window.set_title (edit_data != null ? _("Edit Text") : _("Insert Custom Text"));
+        var dialog = new Adw.Dialog ();
+        dialog.set_title (edit_data != null ? _("Edit Text") : _("Insert Custom Text"));
+        dialog.set_content_width (450);
+        dialog.set_content_height (350);
 
         var toolbar_view = new Adw.ToolbarView ();
-        window.set_content (toolbar_view);
+        dialog.set_child (toolbar_view);
 
         var header_bar = new Adw.HeaderBar ();
-        header_bar.set_decoration_layout ("");
+        header_bar.set_title_widget (new Adw.WindowTitle (dialog.title, ""));
+        header_bar.set_show_end_title_buttons (false);
         toolbar_view.add_top_bar (header_bar);
 
         var cancel_btn = new Gtk.Button ();
@@ -3135,7 +3135,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         toolbar_view.set_content (content);
 
         cancel_btn.clicked.connect (() => {
-            window.destroy ();
+            dialog.close ();
         });
 
         ok_btn.clicked.connect (() => {
@@ -3160,19 +3160,19 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     do_insert_text (text, above);
                 }
             }
-            window.destroy ();
+            dialog.close ();
         });
 
         if (edit_data != null) {
             phrases_btn.visible = false;
         } else {
             phrases_btn.clicked.connect (() => {
-                window.destroy ();
+                dialog.close ();
                 get_phrases_picker ().show_picker (above);
             });
         }
 
-        window.present ();
+        dialog.present (this);
     }
 
     private void do_insert_text (string text, bool above) {

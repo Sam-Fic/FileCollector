@@ -5,7 +5,9 @@ project('filecollector', 'vala', 'c',
 
 # 依赖导入
 dependency('glib-2.0', version: '>= 2.76')
-dependency('gtk4', version: '>= 4.14')
+# GTK >= 4.16: data/style.css 使用 :root + CSS 变量语法（var(--radius-lg) 等）,
+# 该特性在 4.16 才支持, 低版本上圆角/描边规则会静默失效。
+dependency('gtk4', version: '>= 4.16')
 dependency('libadwaita-1', version: '>= 1.9')
 dependency('json-glib-1.0')
 dependency('libsoup-3.0')
