@@ -37,11 +37,10 @@
 
 /* 面板卡片顶部 margin 为 0, 紧贴标题栏; 原生 .card 阴影的向上分量会被裁切。
    这里改为仅向下/两侧的柔和阴影(无向上分量), 既不改间距又保留轻微浮起感,
-   并补一条统一描边让边缘利落。仅作用于顶部齐平的 4 个面板卡片 */
+   并补一条统一描边让边缘利落。仅作用于顶部齐平的 3 个面板卡片 */
 .left-panel.card,
 .middle-panel.card,
-.right-panel.card,
-.ai-panel.card {
+.right-panel.card {
     border: 1px solid var(--border);
     box-shadow: none;
 }
@@ -276,13 +275,9 @@ popover.ctx-menu separator {
     box-shadow: none;
 }
 
-/* ─── AI 边栏 ─────────────────────────────────────────────── */
+/* ─── AI 边栏 (Adw.原生右侧栏, 宽度由 OverlaySplitView 钳制) ────── */
 .ai-panel {
     min-width: 260px;
-}
-
-.ai-panel > box {
-    border-radius: var(--radius-lg);
 }
 
 .ai-bubble {

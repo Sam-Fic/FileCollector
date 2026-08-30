@@ -21,8 +21,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned GtkSource.View preview_view;
     [GtkChild] private unowned Gtk.Button open_folder_btn;
     [GtkChild] private unowned Gtk.MenuButton menu_btn;
-    [GtkChild] private unowned Gtk.Button btn_undo;
-    [GtkChild] private unowned Gtk.Button btn_redo;
     [GtkChild] private unowned Gtk.Button btn_generate;
     [GtkChild] private unowned Gtk.Button btn_add_ext;
     [GtkChild] private unowned Gtk.Button btn_add_text_above;
@@ -39,10 +37,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Adw.ToastOverlay toast_overlay;
     [GtkChild] private unowned Gtk.Paned outer_paned;
     [GtkChild] private unowned Gtk.Paned inner_paned;
-    [GtkChild] private unowned Gtk.Button btn_ai_toggle;
+    [GtkChild] private unowned Gtk.ToggleButton btn_ai_toggle;
     [GtkChild] private unowned Gtk.ToggleButton btn_toggle_snapshot;
-    [GtkChild] private unowned Gtk.Paned ai_paned;
-    [GtkChild] private unowned Gtk.Box ai_sidebar;
 
     // 工作区快照栏 (在 Vala 中构建, 因 blueprint 0.19 无法正确为
     // AdwOverlaySplitView 指定 sidebar/content 子控件, 导致侧栏空白)
@@ -50,6 +46,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private Adw.OverlaySplitView snapshot_split;
     private Adw.Sidebar snapshot_sidebar;
     private Gtk.Button btn_new_snapshot;
+
+    // AI 右侧栏 (同样原因在 Vala 中构建, 见 build_ai_split_view)
+    private Adw.OverlaySplitView ai_split;
+    private Gtk.Box ai_sidebar;
+    private Adw.Breakpoint ai_bp;
+    // main_view 外的 Gtk.Overlay (VLM 进度卡片悬浮层), 也是 ai_split 的 content
+    private Gtk.Overlay main_overlay;
 
     [GtkChild] private unowned Gtk.Button btn_retry_preprocess;
     [GtkChild] private unowned Gtk.Button btn_export_cache;
@@ -98,9 +101,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // 当前激活的工作区索引: 正在编辑的内容始终属于该 Workspace,
     // 打开目录 / 切换 / 新建前都会把当前状态同步回它, 避免内容游离在列表之外.
     private int active_workspace_index = -1;
-    // 响应式断点: AI 侧边栏隐藏 / 显示时用不同阈值 (显示时须加上 AI 栏宽度,
-    // 避免三栏被裁切才切覆盖模式). 同一时刻只挂一个断点到窗口.
-    private Adw.Breakpoint? snapshot_bp;
     private Gtk.MultiSelection queue_selection;
 
     // 防御: 在对 queue_store/queue_selection 进行突变 (splice/unselect/select)
@@ -143,8 +143,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private AIPanel? ai_panel_instance = null;
     private PreferencesDialog? preferences_dialog_instance = null;
     private bool ai_panel_visible = false;
-    // 记录 AI 面板展开前的窗口宽度, 隐藏时恢复
-    private int pre_ai_width = 0;
 
     // 操作令牌: 目录勾选等分批任务递增, 旧令牌任务在 Idle 中自行放弃, 防止上下文切换后仍修改旧列表
     private uint current_operation_token = 0;
@@ -169,7 +167,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private GitHistoryPanel git_panel;
     private RecoveryManager recovery_manager;
-    private PaneLayoutManager pane_layout_manager;
 
     // VLM 预处理队列控制器: 封装 VLMQueueManager/VLMTaskRunner + 悬浮进度卡片.
     // 字段持有理由: 必须跨 setup_vlm_queue 生命周期存活 (vlm_queue.executor 是
@@ -239,14 +236,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         init_git_panel ();
         setup_snapshot_sidebar ();
         setup_vlm_queue ();
+        // 须晚于 setup_vlm_queue (依赖其创建的 main_overlay 层级),
+        // 早于 setup_ai_panel (按钮绑定需要 ai_split 已存在)
+        build_ai_split_view ();
         setup_preview_syntax ();
         setup_preview_signals ();
         sync_path_mode_radios ();
         setup_signals ();
         setup_ai_panel ();
-        pane_layout_manager = new PaneLayoutManager (app_state, outer_paned, inner_paned, ai_paned, ai_sidebar);
-        pane_layout_manager.set_window (this);
-        pane_layout_manager.setup ();
         setup_shortcuts ();
         setup_empty_state ();
         search_entry.visible = false;
@@ -319,7 +316,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             sync_path_mode_radios ();
             sync_header_checkbox ();
             update_title ();
-            update_undo_redo_buttons ();
+            update_action_sensitivity ();
             update_workdir_dependent_buttons ();
             recovery_manager.schedule ();
         });
@@ -433,7 +430,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 root_store.remove_all ();
                 search_entry.visible = false;
                 refresh_list ();
-                update_undo_redo_buttons ();
+                update_action_sensitivity ();
                 update_workdir_dependent_buttons ();
             }
         } else {
@@ -1245,7 +1242,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (delta.op != UndoOp.SNAPSHOT) {
             refresh_list ();
         }
-        update_undo_redo_buttons ();
+        update_action_sensitivity ();
     }
 
     private void on_redo () {
@@ -1259,7 +1256,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (delta.op != UndoOp.SNAPSHOT) {
             refresh_list ();
         }
-        update_undo_redo_buttons ();
+        update_action_sensitivity ();
     }
 
     // 根据 undo delta 构建对应的 redo delta (捕获当前状态作为 redo 依据)
@@ -1447,7 +1444,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         empty_page_widget.icon_name = "folder-open-symbolic";
         empty_page_widget.title = _("No Working Directory Selected");
         empty_page_widget.add_css_class ("empty-page");
-        // 常态即离窗口 18px 四周, 与正常三栏整体 (ai_paned 的 margin-start/end: 18)
+        // 常态即离窗口 18px 四周, 与正常三栏整体 (outer_paned 的 margin-start/end: 18)
         // 到窗口的距离一致. 这样拖拽高亮框 (画在 widget 边缘的 inset 描边) 距窗口
         // 也是 18px, 而非贴边.
         // 注意: 用 margin 而非 padding, 因为 inset box-shadow 始终画在 border 内侧,
@@ -1502,8 +1499,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 open_folder_btn.visible = false;
                 btn_toggle_git.visible = false;
                 btn_global_search.visible = false;
-                btn_undo.visible = false;
-                btn_redo.visible = false;
                 // 工作区侧栏按钮: 首次打开 (无工作目录) 时侧栏无意义, 一并隐藏
                 btn_toggle_snapshot.visible = false;
             }
@@ -1519,8 +1514,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             open_folder_btn.visible = true;
             btn_toggle_git.visible = true;
             btn_global_search.visible = true;
-            btn_undo.visible = true;
-            btn_redo.visible = true;
             btn_toggle_snapshot.visible = true;
         }
     }
@@ -1588,20 +1581,12 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         }
 
         refresh_list ();
-        update_undo_redo_buttons ();
-        update_workdir_dependent_buttons ();
-    }
-
-    private void update_undo_redo_buttons () {
-        btn_undo.sensitive = undo_manager.can_undo;
-        btn_redo.sensitive = undo_manager.can_redo;
         update_action_sensitivity ();
+        update_workdir_dependent_buttons ();
     }
 
     private void setup_signals () {
         open_folder_btn.clicked.connect (() => on_open_folder_clicked.begin ());
-        btn_undo.clicked.connect (on_undo);
-        btn_redo.clicked.connect (on_redo);
         btn_add_ext.clicked.connect (on_add_external_files);
         btn_add_text_above.clicked.connect (() => insert_text (true));
         btn_add_text_below.clicked.connect (() => insert_text (false));
@@ -1767,7 +1752,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 用 Gtk.Overlay 包裹 ToolbarView, 使进度卡片能悬浮在窗口右下角.
         // overlay reparenting 留在 Window: 涉及 Window 模板绑定的 [GtkChild]
         // main_view 和 Window 私有的 snapshot_split, Controller 不应接触这些.
-        var main_overlay = new Gtk.Overlay ();
+        main_overlay = new Gtk.Overlay ();
         // main_view 当前是 snapshot_split.content, 需先摘除再挂入 overlay,
         // 否则 gtk_overlay_set_child 会因 main_view 已持有父节点而报断言错误。
         snapshot_split.content = null;
@@ -1850,8 +1835,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 主内容区: 复用蓝图中的 main_view
         snapshot_split = new Adw.OverlaySplitView ();
         snapshot_split.collapsed = false;
+        // pin_sidebar: 折叠/展开 (collapsed 变化) 时不自动显隐侧栏,
+        // 可见性完全由 show-sidebar (顶栏开关按钮) 控制, 窄屏覆盖模式下按钮仍可用.
         snapshot_split.pin_sidebar = true;
-        snapshot_split.show_sidebar = true;
+        // 初始可见性不在此设置: 下方按钮 active<->show-sidebar 双向绑定 (SYNC_CREATE)
+        // 会以按钮初始 active=false (BLP) 覆盖, 即启动时侧栏隐藏、按钮呈未按下态.
         snapshot_split.sidebar_position = Gtk.PackType.START;
         // 侧栏宽度: 默认占窗口 25% (sidebar_width_fraction),
         // 最小 180sp / 最大 280sp 约束, 防止极端窗口下过窄/过宽.
@@ -1866,18 +1854,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         // 响应式: 窗口宽度不足时, 侧栏切换为覆盖 (overlay) 模式, 浮在内容之上
         // (会盖住顶部菜单栏); 宽度足够时回到并排 (docked) 模式.
-        // 阈值取保守值: AI 隐藏时 1100sp, AI 显示时再加 AI 栏宽度 (~300sp) → 1400sp.
-        // 均参考 PaneLayoutManager.update_min_size() 的三栏不裁切最小总宽 (~860sp),
-        // 确保三栏 (及 AI 栏) 正常显示时绝不误触覆盖模式.
-        // Adw.ApplicationWindow 不支持运行时 remove_breakpoint, 故只创建单个 breakpoint,
-        // AI 显隐时通过 set_condition() 动态切换阈值 (setter 不变, 始终令 collapsed=true).
-        snapshot_bp = new Adw.Breakpoint (Adw.BreakpointCondition.parse ("max-width: 1100sp"));
+        // 阈值 1250px: 与右侧 AI 侧栏断点 (ai_bp, 1250px) 保持一致, 两个侧栏
+        // 在同一窗口宽度同步切换覆盖/并排, 行为可预期.
+        // 并排模式只需三栏最小宽 (~860px, 由 shrink=false 的 Paned 链自动向窗口
+        // 申报) + 侧栏最小宽 200px = 1060px, 阈值留有充分余量.
+        var snapshot_bp = new Adw.Breakpoint (Adw.BreakpointCondition.parse ("max-width: 1250px"));
         snapshot_bp.add_setter (snapshot_split, "collapsed", true);
         this.add_breakpoint (snapshot_bp);
-        apply_snapshot_breakpoint ();
-
-        // AI 侧边栏显隐时, 切换断点阈值 (加上 / 去掉 AI 栏宽度)
-        ai_sidebar.notify["visible"].connect (() => apply_snapshot_breakpoint ());
 
         // 先把 main_view 从 toast_overlay 摘除 (置空 toast_overlay 的 child,
         // 让 GTK 正确解除父子关系), 再挂到 split view 的 content, 否则 GTK 会因
@@ -1887,17 +1870,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         // 将 toast_overlay 的内容替换为带侧栏的 split view
         toast_overlay.child = snapshot_split;
-    }
-
-    // 根据 AI 侧边栏是否打开, 切换响应式断点阈值:
-    //   - AI 隐藏 → 1100sp (max-width 时进入覆盖模式)
-    //   - AI 显示 → 1400sp (额外加上 AI 栏宽度 ~300sp)
-    // Adw.ApplicationWindow 不支持运行时移除 breakpoint, 故仅动态更新
-    // 已挂载 breakpoint 的 condition (setter 始终令 collapsed=true 不变)。
-    private void apply_snapshot_breakpoint () {
-        var condition = Adw.BreakpointCondition.parse (
-            ai_sidebar.visible ? "max-width: 1400sp" : "max-width: 1100sp");
-        snapshot_bp.set_condition (condition);
     }
 
     private void setup_snapshot_sidebar () {
@@ -2468,7 +2440,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             check_model.clear ();
             items.clear ();
             undo_manager.clear ();
-            update_undo_redo_buttons ();
+            update_action_sensitivity ();
             update_workdir_dependent_buttons ();
 
             var root_item = new DirectoryItem (folder.get_basename (), folder.get_path (), true);
@@ -4547,7 +4519,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         } else {
             update_subtitle (null);
         }
-        update_undo_redo_buttons ();
+        update_action_sensitivity ();
         update_workdir_dependent_buttons ();
         refresh_list ();
         update_empty_state ();
@@ -4616,8 +4588,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private void update_subtitle (string? text) {
         string subtitle = text ?? _("No Working Directory Set");
-
-        title = (text != null) ? text : _("FileCollector");
 
         if (_title_widget == null) {
             cache_title_widget ();
@@ -4854,27 +4824,66 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // ─── AI 助手集成 ───────────────────────────────────────────────────
 
-    private void setup_ai_panel () {
-        ai_sidebar.visible = false;
-        ai_panel_visible = false;
-        // AI 边栏不可被压缩, 与其他三栏保持一致, 防止内容被裁剪
-        ai_paned.set_shrink_start_child (false);
-        ai_paned.set_shrink_end_child (false);
-        btn_ai_toggle.clicked.connect (toggle_ai_panel);
-        ai_paned.notify["position"].connect (clamp_ai_paned_position);
+    // 在 Vala 中构建 AI 右侧栏与 AdwOverlaySplitView。
+    // blueprint 0.19 不能为 OverlaySplitView 正确指派 sidebar/content 子控件
+    // (与 snapshot_split 同一限制), 故在此显式 set_sidebar()/set_content()。
+    // 层级: snapshot_split > ai_split > main_overlay (> main_view),
+    // 侧栏全高、覆盖标题栏所在区域, 与左侧快照栏对称.
+    // 响应式: 窗口过窄 (<=1250px, 约等于三栏最小宽 + 侧栏宽) 时经断点切为
+    // 覆盖 (overlay) 模式, 侧栏浮在内容之上而不挤占内容, 开关不再改变窗口宽度.
+    private void build_ai_split_view () {
+        ai_sidebar = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+        ai_sidebar.vexpand = true;
+        ai_sidebar.add_css_class ("ai-panel");
 
-        // 分隔条已恢复原生尺寸与 col-resize 光标, 不再需要手动光标 hack
+        ai_split = new Adw.OverlaySplitView ();
+        ai_split.collapsed = false;
+        ai_split.pin_sidebar = true;
+        ai_split.show_sidebar = false;
+        ai_split.sidebar_position = Gtk.PackType.END;
+        ai_split.min_sidebar_width = 360;
+        ai_split.max_sidebar_width = 360;
+        ai_split.sidebar = ai_sidebar;
+
+        // 断点: 窗口宽度不足以并排容纳 "三栏最小宽 + 侧栏" 时切覆盖模式.
+        // 阈值用 px (与 widget 最小宽度同单位): 三栏 ~840px + 侧栏 360px ≈ 1200px,
+        // 取 1250px 留余量. Adw.ApplicationWindow 不支持运行时 remove_breakpoint,
+        // 启动时一次性添加即可 (条件不变, collapsed 由断点自动施加/还原).
+        ai_bp = new Adw.Breakpoint (Adw.BreakpointCondition.parse ("max-width: 1250px"));
+        ai_bp.add_setter (ai_split, "collapsed", true);
+        this.add_breakpoint (ai_bp);
+
+        // 挂接: 先把 main_overlay 从 snapshot_split 摘除 (置空 content, 让 GTK
+        // 正确解除父子关系), 再包入 ai_split —— 与 build_snapshot_split_view /
+        // setup_vlm_queue 同理: set_content 要求子控件无父级, 否则断言失败.
+        snapshot_split.content = null;
+        ai_split.content = main_overlay;
+        snapshot_split.content = ai_split;
     }
 
-    private void clamp_ai_paned_position () {
-        // 防止 AI 边栏被用户拖到太大 / 太小
-        var pw = ai_paned.get_width ();
-        if (pw <= 0) return;
-        var pos = (int) ai_paned.position;
-        if (pos < 260) {
-            ai_paned.position = 260;
-        } else if (pos > 480) {
-            ai_paned.position = 480;
+    private void setup_ai_panel () {
+        ai_panel_visible = false;
+        ai_split.show_sidebar = false;
+
+        // 按钮 active 与侧栏可见性双向绑定 (同 btn_toggle_snapshot 模式):
+        // 不再连 clicked —— 点击经 binding 自动翻转 show-sidebar,
+        // Ctrl+J 编程式翻转时按钮按下态也自动同步.
+        btn_ai_toggle.bind_property (
+            "active", ai_split, "show-sidebar",
+            GLib.BindingFlags.BIDIRECTIONAL | GLib.BindingFlags.SYNC_CREATE
+        );
+
+        // 可见性变化时处理懒创建 / 窗口加宽恢复
+        ai_split.notify["show-sidebar"].connect (on_ai_sidebar_toggled);
+    }
+
+    private void on_ai_sidebar_toggled () {
+        bool show = ai_split.show_sidebar;
+        if (show == ai_panel_visible) return;
+        ai_panel_visible = show;
+        // 收起时无额外处理: 呈现由 split view 自管理, 窗口宽度不随之变化
+        if (show) {
+            show_ai_panel ();
         }
     }
 
@@ -4909,21 +4918,15 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void toggle_ai_panel () {
-        ai_panel_visible = !ai_panel_visible;
-        if (ai_panel_visible) {
-            show_ai_panel ();
-        } else {
-            hide_ai_panel ();
-        }
+        ai_split.show_sidebar = !ai_split.show_sidebar;
     }
 
     private void show_ai_panel () {
-        ai_panel_visible = true;
         // 第一次显示时构建 panel
         if (ai_panel_instance == null) {
             ai_panel_instance = new AIPanel (this);
             var content = ai_panel_instance.build_widget ();
-            // ai_sidebar 本身已是 card Box, 直接放入内容
+            // ai_sidebar 是 OverlaySplitView 的原生侧栏容器, 直接放入内容
             ai_sidebar.append (content);
 
             ai_panel_instance.get_undo_token.connect (() => {
@@ -4948,7 +4951,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     refresh_all_tree_states ();
                     dir_column_view.queue_draw ();
                 }
-                update_undo_redo_buttons ();
+                update_action_sensitivity ();
             });
             ai_panel_instance.template_triggered.connect ((header, footer) => {
                 push_undo_state ();
@@ -4964,63 +4967,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 重新应用当前设置
         apply_ai_settings_to_panel ();
 
-        // 更新窗口最小宽度 (AI 边栏可见时需要更大)
-        pane_layout_manager.update_min_size ();
-
-        // 先显示侧边栏, 再加宽窗口 (Wayland 上 set_default_size 需要布局已变更才生效)
-        ai_sidebar.visible = true;
-        expand_window_for_ai ();
-    }
-
-    private void hide_ai_panel () {
-        ai_panel_visible = false;
-        ai_sidebar.visible = false;
-        // 更新窗口最小宽度 (AI 边栏隐藏后可以更小)
-        pane_layout_manager.update_min_size ();
-
-        // 恢复 AI 面板展开前的窗口宽度
-        if (pre_ai_width > 0) {
-            int cur_h = get_height ();
-            if (cur_h <= 0) cur_h = default_height;
-            set_default_size (pre_ai_width, cur_h);
-            pre_ai_width = 0;
-        }
-    }
-
-    private void expand_window_for_ai () {
-        int cur_w = get_width ();
-        int cur_h = get_height ();
-        if (cur_w <= 0) {
-            // 后备: 使用 default_width / default_height
-            cur_w = default_width;
-            cur_h = default_height;
-        }
-        if (cur_w <= 0) return;
-
-        // 记录展开前的宽度, 隐藏时恢复 (仅首次记录, 避免反复展开覆盖)
-        if (pre_ai_width <= 0) {
-            pre_ai_width = cur_w;
-        }
-
-        const int AI_EXTRA_WIDTH = 300;
-        int target_w = cur_w + AI_EXTRA_WIDTH;
-
-        // 不超过显示器宽度
-        var disp = Gdk.Display.get_default ();
-        if (disp != null) {
-            var surface = this.get_surface ();
-            if (surface != null) {
-                var monitor = disp.get_monitor_at_surface (surface);
-                if (monitor != null) {
-                    var geo = monitor.get_geometry ();
-                    if (target_w > geo.width) {
-                        target_w = geo.width;
-                    }
-                }
-            }
-        }
-
-        set_default_size (target_w, cur_h);
+        // 侧栏显隐完全由 show-sidebar 属性驱动; 窗口最小宽度由 OverlaySplitView
+        // 与 shrink=false 的 Paned 链自动向上申报 (覆盖模式下侧栏不参与测量,
+        // 窗口可窄至三栏最小宽), 无需手动维护窗口尺寸.
     }
 
     private void apply_ai_settings_to_panel () {

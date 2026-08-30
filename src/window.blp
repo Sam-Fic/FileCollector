@@ -8,7 +8,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
   // 设最小高度, 消除 libadwaita "does not have a minimum height" 警告,
   // 并避免窗口被拖拽到过矮导致布局异常.
   height-request: 480;
-  title: _("FileCollector - File Collection & Orchestration Tool");
+  title: _("FileCollector");
   content: Adw.ToastOverlay toast_overlay {
     Adw.ToolbarView main_view {
       [top]
@@ -21,9 +21,12 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
           active: false;
         }
 
-        Button btn_ai_toggle {
-          icon-name: "chat-message-new-symbolic";
+        ToggleButton btn_ai_toggle {
+          icon-name: "sidebar-show-right-symbolic";
           tooltip-text: _("Show / Hide AI Assistant (Ctrl+J)");
+          // active 绑定到 AI 右侧栏可见性 (Adw.OverlaySplitView.show-sidebar):
+          // 侧栏显示时按钮呈按下/高亮态, 与左侧快照栏按钮行为一致.
+          active: false;
         }
 
         Button open_folder_btn {
@@ -43,18 +46,6 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
           sensitive: false;
         }
 
-        Button btn_undo {
-          icon-name: "edit-undo-symbolic";
-          tooltip-text: _("Undo");
-          sensitive: false;
-        }
-
-        Button btn_redo {
-          icon-name: "edit-redo-symbolic";
-          tooltip-text: _("Redo");
-          sensitive: false;
-        }
-
         title-widget: Adw.WindowTitle {
           title: _("FileCollector");
           subtitle: _("No working directory set");
@@ -67,38 +58,20 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
         }
       }
 
-      content: Paned ai_paned {
+      // AI 边栏为 Adw.原生右侧栏 (全高, 覆盖标题栏区域): window.vala 的
+      // build_ai_split_view() 在 main_view 外层包一层 Adw.OverlaySplitView,
+      // 窗口过窄时自动转为覆盖 (overlay) 模式.
+      content: Paned outer_paned {
        orientation: horizontal;
        margin-top: 0;
         margin-bottom: 12;
         margin-start: 18;
         margin-end: 18;
-        position: 320;
+        position: 300;
+       // shrink=false: Paned 自身 measure 申报 min(start)+handle+min(end),
+       // 嵌套链自动向上传播, 窗口最小宽度恒等于内容真实需求 (随显隐/内容自动更新).
+       // 不再用任何手动计算的窗口 size_request —— 手动值过时会导致欠分配 → 裁切.
        shrink-start-child: false;
-       shrink-end-child: false;
-       css-classes: ["paned-no-handle"];
-
-        // AI 边栏 (最左, 可折叠) - 直接以 card Box 作为面板, 去掉冗余 Frame
-        Box ai_sidebar {
-           visible: false;
-           hexpand: false;
-           vexpand: true;
-           width-request: 280;
-           margin-top: 0;
-            margin-bottom: 6;
-            margin-start: 0;
-            margin-end: 0;
-            css-classes: ["ai-panel", "card"];
-        }
-
-      Paned outer_paned {
-       orientation: horizontal;
-       margin-top: 0;
-       margin-bottom: 0;
-       margin-start: 0;
-       margin-end: 0;
-       position: 300;
-       shrink-start-child: true;
        shrink-end-child: false;
        css-classes: ["paned-no-handle"];
 
@@ -183,7 +156,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
       Paned inner_paned {
         orientation: horizontal;
         position: 500;
-        shrink-start-child: true;
+        shrink-start-child: false;
         shrink-end-child: false;
         margin-start: 0;
         css-classes: ["paned-no-handle"];
@@ -506,13 +479,19 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
            }
          }
       }
-    }
-  };
+    };
   }
   };
 }
 
 menu primary_menu {
+  // Undo/Redo 按 HIG 不常驻顶栏 (低频操作), 收进主菜单;
+  // 动作 win.undo/win.redo 已设 Ctrl+Z / Ctrl+Shift+Z 加速键,
+  // 菜单项会自动显示快捷键, 灰显状态由 action enabled 自动同步.
+  section {
+    item (_("Undo"), "win.undo")
+    item (_("Redo"), "win.redo")
+  }
   section {
     item (_("Open Project..."), "app.open_project")
     item (_("Save Project"), "app.save_project")
