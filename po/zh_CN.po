@@ -2465,36 +2465,16 @@ msgid "AI Prompt"
 msgstr "AI 驱动提示词"
 
 #, c-format
-#~ msgid "%s (missing)"
-#~ msgstr "⚠ %s（缺失）"
 
-#~ msgid "Cached"
-#~ msgstr "已缓存"
 
-#~ msgid "Converted"
-#~ msgstr "已转换"
 
-#~ msgid " [Conversion failed]"
-#~ msgstr " [转换失败]"
 
-#~ msgid "External file"
-#~ msgstr "来自外部文件"
 
-#~ msgid "Preprocessing 0/0 files..."
-#~ msgstr "正在预处理 0/0 个文件..."
 
-#~ msgid "Pause"
-#~ msgstr "暂停"
 
-#~ msgid "Cancel All"
-#~ msgstr "取消全部"
 
-#~ msgid "Continue Saving"
-#~ msgstr "继续保存"
 
 #, c-format
-#~ msgid "Preprocessing %d/%d files..."
-#~ msgstr "正在预处理 %d/%d 个文件..."
 
 #~ msgid "New Workspace"
 #~ msgstr "新建工作区"
@@ -2509,17 +2489,9 @@ msgstr "AI 驱动提示词"
 #~ msgid "[Unable to get file info: %s]\n"
 #~ msgstr "[无法获取文件信息: %s]\n"
 
-#~ msgid "Unsaved Session Found"
-#~ msgstr "发现未保存的会话"
 
-#~ msgid "There are unsaved changes from the last session. Restore?"
-#~ msgstr "上次运行存在未保存的更改。是否恢复？"
 
-#~ msgid "Discard"
-#~ msgstr "丢弃"
 
-#~ msgid "Restore"
-#~ msgstr "恢复"
 
 #~ msgid "Context Window Settings"
 #~ msgstr "上下文窗口设置"
@@ -2557,3 +2529,69 @@ msgstr "配置方案 %d"
 #: src/widgets/preferences_dialog.vala:569
 msgid "At least one profile must be kept."
 msgstr "至少需要保留一个配置方案。"
+# 恢复/新增翻译条目
+
+#: src/widgets/queue_list_factory.vala:301
+msgid " [Conversion failed]"
+msgstr " [转换失败]"
+
+#: src/widgets/templates_manager.vala:86
+msgid "Confirm Delete"
+msgstr "确认删除"
+
+#: src/widgets/queue_list_factory.vala:271
+#, c-format
+msgid "%s (missing)"
+msgstr "⚠ %s（缺失）"
+
+#: src/widgets/queue_list_factory.vala:297
+msgid "Cached"
+msgstr "已缓存"
+
+#: src/widgets/vlm_queue_controller.vala:143
+msgid "Cancel All"
+msgstr "取消全部"
+
+#: src/widgets/vlm_queue_controller.vala:71
+msgid "Continue Saving"
+msgstr "继续保存"
+
+#: src/widgets/queue_list_factory.vala:297
+msgid "Converted"
+msgstr "已转换"
+
+#: src/services/recovery_manager.vala:118
+msgid "Discard"
+msgstr "丢弃"
+
+#: src/widgets/queue_list_factory.vala:306
+msgid "External file"
+msgstr "来自外部文件"
+
+#: src/widgets/vlm_queue_controller.vala:67
+#: src/widgets/vlm_queue_controller.vala:138
+msgid "Pause"
+msgstr "暂停"
+
+#: src/widgets/vlm_queue_controller.vala:121
+#, c-format
+msgid "Preprocessing %d/%d files..."
+msgstr "正在预处理 %d/%d 个文件..."
+
+#: src/widgets/vlm_queue_controller.vala:131
+msgid "Preprocessing 0/0 files..."
+msgstr "正在预处理 0/0 个文件..."
+
+#: src/services/recovery_manager.vala:119
+msgid "Restore"
+msgstr "恢复"
+
+#: src/services/recovery_manager.vala:116
+msgid ""
+"There are unsaved changes from the last session. Restore?"
+msgstr ""
+"上次运行存在未保存的更改。是否恢复？"
+
+#: src/services/recovery_manager.vala:115
+msgid "Unsaved Session Found"
+msgstr "发现未保存的会话"
