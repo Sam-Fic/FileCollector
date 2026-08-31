@@ -50,7 +50,6 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // AI 右侧栏 (同样原因在 Vala 中构建, 见 build_ai_split_view)
     private Adw.OverlaySplitView ai_split;
     private Gtk.Box ai_sidebar;
-    private Adw.Breakpoint ai_bp;
     // main_view 外的 Gtk.Overlay (VLM 进度卡片悬浮层), 也是 ai_split 的 content
     private Gtk.Overlay main_overlay;
 
@@ -1852,15 +1851,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         snapshot_split.sidebar_width_fraction = 0.20;
         snapshot_split.sidebar = sidebar_view;
 
-        // 响应式: 窗口宽度不足时, 侧栏切换为覆盖 (overlay) 模式, 浮在内容之上
-        // (会盖住顶部菜单栏); 宽度足够时回到并排 (docked) 模式.
-        // 阈值 1250px: 与右侧 AI 侧栏断点 (ai_bp, 1250px) 保持一致, 两个侧栏
-        // 在同一窗口宽度同步切换覆盖/并排, 行为可预期.
+        // 响应式: 窗口宽度不足时, 侧栏切换为覆盖 (overlay) 模式, 浮在内容之上;
+        // 宽度足够时回到并排 (docked) 模式.
+        // 断点不在此创建: AdwBreakpointBin 同一时刻只保留一个活动断点, 条件相同的
+        // 多个断点会互相顶掉, 左右侧栏共用 build_ai_split_view 中创建的单一断点
+        // (max-width: 1250px, 各挂一个 collapsed setter).
         // 并排模式只需三栏最小宽 (~860px, 由 shrink=false 的 Paned 链自动向窗口
         // 申报) + 侧栏最小宽 200px = 1060px, 阈值留有充分余量.
-        var snapshot_bp = new Adw.Breakpoint (Adw.BreakpointCondition.parse ("max-width: 1250px"));
-        snapshot_bp.add_setter (snapshot_split, "collapsed", true);
-        this.add_breakpoint (snapshot_bp);
 
         // 先把 main_view 从 toast_overlay 摘除 (置空 toast_overlay 的 child,
         // 让 GTK 正确解除父子关系), 再挂到 split view 的 content, 否则 GTK 会因
@@ -4849,9 +4846,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 阈值用 px (与 widget 最小宽度同单位): 三栏 ~840px + 侧栏 360px ≈ 1200px,
         // 取 1250px 留余量. Adw.ApplicationWindow 不支持运行时 remove_breakpoint,
         // 启动时一次性添加即可 (条件不变, collapsed 由断点自动施加/还原).
-        ai_bp = new Adw.Breakpoint (Adw.BreakpointCondition.parse ("max-width: 1250px"));
-        ai_bp.add_setter (ai_split, "collapsed", true);
-        this.add_breakpoint (ai_bp);
+        // 注意: AdwBreakpointBin 同一时刻只保留一个活动断点, 条件相同的两个断点
+        // 会互相顶掉 (仅最后添加者生效), 故左右侧栏共用这一个断点、各挂一个 setter,
+        // 不能各自单独创建断点 (实测左栏会因此永远无法进入覆盖模式).
+        var narrow_bp = new Adw.Breakpoint (Adw.BreakpointCondition.parse ("max-width: 1250px"));
+        narrow_bp.add_setter (ai_split, "collapsed", true);
+        narrow_bp.add_setter (snapshot_split, "collapsed", true);
+        this.add_breakpoint (narrow_bp);
 
         // 挂接: 先把 main_overlay 从 snapshot_split 摘除 (置空 content, 让 GTK
         // 正确解除父子关系), 再包入 ai_split —— 与 build_snapshot_split_view /
