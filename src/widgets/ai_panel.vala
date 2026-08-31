@@ -96,11 +96,9 @@ public class AIPanel : GLib.Object {
     public Gtk.Widget build_widget () {
         root_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
 
-        // ── 标题 ──
-        var title = new Gtk.Label (_("AI Assistant"));
-        title.halign = Gtk.Align.CENTER;
-        title.add_css_class ("panel-title");
-        root_box.append (title);
+        // 标题不在此处: 由主窗口的 build_ai_split_view 用标准 Adw.HeaderBar 提供
+        // (与左侧 Workspaces 侧栏同构), headerbar 高度与主标题栏一致,
+        // 聊天区顶边因此天然与三卡片的顶线对齐, 无需手工 margin 补偿.
 
         // ── 聊天区 ──
         chat_container = new Gtk.Box (Gtk.Orientation.VERTICAL, 8);

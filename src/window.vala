@@ -4831,7 +4831,17 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     private void build_ai_split_view () {
         ai_sidebar = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
         ai_sidebar.vexpand = true;
-        ai_sidebar.add_css_class ("ai-panel");
+
+        // 标题栏: 标准 Adw.HeaderBar + WindowTitle, 与左侧 Workspaces 侧栏同构
+        // (见 build_snapshot_split_view). 标准 headerbar 高度与主窗口标题栏一致,
+        // 侧栏内容区顶边因此与三卡片的顶线天然对齐.
+        var ai_header = new Adw.HeaderBar ();
+        ai_header.title_widget = new Adw.WindowTitle (_("AI Assistant"), "");
+
+        var ai_toolbar = new Adw.ToolbarView ();
+        ai_toolbar.add_top_bar (ai_header);
+        ai_toolbar.content = ai_sidebar;
+        ai_toolbar.add_css_class ("ai-panel");
 
         ai_split = new Adw.OverlaySplitView ();
         ai_split.collapsed = false;
@@ -4840,7 +4850,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         ai_split.sidebar_position = Gtk.PackType.END;
         ai_split.min_sidebar_width = 360;
         ai_split.max_sidebar_width = 360;
-        ai_split.sidebar = ai_sidebar;
+        ai_split.sidebar = ai_toolbar;
 
         // 断点: 窗口宽度不足以并排容纳 "三栏最小宽 + 侧栏" 时切覆盖模式.
         // 阈值用 px (与 widget 最小宽度同单位): 三栏 ~840px + 侧栏 360px ≈ 1200px,
