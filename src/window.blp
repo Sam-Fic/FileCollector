@@ -60,7 +60,7 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
 
       // AI 边栏为 Adw.原生右侧栏 (全高, 覆盖标题栏区域): window.vala 的
       // build_ai_split_view() 在 main_view 外层包一层 Adw.OverlaySplitView,
-      // 窗口过窄时自动转为覆盖 (overlay) 模式.
+      // 窗口宽度不足时由 update_sidebars_layout 切为覆盖 (overlay) 模式.
       content: Paned outer_paned {
        orientation: horizontal;
        margin-top: 0;
@@ -68,9 +68,13 @@ template $FileCollectorWindow : Adw.ApplicationWindow {
         margin-start: 18;
         margin-end: 18;
         position: 300;
-       // shrink=false: Paned 自身 measure 申报 min(start)+handle+min(end),
-       // 嵌套链自动向上传播, 窗口最小宽度恒等于内容真实需求 (随显隐/内容自动更新).
-       // 不再用任何手动计算的窗口 size_request —— 手动值过时会导致欠分配 → 裁切.
+       // ⚠ 实测: 下面这两行 shrink 声明在运行时并不生效 (outer_paned.measure() 只
+       // 申报出边距+一个把手宽, 两个子项全按可缩计), 故 window.vala 的 construct
+       // 里用代码再设一遍 —— 不要以为模板里写了就够了.
+       // shrink=false 的本意: Paned 自身 measure 申报 min(start)+handle+min(end),
+       // 嵌套链自动向上传播 —— 窗口最小宽度 (三卡片最小宽) 即由此实测得出,
+       // 由 window.vala 的 update_sidebars_layout 赋给窗口 width-request
+       // (窗口上的断点会使其停止自动申报内容最小宽, 必须手动兜底, 详见该处注释).
        shrink-start-child: false;
        shrink-end-child: false;
        css-classes: ["paned-no-handle"];

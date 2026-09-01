@@ -247,6 +247,25 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         setup_empty_state ();
         search_entry.visible = false;
 
+        // 窗口级 width-request 兜底最小宽须在首次呈现前建立 (详见该方法注释):
+        // 断点容器把内容申报的最小宽归零后, 这是三卡片不被拖窗口边缘裁切的唯一硬下限.
+        // 关键: blp 里写的 shrink-*-child: false 在运行时不生效 —— 实测
+        // outer_paned.measure() 只申报出 48 (= 自身左右边距 36 + 一个把手 12),
+        // 即两个子项都按 "可缩到 0" 计; 同时拖分隔条可把左栏压到 31px 而不停手.
+        // GtkPaned 的最小宽申报与位置钳位都以这两个 flag 为准, 一旦为 true,
+        // 窗口硬下限和分隔条约束会同时失效. 故程序化强制设置, 不依赖 BLP 编译
+        // (与历史上 PaneLayoutManager 的结论一致).
+        outer_paned.shrink_start_child = false;
+        outer_paned.shrink_end_child = false;
+        inner_paned.shrink_start_child = false;
+        inner_paned.shrink_end_child = false;
+
+        establish_width_floor ();
+
+        // 拖分隔条时的数值留痕 (仅在 FILECOLLECTOR_LAYOUT_DEBUG=1 下输出)
+        outer_paned.notify["position"].connect (() => dump_layout ("drag"));
+        inner_paned.notify["position"].connect (() => dump_layout ("drag"));
+
         current_context_limit = ConfigManager.get_context_window_size ();
 
         token_ring.set_draw_func ((area, cr, width, height) => {
@@ -1840,24 +1859,17 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 初始可见性不在此设置: 下方按钮 active<->show-sidebar 双向绑定 (SYNC_CREATE)
         // 会以按钮初始 active=false (BLP) 覆盖, 即启动时侧栏隐藏、按钮呈未按下态.
         snapshot_split.sidebar_position = Gtk.PackType.START;
-        // 侧栏宽度: 默认占窗口 25% (sidebar_width_fraction),
-        // 最小 180sp / 最大 280sp 约束, 防止极端窗口下过窄/过宽.
-        // 数值以 sp (缩放点) 描述, 按当前显示缩放因子换算成像素赋给
-        // Adw.OverlaySplitView 的 int 像素属性.
-        // 侧栏宽度: 固定比例 (相对窗口宽度), 取 0.20.
-        // min/max 约束防止极端窗口下过窄/过宽.
-        snapshot_split.min_sidebar_width = 200;
-        snapshot_split.max_sidebar_width = 320;
-        snapshot_split.sidebar_width_fraction = 0.20;
+        // 侧栏宽度固定 280px (min=max): 并排 (docked) 与覆盖 (overlay) 两种模式同宽,
+        // 且 "当前宽度是否容得下并排侧栏" 的判定 (见 update_sidebars_layout) 只依赖
+        // 常量, 不会随窗口宽度漂移. 比例式宽度 (原 0.20) 会让判定阈值随之变动, 弃用.
+        snapshot_split.min_sidebar_width = 280;
+        snapshot_split.max_sidebar_width = 280;
         snapshot_split.sidebar = sidebar_view;
 
-        // 响应式: 窗口宽度不足时, 侧栏切换为覆盖 (overlay) 模式, 浮在内容之上;
-        // 宽度足够时回到并排 (docked) 模式.
-        // 断点不在此创建: AdwBreakpointBin 同一时刻只保留一个活动断点, 条件相同的
-        // 多个断点会互相顶掉, 左右侧栏共用 build_ai_split_view 中创建的单一断点
-        // (max-width: 1250px, 各挂一个 collapsed setter).
-        // 并排模式只需三栏最小宽 (~860px, 由 shrink=false 的 Paned 链自动向窗口
-        // 申报) + 侧栏最小宽 200px = 1060px, 阈值留有充分余量.
+        // 响应式: 侧栏并排/覆盖切换不再用静态断点判定 (旧方案只看窗口总宽,
+        // 无法区分单开/双开侧栏, 双开时宽度不足导致三卡片被裁切), 改由
+        // size_allocate 中的 update_sidebars_layout 按 "窗口宽度是否容得下
+        // 三卡片最小宽 + 已展开侧栏宽" 逐个侧栏实时判定, 见该方法注释.
 
         // 先把 main_view 从 toast_overlay 摘除 (置空 toast_overlay 的 child,
         // 让 GTK 正确解除父子关系), 再挂到 split view 的 content, 否则 GTK 会因
@@ -1928,6 +1940,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             GLib.BindingFlags.BIDIRECTIONAL | GLib.BindingFlags.SYNC_CREATE
         );
         btn_toggle_snapshot.toggled.connect (sync_snapshot_toggle_button);
+        // 侧栏开关不一定改变窗口宽度 (覆盖模式不占宽), 此时 size_allocate 不触发,
+        // 需显式按当前窗口宽重算两侧并排/覆盖判定 (详见 reevaluate_sidebars).
+        snapshot_split.notify["show-sidebar"].connect (reevaluate_sidebars);
         sync_snapshot_toggle_button ();
 
         // 列表变更 → 重建侧栏
@@ -4826,8 +4841,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // (与 snapshot_split 同一限制), 故在此显式 set_sidebar()/set_content()。
     // 层级: snapshot_split > ai_split > main_overlay (> main_view),
     // 侧栏全高、覆盖标题栏所在区域, 与左侧快照栏对称.
-    // 响应式: 窗口过窄 (<=1250px, 约等于三栏最小宽 + 侧栏宽) 时经断点切为
-    // 覆盖 (overlay) 模式, 侧栏浮在内容之上而不挤占内容, 开关不再改变窗口宽度.
+    // 响应式: 侧栏 并排/覆盖 切换与窗口最小宽由 update_sidebars_layout
+    // (size_allocate 内) 按当前宽度动态判定, 不用静态断点.
     private void build_ai_split_view () {
         ai_sidebar = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
         ai_sidebar.vexpand = true;
@@ -4852,17 +4867,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         ai_split.max_sidebar_width = 360;
         ai_split.sidebar = ai_toolbar;
 
-        // 断点: 窗口宽度不足以并排容纳 "三栏最小宽 + 侧栏" 时切覆盖模式.
-        // 阈值用 px (与 widget 最小宽度同单位): 三栏 ~840px + 侧栏 360px ≈ 1200px,
-        // 取 1250px 留余量. Adw.ApplicationWindow 不支持运行时 remove_breakpoint,
-        // 启动时一次性添加即可 (条件不变, collapsed 由断点自动施加/还原).
-        // 注意: AdwBreakpointBin 同一时刻只保留一个活动断点, 条件相同的两个断点
-        // 会互相顶掉 (仅最后添加者生效), 故左右侧栏共用这一个断点、各挂一个 setter,
-        // 不能各自单独创建断点 (实测左栏会因此永远无法进入覆盖模式).
-        var narrow_bp = new Adw.Breakpoint (Adw.BreakpointCondition.parse ("max-width: 1250px"));
-        narrow_bp.add_setter (ai_split, "collapsed", true);
-        narrow_bp.add_setter (snapshot_split, "collapsed", true);
-        this.add_breakpoint (narrow_bp);
+        // 占位断点 (条件永不成立, 无任何 setter): 作用是让窗口保持 "可窄".
+        // Adw.ApplicationWindow 兼作断点容器, 一旦注册了断点, 其测量申报的最小宽
+        // 恒为 0 —— 这正好是我们需要的: 若一个断点都不注册, 测量链会把 "并排侧栏
+        // 宽度" 计入窗口最小宽 (三卡片最小宽 ~860 + 280 + 360 ≈ 1500), 窗口缩小到
+        // 该值就被卡死, 永远无法过渡到覆盖模式. 占位断点解除该硬下限后, 真正的
+        // 窗口最小宽 (三卡片最小宽) 与侧栏 并排/覆盖 判定, 统一由 size_allocate
+        // 中的 update_sidebars_layout 动态维护. 不要删除此断点, 也不要给它加条件
+        // 以外的东西.
+        var placeholder_bp = new Adw.Breakpoint (Adw.BreakpointCondition.parse ("max-width: 1px"));
+        this.add_breakpoint (placeholder_bp);
 
         // 挂接: 先把 main_overlay 从 snapshot_split 摘除 (置空 content, 让 GTK
         // 正确解除父子关系), 再包入 ai_split —— 与 build_snapshot_split_view /
@@ -4870,6 +4884,164 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         snapshot_split.content = null;
         ai_split.content = main_overlay;
         snapshot_split.content = ai_split;
+    }
+
+    // 三卡片实测最小宽. 这是窗口硬下限与侧栏 并排/覆盖 阈值共用的唯一数值 ——
+    // 两者必须同源, 否则会出现 "阈值说够宽、卡片仍被裁切".
+    // 直接取 measure(): gtk_widget_measure 已把 Paned 自身左右边距 (18+18) 与
+    // 两个把手宽计入, 再手动加一次边距会把兜底值虚高 36px.
+    private int cards_min_width () {
+        int cards_min, cards_nat;
+        outer_paned.measure (Gtk.Orientation.HORIZONTAL, -1, out cards_min, out cards_nat, null, null);
+        return cards_min;
+    }
+
+    // 三卡片 + 侧栏的宽度仲裁 (窗口尺寸变化 / 侧栏开关时触发 update_sidebars_layout):
+    //
+    // 设计约束: 只要窗口上注册过断点 (含下方占位断点), Adw 断点容器就把内容测量
+    // 申报的最小宽强制归零 (让窗口窄到能触发断点). 这带来两个后果:
+    //   (a) 并排侧栏不再挤占窗口最小宽 —— 这正是我们需要的, 否则双栏并排会把窗口
+    //       硬下限抬到 ~1488px, 窗口永远缩不进去、也就无法过渡到覆盖模式;
+    //   (b) 三卡片最小宽不再被自动申报 —— 必须用窗口级 width-request 手动兜底,
+    //       否则拖窗口边缘可缩到三卡片最小宽以下 → 卡片被裁切.
+    //
+    // 兜底值必须在 realize 之后测: construct 阶段 CSS/字体上下文尚未就绪, 含文本
+    // 子控件的 measure() 会申报出偏小的最小宽, 兜底值随之偏小 → 仍可拖到裁切.
+    // 首次呈现前也先同步设一版 (宁小勿无), 随后 Idle 里用真实测量值覆盖.
+    private void establish_width_floor () {
+        update_width_floor ();
+        GLib.Idle.add (() => {
+            if (app_state.window_closing) return Source.REMOVE;
+            update_width_floor ();
+            return Source.REMOVE;
+        });
+    }
+
+    private bool floor_refresh_scheduled = false;
+
+    // 侧栏并排/覆盖态变化会影响窗口硬下限之外的预算, 但兜底值本身只含三卡片;
+    // 卡片内可能因内容加载 (长文件名 / 队列行) 改变真实最小宽, 故统一走 Idle 重测.
+    private void schedule_width_floor_refresh () {
+        if (floor_refresh_scheduled) return;
+        floor_refresh_scheduled = true;
+        GLib.Idle.add (() => {
+            floor_refresh_scheduled = false;
+            if (!app_state.window_closing) {
+                update_width_floor ();
+            }
+            return Source.REMOVE;
+        });
+    }
+
+    private int width_floor = 0;
+
+    private void update_width_floor () {
+        int floor = cards_min_width ();
+        width_floor = floor;
+        if (floor > 0 && this.width_request != floor) {
+            this.width_request = floor;
+        }
+        dump_layout ("floor");
+    }
+
+    // 数值化自检: 出问题时用数字定位, 而不是猜.
+    // 用法: FILECOLLECTOR_LAYOUT_DEBUG=1 ./build/filecollector
+    //
+    // 关注两组数的对比:
+    //   outer_alloc / inner_alloc  = 两个 Paned 实际拿到的宽度
+    //   cards_min (及各卡片 min)    = 它们需要的宽度
+    // 若 outer_alloc < cards_min, 即外层容器欠分配 —— 此时 shrink=false 的钳位区间
+    // 上下界互相穿越, 分隔条会跟着鼠标随便走且卡片被裁切; 问题在窗口硬下限, 不在 Paned.
+    private bool layout_debug_enabled = false;
+    private int last_dumped_width = -1;
+
+    private void dump_layout (string why) {
+        if (!layout_debug_enabled) {
+            layout_debug_enabled =
+                GLib.Environment.get_variable ("FILECOLLECTOR_LAYOUT_DEBUG") != null;
+            if (!layout_debug_enabled) return;
+        }
+
+        int win_w = this.get_width ();
+        if (why == "alloc" && win_w == last_dumped_width) return;
+        last_dumped_width = win_w;
+
+        int self_min, self_nat;
+        this.measure (Gtk.Orientation.HORIZONTAL, -1, out self_min, out self_nat, null, null);
+
+        int outer_min, outer_nat;
+        outer_paned.measure (Gtk.Orientation.HORIZONTAL, -1, out outer_min, out outer_nat, null, null);
+
+        int l_min, l_nat, m_min, m_nat, r_min, r_nat;
+        var left = outer_paned.get_start_child ();
+        var inner_start = inner_paned.get_start_child ();
+        var inner_end = inner_paned.get_end_child ();
+        left.measure (Gtk.Orientation.HORIZONTAL, -1, out l_min, out l_nat, null, null);
+        inner_start.measure (Gtk.Orientation.HORIZONTAL, -1, out m_min, out m_nat, null, null);
+        inner_end.measure (Gtk.Orientation.HORIZONTAL, -1, out r_min, out r_nat, null, null);
+
+        stdout.printf (
+            "[layout/%s] win=%dx%d win_measure_min=%d floor=%d | need: outer=%d (L=%d M=%d R=%d) | got: outer=%d inner=%d pos=%d/%d shrink=%d%d/%d%d | snap(show=%s dock=%s) ai(show=%s dock=%s)\n",
+            why, win_w, this.get_height (), self_min, width_floor,
+            outer_min, l_min, m_min, r_min,
+            outer_paned.get_width (), inner_paned.get_width (),
+            outer_paned.position, inner_paned.position,
+            outer_paned.shrink_start_child ? 1 : 0, outer_paned.shrink_end_child ? 1 : 0,
+            inner_paned.shrink_start_child ? 1 : 0, inner_paned.shrink_end_child ? 1 : 0,
+            snapshot_split.show_sidebar ? "y" : "n",
+            snapshot_split.collapsed ? "n" : "y",
+            ai_split.show_sidebar ? "y" : "n",
+            ai_split.collapsed ? "n" : "y");
+    }
+
+    // 侧栏 并排/覆盖 逐个判定 (可在任意时刻安全调用, 只改 collapsed 不改窗口尺寸):
+    // 某侧栏仅当 "窗口宽度 >= 三卡片最小宽 + 所有并排侧栏宽(含自身)" 时才并排, 否则覆盖.
+    // 左侧优先占用宽度预算, 剩余预算够才并排右侧 —— 双开侧栏时共享预算, 修复旧静态断点
+    // 只看窗口总宽、双开时宽度不够导致三卡片被挤到最小宽以下的问题; 单开一侧预算独享,
+    // 不误切覆盖. 阈值以当前实际窗口宽度为准 (宽度参数由调用方传入).
+    private void update_sidebars_layout (int width) {
+        int cards_min = cards_min_width ();
+
+        int left_w = (int) snapshot_split.min_sidebar_width;
+        int right_w = (int) ai_split.min_sidebar_width;
+        bool dock_left = snapshot_split.show_sidebar && width >= cards_min + left_w;
+        bool dock_right = ai_split.show_sidebar
+            && width >= cards_min + (dock_left ? left_w : 0) + right_w;
+        bool left_collapsed = snapshot_split.show_sidebar && !dock_left;
+        bool right_collapsed = ai_split.show_sidebar && !dock_right;
+
+        bool changed = false;
+        // 只在该侧栏 *当前可见* 时才动 collapsed: 收回侧栏时 OverlaySplitView 正在播
+        // 滑出动画, 此刻把 collapsed 从 true 翻回 false 会让它瞬时切到 "并排" 布局 ——
+        // 内容区先被挤窄一个侧栏宽再弹回, 表现为下层界面闪一下. 隐藏态下 collapsed
+        // 无视觉作用, 保持原值即可; 下次显示时 notify::show-sidebar 会重新判定.
+        if (snapshot_split.show_sidebar && snapshot_split.collapsed != left_collapsed) {
+            snapshot_split.collapsed = left_collapsed;
+            changed = true;
+        }
+        if (ai_split.show_sidebar && ai_split.collapsed != right_collapsed) {
+            ai_split.collapsed = right_collapsed;
+            changed = true;
+        }
+        if (changed) {
+            dump_layout ("collapse");
+        }
+    }
+
+    // 侧栏开关时可能不改变窗口宽度 (并排抢内容宽 / 覆盖不占宽), 此时 size_allocate
+    // 不一定触发, 故显式按当前窗口宽重算一次折叠态.
+    private void reevaluate_sidebars () {
+        int w = this.get_width ();
+        if (w > 0) {
+            update_sidebars_layout (w);
+        }
+        schedule_width_floor_refresh ();
+    }
+
+    public override void size_allocate (int width, int height, int baseline) {
+        update_sidebars_layout (width);
+        base.size_allocate (width, height, baseline);
+        dump_layout ("alloc");
     }
 
     private void setup_ai_panel () {
@@ -4886,6 +5058,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         // 可见性变化时处理懒创建 / 窗口加宽恢复
         ai_split.notify["show-sidebar"].connect (on_ai_sidebar_toggled);
+        ai_split.notify["show-sidebar"].connect (reevaluate_sidebars);
     }
 
     private void on_ai_sidebar_toggled () {
@@ -4978,9 +5151,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 重新应用当前设置
         apply_ai_settings_to_panel ();
 
-        // 侧栏显隐完全由 show-sidebar 属性驱动; 窗口最小宽度由 OverlaySplitView
-        // 与 shrink=false 的 Paned 链自动向上申报 (覆盖模式下侧栏不参与测量,
-        // 窗口可窄至三栏最小宽), 无需手动维护窗口尺寸.
+        // 侧栏显隐完全由 show-sidebar 属性驱动; 并排/覆盖与窗口最小宽由
+        // update_sidebars_layout 按当前宽度动态维护, 无需在此处理窗口尺寸.
     }
 
     private void apply_ai_settings_to_panel () {
