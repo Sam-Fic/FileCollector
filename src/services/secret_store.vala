@@ -57,11 +57,24 @@ namespace SecretStore {
         return Path.build_filename (dir, "." + slot + ".bin");
     }
 
+    // 构造一个 DATA_BLOB, 包装一段 UTF-8 字节流作为 DPAPI 熵. 存于堆, 调用方
+    // 负责在 CryptProtectData / CryptUnprotectData 返回后调用 LocalFree 释放.
+    private static DATA_BLOB make_entropy_blob (string slot) {
+        unowned uint8[] bytes = slot.data;
+        var blob = DATA_BLOB () { cbData = bytes.length, pbData = bytes };
+        return blob;
+    }
+
     private static bool dpapi_store (string slot, string value) {
         unowned uint8[] data = value.data;
         var in_blob = DATA_BLOB () { cbData = data.length, pbData = data };
+        // 引入 per-scheme 熵: 以 slot 名作为 additional entropy. 这样:
+        //   1. 不同槽位 (api_key / mm_api_key / paddleocr_token / profile_*) 互相隔离;
+        //   2. 同用户其他应用即使拿到密文, 没有正确熵也解不出来;
+        //   3. 未受信任进程无法以默认 NULL 熵调用 CryptUnprotectData 解密.
+        var entropy = make_entropy_blob (slot);
         DATA_BLOB out_blob = DATA_BLOB ();
-        if (CryptProtectData (&in_blob, "filecollector", null, null, null, 0, &out_blob) == 0)
+        if (CryptProtectData (&in_blob, "filecollector", &entropy, null, null, 0, &out_blob) == 0)
             return false;
         try {
             uint8[] enc = new uint8[out_blob.cbData];
@@ -83,8 +96,10 @@ namespace SecretStore {
             uint8[] raw;
             FileUtils.get_data (path, out raw);
             var in_blob = DATA_BLOB () { cbData = raw.length, pbData = raw };
+            // 写入时使用的熵在读取时必须保持一致, 否则 CryptUnprotectData 返回失败.
+            var entropy = make_entropy_blob (slot);
             DATA_BLOB out_blob = DATA_BLOB ();
-            if (CryptUnprotectData (&in_blob, null, null, null, null, 0, &out_blob) == 0)
+            if (CryptUnprotectData (&in_blob, null, &entropy, null, null, 0, &out_blob) == 0)
                 return null;
             // DPAPI 解密后的 buf 不保证末尾有 \0, (string) buf 会越界。
             // 显式分配 +1 字节并补 \0。
