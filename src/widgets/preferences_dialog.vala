@@ -54,6 +54,12 @@ public class PreferencesDialog : GLib.Object {
     private Cancellable? test_cancellable = null;
     private bool testing_sidebar = false;
 
+    // ── PaddleOCR 测试节流 ─────────────────────────────────────
+    // 防止用户手抖连续点 "Test Connection" 打到 PaddleOCR 后端, 产生
+    // 重复作业与计费. 间隔 5 秒: 不够细但能拦住无意重复点击.
+    private int64 last_paddleocr_test_us = 0;
+    private const int64 PADDLEOCR_TEST_THROTTLE_US = 5 * 1000000;  // 5 s
+
     // ── 上下文窗口设置控件 ──
     private SpinRow spin_context_size;
 
@@ -1051,6 +1057,17 @@ public class PreferencesDialog : GLib.Object {
             show_toast (_("Please fill in the Access Token first."));
             return;
         }
+
+        // 节流: 上次成功发起测试以来不足 5 秒, 不重发. 防止重复点刷
+        // PaddleOCR 后端作业队列, 避免误计费.
+        int64 now_us = GLib.get_monotonic_time ();
+        if (last_paddleocr_test_us > 0
+            && (now_us - last_paddleocr_test_us) < PADDLEOCR_TEST_THROTTLE_US) {
+            int64 remaining_s = (PADDLEOCR_TEST_THROTTLE_US - (now_us - last_paddleocr_test_us)) / 1000000 + 1;
+            show_toast (_("Test connection is throttled. Please wait %lld s.").printf (remaining_s));
+            return;
+        }
+        last_paddleocr_test_us = now_us;
 
         btn_mm_test.set_sensitive (false);
         show_toast (_("Testing..."));
