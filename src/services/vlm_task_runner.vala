@@ -28,10 +28,27 @@ public class VLMTaskRunner : GLib.Object {
     private const int POOL_CAP = 8;
 
     private static string settings_signature (ConfigManager.MultimodalAISettings s) {
-        // 加入 provider 与 paddleocr_token: 切换服务商或更新 Token 后必须清空
-        // OpenAI 客户端池, 否则会复用陈旧凭据/模型发出错误请求.
-        string token_key = (s.provider == ConfigManager.PROVIDER_PADDLEOCR) ? s.paddleocr_token : s.api_key;
-        return "%s|%s|%s|%s|%g".printf (s.provider, token_key, s.base_url, s.model, s.timeout);
+        // 客户端池复用判据: provider + base_url + model + timeout + 密钥指纹.
+        //
+        // 密钥不直接拼入, 改为 SHA-256 指纹. 原因:
+        //   1. 未来加 debug 日志时不会把 api_key / paddleocr_token 拼进日志;
+        //   2. 不同密钥产生不同指纹 -> 复用判断依然准确;
+        //   3. 即使被异常堆栈 / coredump 抓取, 也只能拿到 64 hex 字符, 无法逆推.
+        // provider 已参与, 顺带把 base_url/model/timeout 拼入即可.
+        string token = (s.provider == ConfigManager.PROVIDER_PADDLEOCR) ? s.paddleocr_token : s.api_key;
+        string token_fpr = compute_token_fingerprint (token);
+
+        return "%s|%s|%s|%s|%g".printf (
+            s.provider, token_fpr, s.base_url, s.model, s.timeout);
+    }
+
+    // 对密钥字节流做 SHA-256 摘要. 空字符串返回固定 "<empty>" 以便日志中识别.
+    // 使用 GLib.Checksum (无第三方依赖, GLib 自带).
+    private static string compute_token_fingerprint (string? token) {
+        if (token == null || token.length == 0) return "<empty>";
+        var cs = new GLib.Checksum (GLib.ChecksumType.SHA256);
+        cs.update ((uint8[]) token.data, token.length);
+        return cs.get_string ();
     }
 
     // 取一个与当前设置匹配的客户端; 池空或参数不匹配则新建. 调用方需在 finally 中
