@@ -131,76 +131,71 @@ namespace SecretStore {
     }
 
 #elif MACOS
-    // ─── macOS: SecKeychain ────────────────────────────────────────────
-    [CCode (cheader_filename = "Security/Security.h", cname = "SecKeychainAddGenericPassword")]
-    private extern static int SecKeychainAddGenericPassword (
-        void* keychain, uint32 serviceNameLength, string serviceName,
-        uint32 accountNameLength, string accountName,
-        uint32 passwordLength, void* passwordData,
-        void* itemRef);
+    // ─── macOS: 现代 Keychain API (SecItem*) ────────────────────────────
+    // 迁移说明: 旧版 SecKeychain* (SecKeychainAddGenericPassword /
+    // SecKeychainFindGenericPassword / SecKeychainItemDelete) 自 macOS 12
+    // (Monterey) 被 Apple 标记为 deprecated, 在 macOS 14 SDK 中已移除.
+    // 这里使用现代 SecItemAdd / SecItemCopyMatching / SecItemDelete,
+    // 真实实现见 src/macos_keychain_shim.c (封装 CFDictionary, 避免
+    // 在 Vala 中直接管理 CoreFoundation 对象生命周期).
+    [CCode (cname = "fc_keychain_add", cheader_filename = "src/macos_keychain_shim.h")]
+    private extern static int fc_keychain_add (
+        string service, uint32 service_len,
+        string account, uint32 account_len,
+        string password, uint32 password_len);
 
-    [CCode (cheader_filename = "Security/Security.h", cname = "SecKeychainFindGenericPassword")]
-    private extern static int SecKeychainFindGenericPassword (
-        void* keychainOrArray, uint32 serviceNameLength, string serviceName,
-        uint32 accountNameLength, string accountName,
-        uint32* passwordLength, void** passwordData, void* itemRef);
+    [CCode (cname = "fc_keychain_find", cheader_filename = "src/macos_keychain_shim.h")]
+    private extern static int fc_keychain_find (
+        string service, uint32 service_len,
+        string account, uint32 account_len,
+        uint8[] out_buf, ref uint32 out_buf_len);
 
-    [CCode (cheader_filename = "Security/Security.h", cname = "SecKeychainItemFreeContent")]
-    private extern static int SecKeychainItemFreeContent (
-        void* attrList, void* data);
+    [CCode (cname = "fc_keychain_delete", cheader_filename = "src/macos_keychain_shim.h")]
+    private extern static int fc_keychain_delete (
+        string service, uint32 service_len,
+        string account, uint32 account_len);
 
-    [CCode (cheader_filename = "Security/Security.h", cname = "SecKeychainItemDelete")]
-    private extern static int SecKeychainItemDelete (void* itemRef);
-
-    [CCode (cheader_filename = "CoreFoundation/CoreFoundation.h", cname = "CFRelease")]
-    private extern static void CFRelease (void* cf);
-
+    // keychain (service, account) 名称: 使用同一 slot 串作为 service + account,
+    // 避免另起一层命名空间. 隔离粒度 = slot 名本身.
     private static int macos_store (string slot, string api_key) {
-        // 先删后写, 避免重复条目
-        macos_delete (slot);
         unowned uint8[] pw = api_key.data;
-        return SecKeychainAddGenericPassword (
-            null, (uint32) slot.length, slot,
-            (uint32) slot.length, slot,
-            (uint32) pw.length, pw, null);
+        return fc_keychain_add (slot, (uint32) slot.length,
+                                slot, (uint32) slot.length,
+                                (string) pw, (uint32) pw.length);
     }
 
-    // 查询密钥: 仅读取, 不删除 keychain 条目.
+    // 查询密钥: 仅读取, 不删除条目.
     // (历史 bug: 旧版 macos_lookup 同时调用 SecKeychainItemDelete,
     //  导致每次查询都会清空已存的 API Key, 第二次启动就读不到了.)
     private static string? macos_find (string slot) {
-        uint32 len = 0;
-        void* data = null;
-        void* item = null;
-        int rc = SecKeychainFindGenericPassword (
-            null, (uint32) slot.length, slot,
-            (uint32) slot.length, slot,
-            &len, &data, &item);
-        if (rc != 0 || data == null) {
-            if (item != null) CFRelease (item);
-            return null;
-        }
-        // Keychain 返回的 data 不保证末尾有 \0, 显式拷贝并补 \0
-        uint8[] buf = new uint8[len + 1];
-        Memory.copy (buf, data, len);
-        buf[len] = 0;
-        string result = (string) buf;
-        SecKeychainItemFreeContent (null, data);
-        if (item != null) CFRelease (item);
-        return result;
+        // 先查询一次, 拿到所需大小; 再用足够大的 buffer 重查.
+        uint32 needed = 0;
+        int rc1 = fc_keychain_find (slot, (uint32) slot.length,
+                                    slot, (uint32) slot.length,
+                                    null, ref needed);
+        if (rc1 == 0 && needed == 0) return null;  // 不存在
+        if (rc1 < 0) return null;
+        if (needed == 0) return null;
+
+        // 预留 +1 字节补 \0 终止符, 避免 (string) 强转越界.
+        uint32 buf_len = needed + 1;
+        uint8[] buf = new uint8[buf_len];
+        int rc2 = fc_keychain_find (slot, (uint32) slot.length,
+                                    slot, (uint32) slot.length,
+                                    buf, ref buf_len);
+        if (rc2 != 0 || buf_len == 0) return null;
+        buf[buf_len] = 0;
+        return (string) buf;
     }
 
     // 删除指定槽位的 keychain 条目 (供 store 的"先删后写"和清空流程使用).
     // 查询流程绝不能调用此函数, 否则会破坏已存密钥.
     private static void macos_delete (string slot) {
-        void* item = null;
-        int rc = SecKeychainFindGenericPassword (
-            null, (uint32) slot.length, slot,
-            (uint32) slot.length, slot,
-            null, null, &item);
-        if (rc != 0 || item == null) return;
-        SecKeychainItemDelete (item);
-        CFRelease (item);
+        int rc = fc_keychain_delete (slot, (uint32) slot.length,
+                                     slot, (uint32) slot.length);
+        if (rc != 0) {
+            warning ("SecretStore: keychain delete failed (rc=%d) for slot %s", rc, slot);
+        }
     }
 
     public static bool store (string slot, string api_key) {

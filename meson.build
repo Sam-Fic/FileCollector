@@ -167,6 +167,11 @@ if host_machine.system() == 'windows'
   sources += files('src/win32_dpapi_shim.c')
 endif
 
+# macos_keychain_shim.c 仅 macOS 构建需要 (SecItem* 封装), 其它平台不存在该文件。
+if host_machine.system() == 'darwin'
+  sources += files('src/macos_keychain_shim.c')
+endif
+
 # 国际化
 # 源语言为英文 (代码中 _() 的 msgid), 翻译文件在 po/ 目录。
 # 注意: 必须强制 xgettext 用 Vala 语言解析所有输入 (含 window.blp),
