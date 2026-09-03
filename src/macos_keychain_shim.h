@@ -32,22 +32,25 @@ int fc_keychain_add(const char *service, uint32_t service_len,
                     const char *password, uint32_t password_len);
 
 /**
- * 查询 keychain. 返回的密码通过回调传出 (避免 glib 与 CoreFoundation 内存模型冲突).
+ * 查询 keychain. shim 内部 g_malloc 缓冲区并 g_strdup 出一份新缓冲区作为
+ * *out_buf 返回 (Vala 端按 owned string 接收, 由 GLib.Object 释药器管理).
+ *
+ * 这样设计是为了避免 Vala 与 C 双重释药问题: Vala 对 out string? 默认
+ * 会调用 _g_free0, 而 shim 出的 buffer 也需 g_free. 分两步 strdup 让
+ * Vala 接管副本, shim 自己 free 原 buffer, 不冲突.
  *
  * @param service  UTF-8 service name
  * @param service_len  byte length
  * @param account  UTF-8 account name
  * @param account_len  byte length
- * @param out_buf  caller-provided buffer; if too small, returns required size
- *                via out_buf_len and caller should retry with a larger buffer.
- *                If out_buf is NULL, only writes the required size to out_buf_len.
- * @param out_buf_len  in/out: caller provides buffer size, shim writes actual size
- * @return 0 on success, positive required-size hint when buffer too small,
- *         negative OSStatus on error.
+ * @param out_buf  out: caller-owned NUL-terminated string (g_strdup'd from
+ *                 keychain contents). NULL when entry not found.
+ * @param out_buf_len  out: byte length excluding trailing NUL
+ * @return 0 on success, 1 if not found, negative OSStatus on error.
  */
 int fc_keychain_find(const char *service, uint32_t service_len,
                      const char *account, uint32_t account_len,
-                     char *out_buf, uint32_t *out_buf_len);
+                     char **out_buf, uint32_t *out_buf_len);
 
 /**
  * 删除 (service, account) 对应的条目. 不存在时返回 0 (成功语义).

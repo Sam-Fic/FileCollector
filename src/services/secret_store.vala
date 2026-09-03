@@ -145,10 +145,12 @@ namespace SecretStore {
         string password, uint32 password_len);
 
     [CCode (cname = "fc_keychain_find", cheader_filename = "src/macos_keychain_shim.h")]
+    // out string? (owned): shim 内部 g_malloc + 填充 NUL 终止, 把所有权
+    // 交回给 Vala. Vala 生成的 _g_free0 会在变量作用域结束时 g_free.
     private extern static int fc_keychain_find (
         string service, uint32 service_len,
         string account, uint32 account_len,
-        uint8[] out_buf, ref uint32 out_buf_len);
+        out string? out_buf, out uint32 out_buf_len);
 
     [CCode (cname = "fc_keychain_delete", cheader_filename = "src/macos_keychain_shim.h")]
     private extern static int fc_keychain_delete (
@@ -167,25 +169,29 @@ namespace SecretStore {
     // 查询密钥: 仅读取, 不删除条目.
     // (历史 bug: 旧版 macos_lookup 同时调用 SecKeychainItemDelete,
     //  导致每次查询都会清空已存的 API Key, 第二次启动就读不到了.)
+    //
+    // fc_keychain_find 返回码:
+    //   0  = 成功, out_buf 持有 keychain 内部数据的拷贝 (g_malloc, Vala 释放)
+    //   1  = 不存在
+    //   < 0 = 错误 (负 OSStatus)
     private static string? macos_find (string slot) {
-        // 先查询一次, 拿到所需大小; 再用足够大的 buffer 重查.
-        uint32 needed = 0;
-        int rc1 = fc_keychain_find (slot, (uint32) slot.length,
-                                    slot, (uint32) slot.length,
-                                    null, ref needed);
-        if (rc1 == 0 && needed == 0) return null;  // 不存在
-        if (rc1 < 0) return null;
-        if (needed == 0) return null;
-
-        // 预留 +1 字节补 \0 终止符, 避免 (string) 强转越界.
-        uint32 buf_len = needed + 1;
-        uint8[] buf = new uint8[buf_len];
-        int rc2 = fc_keychain_find (slot, (uint32) slot.length,
-                                    slot, (uint32) slot.length,
-                                    buf, ref buf_len);
-        if (rc2 != 0 || buf_len == 0) return null;
-        buf[buf_len] = 0;
-        return (string) buf;
+        string? buf = null;
+        uint32 buf_len = 0;
+        int rc = fc_keychain_find (slot, (uint32) slot.length,
+                                   slot, (uint32) slot.length,
+                                   out buf, out buf_len);
+        // shim 内部 g_malloc + 填充 NUL 终止, out_buf 是 caller-owned.
+        // Vala 会在 buf 作用域结束时 g_free (与 shim 的 g_malloc 对齐).
+        if (rc == 1) return null;  // 不存在
+        if (rc != 0) {
+            warning ("SecretStore: keychain find failed (rc=%d) for slot %s", rc, slot);
+            return null;
+        }
+        if (buf == null || buf_len == 0) {
+            // C 端成功的 0 但返回空 buffer, 视为无内容.
+            return null;
+        }
+        return buf;
     }
 
     // 删除指定槽位的 keychain 条目 (供 store 的"先删后写"和清空流程使用).

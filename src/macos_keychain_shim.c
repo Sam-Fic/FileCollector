@@ -1,5 +1,6 @@
 #include "macos_keychain_shim.h"
 #import <Security/Security.h>
+#include <glib.h>     /* g_malloc, 与 Vala GLib 释药器对齐 */
 
 /* 内部工具: 把 UTF-8 (length, data) 包成 CFString, 失败时返回 NULL.
  * 释放责任交回调用方 (CFRelease). */
@@ -15,27 +16,7 @@ static CFStringRef make_cfstring(const char *bytes, uint32_t len) {
     return s;
 }
 
-/* 内部工具: CFDataRef -> char* 拷贝 (到调用方 buffer), 并写回实际长度. */
-static int copy_cfdata_to_buffer(CFDataRef data, char *out_buf, uint32_t *out_buf_len) {
-    if (data == NULL) return -1;
-    CFIndex len = CFDataGetLength(data);
-    if (len < 0) len = 0;
-    if (out_buf == NULL) {
-        /* 调用方只想知道所需大小. */
-        *out_buf_len = (uint32_t) len;
-        return (int) len;  /* 正数: 提示调用方分配更大 buffer */
-    }
-    if (*out_buf_len < (uint32_t) len) {
-        /* buffer 太小, 返回所需大小让调用方重试. */
-        *out_buf_len = (uint32_t) len;
-        return (int) len;
-    }
-    CFDataGetBytes(data, CFRangeMake(0, len), (UInt8 *) out_buf);
-    *out_buf_len = (uint32_t) len;
-    return 0;
-}
-
-int fc_keychain_add(const char *service, uint32_t service_len,
+/* 内部工具: 把 CFDataRef 转为 g_malloc 的 NUL-终止字符串, 供 Vala 接管. */int fc_keychain_add(const char *service, uint32_t service_len,
                     const char *account, uint32_t account_len,
                     const char *password, uint32_t password_len) {
     if (service == NULL || account == NULL || password == NULL) {
@@ -96,10 +77,13 @@ int fc_keychain_add(const char *service, uint32_t service_len,
 
 int fc_keychain_find(const char *service, uint32_t service_len,
                      const char *account, uint32_t account_len,
-                     char *out_buf, uint32_t *out_buf_len) {
-    if (service == NULL || account == NULL || out_buf_len == NULL) {
+                     char **out_buf, uint32_t *out_buf_len) {
+    if (service == NULL || account == NULL || out_buf == NULL || out_buf_len == NULL) {
         return -1;
     }
+    /* 初始化输出参数, 避免调用方在错误路径上读到未初始化值. */
+    *out_buf = NULL;
+    *out_buf_len = 0;
 
     CFStringRef cf_service = make_cfstring(service, service_len);
     CFStringRef cf_account = make_cfstring(account, account_len);
@@ -126,10 +110,8 @@ int fc_keychain_find(const char *service, uint32_t service_len,
     CFRelease(cf_account);
 
     if (rc == errSecItemNotFound) {
-        /* 不存在视为未找到, 不算错误. */
-        *out_buf_len = 0;
-        if (out_buf != NULL && *out_buf_len > 0) out_buf[0] = '\0';
-        return 0;
+        /* 不存在视为 1, 区别于错误 (负) 与成功 (0). */
+        return 1;
     }
     if (rc != errSecSuccess) {
         if (result) CFRelease(result);
@@ -139,14 +121,18 @@ int fc_keychain_find(const char *service, uint32_t service_len,
         return -4;
     }
 
-    int copy_rc = copy_cfdata_to_buffer((CFDataRef) result, out_buf, out_buf_len);
+    /* 从 CFData 拿到原始字节, 拷贝一份 NUL-终止的 g_malloc 字符串.
+     * 调用方 (Vala) 会通过 GLib.Object 释药器接管这个指针, 不要再 free. */
+    CFDataRef cf_data = (CFDataRef) result;
+    CFIndex data_len = CFDataGetLength(cf_data);
+    if (data_len < 0) data_len = 0;
+    char *str = (char *) g_malloc((size_t) data_len + 1);
+    CFDataGetBytes(cf_data, CFRangeMake(0, data_len), (UInt8 *) str);
+    str[data_len] = '\0';
+    *out_buf = str;
+    *out_buf_len = (uint32_t) data_len;
     CFRelease(result);
-
-    if (copy_rc > 0) {
-        /* buffer 不足, 返回正值作为所需大小提示. */
-        return copy_rc;
-    }
-    return copy_rc;  /* 0 或负错误码 */
+    return 0;
 }
 
 int fc_keychain_delete(const char *service, uint32_t service_len,
