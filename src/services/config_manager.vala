@@ -15,6 +15,19 @@ public errordomain ConfigError {
  * 收到通知后用 toast 提示用户.
  */
 public delegate void InsecureUrlHandler (string url, string reason);
+
+/**
+ * 明文密钥迁移失败事件.
+ *
+ * 当 settings.json 中检测到明文 api_key / paddleocr_token, 但调
+ * SecretStore.store_* 写入密钥环返回 false (例如 libsecret 服务未启动,
+ * macOS Keychain 拒绝访问, Windows DPAPI 失败等) 时调用.
+ *
+ * 参数 slot 是人类可读的密钥项名 (例如 "Sidebar API Key" /
+ * "Multimodal API Key" / "PaddleOCR Token"). 警告内容应避免拼出明文.
+ */
+public delegate void KeyringMigrationFailedHandler (string slot, string reason);
+
 public class ConfigManager : GLib.Object {
     public const string DEFAULT_AI_BASE_URL = "https://api.openai.com/v1";
     public const string DEFAULT_AI_MODEL = "gpt-4o-mini";
@@ -30,6 +43,21 @@ public class ConfigManager : GLib.Object {
     private static void notify_insecure_url (string url, string reason) {
         warning ("ConfigManager: insecure base_url rejected: %s (%s)", url, reason);
         if (insecure_url_handler != null) insecure_url_handler (url, reason);
+    }
+
+    // ── 密钥环迁移失败通知 ────────────────────────────────────────
+    // settings.json 中检测到明文密钥 -> 调用 SecretStore.store_*_api_key ->
+    // 返回 false (libsecret 未启动 / Keychain 拒绝 / DPAPI 错误).
+    // 此时 JSON 中的明文不能删除, 下次启动还会再看到. GUI 收到事件后
+    // 应: 1) toast 一次性提示; 2) 在偏好设置/主窗口持久展示警告 banner,
+    // 提醒用户在 config UI 里重新填一次 (本次保存会重试写入).
+    private static KeyringMigrationFailedHandler? migration_failed_handler = null;
+    public static void set_keyring_migration_failed_handler (KeyringMigrationFailedHandler? h) {
+        migration_failed_handler = h;
+    }
+    private static void notify_migration_failed (string slot, string reason) {
+        warning ("ConfigManager: keyring migration failed for %s: %s", slot, reason);
+        if (migration_failed_handler != null) migration_failed_handler (slot, reason);
     }
 
     /**
@@ -413,6 +441,13 @@ public class ConfigManager : GLib.Object {
                         if (store_mm_api_key_to_keyring (json_key)) {
                             ai.set_string_member ("api_key", "");
                             write_settings_root_unlocked (root);
+                        } else {
+                            // 迁移失败: 明文仍在 JSON 中, 提示用户重新填写一次.
+                            notify_migration_failed (
+                                "Multimodal API Key",
+                                _("Failed to store key in system keyring. " +
+                                  "The plaintext key remains in settings.json. " +
+                                  "Re-saving the configuration will retry."));
                         }
                     }
                 }
@@ -428,6 +463,12 @@ public class ConfigManager : GLib.Object {
                         if (store_paddleocr_token_to_keyring (json_token)) {
                             ai.set_string_member ("paddleocr_token", "");
                             write_settings_root_unlocked (root);
+                        } else {
+                            notify_migration_failed (
+                                "PaddleOCR Token",
+                                _("Failed to store token in system keyring. " +
+                                  "The plaintext token remains in settings.json. " +
+                                  "Re-saving the configuration will retry."));
                         }
                     }
                 }
@@ -581,6 +622,12 @@ public class ConfigManager : GLib.Object {
                     if (SecretStore.store_profile_api_key (name, json_key)) {
                         obj.set_string_member ("api_key", "");
                         write_settings_root_unlocked (root);
+                    } else {
+                        notify_migration_failed (
+                            @"Sidebar API Key (profile: $name)",
+                            _("Failed to store key in system keyring. " +
+                              "The plaintext key remains in settings.json. " +
+                              "Re-saving the configuration will retry."));
                     }
                 }
             }
@@ -678,6 +725,12 @@ public class ConfigManager : GLib.Object {
                     if (SecretStore.store_profile_mm_api_key (name, json_key)) {
                         obj.set_string_member ("api_key", "");
                         write_settings_root_unlocked (root);
+                    } else {
+                        notify_migration_failed (
+                            @"Multimodal API Key (profile: $name)",
+                            _("Failed to store key in system keyring. " +
+                              "The plaintext key remains in settings.json. " +
+                              "Re-saving the configuration will retry."));
                     }
                 }
             }
@@ -693,6 +746,12 @@ public class ConfigManager : GLib.Object {
                     if (SecretStore.store_profile_paddleocr_token (name, json_token)) {
                         obj.set_string_member ("paddleocr_token", "");
                         write_settings_root_unlocked (root);
+                    } else {
+                        notify_migration_failed (
+                            @"PaddleOCR Token (profile: $name)",
+                            _("Failed to store token in system keyring. " +
+                              "The plaintext token remains in settings.json. " +
+                              "Re-saving the configuration will retry."));
                     }
                 }
             }
@@ -800,6 +859,13 @@ public class ConfigManager : GLib.Object {
                             // 迁移成功, 清除 JSON 中的明文密钥
                             ai.set_string_member ("api_key", "");
                             write_settings_root_unlocked (root);
+                        } else {
+                            // 迁移失败: 明文仍在 JSON 中. 提示用户重新填写.
+                            notify_migration_failed (
+                                "Sidebar API Key",
+                                _("Failed to store key in system keyring. " +
+                                  "The plaintext key remains in settings.json. " +
+                                  "Re-saving the configuration will retry."));
                         }
                     }
                 }

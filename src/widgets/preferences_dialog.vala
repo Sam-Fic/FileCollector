@@ -70,6 +70,8 @@ public class PreferencesDialog : GLib.Object {
         this.mm_current = ConfigManager.load_multimodal_ai_settings ();
         // 注册不安全 base_url 拒绝回调, 检测到明文 HTTP 端点时 toast 提示.
         ConfigManager.set_insecure_url_handler (on_insecure_base_url);
+        // 注册密钥环迁移失败回调, 提示用户重新填写以重试写入.
+        ConfigManager.set_keyring_migration_failed_handler (on_keyring_migration_failed);
     }
 
     private void on_insecure_base_url (string url, string reason) {
@@ -82,6 +84,21 @@ public class PreferencesDialog : GLib.Object {
         var toast = new Adw.Toast (
             _("Insecure endpoint rejected: ") + reason);
         toast.timeout = 6;
+        toast.set_priority (Adw.ToastPriority.HIGH);
+        dialog.add_toast (toast);
+    }
+
+    // 密钥环迁移失败回调: settings.json 中还有明文 key, 但 SecretStore.store
+    // 失败 (libsecret 未启动 / Keychain 拒绝 / DPAPI 错误). 明文不会自动清除,
+    // 下次启动会重试. 提示用户可以在本对话框里重新填一次, 写入会重试.
+    private void on_keyring_migration_failed (string slot, string reason) {
+        if (dialog == null) {
+            warning ("PreferencesDialog: keyring migration failed (%s): %s", slot, reason);
+            return;
+        }
+        var toast = new Adw.Toast (
+            _("Keyring migration failed for ") + slot + ": " + reason);
+        toast.timeout = 10;
         toast.set_priority (Adw.ToastPriority.HIGH);
         dialog.add_toast (toast);
     }
