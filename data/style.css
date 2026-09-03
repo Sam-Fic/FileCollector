@@ -280,6 +280,18 @@ popover.ctx-menu separator {
     min-width: 260px;
 }
 
+/* AI 侧栏嵌在 snapshot_split 的 .content-pane 内, libadwaita 默认会给
+   嵌套侧栏用 --secondary-sidebar-bg-color (比主侧栏更浅)。设计决策:
+   覆盖回主侧栏色, 与左侧 Workspaces 侧栏一致。折叠态 (.background) 不受
+   影响, 保持原生窗口底色; snapshot_split 自身侧栏本就是该色, 等价 no-op */
+overlay-split-view > .sidebar-pane {
+    background-color: var(--sidebar-bg-color);
+}
+
+overlay-split-view > .sidebar-pane:backdrop {
+    background-color: var(--sidebar-backdrop-color);
+}
+
 .ai-bubble {
     border-radius: var(--radius-lg);
     padding: 8px 10px;
@@ -293,27 +305,18 @@ popover.ctx-menu separator {
     margin-top: 0;
 }
 
-.ai-bubble-user {
-    background-color: alpha(@accent_color, 0.18);
-    border: 1px solid alpha(@accent_color, 0.5);
-    color: @window_fg_color;
-}
-
+/* 气泡配色交由主题原生默认: 用户消息用原生 .card 表面 (Vala 中添加),
+   助手消息无底色、仅描边; 系统提示保留警告色底, 工具调用保留虚线描边 */
 .ai-bubble-assistant {
-    background-color: alpha(@card_bg_color, 0.9);
     border: 1px solid var(--border);
-    color: @window_fg_color;
 }
 
 .ai-bubble-system {
     background-color: alpha(@warning_bg_color, 0.4);
-    border: 1px solid var(--border);
-    color: @window_fg_color;
     font-size: var(--font-sm);
 }
 
 .ai-bubble-tool {
-    background-color: alpha(@card_bg_color, 0.7);
     border: 1px dashed var(--border);
     padding: 0;
 }
@@ -326,13 +329,8 @@ popover.ctx-menu separator {
 .ai-tool-header {
     background: transparent;
     border: none;
-    border-radius: 0;
-    padding: 6px 8px;
+    padding: 6px 10px;
     min-height: 32px;
-}
-
-.ai-tool-header:hover {
-    background-color: alpha(@borders, 0.3);
 }
 
 .ai-tool-arrow {
@@ -341,11 +339,6 @@ popover.ctx-menu separator {
 
 .ai-tool-name {
     font-weight: 600;
-    color: @window_fg_color;
-}
-
-.ai-tool-args {
-    color: alpha(@window_fg_color, 0.7);
 }
 
 .ai-tool-action {
@@ -353,16 +346,12 @@ popover.ctx-menu separator {
 }
 
 .ai-tool-body {
-    padding: 0 8px 6px 8px;
+    padding: 0 10px 8px 10px;
 }
 
-.ai-tool-result {
-    color: @window_fg_color;
-}
-
+/* 折叠态的结果预览文字 (展开态由 .ai-tool-body 提供同款内边距) */
 .ai-tool-preview {
-    color: alpha(@window_fg_color, 0.6);
-    padding: 0 8px 6px 8px;
+    padding: 0 10px 8px 10px;
 }
 
 .ai-status-ok {
@@ -373,18 +362,11 @@ popover.ctx-menu separator {
     color: @warning_color;
 }
 
-/* AI 输入框不要底部阴影, 但保留细外轮廓 */
+/* 输入框: 底色由原生 .card (Vala 中添加) 提供, 描边用主题边框色;
+   压掉 .card 的阴影/描边环, 避免与显式 border 叠加成双线 */
 .ai-input-frame {
-    background: @card_bg_color;
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    box-shadow: none;
-}
-
-.ai-input-frame > border,
-.ai-input-frame > frame {
-    background: transparent;
-    border: none;
     box-shadow: none;
 }
 
@@ -427,13 +409,6 @@ popover.ctx-menu separator {
 .ai-placeholder {
     padding: 0;
     margin: 0;
-}
-
-/* AI 聊天区滚动到底部按钮: 与输入框同款描边 */
-.ai-scroll-bottom-btn {
-    background: @card_bg_color;
-    border: 1px solid var(--border);
-    padding: 4px;
 }
 
 /* ── Markdown 渲染样式 ────────────────────────────────────────── */
@@ -585,5 +560,3 @@ popover.ctx-menu separator {
 .navigation-sidebar {
     padding-top: 0;
 }
-
-

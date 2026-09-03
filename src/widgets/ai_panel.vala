@@ -129,7 +129,6 @@ public class AIPanel : GLib.Object {
         // 滚动到底部按钮 (悬浮在聊天区右下角, 不在底部时显示)
         btn_scroll_bottom = new Gtk.Button.from_icon_name ("go-down-symbolic");
         btn_scroll_bottom.add_css_class ("circular");
-        btn_scroll_bottom.add_css_class ("ai-scroll-bottom-btn");
         btn_scroll_bottom.set_tooltip_text (_("Scroll to Bottom"));
         btn_scroll_bottom.set_halign (Gtk.Align.END);
         btn_scroll_bottom.set_valign (Gtk.Align.END);
@@ -162,6 +161,7 @@ public class AIPanel : GLib.Object {
 
         // ── 补全列表 (默认隐藏, 出现在输入框上方) ──
         completion_frame = new Gtk.Frame (null);
+        completion_frame.add_css_class ("card");
         completion_frame.add_css_class ("ai-input-frame");
         completion_frame.margin_start = 12;
         completion_frame.margin_end = 12;
@@ -570,7 +570,7 @@ public class AIPanel : GLib.Object {
         bubble.add_css_class ("ai-bubble");
         switch (msg.role) {
             case "user":
-                bubble.add_css_class ("ai-bubble-user");
+                bubble.add_css_class ("card");
                 break;
             case "assistant":
                 bubble.add_css_class ("ai-bubble-assistant");
@@ -661,6 +661,7 @@ public class AIPanel : GLib.Object {
 
                 var args_lbl = new Gtk.Label (sanitize_utf8 (msg.tool_args_repr));
                 args_lbl.add_css_class ("ai-tool-args");
+                args_lbl.add_css_class ("dim-label");
                 args_lbl.valign = Gtk.Align.CENTER;
                 args_lbl.ellipsize = Pango.EllipsizeMode.END;
                 args_lbl.hexpand = true;
@@ -688,6 +689,7 @@ public class AIPanel : GLib.Object {
                 preview_lbl.xalign = 0;
                 preview_lbl.wrap = true;
                 preview_lbl.add_css_class ("ai-tool-preview");
+                preview_lbl.add_css_class ("dim-label");
 
                 // 初始可见性
                 body.set_visible (msg.expanded);

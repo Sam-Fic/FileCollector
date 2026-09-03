@@ -273,6 +273,7 @@ public class PhrasesPicker : GLib.Object {
         content.set_margin_bottom (12);
 
         var frame = new Gtk.Frame (null);
+        frame.add_css_class ("card");
         frame.add_css_class ("ai-input-frame");
 
         var scrolled = new Gtk.ScrolledWindow ();
