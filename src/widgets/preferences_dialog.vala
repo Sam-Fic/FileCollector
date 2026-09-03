@@ -68,6 +68,22 @@ public class PreferencesDialog : GLib.Object {
         this.parent_window = parent;
         this.sidebar_current = ConfigManager.load_ai_settings ();
         this.mm_current = ConfigManager.load_multimodal_ai_settings ();
+        // 注册不安全 base_url 拒绝回调, 检测到明文 HTTP 端点时 toast 提示.
+        ConfigManager.set_insecure_url_handler (on_insecure_base_url);
+    }
+
+    private void on_insecure_base_url (string url, string reason) {
+        // dialog 可能尚未初始化 (加载顺序问题), 此时仅记 warning.
+        if (dialog == null) {
+            warning ("PreferencesDialog: insecure base_url (%s): %s", url, reason);
+            return;
+        }
+        // 不裸投 key, 也不跳转 URL, 仅提示错误原因.
+        var toast = new Adw.Toast (
+            _("Insecure endpoint rejected: ") + reason);
+        toast.timeout = 6;
+        toast.set_priority (Adw.ToastPriority.HIGH);
+        dialog.add_toast (toast);
     }
 
     public void present () {

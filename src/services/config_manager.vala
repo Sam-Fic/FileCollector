@@ -1,9 +1,80 @@
 using Gee;
 
+/**
+ * AI 设置相关错误域。INSECURE_ENDPOINT 用于拒绝明文 HTTP 端点,
+ * 防止 API Key 在网络上被明文传输.
+ */
+public errordomain ConfigError {
+    INSECURE_ENDPOINT,
+    INVALID_URL,
+}
+
+/**
+ * 不安全 base_url 拒绝事件 (静态事件, 因为 ConfigManager 是纯静态类,
+ * 无法通过 GLib.Object signal 派发). GUI 在初始化时注册回调,
+ * 收到通知后用 toast 提示用户.
+ */
+public delegate void InsecureUrlHandler (string url, string reason);
 public class ConfigManager : GLib.Object {
     public const string DEFAULT_AI_BASE_URL = "https://api.openai.com/v1";
     public const string DEFAULT_AI_MODEL = "gpt-4o-mini";
     public const double DEFAULT_AI_TIMEOUT = 60.0;
+
+    // ── 不安全 base_url 通知 ──────────────────────────────────────────
+    // ConfigManager 是纯静态类, GLib.Object signal 不能用. 用一个静态委托槽
+    // 代替, GUI 初始化时注册一次, save_* 检测到不合法端点时调用, 走 toast 提示.
+    private static InsecureUrlHandler? insecure_url_handler = null;
+    public static void set_insecure_url_handler (InsecureUrlHandler? h) {
+        insecure_url_handler = h;
+    }
+    private static void notify_insecure_url (string url, string reason) {
+        warning ("ConfigManager: insecure base_url rejected: %s (%s)", url, reason);
+        if (insecure_url_handler != null) insecure_url_handler (url, reason);
+    }
+
+    /**
+     * 校验 base_url 是否安全 (HTTPS 或本地回环).
+     * 非安全端点会抛 ConfigError.INSECURE_ENDPOINT, 阻止 save_* 写入磁盘.
+     *
+     * 允许的端点:
+     *   - https:// 任意主机
+     *   - http://localhost 或 http://127.0.0.0/8 (本地 Ollama 等)
+     *
+     * 不允许的端点 (示例):
+     *   - http://192.168.x.x  (局域网明文, 易被中间人)
+     *   - http://api.openai.com (公网明文, 严重风险)
+     */
+    public static void validate_base_url (string url) throws ConfigError {
+        if (url == null || url.length == 0) {
+            throw new ConfigError.INVALID_URL (_("API Base URL is empty"));
+        }
+        string trimmed = url.strip ();
+        if (trimmed.has_prefix ("https://")) return;
+        if (trimmed.has_prefix ("http://")) {
+            // 提取 host 部分 (跳过 "http://" 前缀, 到 ':' / '/' / '?' / '#' / 末尾)
+            string host = trimmed.substring (7);
+            int cut = -1;
+            for (int i = 0; i < host.length; i++) {
+                char c = host[i];
+                if (c == ':' || c == '/' || c == '?' || c == '#') {
+                    cut = i; break;
+                }
+            }
+            if (cut >= 0) host = host.substring (0, cut);
+            host = host.down ();
+            if (host == "localhost" || host == "127.0.0.1" || host == "::1"
+                || host.has_prefix ("127.")) {
+                return;
+            }
+            throw new ConfigError.INSECURE_ENDPOINT (
+                _("Insecure endpoint: HTTP (non-HTTPS) is only allowed for localhost. " +
+                  "Public/remote endpoints must use HTTPS to protect the API key."));
+        }
+        // 既不是 http 也不是 https, 可能是 file:// / ftp:// 等, 视为不安全
+        throw new ConfigError.INVALID_URL (
+            _("Unsupported URL scheme: only http(s) is accepted. URL was: %s").printf (url));
+    }
+
 
     // 默认忽略的目录列表
     public const string[] DEFAULT_IGNORED_DIRS = {
@@ -391,6 +462,15 @@ public class ConfigManager : GLib.Object {
     }
 
     public static void save_multimodal_ai_settings (MultimodalAISettings s) {
+        // PaddleOCR 服务端点写死为 https, 这里只对 OpenAI 路径校验.
+        if (s.provider == PROVIDER_OPENAI) {
+            try {
+                validate_base_url (s.base_url);
+            } catch (ConfigError e) {
+                notify_insecure_url (s.base_url ?? "", e.message);
+                return;
+            }
+        }
         config_mutex.lock ();
         try {
             Json.Object root = load_settings_root_unlocked () ?? new Json.Object ();
@@ -541,6 +621,15 @@ public class ConfigManager : GLib.Object {
     }
 
     public static void save_ai_profiles (Gee.ArrayList<AIProfile> profiles) {
+        // 拒绝任何不安全端点 (https:// 必需, localhost 例外).
+        foreach (var p in profiles) {
+            try {
+                validate_base_url (p.base_url);
+            } catch (ConfigError e) {
+                notify_insecure_url (p.base_url ?? "", e.message);
+                return;
+            }
+        }
         config_mutex.lock ();
         try {
             save_ai_profiles_unlocked (profiles);
@@ -648,6 +737,17 @@ public class ConfigManager : GLib.Object {
     }
 
     public static void save_vlm_profiles (Gee.ArrayList<VLMProfile> profiles) {
+        // 拒绝任何 OpenAI 路径下的不安全端点. PaddleOCR 端点写死为 https.
+        foreach (var p in profiles) {
+            if (p.provider == PROVIDER_OPENAI) {
+                try {
+                    validate_base_url (p.base_url);
+                } catch (ConfigError e) {
+                    notify_insecure_url (p.base_url ?? "", e.message);
+                    return;
+                }
+            }
+        }
         config_mutex.lock ();
         try {
             save_vlm_profiles_unlocked (profiles);
@@ -732,6 +832,13 @@ public class ConfigManager : GLib.Object {
     }
 
     public static void save_ai_settings (AISettings s) {
+        // 拒绝不安全端点: 仅允许 https:// 或 http://localhost/127.0.0.1
+        try {
+            validate_base_url (s.base_url);
+        } catch (ConfigError e) {
+            notify_insecure_url (s.base_url ?? "", e.message);
+            return;
+        }
         config_mutex.lock ();
         try {
             Json.Object root = load_settings_root_unlocked () ?? new Json.Object ();
