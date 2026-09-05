@@ -85,118 +85,13 @@ For local build, packaging, and troubleshooting, see the [Windows portable packa
 
 ## Build from Source
 
-### Linux
+For building from source, see the [Local Build Guide](docs/building/README.md), which covers dependency installation, build commands, and troubleshooting for each platform:
 
-#### Install Dependencies
-
-**Debian / Ubuntu**
-
-```bash
-sudo apt install meson valac libgtk-4-dev libadwaita-1-dev libjson-glib-dev libsoup-3.0-dev libgee-0.8-dev libsecret-1-dev libcmark-gfm-dev libgtksourceview-5-dev blueprint-compiler gettext
-```
-
-**Fedora**
-
-```bash
-sudo dnf install meson vala gtk4-devel libadwaita-devel json-glib-devel libsoup3-devel libgee-devel libsecret-devel cmark-gfm-devel gtksourceview5-devel blueprint-compiler gettext
-```
-
-#### Build & Install
-
-```bash
-mkdir -p build && cd build
-meson setup ..
-meson compile
-sudo meson install
-```
-
-> **Tip**: If you have built before, re-run `meson compile` inside the `build/` directory for incremental compilation of the binary. If you modified translation files under `po/` or `_()` strings in UI, also re-run `sudo meson install` to deploy the updated `.mo` file to the system path.
-
-#### Run
-
-```bash
-filecollector          # Launch GUI
-filecollector --help   # Show CLI help
-filecollector --gui    # Force GUI mode (same as the first command when no other CLI args)
-```
-
-> **Tip**:
->
-> - The application automatically uses Chinese or English UI based on your system language. To temporarily switch languages, use the `LANGUAGE` environment variable, e.g. `LANGUAGE=en filecollector` to force English display. This works for both GUI and CLI modes.
-> - For CLI mode usage, see the [CLI Mode](#cli-mode) section below.
-> - **GUI vs CLI behavior**: When any CLI arguments (`--work-dir`, `--select-file`, `--load`, etc.) are detected, the app runs in CLI mode without opening the GUI. **Exception**: Adding `--gui` forces GUI mode — CLI arguments are used only to initialize the interface state, then you can use the GUI for manual adjustments, if the GUI is running, CLI operations will be reflected in the GUI. This is useful when switching from MCP automation to human review.
-
-#### Flatpak Build
-
-```bash
-flatpak-builder build-dir io.github.sam_fic.filecollector.json --user --install --force-clean
-flatpak run io.github.sam_fic.filecollector
-```
-
-For local Flatpak packaging and troubleshooting, see the [Flatpak guide](docs/building/flatpak.md). Release assets are uploaded by CI and do not require manual publication.
-
-### Windows
-
-#### Install Dependencies (MSYS2 / mingw64)
-
-Install the toolchain and the full GTK4 stack via the MSYS2 mingw64 terminal (**must** run inside the `mingw64` shell, not the default `MSYS` shell):
-
-```bash
-pacman -S --needed mingw-w64-x86_64-meson mingw-w64-x86_64-ninja mingw-w64-x86_64-gcc \
-  mingw-w64-x86_64-pkgconf mingw-w64-x86_64-vala mingw-w64-x86_64-cmake \
-  mingw-w64-x86_64-gtk4 mingw-w64-x86_64-libadwaita \
-  mingw-w64-x86_64-json-glib mingw-w64-x86_64-libsoup3 mingw-w64-x86_64-libgee \
-  mingw-w64-x86_64-gtksourceview5 \
-  mingw-w64-x86_64-blueprint-compiler mingw-w64-x86_64-gettext mingw-w64-x86_64-libsecret
-```
-
-> Note: `cmark-gfm` (GitHub Flavored Markdown rendering, used by the AI chat bubbles) has **no prebuilt MSYS2 package** and must be built from source — see "Build cmark-gfm from source" below.
-
-**Build cmark-gfm from source**
-
-```bash
-git clone --depth 1 --branch 0.29.0.gfm.13 https://github.com/github/cmark-gfm.git
-cd cmark-gfm
-cmake -G Ninja -B build -S . \
-  -DCMAKE_INSTALL_PREFIX=$MINGW_PREFIX \
-  -DCMARK_SHARED=ON -DCMARK_STATIC=OFF -DCMARK_TESTS=OFF \
-  -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-cmake --build build
-cmake --install build
-```
-
-> `$MINGW_PREFIX` is typically `C:/msys64/mingw64` inside the mingw64 shell. After installing, `pkg-config --exists cmark-gfm` should return exit code 0.
-
-> Run `meson` and `ninja` inside the **mingw64** environment, otherwise GTK4 and friends won't be found.
-
-> If `blueprint-compiler` fails on `.blp` with `UnicodeDecodeError: 'gbk' codec can't decode`, Python is reading files with the system GBK encoding. Run `export PYTHONUTF8=1` in the mingw64 shell before `meson compile`.
-
-#### Build & Install
-
-```bash
-meson setup build
-meson compile
-```
-
-> No `meson install` needed: the binary is at `build/filecollector.exe` and can be run directly.
-
-#### Run
-
-```bash
-export PYTHONUTF8=1
-./build/filecollector.exe          # Launch GUI
-./build/filecollector.exe --help   # Show CLI help
-```
-
-> At runtime the GTK / cmark-gfm DLLs must be findable — make sure mingw64's `bin` directory is on `PATH` (the mingw64 shell adds it automatically). If double-clicking `filecollector.exe` reports a missing DLL, launch it from the mingw64 shell, or add `C:/msys64/mingw64/bin` to the system `PATH`.
-
-#### Package as Portable Zip
-
-To package a portable zip like the "Pre-built Windows Portable Package" above from source, follow the [Windows portable package guide](docs/building/windows.md): it collects the DLLs, bundles the image loaders and GSettings schemas, and generates the `filecollector-launch.bat` launcher. Note that the `GDK_PIXBUF_MODULEDIR` set by the launcher is what makes image rendering work correctly.
-
-### macOS (Apple Silicon)
-
-The macOS ARM64 package is verified in CI. For local reproduction, packaging, and signing limitations, see the [macOS ARM64 guide](docs/building/macos.md). The current package uses an ad-hoc signature and is not Apple Developer ID-signed or notarized.
+| Platform | Guide |
+| --- | --- |
+| Linux (DEB / Flatpak) | [DEB Guide](docs/building/deb.md), [Flatpak Guide](docs/building/flatpak.md) |
+| Windows x64 | [Windows Portable Guide](docs/building/windows.md) |
+| macOS ARM64 | [macOS Guide](docs/building/macos.md) |
 
 ## Project Structure
 

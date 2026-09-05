@@ -85,118 +85,13 @@ filecollector-windows-X.Y.Z-x64.zip
 
 ## 自行构建
 
-### Linux
+如需从源码构建，请参阅 [本地构建指南](docs/building/README.md)，其中包含各平台的依赖安装、构建命令与排错方法：
 
-#### 安装依赖
-
-**Debian / Ubuntu**
-
-```bash
-sudo apt install meson valac libgtk-4-dev libadwaita-1-dev libjson-glib-dev libsoup-3.0-dev libgee-0.8-dev libsecret-1-dev libcmark-gfm-dev libgtksourceview-5-dev blueprint-compiler gettext
-```
-
-**Fedora**
-
-```bash
-sudo dnf install meson vala gtk4-devel libadwaita-devel json-glib-devel libsoup3-devel libgee-devel libsecret-devel cmark-gfm-devel gtksourceview5-devel blueprint-compiler gettext
-```
-
-#### 构建与安装
-
-```bash
-mkdir -p build && cd build
-meson setup ..
-meson compile
-sudo meson install
-```
-
-> **提示**：如果之前已经构建过，修改源码后只需在 `build/` 目录下重新运行 `meson compile` 即可增量编译二进制。若修改了 `po/` 下的翻译文件或 UI 中的 `_()` 字符串，则需要重新运行 `sudo meson install` 以更新翻译文件到系统路径。
-
-#### 运行
-
-```bash
-filecollector          # 启动图形界面
-filecollector --help   # 查看 CLI 命令行帮助
-filecollector --gui    # 强制启动图形界面（无其他 CLI 参数时第一行等价）
-```
-
-> **提示**：
->
-> - 程序默认跟随系统语言显示中文或英文界面。如需临时切换语言，可使用环境变量，例如 `LANGUAGE=en filecollector` 强制显示英文。该环境变量同时对图形界面和 CLI 命令行模式生效。
-> - 如需使用 CLI 命令行模式，请参见下方的 [CLI 命令行模式](#cli-命令行模式) 章节。
-> - **GUI 与 CLI 的行为规则**：当检测到任何 CLI 参数（`--work-dir`、`--select-file`、`--load` 等）时，程序默认进入命令行模式，不会弹出图形界面。**例外**：添加 `--gui` 参数可强制打开图形界面，CLI 参数仅用于初始化界面状态（工作目录、勾选文件等），初始化完成后可接续使用 GUI 供人工微调，GUI 若在运行中，CLI 的操作会反映在 GUI 上。这在 MCP 自动化流程与人工审查切换时非常有用。
-
-#### Flatpak 构建
-
-```bash
-flatpak-builder build-dir io.github.sam_fic.filecollector.json --user --install --force-clean
-flatpak run io.github.sam_fic.filecollector
-```
-
-本地 Flatpak 打包与排错请参阅 [Flatpak 指南](docs/building/flatpak.md)。正式 Release 无需手动上传资产。
-
-### Windows
-
-#### 安装依赖（MSYS2 / mingw64）
-
-通过 MSYS2 的 mingw64 终端安装工具链与 GTK4 全家桶（**必须**在 `mingw64` shell 内操作，不要用默认的 `MSYS` shell）：
-
-```bash
-pacman -S --needed mingw-w64-x86_64-meson mingw-w64-x86_64-ninja mingw-w64-x86_64-gcc \
-  mingw-w64-x86_64-pkgconf mingw-w64-x86_64-vala mingw-w64-x86_64-cmake \
-  mingw-w64-x86_64-gtk4 mingw-w64-x86_64-libadwaita \
-  mingw-w64-x86_64-json-glib mingw-w64-x86_64-libsoup3 mingw-w64-x86_64-libgee \
-  mingw-w64-x86_64-gtksourceview5 \
-  mingw-w64-x86_64-blueprint-compiler mingw-w64-x86_64-gettext mingw-w64-x86_64-libsecret
-```
-
-> 注意：`cmark-gfm`（GitHub Flavored Markdown 渲染，用于 AI 聊天气泡）在 MSYS2 里**没有现成包**，需要自行从源码编译，见下方「编译 cmark-gfm」。
-
-**编译 cmark-gfm（从源码）**
-
-```bash
-git clone --depth 1 --branch 0.29.0.gfm.13 https://github.com/github/cmark-gfm.git
-cd cmark-gfm
-cmake -G Ninja -B build -S . \
-  -DCMAKE_INSTALL_PREFIX=$MINGW_PREFIX \
-  -DCMARK_SHARED=ON -DCMARK_STATIC=OFF -DCMARK_TESTS=OFF \
-  -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-cmake --build build
-cmake --install build
-```
-
-> `$MINGW_PREFIX` 在 mingw64 shell 里通常就是 `C:/msys64/mingw64`。装好后 `pkg-config --exists cmark-gfm` 应返回 0（退出码 0）。
-
-> 注意：必须在 **mingw64** 环境中执行 `meson` 与 `ninja`，否则会找不到 GTK4 等依赖。
-
-> 若 `blueprint-compiler` 编译 `.blp` 时报 `UnicodeDecodeError: 'gbk' codec can't decode`，说明 Python 默认用系统 GBK 编码读取文件。在 mingw64 shell 里先执行 `export PYTHONUTF8=1` 再 `meson compile` 即可。
-
-#### 构建与安装
-
-```bash
-meson setup build
-meson compile
-```
-
-> 无需 `meson install`：产物位于 `build/filecollector.exe`，可直接运行。
-
-#### 运行
-
-```bash
-export PYTHONUTF8=1
-./build/filecollector.exe          # 启动图形界面
-./build/filecollector.exe --help   # 查看 CLI 命令行帮助
-```
-
-> 运行时需要能找到 GTK / cmark-gfm 等 DLL，请确保 mingw64 的 `bin` 目录在 `PATH` 中（启动 mingw64 shell 时已自动加入）。若双击 `filecollector.exe` 提示缺少 DLL，请在 mingw64 shell 中启动，或把 `C:/msys64/mingw64/bin` 加入系统 `PATH`。
-
-#### 打包为便携包
-
-若要从源码自行打包成上面「预编译 Windows 便携包」那样的便携 zip，请参考 [Windows 便携包指南](docs/building/windows.md)：它会自动收集 DLL、打包图像加载器与 GSettings schema，并生成 `filecollector-launch.bat` 启动器。注意启动器里的 `GDK_PIXBUF_MODULEDIR` 是图片正常渲染的关键。
-
-### macOS（Apple Silicon）
-
-macOS ARM64 包已在持续集成中验证。用于本地复现、构建和签名限制说明，请参阅 [macOS ARM64 指南](docs/building/macos.md)。当前包使用 ad-hoc 签名，未进行 Apple Developer ID 签名或公证。
+| 平台 | 文档 |
+| --- | --- |
+| Linux（DEB / Flatpak） | [DEB 指南](docs/building/deb.md)、[Flatpak 指南](docs/building/flatpak.md) |
+| Windows x64 | [Windows 便携包指南](docs/building/windows.md) |
+| macOS ARM64 | [macOS 指南](docs/building/macos.md) |
 
 ## 项目结构
 
