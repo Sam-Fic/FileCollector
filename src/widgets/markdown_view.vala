@@ -273,10 +273,16 @@ public class MarkdownView : Gtk.Box {
                 break;
             case Cmark.NodeType.LINK:
                 var url = node.get_url () ?? "";
-                sb.append ("<span color=\"#3584e4\" underline=\"single\">");
+                if (url.length == 0) {
+                    render_children (sb, node);
+                    break;
+                }
+                // 用 <a href> 而不是着色 span: GtkLabel 原生支持锚点, 单击/回车即可
+                // 打开 (默认 handler 经 GtkUriLauncher 交给系统), 链接色与下划线
+                // 交给 CSS 的 link 节点决定, 不再写死颜色。
+                sb.append ("<a href=\"%s\">".printf (escape_markup_attribute (url)));
                 render_children (sb, node);
-                sb.append ("</span>");
-                // URL 作为注释附在后面 (GTK Label 无法直接做超链接)
+                sb.append ("</a>");
                 break;
             case Cmark.NodeType.IMAGE:
                 // 忽略图片, 显示 alt 文本
@@ -315,14 +321,32 @@ public class MarkdownView : Gtk.Box {
 
     // 安全设置 markup: 如果解析失败则回退到纯文本, 避免整个 label 为空
     private void set_markup_safe (Gtk.Label label, string markup) {
-        try {
-            // 用 Pango 解析验证 markup 是否有效
-            Pango.parse_markup (markup, -1, 0, null, null, null);
-            label.set_markup (markup);
-        } catch (GLib.Error e) {
-            // markup 无效, 回退到纯文本 (已转义)
+        label.set_markup (markup);
+        // 不能像过去那样先用 Pango.parse_markup 校验: 它不认 GtkLabel 专有的 <a> 标签,
+        // 含链接的段落会被判为无效而回退成裸 markup。改为事后判断 ——
+        // GtkLabel 解析失败时保持原内容不变, 新建 label 于是仍是空文本,
+        // 而 markup 里本有可见文字, 此时才回退纯文本。
+        if ((label.get_text () ?? "").length == 0 && has_visible_text (markup)) {
             label.set_text (sanitize_utf8 (markup));
         }
+    }
+
+    // markup 的标签之外是否还有可见字符
+    // 文本一律先经 escape_text 转义, 故裸 '<' / '>' 只可能是标签边界;
+    // 按字节扫描即可, UTF-8 续字节都 >=0x80, 不会与 ASCII 定界符撞上。
+    private bool has_visible_text (string markup) {
+        bool in_tag = false;
+        for (int i = 0; i < markup.length; i++) {
+            char c = markup[i];
+            if (c == '<')
+                in_tag = true;
+            else if (c == '>')
+                in_tag = false;
+            else if (!in_tag && !c.isspace ())
+                return true;
+        }
+
+        return false;
     }
 
     // 清洗 UTF-8: 用 replacement character 替换无效字节, 确保字符串对 Pango 安全
@@ -334,5 +358,11 @@ public class MarkdownView : Gtk.Box {
     private string escape_markup (string text) {
         // 先清洗 UTF-8, 再用 GLib 的标准转义函数
         return GLib.Markup.escape_text (sanitize_utf8 (text), -1);
+    }
+
+    // 转义写进 markup 属性值里的文本
+    // escape_text 不动双引号, 而属性用双引号包裹, URL 带 " 会提前截断属性值。
+    private string escape_markup_attribute (string text) {
+        return escape_markup (text).replace ("\"", "&quot;");
     }
 }

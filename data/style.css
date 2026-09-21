@@ -427,6 +427,16 @@ overlay-split-view > .sidebar-pane:backdrop {
     margin-bottom: 2px;
 }
 
+/* Markdown 链接: GtkLabel 把 <a href> 渲染成 label 节点下的 link 子节点。
+   颜色跟随主题强调色, 明暗主题与用户自定义 accent 自动生效;
+   下划线由主题自带的 link 规则提供, 此处不再重复声明。 */
+.md-heading link,
+.md-paragraph link,
+.md-list-item link,
+.md-table-cell link {
+    color: @accent_color;
+}
+
 .md-code-block-frame {
     border: 1px solid var(--border);
     border-radius: var(--radius-md);

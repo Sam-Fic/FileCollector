@@ -300,6 +300,11 @@ public class GlobalSearchDialog : Adw.Dialog {
         }
 
         var result = new StringBuilder ();
+        // 高亮色取主题 @accent_color 的计算值 (Pango markup 不认 CSS 变量);
+        // 主题未定义该颜色名时退化为只加粗, 不再写死色值。
+        string? accent = UIHelpers.css_color_markup (this, "accent_color");
+        string hit_open = accent == null ? "<b>" : "<b><span foreground='%s'>".printf (accent);
+        string hit_close = accent == null ? "</b>" : "</span></b>";
         int text_chars = text.char_count ();
         int kw_chars = keyword.char_count ();
         int last = 0;
@@ -317,9 +322,9 @@ public class GlobalSearchDialog : Adw.Dialog {
             if (is_match) {
                 int prev_byte_end = text.index_of_nth_char (last);
                 result.append (GLib.Markup.escape_text (text.slice (prev_byte_end, byte_start)));
-                result.append ("<b><span foreground='#3584e4'>");
+                result.append (hit_open);
                 result.append (GLib.Markup.escape_text (candidate));
-                result.append ("</span></b>");
+                result.append (hit_close);
                 last = i + kw_chars;
                 i = last;
             } else {
