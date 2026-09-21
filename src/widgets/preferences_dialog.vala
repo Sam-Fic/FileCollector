@@ -938,9 +938,7 @@ public class PreferencesDialog : GLib.Object {
     }
 
     private void show_toast (string title) {
-        var toast = new Adw.Toast (title);
-        toast.timeout = 3;
-        dialog.add_toast (toast);
+        dialog.add_toast (new Adw.Toast (title));
     }
 
     private void on_ai_test () {

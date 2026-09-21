@@ -377,9 +377,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         toast.button_clicked.connect (() => {
             on_undo ();
-            var confirm = new Adw.Toast (_("AI operation undone"));
-            confirm.set_timeout (2);
-            toast_overlay.add_toast (confirm);
+            toast_overlay.add_toast (new Adw.Toast (_("AI operation undone")));
         });
 
         toast_overlay.add_toast (toast);
@@ -2460,9 +2458,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             }
             GLib.Idle.add (() => {
                 // HIG: 批量操作合并为一条汇总通知, 逐条弹 Toast 会形成通知轰炸
-                var toast = new Adw.Toast (string.joinv (" · ", messages.to_array ()));
-                toast.timeout = 3;
-                toast_overlay.add_toast (toast);
+                toast_overlay.add_toast (
+                    new Adw.Toast (string.joinv (" · ", messages.to_array ())));
                 return Source.REMOVE;
             });
         }
@@ -4745,9 +4742,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void show_toast (string title) {
-        var toast = new Adw.Toast (title);
-        toast.timeout = 2;
-        toast_overlay.add_toast (toast);
+        toast_overlay.add_toast (new Adw.Toast (title));
     }
 
     private void show_edit_phrase_dialog (string old_text, int index) {
