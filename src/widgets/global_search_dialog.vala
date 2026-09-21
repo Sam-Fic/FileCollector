@@ -64,10 +64,12 @@ public class GlobalSearchDialog : Adw.Dialog {
         btn_case_sensitive = new Gtk.ToggleButton ();
         btn_case_sensitive.icon_name = "xsi-text-case-symbolic";
         btn_case_sensitive.tooltip_text = _("Case Sensitive");
+        UIHelpers.set_accessible_label (btn_case_sensitive);
         search_box.append (btn_case_sensitive);
 
         var btn_search = new Gtk.Button.from_icon_name ("edit-find-symbolic");
         btn_search.tooltip_text = _("Search…");
+        UIHelpers.set_accessible_label (btn_search);
         btn_search.clicked.connect (trigger_search);
         search_box.append (btn_search);
 

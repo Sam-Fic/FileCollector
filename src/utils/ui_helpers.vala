@@ -191,4 +191,31 @@ namespace UIHelpers {
             }
         }
     }
+
+    // ─── 无障碍 ─────────────────────────────────────────────────────────
+
+    // 给只有图标、没有文字的控件补可访问名称。
+    // AT-SPI 读到的名称只来自 GtkAccessible 的 LABEL 属性, tooltip-text 不参与命名,
+    // 因此仅设 tooltip 的图标按钮在屏幕阅读器里只会念出 "按钮"。
+    // label 省略时沿用控件当前 tooltip, 使名称与提示天然一致 (改文案时不会漏改一处)。
+    public static void set_accessible_label (Gtk.Widget widget, string? label = null) {
+        string? text = label ?? widget.tooltip_text;
+        if (text == null || text.length == 0) return;
+        widget.update_property (Gtk.AccessibleProperty.LABEL, sanitize_utf8 (text), -1);
+    }
+
+    // 把主题里的命名颜色 (如 accent_color) 解析成 Pango markup 可用的字面色值。
+    // Pango markup 不认 CSS 变量, 只能经 GtkStyleContext 查询计算值 —— 该类在 GTK4
+    // 已废弃, 但仍是运行时取主题色的唯一途径, 故在此集中一处调用。
+    // 返回 null 表示该颜色名未定义, 调用方应退化为不指定颜色的样式。
+    public static string? css_color_markup (Gtk.Widget widget, string color_name) {
+        Gdk.RGBA rgba;
+        if (!widget.get_style_context ().lookup_color (color_name, out rgba)) return null;
+        // 主题里的 accent_color 多由 shade () 派生, 分量会超出 [0,1] 色域,
+        // 必须夹取后再转 8 位, 否则拼出的色值溢出成乱色。
+        int r = ((int) (rgba.red * 255)).clamp (0, 255);
+        int g = ((int) (rgba.green * 255)).clamp (0, 255);
+        int b = ((int) (rgba.blue * 255)).clamp (0, 255);
+        return "#%02x%02x%02x".printf ((uint) r, (uint) g, (uint) b);
+    }
 }

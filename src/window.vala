@@ -77,6 +77,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.Button btn_git_export_commit_diff;
     [GtkChild] private unowned Gtk.Button btn_git_delete;
     [GtkChild] private unowned Gtk.Button btn_git_clear;
+    [GtkChild] private unowned Gtk.MenuButton btn_more_menu;
 
     private Gtk.ColumnView dir_column_view;
     private Gtk.TreeListModel tree_list_model;
@@ -227,6 +228,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         ConfigManager.load_common_phrases (app_state.common_phrases);
         load_css ();
+        setup_accessible_labels ();
 
         bind_app_state_signals ();
 
@@ -467,6 +469,48 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         } catch (Error e) {
             warning ("Failed to load CSS: %s", e.message);
         }
+    }
+
+    // 给 window.blp 里的图标按钮补可访问名称 (屏幕阅读器只认 AT-SPI 的 LABEL,
+    // tooltip-text 不参与命名, 否则这些按钮一律被念成 "按钮")。
+    // 本可在 blp 里写 accessibility 块, 但 blueprint 0.19 在 template 内解析它会报
+    // "Expected `;`" (非 template 才支持), 故统一在此用代码补。
+    // 名称沿用 blp 已写的 tooltip 文案, 不引入新的待翻译字符串;
+    // tooltip 会随状态变化的按钮 (btn_toggle_git / btn_toggle_snapshot)
+    // 在各自的同步函数里再刷一次。
+    private void setup_accessible_labels () {
+        // 顶栏: 唯一没有 tooltip 的图标按钮, 须显式给名
+        UIHelpers.set_accessible_label (menu_btn, _("Main Menu"));
+        UIHelpers.set_accessible_label (btn_toggle_snapshot);
+        UIHelpers.set_accessible_label (btn_ai_toggle);
+        UIHelpers.set_accessible_label (open_folder_btn);
+        UIHelpers.set_accessible_label (btn_toggle_git);
+        UIHelpers.set_accessible_label (btn_global_search);
+
+        // 编排区
+        UIHelpers.set_accessible_label (btn_add_ext);
+        UIHelpers.set_accessible_label (btn_add_text_above);
+        UIHelpers.set_accessible_label (btn_add_text_below);
+        UIHelpers.set_accessible_label (btn_move_up);
+        UIHelpers.set_accessible_label (btn_move_down);
+        UIHelpers.set_accessible_label (btn_ai_toc);
+        UIHelpers.set_accessible_label (btn_delete);
+        UIHelpers.set_accessible_label (btn_clear);
+
+        // Git 区
+        UIHelpers.set_accessible_label (btn_git_add_all_changed);
+        UIHelpers.set_accessible_label (btn_git_export_working_diff);
+        UIHelpers.set_accessible_label (btn_git_export_commit_diff);
+        UIHelpers.set_accessible_label (btn_git_delete);
+        UIHelpers.set_accessible_label (btn_git_clear);
+
+        // 生成区 (btn_generate 自带文字标签, 名称由标签推导, 无需补)
+        UIHelpers.set_accessible_label (btn_more_menu);
+
+        // 预览区悬浮按钮 (btn_retry_preprocess 的多行状态说明只留在 tooltip 里,
+        // 可访问名称保持为一句动作描述)
+        UIHelpers.set_accessible_label (btn_export_cache);
+        UIHelpers.set_accessible_label (btn_retry_preprocess);
     }
 
     public static string load_settings_language () {
@@ -1701,6 +1745,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             action_stack.visible_child_name = "git_actions";
             btn_toggle_git.icon_name = "folder-symbolic";
             btn_toggle_git.tooltip_text = _("Switch to file tree");
+            UIHelpers.set_accessible_label (btn_toggle_git);
             lbl_left_title.label = _("Git Commit History");
             git_panel.maybe_load_history ();
         } else {
@@ -1708,6 +1753,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             action_stack.visible_child_name = "normal_actions";
             btn_toggle_git.icon_name = "xsi-git-symbolic";
             btn_toggle_git.tooltip_text = _("Switch to Git commit history");
+            UIHelpers.set_accessible_label (btn_toggle_git);
             lbl_left_title.label = _("File Browser");
         }
         update_empty_state ();
@@ -1825,6 +1871,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         sidebar_header.title_widget = new Adw.WindowTitle (_("Workspaces"), "");
         btn_new_snapshot = new Gtk.Button.from_icon_name ("list-add-symbolic");
         btn_new_snapshot.tooltip_text = _("Save Current State as New Snapshot");
+        UIHelpers.set_accessible_label (btn_new_snapshot);
         sidebar_header.pack_end (btn_new_snapshot);
 
         // 侧栏列表: AdwSidebar + 空状态占位
@@ -2005,12 +2052,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // 同步顶栏开关按钮的提示文案 (反映快照栏是否可见).
     // 按钮的按下/高亮态由 active 属性经 bind_property 自动跟随 show_sidebar,
-    // 这里只更新 tooltip 以说明当前点击会执行的操作.
+    // 这里只更新 tooltip 以说明当前点击会执行的操作, 并同步可访问名称。
     private void sync_snapshot_toggle_button () {
         var visible = btn_toggle_snapshot.active;
         btn_toggle_snapshot.tooltip_text = visible
             ? _("Hide Workspaces Sidebar")
             : _("Show Workspaces Sidebar");
+        UIHelpers.set_accessible_label (btn_toggle_snapshot);
     }
 
     // 将 AdwSidebarItem 映射回其在 snapshot_store 中的索引 (-1 表示无效)
@@ -2258,6 +2306,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             btn.height_request = 64;
             btn.child = img;
             btn.tooltip_text = icon;
+            // 图标选择器里没有可读文字, 沿用 tooltip (图标名) 作可访问名称,
+            // 与鼠标悬停看到的内容一致, 也让这十几个仅图标按钮彼此可区分。
+            UIHelpers.set_accessible_label (btn);
             // 当前已选图标用有框样式标记
             btn.has_frame = (icon == current_icon);
             btn.halign = Gtk.Align.CENTER;

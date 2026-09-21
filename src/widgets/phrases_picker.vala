@@ -164,6 +164,7 @@ public class PhrasesPicker : GLib.Object {
                 edit_btn.add_css_class ("flat");
                 edit_btn.valign = Gtk.Align.CENTER;
                 edit_btn.tooltip_text = _("Edit Text");
+                UIHelpers.set_accessible_label (edit_btn);
                 edit_btn.clicked.connect (() => {
                     edit_phrase_requested (common_phrases.get (phrase_index), phrase_index);
                 });
@@ -175,6 +176,7 @@ public class PhrasesPicker : GLib.Object {
                 delete_btn.add_css_class ("flat");
                 delete_btn.set_valign (Gtk.Align.CENTER);
                 delete_btn.set_tooltip_text (_("Delete"));
+                UIHelpers.set_accessible_label (delete_btn);
                 string captured_phrase = phrase;
                 delete_btn.clicked.connect (() => {
                     int idx = common_phrases.index_of (captured_phrase);
@@ -202,6 +204,7 @@ public class PhrasesPicker : GLib.Object {
             edit_btn.add_css_class ("flat");
             edit_btn.valign = Gtk.Align.CENTER;
             edit_btn.tooltip_text = _("Edit Text");
+            UIHelpers.set_accessible_label (edit_btn);
             int edit_index = i;
             edit_btn.clicked.connect (() => {
                 edit_phrase_requested (common_phrases.get (edit_index), edit_index);
@@ -214,6 +217,7 @@ public class PhrasesPicker : GLib.Object {
             delete_btn.add_css_class ("flat");
             delete_btn.set_valign (Gtk.Align.CENTER);
             delete_btn.set_tooltip_text (_("Delete"));
+            UIHelpers.set_accessible_label (delete_btn);
             string captured_phrase = phrase;
             delete_btn.clicked.connect (() => {
                 int idx = common_phrases.index_of (captured_phrase);

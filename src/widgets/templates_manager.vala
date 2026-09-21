@@ -71,6 +71,7 @@ public class TemplatesManager : GLib.Object {
             edit_btn.add_css_class ("flat");
             edit_btn.valign = Gtk.Align.CENTER;
             edit_btn.tooltip_text = _("Edit Text");
+            UIHelpers.set_accessible_label (edit_btn);
             PromptTemplate captured = tpl;
             edit_btn.clicked.connect (() => show_edit_dialog (captured));
             row.add_suffix (edit_btn);
@@ -80,6 +81,7 @@ public class TemplatesManager : GLib.Object {
             del_btn.add_css_class ("destructive-action");
             del_btn.valign = Gtk.Align.CENTER;
             del_btn.tooltip_text = _("Delete");
+            UIHelpers.set_accessible_label (del_btn);
             del_btn.clicked.connect (() => {
                 // 破坏性操作: 与项目其他删除一致, 先弹确认对话框
                 var confirm = new Adw.AlertDialog (

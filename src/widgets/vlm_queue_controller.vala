@@ -70,6 +70,8 @@ public class VlmQueueController : GLib.Object {
                 btn_vlm_pause.icon_name = "media-playback-start-symbolic";
                 btn_vlm_pause.tooltip_text = _("Continue Saving");
             }
+            // 图标与 tooltip 随状态切换, 可访问名称一起跟上
+            UIHelpers.set_accessible_label (btn_vlm_pause);
         });
 
         btn_vlm_cancel.clicked.connect (() => {
@@ -136,11 +138,13 @@ public class VlmQueueController : GLib.Object {
 
         btn_vlm_pause = new Gtk.Button.from_icon_name ("media-playback-pause-symbolic");
         btn_vlm_pause.tooltip_text = _("Pause");
+        UIHelpers.set_accessible_label (btn_vlm_pause);
         btn_vlm_pause.add_css_class ("flat");
         btn_vlm_pause.add_css_class ("circular");
 
         btn_vlm_cancel = new Gtk.Button.from_icon_name ("media-record-symbolic");
         btn_vlm_cancel.tooltip_text = _("Cancel All");
+        UIHelpers.set_accessible_label (btn_vlm_cancel);
         btn_vlm_cancel.add_css_class ("flat");
         btn_vlm_cancel.add_css_class ("circular");
 

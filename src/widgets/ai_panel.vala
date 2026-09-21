@@ -133,6 +133,7 @@ public class AIPanel : GLib.Object {
         btn_scroll_bottom = new Gtk.Button.from_icon_name ("go-down-symbolic");
         btn_scroll_bottom.add_css_class ("circular");
         btn_scroll_bottom.set_tooltip_text (_("Scroll to Bottom"));
+        UIHelpers.set_accessible_label (btn_scroll_bottom);
         btn_scroll_bottom.set_halign (Gtk.Align.END);
         btn_scroll_bottom.set_valign (Gtk.Align.END);
         // 12 (scroll 内缩) + 8 (原视觉边距) = 20, 与内缩后的滚动区右下角对齐
@@ -315,6 +316,7 @@ public class AIPanel : GLib.Object {
         var btn_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         btn_clear = new Gtk.Button.from_icon_name ("user-trash-symbolic");
         btn_clear.set_tooltip_text (_("Clear Chat"));
+        UIHelpers.set_accessible_label (btn_clear);
         btn_clear.set_size_request (-1, -1);
         btn_clear.clicked.connect (on_clear_chat);
         btn_row.append (btn_clear);
@@ -605,6 +607,8 @@ public class AIPanel : GLib.Object {
                 revert_btn.add_css_class ("flat");
                 revert_btn.add_css_class ("ai-revert-btn");
                 revert_btn.set_tooltip_text (_("Revert this message and all subsequent AI replies and operations"));
+                // tooltip 是整句说明, 作可访问名称太长, 用简短动作名
+                UIHelpers.set_accessible_label (revert_btn, _("Revert"));
                 revert_btn.valign = Gtk.Align.CENTER;
                 revert_btn.halign = Gtk.Align.END;
                 revert_btn.margin_start = 8;

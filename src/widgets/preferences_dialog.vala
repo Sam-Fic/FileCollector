@@ -608,6 +608,8 @@ public class PreferencesDialog : GLib.Object {
         btn.valign = Align.CENTER;
         btn.add_css_class ("flat");
         btn.set_tooltip_text (tooltip);
+        // 仅图标的方案增删按钮: 把 tooltip 同步成可访问名称
+        UIHelpers.set_accessible_label (btn);
         return btn;
     }
 
