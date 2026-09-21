@@ -15,6 +15,7 @@ src/services/ai_types.vala
 src/services/binary_converter.vala
 src/services/binary_preprocessor.vala
 src/services/config_manager.vala
+src/services/file_content_reader.vala
 src/services/file_generator.vala
 src/services/git_service.vala
 src/services/multi_format_exporter.vala
@@ -22,6 +23,7 @@ src/services/multimodal_ai_client.vala
 src/services/paddleocr_client.vala
 src/services/preprocess_cache.vala
 src/services/project_manager.vala
+src/services/recovery_manager.vala
 src/services/search_service.vala
 src/services/token_estimator.vala
 src/services/undo_manager.vala
@@ -39,5 +41,7 @@ src/widgets/markdown_view.vala
 src/widgets/phrases_picker.vala
 src/widgets/preferences_dialog.vala
 src/widgets/preview_syntax.vala
+src/widgets/queue_list_factory.vala
 src/widgets/shortcuts_helper.vala
 src/widgets/templates_manager.vala
+src/widgets/vlm_queue_controller.vala
