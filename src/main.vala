@@ -223,42 +223,104 @@ public class FileCollectorApp : Adw.Application {
             icon_theme.add_search_path (portable_theme_dir);
         }
 
-        // xsi-* 图标 (XApp Symbolic Icons, 不在 Adwaita 中):
+        // 内置图标 (xsi-* XApp Symbolic Icons 等不在 Adwaita 中的图标, 以及应用自身图标):
         // 实测 GTK4 的 IconTheme 不会解析 resource path 中的主题——即使打包了
         // index.theme + 图标 (结构与文件系统完全一致), lookup 仍返回 image-missing;
         // 而相同结构经文件系统 search path 可以正常解析。因此未安装 (deb/flatpak
         // 之外, 如 builddir 直接运行) 时, 把内置图标解包到应用缓存目录再注册,
         // 对 Button / StatusPage 等 IconTheme 消费方统一生效。
-        if (!icon_theme.has_icon ("xsi-git-symbolic")) {
-            string? local_icons_dir = ensure_local_icons ();
+        // 图标清单由 GResource 目录枚举得出: 新增托管图标只需登记进
+        // data/filecollector.gresource.xml, 本文件无需再维护任何清单。
+        if (has_missing_bundled_icon (icon_theme)) {
+            string? local_icons_dir = unpack_bundled_icons ();
             if (local_icons_dir != null) {
                 icon_theme.add_search_path (local_icons_dir);
             }
         }
     }
 
-    // 把 GResource 内置的 hicolor 最小主题解包到 ~/.cache/<app_id>/icons/,
+    // 内置图标在 GResource 中的 hicolor 主题前缀, 与 data/icons/hicolor/ 的目录布局一一对应
+    private const string HICOLOR_RESOURCE_PREFIX = "/io/github/sam_fic/filecollector/icons/hicolor";
+
+    // 目录驱动: 任一内置图标无法被 IconTheme 解析 (未安装到系统) 即需要解包兜底
+    private bool has_missing_bundled_icon (Gtk.IconTheme icon_theme) {
+        foreach (string rel_path in list_bundled_icons ()) {
+            string? icon_name = icon_name_of (rel_path);
+            if (icon_name != null && !icon_theme.has_icon (icon_name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // 递归枚举内置图标, 返回相对主题根的路径 (如 scalable/actions/xsi-git-symbolic.svg);
+    // 枚举失败 (仅在内置资源被裁剪时可能) 返回空列表。
+    private Gee.ArrayList<string> list_bundled_icons () {
+        var rel_paths = new Gee.ArrayList<string> ();
+        try {
+            collect_icon_files (HICOLOR_RESOURCE_PREFIX, "", rel_paths);
+        } catch (Error e) {
+            GLib.warning ("Failed to enumerate bundled icons: %s", e.message);
+        }
+        return rel_paths;
+    }
+
+    private void collect_icon_files (
+        string resource_dir, string rel_dir,
+        Gee.ArrayList<string> rel_paths
+    ) throws Error {
+        // resources_enumerate_children 不递归, 返回相对名, 目录名带尾随 "/"
+        foreach (string name in GLib.resources_enumerate_children (resource_dir, GLib.ResourceLookupFlags.NONE)) {
+            bool is_dir = name.has_suffix ("/");
+            string child = is_dir ? name.substring (0, name.length - 1) : name;
+            string rel_path = rel_dir == "" ? child : rel_dir + "/" + child;
+            if (is_dir) {
+                collect_icon_files (resource_dir + "/" + child, rel_path, rel_paths);
+            } else {
+                rel_paths.add (rel_path);
+            }
+        }
+    }
+
+    // 下面两个辅助函数解析的是本类用 "/" 构造的相对路径, 故按 "/" 切分而不经
+    // GLib.Path (其分隔符语义随平台变化, 而 GResource 路径恒为 "/")。
+
+    // scalable/actions/xsi-git-symbolic.svg -> xsi-git-symbolic; 非 SVG 文件返回 null
+    private static string? icon_name_of (string rel_path) {
+        if (!rel_path.has_suffix (".svg")) return null;
+        string basename = rel_path.substring (rel_path.last_index_of ("/") + 1);
+        return basename.substring (0, basename.length - 4);
+    }
+
+    // scalable/actions/x.svg -> scalable/actions; 根目录下的文件返回 null
+    private static string? icon_dir_of (string rel_path) {
+        int slash = rel_path.last_index_of ("/");
+        return slash > 0 ? rel_path.substring (0, slash) : null;
+    }
+
+    // 把内置 hicolor 图标解包到 ~/.cache/<app_id>/icons/,
     // 返回该 icons 目录 (作为 IconTheme search path); 失败返回 null。
-    private string? ensure_local_icons () {
+    private string? unpack_bundled_icons () {
         string theme_dir = GLib.Path.build_filename (
             GLib.Environment.get_user_cache_dir (), application_id, "icons", "hicolor");
-        string actions_dir = GLib.Path.build_filename (theme_dir, "scalable", "actions");
-        string index_path = GLib.Path.build_filename (theme_dir, "index.theme");
 
         try {
-            GLib.DirUtils.create_with_parents (actions_dir, 0755);
-
-            if (!GLib.FileUtils.test (index_path, GLib.FileTest.EXISTS)) {
-                GLib.FileUtils.set_contents (index_path, MINIMAL_HICOLOR_INDEX);
+            var rel_paths = list_bundled_icons ();
+            GLib.DirUtils.create_with_parents (theme_dir, 0755);
+            foreach (string rel_path in rel_paths) {
+                string? icon_dir = icon_dir_of (rel_path);
+                if (icon_dir != null) {
+                    GLib.DirUtils.create_with_parents (GLib.Path.build_filename (theme_dir, icon_dir), 0755);
+                }
+                // 资源路径用 "/" 拼接: GLib.Path 在 Windows 会加入 "\", GResource 不认
+                copy_resource_to (HICOLOR_RESOURCE_PREFIX + "/" + rel_path,
+                    GLib.Path.build_filename (theme_dir, rel_path));
             }
-            copy_resource_to (
-                "/io/github/sam_fic/filecollector/icons/hicolor/scalable/actions/xsi-git-symbolic.svg",
-                GLib.Path.build_filename (actions_dir, "xsi-git-symbolic.svg"));
-            copy_resource_to (
-                "/io/github/sam_fic/filecollector/icons/hicolor/scalable/actions/xsi-text-case-symbolic.svg",
-                GLib.Path.build_filename (actions_dir, "xsi-text-case-symbolic.svg"));
+            // index.theme 按当前图标集合重写 (而非只在缺失时写入), 避免升级后残留旧的 Directories
+            GLib.FileUtils.set_contents (
+                GLib.Path.build_filename (theme_dir, "index.theme"), build_hicolor_index (rel_paths));
         } catch (Error e) {
-            GLib.warning ("Failed to unpack local icons: %s", e.message);
+            GLib.warning ("Failed to unpack bundled icons: %s", e.message);
             return null;
         }
 
@@ -266,34 +328,34 @@ public class FileCollectorApp : Adw.Application {
         return GLib.Path.get_dirname (theme_dir);
     }
 
-    private void copy_resource_to (string resource_path, string dest_path) throws Error {
-        if (GLib.FileUtils.test (dest_path, GLib.FileTest.EXISTS)) return;
-        // 图标是 UTF-8 文本 SVG, 直接按字符串解包
-        var instr = GLib.resources_open_stream (resource_path, GLib.ResourceLookupFlags.NONE);
-        var sb = new StringBuilder ();
-        uint8[] tmp = new uint8[4096];
-        while (true) {
-            ssize_t n = instr.read (tmp);
-            if (n <= 0) break;
-            sb.append_len ((string) tmp, (ssize_t) n);
+    // 依据实际解包出的图标目录生成 index.theme (GTK 只按 Directories 扫描, 不校验 Context/Type)
+    private static string build_hicolor_index (Gee.ArrayList<string> rel_paths) {
+        var dirs = new Gee.TreeSet<string> ();
+        foreach (string rel_path in rel_paths) {
+            string? dir = icon_dir_of (rel_path);
+            if (dir != null) dirs.add (dir);
         }
-        GLib.FileUtils.set_contents (dest_path, sb.str);
+
+        var index = new StringBuilder ("[Icon Theme]\nName=Hicolor\nComment=Fallback icon theme\nDirectories=");
+        bool first = true;
+        foreach (string dir in dirs) {
+            if (!first) index.append (",");
+            index.append (dir);
+            first = false;
+        }
+        index.append_c ('\n');
+        foreach (string dir in dirs) {
+            index.append_printf ("\n[%s]\nContext=%s\nType=Scalable\nSize=16\nMinSize=8\nMaxSize=512\n",
+                dir, dir.has_suffix ("apps") ? "Applications" : "Actions");
+        }
+        return index.str;
     }
 
-    // 最小 hicolor index.theme: GTK 按 index.theme 声明的 Directories 扫描图标,
-    // 只列出本应用实际用到的 scalable/actions 子目录即可 (与系统 hicolor 主题合并)
-    private const string MINIMAL_HICOLOR_INDEX = """[Icon Theme]
-Name=Hicolor
-Comment=Fallback icon theme
-Directories=scalable/actions
-
-[scalable/actions]
-Context=Actions
-Type=Scalable
-Size=16
-MinSize=8
-MaxSize=512
-""";
+    private void copy_resource_to (string resource_path, string dest_path) throws Error {
+        // 覆盖写入而不跳过已存在文件: 图标内容可能随版本更新, 缓存副本需跟随刷新
+        var data = GLib.resources_lookup_data (resource_path, GLib.ResourceLookupFlags.NONE);
+        GLib.FileUtils.set_data (dest_path, GLib.Bytes.unref_to_data (data));
+    }
 
     private static void setup_i18n (string locale_dir) {
         Intl.bindtextdomain (Config.GETTEXT_PACKAGE, locale_dir);

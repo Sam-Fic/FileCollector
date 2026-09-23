@@ -61,7 +61,7 @@ io.elementary.vala-lint -c vala-lint.conf --fix src/
 
 ```ini
 [naming-convention]
-exceptions=UUID,MAX_FILE_CONTENT_SIZE,MAX_FILE_SIZE,PEEK_SIZE
+exceptions=UUID,MAX_FILE_CONTENT_SIZE,MAX_FILE_SIZE,PEEK_SIZE,HICOLOR_RESOURCE_PREFIX
 ```
 
 如果新增了全大写常量，需要将其添加到此列表中，否则 lint 会报 `naming-convention` error。
