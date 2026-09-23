@@ -1,7 +1,7 @@
 # FileCollector
 
 <div align="center">
-  <img src="data/io.github.sam_fic.filecollector.svg" alt="FileCollector" width="128" height="128">
+  <img src="data/icons/hicolor/scalable/apps/io.github.sam_fic.filecollector.svg" alt="FileCollector" width="128" height="128">
 </div>
 
 [English](README_EN.md)
@@ -100,7 +100,7 @@ filecollector-windows-X.Y.Z-x64.zip
 ├── data/                                  # 应用程序数据文件
 │   ├── io.github.sam_fic.filecollector.desktop
 │   ├── io.github.sam_fic.filecollector.metainfo.xml
-│   ├── io.github.sam_fic.filecollector.svg
+│   ├── icons/                             # 图标资产（hicolor 结构：应用图标 + 托管的第三方 symbolic 图标）
 │   ├── filecollector.gresource.xml
 │   └── style.css
 ├── screenshots/                           # 截图文件

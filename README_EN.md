@@ -100,7 +100,7 @@ For building from source, see the [Local Build Guide](docs/building/README.md), 
 ├── data/                                  # Application data files
 │   ├── io.github.sam_fic.filecollector.desktop
 │   ├── io.github.sam_fic.filecollector.metainfo.xml
-│   ├── io.github.sam_fic.filecollector.svg
+│   ├── icons/                             # Icon assets (hicolor layout: app icons + bundled third-party symbolic icons)
 │   ├── filecollector.gresource.xml
 │   └── style.css
 ├── screenshots/                           # Screenshots

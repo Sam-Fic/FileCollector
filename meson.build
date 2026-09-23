@@ -213,10 +213,6 @@ install_data('data/io.github.sam_fic.filecollector.metainfo.xml',
   install_dir: join_paths(get_option('datadir'), 'metainfo')
 )
 
-install_data('data/io.github.sam_fic.filecollector.svg',
-  install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', 'scalable', 'apps')
-)
-
 # GtkSourceView 预览配色方案由运行时从 ${datadir}/filecollector/ 读取。
 # Windows/macOS 便携包复制整个 data/ 目录；此规则保证 DEB 与 Flatpak 也分发同一资源。
 install_subdir('data/gtksourceview-5',
