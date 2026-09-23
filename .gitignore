@@ -3,7 +3,12 @@ build/
 builddir/
 build-dir/
 build-flatpak/
+build-deb/
+build-macos/
+build-windows/
 _build/
+install-macos/
+install-windows/
 *.swp
 *.swo
 
@@ -23,6 +28,11 @@ deb-root/
 *.deb
 *.deb.sha256
 
+# Packaging script outputs (tools/build-*.sh, CI)
+dist/
+debian/
+release-assets/
+
 # Meson/Ninja build files
 .ninja_deps
 .ninja_log
@@ -35,6 +45,10 @@ meson-logs/
 # Vala compiler generated files
 *.c
 *.h
+
+# Hand-written platform shims under src/ are sources, not Vala output
+!src/*_shim.c
+!src/*_shim.h
 
 # GTK resource files
 *-resources.c
@@ -50,6 +64,11 @@ data/window.ui
 *~
 *.bak
 *.orig
+
+# OS metadata files
+.DS_Store
+Thumbs.db
+desktop.ini
 
 # IDE/editor files
 .vscode/
