@@ -48,7 +48,7 @@ For the canonical four-platform CI/release flow, see [Desktop Packaging and Publ
 
 ## Pre-built Flatpak (Recommended)
 
-Pre-built Flatpak packages are available in the [Releases](https://github.com/Sam-Fic/filecollector/releases) section. If you prefer not to build from source, you can directly download and install the `.flatpak` files.
+Pre-built Flatpak packages are available in the [Releases](https://github.com/Sam-Fic/FileCollector/releases) section. If you prefer not to build from source, you can directly download and install the `.flatpak` files.
 
 ```bash
 flatpak install --user <the-downloaded.flatpak-file>
@@ -62,7 +62,7 @@ flatpak run io.github.sam_fic.filecollector
 
 ## Pre-built Windows Portable Package
 
-Pre-built Windows portable packages are also available in the [Releases](https://github.com/Sam-Fic/filecollector/releases) section, named like `filecollector-windows-X.Y.Z-x64.zip`. After downloading, **just extract and run — no need to install MSYS2, GTK, or the Visual C++ runtime**: all runtime DLLs are bundled, and MinGW links against the universal C runtime (ucrtbase, etc.) built into Windows 10/11.
+Pre-built Windows portable packages are also available in the [Releases](https://github.com/Sam-Fic/FileCollector/releases) section, named like `filecollector-windows-X.Y.Z-x64.zip`. After downloading, **just extract and run — no need to install MSYS2, GTK, or the Visual C++ runtime**: all runtime DLLs are bundled, and MinGW links against the universal C runtime (ucrtbase, etc.) built into Windows 10/11.
 
 > **How to launch: double-click `bin/filecollector-launch.bat`, not `filecollector.exe` directly.**
 >

@@ -48,7 +48,7 @@ FileCollector 是一款跨平台的桌面小工具，用于高效收集、编排
 
 ## 预编译 Flatpak 包（推荐）
 
-预编译好的 Flatpak 包发布在 [Releases](https://github.com/Sam-Fic/filecollector/releases) 页面。如果您不想自行编译，可直接下载 `.flatpak` 文件安装使用。
+预编译好的 Flatpak 包发布在 [Releases](https://github.com/Sam-Fic/FileCollector/releases) 页面。如果您不想自行编译，可直接下载 `.flatpak` 文件安装使用。
 
 ```bash
 flatpak install --user <下载的.flatpak文件>
@@ -62,7 +62,7 @@ flatpak run io.github.sam_fic.filecollector
 
 ## 预编译 Windows 便携包
 
-预编译好的 Windows 便携包同样发布在 [Releases](https://github.com/Sam-Fic/filecollector/releases) 页面，文件名形如 `filecollector-windows-X.Y.Z-x64.zip`。下载后**解压即可使用，无需安装 MSYS2、GTK 或 Visual C++ 运行库**——所有运行时 DLL 已随包自带，且 MinGW 链接的是 Windows 10/11 内置的通用 C 运行时（ucrtbase 等）。
+预编译好的 Windows 便携包同样发布在 [Releases](https://github.com/Sam-Fic/FileCollector/releases) 页面，文件名形如 `filecollector-windows-X.Y.Z-x64.zip`。下载后**解压即可使用，无需安装 MSYS2、GTK 或 Visual C++ 运行库**——所有运行时 DLL 已随包自带，且 MinGW 链接的是 Windows 10/11 内置的通用 C 运行时（ucrtbase 等）。
 
 > **启动方式：请双击 `bin/filecollector-launch.bat`，不要直接双击 `filecollector.exe`。**
 >

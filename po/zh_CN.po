@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: filecollector\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-20 04:16+0800\n"
+"POT-Creation-Date: 2026-09-28 22:11+0800\n"
 "PO-Revision-Date: 2026-08-21 06:28+0800\n"
 "Last-Translator: Manus AI (human review)\n"
 "Language-Team: Chinese (China)\n"
@@ -100,7 +100,7 @@ msgstr "用法: filecollector [选项...] [--gui]"
 msgid "Working Directory:"
 msgstr "工作目录:"
 
-#: src/cli.vala:256 src/window.vala:5126 src/widgets/git_history_panel.vala:461
+#: src/cli.vala:256 src/window.vala:5130 src/widgets/git_history_panel.vala:461
 #: src/widgets/git_history_panel.vala:545
 msgid "Set working directory"
 msgstr "设置工作目录"
@@ -392,7 +392,7 @@ msgstr ""
 
 #: src/window.vala:411 src/window.vala:2149 src/window.vala:2190
 #: src/window.vala:3117 src/window.vala:3438 src/window.vala:3974
-#: src/window.vala:4163 src/window.vala:4764 src/widgets/ai_panel.vala:935
+#: src/window.vala:4163 src/window.vala:4768 src/widgets/ai_panel.vala:935
 #: src/widgets/phrases_picker.vala:42 src/widgets/phrases_picker.vala:99
 #: src/widgets/phrases_picker.vala:261 src/widgets/templates_manager.vala:91
 #: src/widgets/templates_manager.vala:129
@@ -637,7 +637,7 @@ msgstr "编辑文本"
 msgid "Insert Custom Text"
 msgstr "插入自定义文本"
 
-#: src/window.vala:3121 src/window.vala:4740 src/window.vala:4768
+#: src/window.vala:3121 src/window.vala:4744 src/window.vala:4772
 msgid "OK"
 msgstr "确定"
 
@@ -954,38 +954,38 @@ msgstr "项目文件已保存"
 msgid "No Working Directory Set"
 msgstr "未设置工作目录"
 
-#: src/window.vala:4681 src/window.blp:11 src/window.blp:50
-msgid "FileCollector"
-msgstr "FileCollector"
-
-#: src/window.vala:4684
-msgid "File Collection & Organization Tool"
+#: src/window.vala:4689
+msgid "File collection and organization tool"
 msgstr "文件收集与编排工具"
 
-#: src/window.vala:4751 src/window.vala:4759
+#: src/window.vala:4755 src/window.vala:4763
 msgid "Edit Common Phrase"
 msgstr "编辑常用语"
 
-#: src/window.vala:4842
+#: src/window.vala:4846
 msgid "# Working directory absolute path: "
 msgstr "# 工作目录绝对路径："
 
-#: src/window.vala:4870
+#: src/window.vala:4874
 #, c-format
 msgid "Estimated context: %d / %d Tokens (%.1f%%)"
 msgstr "预估上下文: %d / %d Tokens (%.1f%%)"
 
-#: src/window.vala:4902
+#: src/window.vala:4906
 msgid "AI Assistant"
 msgstr "AI 助手"
 
-#: src/window.vala:5217
+#: src/window.vala:5221
 msgid "Open the AI sidebar to view the full reply."
 msgstr "打开 AI 侧边栏查看完整回复。"
 
-#: src/window.vala:5219
+#: src/window.vala:5223
 msgid "AI task completed"
 msgstr "AI 任务已完成"
+
+#: src/window.blp:11 src/window.blp:50
+msgid "FileCollector"
+msgstr "FileCollector"
 
 #: src/window.blp:18
 msgid "Show / Hide Workspaces Sidebar"
@@ -1544,7 +1544,9 @@ msgstr "API Base URL 为空"
 msgid ""
 "Insecure endpoint: HTTP (non-HTTPS) is only allowed for localhost. Public/"
 "remote endpoints must use HTTPS to protect the API key."
-msgstr "不安全端点：仅允许 localhost 使用 HTTP (非 HTTPS)。公网/远程端点必须使用 HTTPS，以保护 API 密钥。"
+msgstr ""
+"不安全端点：仅允许 localhost 使用 HTTP (非 HTTPS)。公网/远程端点必须使用 "
+"HTTPS，以保护 API 密钥。"
 
 #: src/services/config_manager.vala:103
 #, c-format
@@ -1556,13 +1558,17 @@ msgstr "不支持的 URL 协议：仅接受 http(s)。URL 为：%s"
 msgid ""
 "Failed to store key in system keyring. The plaintext key remains in "
 "settings.json. Re-saving the configuration will retry."
-msgstr "密钥写入系统密钥环失败。明文密钥仍保留在 settings.json 中，重新保存配置时会重试。"
+msgstr ""
+"密钥写入系统密钥环失败。明文密钥仍保留在 settings.json 中，重新保存配置时会重"
+"试。"
 
 #: src/services/config_manager.vala:469 src/services/config_manager.vala:752
 msgid ""
 "Failed to store token in system keyring. The plaintext token remains in "
 "settings.json. Re-saving the configuration will retry."
-msgstr "令牌写入系统密钥环失败。明文令牌仍保留在 settings.json 中，重新保存配置时会重试。"
+msgstr ""
+"令牌写入系统密钥环失败。明文令牌仍保留在 settings.json 中，重新保存配置时会重"
+"试。"
 
 #: src/services/file_generator.vala:13
 #, c-format
@@ -2625,6 +2631,9 @@ msgstr "正在预处理 0/0 个文件..."
 #: src/widgets/vlm_queue_controller.vala:146
 msgid "Cancel All"
 msgstr "取消全部"
+
+#~ msgid "File Collection & Organization Tool"
+#~ msgstr "文件收集与编排工具"
 
 #~ msgid "FileCollector - File Collection & Orchestration Tool"
 #~ msgstr "FileCollector - 文件收集与编排工具"

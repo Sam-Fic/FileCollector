@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
 Name=FileCollector
-Comment=文件收集与编排工具
-Comment[en]=File collection and organization tool
+Comment=File collection and organization tool
+Comment[zh_CN]=文件收集与编排工具
 Exec=filecollector
 Icon=io.github.sam_fic.filecollector
 Categories=Utility;TextTools;FileTools;

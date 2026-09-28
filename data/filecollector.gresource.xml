@@ -15,5 +15,8 @@
     <file alias="icons/hicolor/scalable/actions/xsi-text-case-symbolic.svg" preprocess="xml-stripblanks">icons/hicolor/scalable/actions/xsi-text-case-symbolic.svg</file>
     <file alias="icons/hicolor/scalable/apps/io.github.sam_fic.filecollector.svg" preprocess="xml-stripblanks">icons/hicolor/scalable/apps/io.github.sam_fic.filecollector.svg</file>
     <file alias="icons/hicolor/scalable/apps/io.github.sam_fic.filecollector-symbolic.svg" preprocess="xml-stripblanks">icons/hicolor/scalable/apps/io.github.sam_fic.filecollector-symbolic.svg</file>
+    <!-- AppStream 元数据: About 对话框经 from_appdata 读取 (开发者署名/官网/
+         issue 链接/许可证/What's New 发布说明)。不 preprocess, 保留原始空白。 -->
+    <file alias="metainfo.xml">io.github.sam_fic.filecollector.metainfo.xml</file>
   </gresource>
 </gresources>

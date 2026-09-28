@@ -4,20 +4,22 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
   <name>FileCollector</name>
-  <summary>文件收集与编排工具</summary>
+  <summary>File collection and organization tool</summary>
+  <summary xml:lang="zh-CN">文件收集与编排工具</summary>
   <description>
-    <p>FileCollector 是一款桌面工具，能够帮助用户快速收集和编排文件内容。</p>
-    <p>主要功能：</p>
+    <p>FileCollector is a desktop tool that collects file contents from a working directory and arranges them into a single merged text.</p>
+    <p>Main features:</p>
     <ul>
-      <li>通过目录树浏览并勾选需要收集的文件</li>
-      <li>灵活编排文件输出顺序</li>
-      <li>在文件之间插入自定义文字或常用语</li>
-      <li>一键合并生成文本文件</li>
-      <li>支持项目文件的保存与加载</li>
+      <li>Browse the directory tree and tick the files to collect</li>
+      <li>Arrange the output order of collected files</li>
+      <li>Insert custom text or saved phrases between files</li>
+      <li>Merge everything into a text file with one click</li>
+      <li>Save and load project files</li>
     </ul>
   </description>
   <launchable type="desktop-id">io.github.sam_fic.filecollector.desktop</launchable>
-  <url type="homepage">https://github.com/Sam-Fic/filecollector</url>
+  <url type="homepage">https://github.com/Sam-Fic/FileCollector</url>
+  <url type="bugtracker">https://github.com/Sam-Fic/FileCollector/issues</url>
   <developer id="io.github.sam_fic">
     <name>Sam-Fic</name>
   </developer>
@@ -25,13 +27,13 @@
   <releases>
     <release version="4.8.0" date="2026-08-21">
       <description>
-        <p>跨平台发行与运行时资源更新：</p>
+        <p>Cross-platform packaging and runtime resources:</p>
         <ul>
-          <li>新增统一的 GitHub Actions 桌面端打包与发布流程，自动构建 DEB、Flatpak、Windows x64 便携包和 macOS ARM64 应用包</li>
-          <li>Windows 便携包与 macOS 应用包携带完整 GNOME Adwaita 和 hicolor 图标主题，保证 symbolic 图标在非 GNOME 系统上也保持一致</li>
-          <li>应用启动时自动注册便携包内图标、翻译和数据目录，改进 Windows/macOS 的独立运行体验</li>
-          <li>完善 Windows DPAPI 原生密钥存储与 macOS Security/CoreFoundation 平台链接配置</li>
-          <li>统一跨平台相对路径导出格式，修复 Windows 环境的路径分隔符差异</li>
+          <li>Added a unified GitHub Actions workflow that builds DEB, Flatpak, Windows x64 portable and macOS ARM64 packages</li>
+          <li>Windows and macOS bundles now ship the full GNOME Adwaita and hicolor icon themes so symbolic icons stay consistent on non-GNOME systems</li>
+          <li>The app registers bundled icons, translations and data directories at startup, improving standalone runs on Windows and macOS</li>
+          <li>Completed Windows DPAPI secret storage and macOS Security/CoreFoundation link configuration</li>
+          <li>Unified cross-platform relative path export format, fixing path separator differences on Windows</li>
         </ul>
       </description>
     </release>
@@ -86,7 +88,7 @@
     </release>
     <release version="4.4.0" date="2026-06-28">
       <description>
-        <p>重大更新 — 感谢 <a href="https://github.com/Decembered">@Decembered</a> 对本版本的贡献！</p>
+        <p>重大更新 — 感谢 @Decembered 对本版本的贡献！</p>
         <ul>
           <li>Git 集成：新增 Git 状态、差异、日志及提交差异查询与导出功能，支持 Git 提交历史懒加载与无限滚动</li>
           <li>全局搜索：新增全局搜索对话框，支持实时过滤目录项和递归子目录匹配</li>

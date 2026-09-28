@@ -4677,14 +4677,18 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // ─── Dialogs ─────────────────────────────────────────────────────────
 
     public void on_about () {
-        var about = new Adw.AboutDialog ();
-        about.application_name = _("FileCollector");
+        // 开发者署名、官网、issue 链接、许可证类型与 What's New 发布说明都来自
+        // AppStream 元数据 (data/io.github.sam_fic.filecollector.metainfo.xml,
+        // 已打进 GResource), 由 libadwaita 按 locale 选取; 这里只补元数据表达
+        // 不了的少量字段, 避免同一信息在代码和 metainfo 里各写一份。
+        var about = new Adw.AboutDialog.from_appdata (
+            "/io/github/sam_fic/filecollector/metainfo.xml", Config.VERSION);
+        about.application_name = "FileCollector";
         about.version = Config.VERSION;
         about.application_icon = "io.github.sam_fic.filecollector";
-        about.comments = _("File Collection & Organization Tool");
+        about.comments = _("File collection and organization tool");
+        about.copyright = "© 2026 Sam-Fic";
         about.developers = { "Sam-Fic" };
-        about.website = "https://github.com/Sam-Fic/filecollector";
-        about.license_type = Gtk.License.MIT_X11;
 
         about.present (this);
     }
