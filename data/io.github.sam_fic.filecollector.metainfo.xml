@@ -25,6 +25,17 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="4.8.1" date="2026-09-28">
+      <description>
+        <p>About dialog and metadata single-sourcing:</p>
+        <ul>
+          <li>The About dialog now reads the developer name, website, issue tracker, license and What's New release notes from AppStream metadata bundled in GResource, and shows the missing copyright and issue links</li>
+          <li>Fixed a metainfo validation error: release notes used a link tag, which AppStream descriptions do not allow; metadata now validates with no errors</li>
+          <li>Moved the application icon into the hicolor icon tree so Windows and macOS bundles ship it, and made the bundled icon fallback directory-driven</li>
+          <li>Tightened .gitignore rules for the directories created by the packaging scripts</li>
+        </ul>
+      </description>
+    </release>
     <release version="4.8.0" date="2026-08-21">
       <description>
         <p>Cross-platform packaging and runtime resources:</p>
