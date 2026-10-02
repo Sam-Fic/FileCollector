@@ -69,9 +69,9 @@ public class AIController : GLib.Object {
     public string execute_tool (string name, Json.Node args) throws GLib.Error {
         switch (name) {
             case "list_files": return tool_list_files (args);
-            case "read_file":  return tool_read_file (args);
+            case "read_file": return tool_read_file (args);
             case "set_work_dir": return tool_set_work_dir (args);
-            case "add_files":  return tool_add_files (args);
+            case "add_files": return tool_add_files (args);
             case "remove_files": return tool_remove_files (args);
             case "add_text":
             case "add_custom_instruction":
@@ -80,8 +80,8 @@ public class AIController : GLib.Object {
             case "remove_custom_instruction": return tool_remove_text (args);
             case "move_item": return tool_move_item (args);
             case "clear_items":
-            case "clear_all":   return tool_clear_all (args);
-            case "list_items":  return tool_list_items (args);
+            case "clear_all": return tool_clear_all (args);
+            case "list_items": return tool_list_items (args);
             case "set_use_absolute": return tool_set_use_absolute (args);
             case "set_show_header": return tool_set_show_header (args);
             case "set_mode":
@@ -857,7 +857,7 @@ public class AIController : GLib.Object {
             return _("Invalid kind: ") + kind + _(" (must be 'filename', 'content', or 'both')");
         }
         bool search_filename = (kind == "filename" || kind == "both");
-        bool search_content  = (kind == "content"  || kind == "both");
+        bool search_content = (kind == "content" || kind == "both");
 
         bool case_sensitive = false;
         if (o.has_member ("case_sensitive")) case_sensitive = o.get_boolean_member ("case_sensitive");

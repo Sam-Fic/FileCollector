@@ -418,7 +418,7 @@ public class CliController : GLib.Object {
             return;
         }
         var dashes = new StringBuilder ();
-        for (int j = 0; j < 60; j++) dashes.append_c('-');
+        for (int j = 0; j < 60; j++) dashes.append_c ('-');
         var dash_str = dashes.str;
         stdout.printf (_("Current queue (%d items):\n"), items.size);
         stdout.printf ("%s\n", dash_str);

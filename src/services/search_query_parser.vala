@@ -296,4 +296,3 @@ public class SearchQueryParser : GLib.Object {
         throw new SearchQueryParseError.INVALID ("expected atom, got %d".printf ((int) t.type));
     }
 }
-

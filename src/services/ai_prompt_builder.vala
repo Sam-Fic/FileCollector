@@ -60,8 +60,8 @@ public class AIPromptBuilder : GLib.Object {
             + "Current state:\n"
             + "- Work directory: " + work_dir_str + "\n"
             + "- Orchestration list: " + (file_count + text_count).to_string ()
-            +   " item(s) (" + file_count.to_string () + " file(s), "
-            +   text_count.to_string () + " text block(s))\n"
+            + " item(s) (" + file_count.to_string () + " file(s), "
+            + text_count.to_string () + " text block(s))\n"
             + "- Path mode: " + path_mode + "\n"
             + "- Header info: " + header_mode + "\n"
             + "- List contents:\n" + item_block.str + "\n"

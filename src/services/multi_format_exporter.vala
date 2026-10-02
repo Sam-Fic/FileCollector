@@ -172,8 +172,8 @@ public class MultiFormatExporter : GLib.Object {
         builder.set_member_name ("kernelspec");
         builder.begin_object ();
         builder.set_member_name ("display_name"); builder.add_string_value ("Python 3");
-        builder.set_member_name ("language");     builder.add_string_value ("python");
-        builder.set_member_name ("name");         builder.add_string_value ("python3");
+        builder.set_member_name ("language"); builder.add_string_value ("python");
+        builder.set_member_name ("name"); builder.add_string_value ("python3");
         builder.end_object ();
         builder.set_member_name ("language_info");
         builder.begin_object ();
@@ -188,7 +188,7 @@ public class MultiFormatExporter : GLib.Object {
         if (show_header && work_dir != null) {
             builder.begin_object ();
             builder.set_member_name ("cell_type"); builder.add_string_value ("markdown");
-            builder.set_member_name ("metadata");  builder.begin_object (); builder.end_object ();
+            builder.set_member_name ("metadata"); builder.begin_object (); builder.end_object ();
             builder.set_member_name ("source");
             builder.begin_array ();
             add_source_lines (builder, "# FileCollector Export\n");
@@ -348,13 +348,13 @@ public class MultiFormatExporter : GLib.Object {
     private static void append_item_object (Json.Builder builder, ResolvedItem ri) {
         builder.begin_object ();
         if (ri.source.item_type == "text") {
-            builder.set_member_name ("type");     builder.add_string_value ("text");
-            builder.set_member_name ("content");  builder.add_string_value (ri.content ?? "");
+            builder.set_member_name ("type"); builder.add_string_value ("text");
+            builder.set_member_name ("content"); builder.add_string_value (ri.content ?? "");
         } else {
-            builder.set_member_name ("type");     builder.add_string_value ("file");
-            builder.set_member_name ("path");     builder.add_string_value (ri.display_path);
+            builder.set_member_name ("type"); builder.add_string_value ("file");
+            builder.set_member_name ("path"); builder.add_string_value (ri.display_path);
             builder.set_member_name ("language"); builder.add_string_value (ri.language);
-            builder.set_member_name ("status");   builder.add_string_value (kind_to_status (ri.kind));
+            builder.set_member_name ("status"); builder.add_string_value (kind_to_status (ri.kind));
             if (ri.kind == ItemKind.OK) {
                 builder.set_member_name ("content");
                 builder.add_string_value (ri.content ?? "");
@@ -379,10 +379,10 @@ public class MultiFormatExporter : GLib.Object {
 
     private static string kind_to_status (ItemKind k) {
         switch (k) {
-            case ItemKind.OK:         return "ok";
-            case ItemKind.MISSING:    return "missing";
-            case ItemKind.BINARY:     return "binary";
-            case ItemKind.TOO_LARGE:  return "too_large";
+            case ItemKind.OK: return "ok";
+            case ItemKind.MISSING: return "missing";
+            case ItemKind.BINARY: return "binary";
+            case ItemKind.TOO_LARGE: return "too_large";
             case ItemKind.READ_ERROR: return "read_error";
         }
         return "unknown";
@@ -391,31 +391,31 @@ public class MultiFormatExporter : GLib.Object {
     // 经典编程语言 → code cell; 文档/数据/配置类 → markdown cell
     private static bool is_code_language (string lang) {
         switch (lang) {
-            case "py":     case "python":
-            case "js":     case "javascript": case "mjs":
-            case "ts":     case "typescript":
+            case "py": case "python":
+            case "js": case "javascript": case "mjs":
+            case "ts": case "typescript":
             case "vala":
-            case "c":      case "h":
-            case "cpp":    case "hpp": case "cc": case "cxx":
-            case "rs":     case "rust":
+            case "c": case "h":
+            case "cpp": case "hpp": case "cc": case "cxx":
+            case "rs": case "rust":
             case "go":
             case "java":
-            case "kt":     case "kts":
+            case "kt": case "kts":
             case "swift":
-            case "rb":     case "ruby":
+            case "rb": case "ruby":
             case "php":
-            case "sh":     case "bash": case "zsh":
+            case "sh": case "bash": case "zsh":
             case "sql":
             case "r":
             case "lua":
-            case "pl":     case "perl":
+            case "pl": case "perl":
             case "scala":
-            case "hs":     case "haskell":
+            case "hs": case "haskell":
             case "clj":
-            case "ex":     case "exs":
+            case "ex": case "exs":
             case "jl":
             case "dart":
-            case "cs":     case "csharp":
+            case "cs": case "csharp":
             case "fs":
             case "vim":
             case "ps1":

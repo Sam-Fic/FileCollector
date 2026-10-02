@@ -2222,7 +2222,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // 精选的 Adwaita symbolic 图标, 供工作区图标选择使用 (取自系统自带图标主题,
     // 均已确认存在于 /usr/share/icons/Adwaita/symbolic 中).
-    private static string[] SNAPSHOT_ICON_CHOICES = {
+    private const string[] SNAPSHOT_ICON_CHOICES = {
         "view-grid-symbolic",
         "folder-symbolic",
         "folder-documents-symbolic",
@@ -4859,7 +4859,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     total_tokens += data.cached_tokens;
                 } else if (data.is_binary_target ()) {
                     // 二进制文件预处理前不估算 token, 只统计转换后的 Markdown
-                } else                 if (data.is_snippet ()) {
+                } else if (data.is_snippet ()) {
                     total_tokens += TokenEstimator.estimate_snippet_tokens_fast (data.file_path, data.start_line, data.end_line);
                 } else {
                     total_tokens += TokenEstimator.estimate_file_tokens_fast (data.file_path);

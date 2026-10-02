@@ -21,12 +21,12 @@ public class ItemData : GLib.Object {
     public int start_line { get; set; default = 0; }
     public int end_line { get; set; default = 0; }
 
-    private static string[] DOCUMENT_EXTENSIONS = {
+    private const string[] DOCUMENT_EXTENSIONS = {
         ".pdf", ".docx", ".pptx", ".doc", ".ppt",
         ".xlsx", ".xls", ".ods", ".odt", ".odp", ".rtf", ".wps"
     };
 
-    private static string[] IMAGE_EXTENSIONS = {
+    private const string[] IMAGE_EXTENSIONS = {
         ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"
     };
 
