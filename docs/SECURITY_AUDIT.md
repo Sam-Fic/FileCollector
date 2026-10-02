@@ -14,7 +14,7 @@
 |------|----------|----------|
 | Linux | libsecret（GNOME Keyring / KWallet） | `secret_store.vala:212-243` |
 | Windows | DPAPI（`CryptProtectData` / `CryptUnprotectData`） | `secret_store.vala:23-118` + `win32_dpapi_shim.c` |
-| macOS | SecKeychain `SecKeychainAddGenericPassword` | `secret_store.vala:120-208` |
+| macOS | Keychain `SecItemAdd` / `SecItemCopyMatching`（现代 API） | `secret_store.vala:135-155` + `macos_keychain_shim.c` |
 
 ✅ **优点**：
 - API Key / PaddleOCR Token **不写明文**到 `settings.json`（`config_manager.vala:478, 540, 624, 729` 等多处显式置空）。
@@ -45,6 +45,8 @@
 ### 🔴 高风险（建议尽快修复）
 
 #### 2.1 明文 HTTP 端点无强制拦截
+
+> **✅ 已修复（2026-10-02 复核确认）**：`ConfigManager.validate_base_url`（`config_manager.vala:74-107`）现对非 localhost / 127.0.0.0/8 / ::1 的 `http://` 端点抛出 `ConfigError.INSECURE_ENDPOINT`，`save_ai_settings` 与 profile 保存路径均会**拒绝写入**，不再是仅警告。以下为原审计发现，仅存档。
 
 **位置**：`src/services/ai_client.vala:36-37`、`src/services/multimodal_ai_client.vala:6-14`、PaddleOCR / 多模态客户端。
 
@@ -77,6 +79,8 @@ if (s.base_url.has_prefix ("http://")
 
 #### 2.3 macOS Keychain 调用使用已废弃 API
 
+> **✅ 已修复（2026-10-02 复核确认）**：已迁移到 `kSecClassGenericPassword` + `SecItemAdd` / `SecItemCopyMatching` 现代 API（`secret_store.vala:135-155`，C 垫片 `macos_keychain_shim.c`）。以下为原审计发现，仅存档。
+
 **位置**：`secret_store.vala:121-130, 150, 164, 188`。
 
 **问题**：
@@ -87,6 +91,8 @@ if (s.base_url.has_prefix ("http://")
 **建议**：迁移到 `kSecClassGenericPassword` + `SecItemAdd` / `SecItemCopyMatching`（Security framework 现代 API）。
 
 #### 2.4 Windows DPAPI 缺少熵参数
+
+> **✅ 已修复（2026-10-02 复核确认）**：已加入 per-slot 熵 `make_entropy_blob (slot)`（`secret_store.vala:67-77`），加解密两侧一致传入 `pOptionalEntropy`。以下为原审计发现，仅存档。
 
 **位置**：`secret_store.vala:60-62, 79-81`、`win32_dpapi_shim.c:18-37`。
 
@@ -104,6 +110,8 @@ CryptProtectData (&in_blob, "filecollector", &entropy_blob, ...);
 ```
 
 #### 2.5 settings.json 中仍可能短暂存在明文 key
+
+> **⚠️ 部分缓解（2026-10-02）**：迁移失败已有 `notify_migration_failed` 通知（`config_manager.vala:56-59`）；且 `write_settings_root_unlocked` 现以 `FileCreateFlags.PRIVATE`（0600）落盘 settings.json，明文窗口期的磁盘暴露已收敛到属主用户。「迁移失败不回滚」的兜底策略仍是可选改进项。
 
 **位置**：`config_manager.vala:336-345, 497-505, 585-593, 695-703` 的"迁移路径"。
 
@@ -128,6 +136,8 @@ CryptProtectData (&in_blob, "filecollector", &entropy_blob, ...);
 - 对于桌面端 LLM 工具，这通常**不是优先项**，因为 OS 已经隔离了用户进程。
 
 #### 2.7 VLM 客户端池的 settings_signature 包含密钥
+
+> **✅ 已修复（2026-10-02 复核确认）**：`vlm_task_runner.vala:39, 47` 已改用 `compute_token_fingerprint`（指纹而非密钥原文参与 signature），泄露面已消除。以下为原审计发现，仅存档。
 
 **位置**：`vlm_task_runner.vala:34`。
 
@@ -216,20 +226,20 @@ multipart.append_form_string ("optionalPayload", optional_str);
 | 维度 | 评估 |
 |------|------|
 | **API Key 静态存储** | ✅ 优秀（libsecret / DPAPI / Keychain，配置无明文） |
-| **API Key 传输** | ⚠️ 依赖用户配置 HTTPS 端点；未拦截 `http://` |
+| **API Key 传输** | ✅ 非 localhost 的 `http://` 端点在保存时被硬拦截（`validate_base_url`） |
 | **代码质量与安全意识** | ✅ 注释清晰，路径白名单、原子写入、buffer 越界防护都做得到位 |
-| **跨平台抽象** | ✅ 优雅，但 macOS 端使用 deprecated API |
+| **跨平台抽象** | ✅ 优雅，macOS 已迁移至现代 `SecItem*` API |
 | **内存安全** | ✅ 没有 `strcpy` 风格代码，但密钥无显式擦除（可接受） |
 | **历史 commit** | ✅ 无密钥泄露（仅 `api_key: "ollama"` 占位符） |
 | **Tool 权限** | ✅ AI 工具调用有路径白名单 + symlink 防护 |
 
 ### 优先修复顺序
 
-1. **§2.1**：明文 HTTP 端点硬拦截（`save_ai_settings` 校验）。
-2. **§2.4**：DPAPI 引入 per-scheme 熵。
-3. **§2.3**：macOS 迁移到 `SecItem*` API。
-4. **§2.5**：密钥环 store 失败时 GUI 警告。
-5. **§2.11**：PaddleOCR 测试连接加 throttle。
+1. ~~**§2.1**：明文 HTTP 端点硬拦截（`save_ai_settings` 校验）。~~ ✅ 已完成（`validate_base_url`，非 localhost 的 `http://` 拒绝保存）
+2. ~~**§2.4**：DPAPI 引入 per-scheme 熵。~~ ✅ 已完成（`make_entropy_blob`）
+3. ~~**§2.3**：macOS 迁移到 `SecItem*` API。~~ ✅ 已完成（`macos_keychain_shim.c`）
+4. **§2.5**：密钥环 store 失败时 GUI 警告。部分完成：已有 `notify_migration_failed`，settings.json 已改 0600 落盘；"不持久化明文"回退策略仍为可选改进。
+5. **§2.11**：PaddleOCR 测试连接加 throttle。（未处理，低优先级）
 
 ### 不需要修复（已是最佳实践）
 
@@ -262,4 +272,5 @@ ls -la ~/.config/filecollector/  # 运行时生成, 不在仓库
 
 **审计人**: MiniMax-M3
 **审计依据**: 源码静态分析 + git 历史扫描 + 跨平台最佳实践对照
+**复核**: 2026-10-02 源码复查——§2.1 / §2.3 / §2.4 / §2.7 在当前代码中已修复，§2.5 已部分缓解（0600 落盘 + 迁移失败通知）；其余结论维持。
 
