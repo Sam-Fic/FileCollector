@@ -112,6 +112,28 @@ public class FileTreeFactory : GLib.Object {
             box.append (check);
             box.append (label);
 
+            // 行级 DragSource: 树中的文件/文件夹可直接拖进编排列表。
+            // 内容类型用 Gdk.FileList —— 与 window.vala 的外部文件 DropTarget
+            // (Gdk.FileList, COPY) 同一类型, 因此复用整条收集管线 (含文件夹递归与去重),
+            // 也能拖给外部应用。勾选框/预览点击与拖拽由 GTK 按拖拽阈值自动区分。
+            var drag_source = new Gtk.DragSource ();
+            drag_source.set_actions (Gdk.DragAction.COPY);
+            drag_source.prepare.connect ((gx, gy) => {
+                var li = obj as Gtk.ListItem;
+                if (li == null) return null;
+                var row = li.get_item () as Gtk.TreeListRow;
+                if (row == null) return null;
+                var dir_item = row.get_item () as DirectoryItem;
+                if (dir_item == null || dir_item.path == null) return null;
+                var files = new Gdk.FileList.from_array ({
+                    GLib.File.new_for_path (dir_item.path)
+                });
+                var value = GLib.Value (typeof (Gdk.FileList));
+                value.set_boxed (files);
+                return new Gdk.ContentProvider.for_value (value);
+            });
+            box.add_controller (drag_source);
+
             // 右键与触屏长按共用同一菜单逻辑 (触屏设备没有 secondary button)
             ContextMenus.ContextMenuPosCallback open_tree_menu = (gx, gy) => {
                 var li = obj as Gtk.ListItem;
