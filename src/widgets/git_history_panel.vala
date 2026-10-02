@@ -296,6 +296,7 @@ public class GitHistoryPanel : GLib.Object {
         } catch (ThreadError e) {
             git_loading = false;
             warning ("Failed to create git-log thread: %s", e.message);
+            error (_("Git Error"), e.message);
         }
     }
 
@@ -384,6 +385,7 @@ public class GitHistoryPanel : GLib.Object {
             app_state.bg_threads.add (thread);
         } catch (ThreadError e) {
             warning ("Failed to create git-commit-diff thread: %s", e.message);
+            error (_("Git Error"), e.message);
         }
     }
 
@@ -472,6 +474,7 @@ public class GitHistoryPanel : GLib.Object {
             app_state.bg_threads.add (thread);
         } catch (ThreadError e) {
             warning ("Failed to create git-status thread: %s", e.message);
+            error (_("Git Error"), e.message);
         }
     }
 
@@ -556,6 +559,7 @@ public class GitHistoryPanel : GLib.Object {
             app_state.bg_threads.add (thread);
         } catch (ThreadError e) {
             warning ("Failed to create git-working-diff thread: %s", e.message);
+            error (_("Git Error"), e.message);
         }
     }
 
@@ -613,6 +617,7 @@ public class GitHistoryPanel : GLib.Object {
             app_state.bg_threads.add (thread);
         } catch (ThreadError e) {
             warning ("Failed to create git-commits-diff thread: %s", e.message);
+            error (_("Git Error"), e.message);
         }
     }
 
