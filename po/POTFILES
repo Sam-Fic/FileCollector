@@ -1,5 +1,4 @@
 src/cli.vala
-src/main.vala
 src/window.vala
 src/window.blp
 src/controllers/ai_controller.vala
