@@ -25,6 +25,18 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="4.8.2" date="2026-10-02">
+      <description>
+        <p>Style gate, config hardening and documentation fixes:</p>
+        <ul>
+          <li>Added a vala-lint style gate to CI; platform builds and releases now depend on it passing</li>
+          <li>Cleaned up all error-level style violations so the codebase passes the new lint gate</li>
+          <li>settings.json is now written with owner-only permissions (0600), shrinking the window where a hand-pasted API key may sit in plaintext on disk during migration</li>
+          <li>Fixed the broken icon path and heading level in the English README, and the table-of-contents ordering in both USAGE guides</li>
+          <li>Updated the security audit report to mark the fixed items: HTTPS endpoint enforcement, modern macOS Keychain API, DPAPI entropy and token fingerprints</li>
+        </ul>
+      </description>
+    </release>
     <release version="4.8.1" date="2026-09-28">
       <description>
         <p>About dialog and metadata single-sourcing:</p>
