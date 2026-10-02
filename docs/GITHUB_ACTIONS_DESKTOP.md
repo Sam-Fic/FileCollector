@@ -4,9 +4,9 @@
 
 | 触发方式 | 执行结果 | 产物位置 |
 | --- | --- | --- |
-| 推送至 `main` | 构建并验证四个平台安装包 | 对应工作流的 Artifacts |
-| 向 `main` 发起或更新拉取请求 | 构建并验证四个平台安装包 | 对应工作流的 Artifacts |
-| 在 Actions 页面手动运行 | 构建并验证四个平台安装包 | 对应工作流的 Artifacts |
+| 推送至 `main` | 运行 vala-lint 风格检查并构建、验证四个平台安装包 | 对应工作流的 Artifacts |
+| 向 `main` 发起或更新拉取请求 | 运行 vala-lint 风格检查并构建、验证四个平台安装包 | 对应工作流的 Artifacts |
+| 在 Actions 页面手动运行 | 运行 vala-lint 风格检查并构建、验证四个平台安装包 | 对应工作流的 Artifacts |
 | 推送 `v*` 标签，例如 `v4.8.0` | 构建、验证并创建或更新同名 GitHub Release | Release Assets 与工作流 Artifacts |
 
 DEB 打包使用 `tools/build-deb.sh`。脚本从 `meson.build` 读取唯一版本号，执行 Meson 构建和测试，将标准安装结果暂存到 `deb-root/`，再用 `dpkg-shlibdeps` 自动生成运行时依赖。这样不会把与构建环境不匹配的依赖版本硬编码进控制文件。为满足项目要求的 `libadwaita >= 1.9`，该构建步骤在 Ubuntu 26.04 容器中执行；Ubuntu 软件包仓库显示该版本提供 libadwaita 1.9.0。[1]
@@ -16,6 +16,8 @@ Flatpak 打包采用官方维护的 Flatpak 构建动作，并使用与项目清
 Windows 打包在 MSYS2 的 MINGW64 环境中编译。构建脚本会从源码编译 cmark-gfm、运行测试、递归收集 MinGW DLL，并额外打包 GTK 图像加载器、GSettings、完整的 GNOME `Adwaita` 与 `hicolor` 图标主题、项目随附且实际使用的两个原始 XApp symbolic（`xsi-*`）图标，以及 GIO TLS 模块。应用启动时会明确注册包内主题目录，因此 Windows 不依赖宿主系统图标；所有代码中引用的 `*-symbolic` 图标都会在打包阶段与实际主题资产逐一校验。下载后应解压并通过 `bin/filecollector-launch.bat` 启动，以正确设置图片加载器与 HTTPS 模块路径。[3]
 
 macOS 打包固定在 Apple Silicon 的 `macos-14` 运行器上，产出 ARM64 `.app` 并将 Homebrew 动态库重定位到应用包内。`FileCollector.app/Contents/Resources/share/icons/` 同样携带完整的 GNOME `Adwaita` 与 `hicolor` 主题，并叠加项目随附且实际使用的两个原始 XApp symbolic（`xsi-*`）图标；应用会优先在该目录解析所有 symbolic 图标，从而保持与 GNOME 桌面一致的图标来源与原有界面语义。产物使用临时的 ad-hoc 签名用于完整性验证，但**不含 Apple Developer ID 签名或公证**；首次在其他 Mac 上打开时，系统仍可能显示未验证开发者提示。[4]
+
+工作流还包含一个 `lint` job：在 Ubuntu 运行器上以固定 tag（0.1.0）从源码构建 vala-lint，并按仓库根目录的 `vala-lint.conf` 对 `src/` 执行代码风格检查。固定 tag 是为了避免上游 master 变动导致规则漂移。四个平台构建与 `publish` job 均依赖 lint 通过，error 级风格回归会同时阻塞日常构建与版本发布；`line-length`、`ellipsis`、`note` 目前为 warn 级别（只报告不阻塞），升降级说明见 `vala-lint.conf` 头部注释。[5]
 
 ## 日常使用
 
@@ -47,3 +49,4 @@ git push origin v4.8.0
 [2]: https://github.com/flatpak/flatpak-github-actions "Flatpak GitHub Actions"
 [3]: https://www.msys2.org/docs/ci/ "Using MSYS2 in CI"
 [4]: https://github.com/actions/runner-images/blob/main/images/macos/macos-14-arm64-Readme.md "GitHub Actions macOS 14 ARM64 runner image"
+[5]: https://github.com/vala-lang/vala-lint "vala-lint"
