@@ -12,12 +12,14 @@
 
 ```meson
 project('filecollector', 'vala', 'c',
-  version: '4.8.0',
+  version: '4.8.1',
   ...
 )
 ```
 
 **不要**在其他文件中硬编码版本号。CI 脚本、DEB 打包脚本、Windows/macOS 打包脚本均从 `meson.build` 读取版本号。
+
+> **增量构建陷阱**：`Config.VERSION` 由 `configure_file` 从 `meson.project_version` 生成，但 `valac` 的增量构建可能不重编这个生成物——`meson compile` 通过不代表新版本号已编进二进制，About 页会继续显示旧版本号。本地发版前请按发版前检查清单确认编译产物里的版本字面量。
 
 ---
 
@@ -50,7 +52,7 @@ project('filecollector', 'vala', 'c',
 
 ```bash
 # 修改 meson.build 第 2 行的 version 字段
-# 例如从 4.8.0 改为 4.9.0
+# 例如从 4.8.1 改为 4.9.0
 ```
 
 ### 2. 更新 AppStream 元数据
@@ -128,6 +130,7 @@ CI 工作流配置见 `.github/workflows/desktop-packages.yml`。CI 构建规则
 - [ ] `meson.build` 版本号已更新
 - [ ] `data/io.github.sam_fic.filecollector.metainfo.xml` 已添加对应 release 条目
 - [ ] 本地构建通过（`meson compile` 无错误）
+- [ ] 编译产物里的版本号确实更新（`strings <build>/filecollector | grep -x 'X.Y.Z'`）
 - [ ] 本地测试运行功能正常
 - [ ] 提交信息清晰
 - [ ] 标签格式为 `vX.Y.Z`（如 `v4.9.0`）
