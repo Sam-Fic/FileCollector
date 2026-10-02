@@ -170,6 +170,17 @@ public class PreferencesDialog : GLib.Object {
         edit_sidebar_api_key = sb_key_row;
         sidebar_group.add (sb_key_row);
 
+        // HTTP 端点安全提示: 紧邻 Base URL / Key 字段展示,
+        // 比页面末尾的独立分组更贴近它所守卫的输入项
+        var security_row = new ActionRow ();
+        security_row.set_title (_("HTTP Endpoint Security Risk"));
+        security_row.set_subtitle (_("Using an HTTP (non-HTTPS) endpoint transmits the API key in plaintext over the network, posing a security risk."));
+        var warning_icon = new Image.from_icon_name ("dialog-warning-symbolic");
+        warning_icon.add_css_class ("warning");
+        warning_icon.valign = Align.CENTER;
+        security_row.add_prefix (warning_icon);
+        sidebar_group.add (security_row);
+
         var sb_model_row = new EntryRow ();
         sb_model_row.set_title (_("Model Name"));
         sb_model_row.set_show_apply_button (false);
@@ -181,15 +192,16 @@ public class PreferencesDialog : GLib.Object {
         spin_sidebar_timeout = sb_timeout_row;
         sidebar_group.add (sb_timeout_row);
 
-        var sb_advanced = new PreferencesGroup ();
+        // 高级项折叠进 ExpanderRow (默认收起), 降低首屏表单密度
+        var sb_advanced = new ExpanderRow ();
         sb_advanced.set_title (_("Advanced"));
-        page.add (sb_advanced);
+        sidebar_group.add (sb_advanced);
 
         var sb_prompt_row = new EntryRow ();
         sb_prompt_row.set_title (_("Custom System Prompt (Optional)"));
         sb_prompt_row.set_show_apply_button (false);
         edit_sidebar_prompt = sb_prompt_row;
-        sb_advanced.add (sb_prompt_row);
+        sb_advanced.add_row (sb_prompt_row);
 
         var sb_test_row = new ActionRow ();
         sb_test_row.set_title (_("Test Connection"));
@@ -198,7 +210,7 @@ public class PreferencesDialog : GLib.Object {
         btn_sidebar_test.valign = Align.CENTER;
         btn_sidebar_test.add_css_class ("suggested-action");
         sb_test_row.add_suffix (btn_sidebar_test);
-        sb_advanced.add (sb_test_row);
+        sb_advanced.add_row (sb_test_row);
 
         // ── 视觉语言大模型 ──
         var mm_group = new PreferencesGroup ();
@@ -303,9 +315,11 @@ public class PreferencesDialog : GLib.Object {
         spin_mm_concurrency = mm_concurrency_row;
         mm_group.add (mm_concurrency_row);
 
-        var mm_advanced = new PreferencesGroup ();
+        // 高级项折叠进 ExpanderRow (默认收起); PaddleOCR 模式下
+        // provider 相关行的显隐逻辑不受影响 (update_provider_visibility)
+        var mm_advanced = new ExpanderRow ();
         mm_advanced.set_title (_("Advanced"));
-        page.add (mm_advanced);
+        mm_group.add (mm_advanced);
 
         var mm_exts_input_row = new EntryRow ();
         mm_exts_input_row.set_title (_("Allowed binary extensions (comma-separated, e.g. .pdf, .docx)"));
@@ -317,13 +331,13 @@ public class PreferencesDialog : GLib.Object {
         btn_mm_reset_exts.valign = Align.CENTER;
         btn_mm_reset_exts.set_tooltip_text (_("Reset to default extension list"));
         mm_exts_input_row.add_suffix (btn_mm_reset_exts);
-        mm_advanced.add (mm_exts_input_row);
+        mm_advanced.add_row (mm_exts_input_row);
 
         var mm_prompt_row = new EntryRow ();
         mm_prompt_row.set_title (_("Custom System Prompt (Optional)"));
         mm_prompt_row.set_show_apply_button (false);
         edit_mm_prompt = mm_prompt_row;
-        mm_advanced.add (mm_prompt_row);
+        mm_advanced.add_row (mm_prompt_row);
 
         var mm_test_row = new ActionRow ();
         mm_test_row.set_title (_("Test Connection"));
@@ -332,22 +346,7 @@ public class PreferencesDialog : GLib.Object {
         btn_mm_test.valign = Align.CENTER;
         btn_mm_test.add_css_class ("suggested-action");
         mm_test_row.add_suffix (btn_mm_test);
-        mm_advanced.add (mm_test_row);
-
-        // ── 安全警告 ──
-        var security_group = new PreferencesGroup ();
-        security_group.set_title (_("Security Warning"));
-        page.add (security_group);
-
-        var security_row = new ActionRow ();
-        security_row.set_title (_("HTTP Endpoint Security Risk"));
-        security_row.set_subtitle (_("Using an HTTP (non-HTTPS) endpoint transmits the API key in plaintext over the network, posing a security risk."));
-
-        var warning_icon = new Image.from_icon_name ("dialog-warning-symbolic");
-        warning_icon.add_css_class ("warning");
-        warning_icon.valign = Align.CENTER;
-        security_row.add_prefix (warning_icon);
-        security_group.add (security_row);
+        mm_advanced.add_row (mm_test_row);
 
         dialog.add (page);
 
