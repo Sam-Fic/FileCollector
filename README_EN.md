@@ -169,6 +169,7 @@ For building from source, see the [Local Build Guide](docs/building/README.md), 
 | `Ctrl+O`       | Open project            |
 | `Ctrl+S`       | Save project            |
 | `Ctrl+N`       | Clear all items         |
+| `Ctrl+Shift+O` | Open working directory  |
 | `Ctrl+E`       | Add external files      |
 | `Ctrl+I`       | Insert text above       |
 | `Ctrl+Shift+I` | Insert text below       |
@@ -177,9 +178,11 @@ For building from source, see the [Local Build Guide](docs/building/README.md), 
 | `Delete`       | Delete selected item    |
 | `Ctrl+G`       | Generate merged text    |
 | `Ctrl+Shift+C` | Generate to clipboard   |
+| `Ctrl+Alt+E`   | Export as ZIP           |
+| `Ctrl+Shift+G` | AI reading guide        |
 | `Ctrl+J`       | Toggle AI assistant     |
 | `Ctrl+Shift+F` | Global content search   |
-| `Ctrl+,`       | Language settings       |
+| `Ctrl+,`       | Preferences             |
 | `Ctrl+/`       | Show keyboard shortcuts |
 | `F1`           | About                   |
 | `Ctrl+Q`       | Quit                    |

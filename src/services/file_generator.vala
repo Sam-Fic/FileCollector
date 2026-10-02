@@ -142,12 +142,14 @@ public class FileGenerator : GLib.Object {
         }
     }
 
-    public static void generate_to_clipboard (
+    // 生成合并文本到缓存目录的导出文件, 返回文件路径。
+    // 纯文件 IO, 无 GTK 依赖 —— 可安全在后台线程调用;
+    // generate_to_clipboard 由主线程负责把返回的 File 放进剪贴板。
+    public static string generate_to_cache (
         Gee.ArrayList<ItemData> items,
         bool use_absolute,
         bool show_header,
-        File? work_dir,
-        Gdk.Display display
+        File? work_dir
     ) throws Error {
         var cache_dir_path = Path.build_filename (
             Environment.get_user_cache_dir (), "filecollector", "clipboard"
@@ -161,6 +163,17 @@ public class FileGenerator : GLib.Object {
         var file_path = Path.build_filename (cache_dir_path, filename);
 
         generate_file (file_path, items, use_absolute, show_header, work_dir);
+        return file_path;
+    }
+
+    public static void generate_to_clipboard (
+        Gee.ArrayList<ItemData> items,
+        bool use_absolute,
+        bool show_header,
+        File? work_dir,
+        Gdk.Display display
+    ) throws Error {
+        var file_path = generate_to_cache (items, use_absolute, show_header, work_dir);
         var file = File.new_for_path (file_path);
         display.get_clipboard ().set (typeof (File), file);
     }

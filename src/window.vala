@@ -39,6 +39,8 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     [GtkChild] private unowned Gtk.Paned inner_paned;
     [GtkChild] private unowned Gtk.ToggleButton btn_ai_toggle;
     [GtkChild] private unowned Gtk.ToggleButton btn_toggle_snapshot;
+    [GtkChild] private unowned Gtk.Spinner export_spinner;
+    [GtkChild] private unowned Gtk.Box queue_options_box;
 
     // 工作区快照栏 (在 Vala 中构建, 因 blueprint 0.19 无法正确为
     // AdwOverlaySplitView 指定 sidebar/content 子控件, 导致侧栏空白)
@@ -313,6 +315,17 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             }
         });
 
+        // 预览区右键菜单 (右键 + 触屏长按, 与目录树/编排列表同一套交互)
+        var preview_right_click = new Gtk.GestureClick ();
+        preview_right_click.set_button (Gdk.BUTTON_SECONDARY);
+        preview_right_click.pressed.connect ((n_press, gx, gy) => {
+            show_preview_context_menu ((int) gx, (int) gy);
+        });
+        preview_stack.add_controller (preview_right_click);
+        ContextMenus.attach_long_press (preview_stack, (gx, gy) => {
+            show_preview_context_menu ((int) gx, (int) gy);
+        });
+
         this.close_request.connect (on_close_request);
 
         // 窗口被加入 Application 后 application 属性才非空,
@@ -325,6 +338,13 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         GLib.Idle.add (() => {
             cache_title_widget ();
             recovery_manager.maybe_prompt_restore (this, app_state.project_file);
+            // 本类注册的 win action 的加速键在此集中登记
+            var idle_app = application;
+            if (idle_app != null) {
+                idle_app.set_accels_for_action ("win.export_zip", { "<Control><Alt>e" });
+                idle_app.set_accels_for_action ("win.open_working_dir", { "<Control><Shift>o" });
+                idle_app.set_accels_for_action ("win.ai_reading_guide", { "<Control><Shift>g" });
+            }
             return Source.REMOVE;
         });
     }
@@ -1853,6 +1873,16 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         export_zip_act.activate.connect (() => { on_export_zip_clicked (); });
         add_action (export_zip_act);
 
+        // 打开工作目录 (按钮与 Ctrl+Shift+O 共用); Ctrl+O 保留给打开项目
+        var open_workdir_act = new GLib.SimpleAction ("open_working_dir", null);
+        open_workdir_act.activate.connect (() => { on_open_folder_clicked.begin (); });
+        add_action (open_workdir_act);
+
+        // AI 阅读指南 (按钮与 Ctrl+Shift+G 共用)
+        var ai_guide_act = new GLib.SimpleAction ("ai_reading_guide", null);
+        ai_guide_act.activate.connect (() => { on_ai_toc_clicked (); });
+        add_action (ai_guide_act);
+
         // 快捷键 Action 在 setup 后才创建, 需要重新同步一次状态
         update_queue_buttons ();
         update_workdir_dependent_buttons ();
@@ -2835,12 +2865,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         // 模型已恢复稳定, 统一触发一次 UI 刷新 (包括清除目录树选择等副作用).
         on_queue_selection_changed (0, 0);
 
-        // 编排列表空状态切换: 无项显示 StatusPage 空状态页, 有项显示列表页
+        // 编排列表空状态切换: 无项显示 StatusPage 空状态页, 有项显示列表页;
+        // 选项区 (相对/绝对路径 + 头部标注) 在空态下整组隐藏, 减少无效视觉噪音
         if (items.size == 0) {
             queue_stack.visible_child = queue_empty_page;
         } else {
             queue_stack.visible_child_name = "list";
         }
+        queue_options_box.visible = items.size > 0;
 
         update_token_display ();
     }
@@ -2991,7 +3023,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 }
             } catch (Error e) {
                 if (e is GLib.IOError.CANCELLED) return;
-                warning ("添加文件失败: %s", e.message);
+                show_error (_("Add Files Failed"), e.message);
             }
         });
     }
@@ -4270,10 +4302,69 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         );
     }
 
+    // ─── 预览区右键菜单 ─────────────────────────────────────────────────────
+
+    private ItemData? ctx_preview_item = null;
+
+    private void show_preview_context_menu (int gx, int gy) {
+        var item = current_preview_item;
+        // 仅文件可操作; 空态 / 多选 StatusPage 上无菜单意义
+        if (item == null || item.item_type != "file" || item.file_path == null) return;
+        ctx_preview_item = item;
+        bool can_retry = item.is_allowed_binary_target (ConfigManager.get_allowed_binary_extensions ())
+            && item.preprocess_status != PreprocessStatus.PROCESSING;
+        ContextMenus.show_preview_menu (
+            preview_stack, item, gx, gy,
+            on_ctx_preview_copy_path,
+            on_ctx_preview_show_folder,
+            on_ctx_preview_copy_content,
+            () => { if (ctx_preview_item != null) export_item_cache (ctx_preview_item); },
+            can_export_item_cache (item),
+            () => { if (ctx_preview_item != null) on_retry_preprocess (ctx_preview_item); },
+            can_retry
+        );
+    }
+
+    private void on_ctx_preview_copy_path () {
+        if (ctx_preview_item == null || ctx_preview_item.file_path == null) return;
+        string path_to_copy = ctx_preview_item.file_path;
+        if (work_dir != null) {
+            string wd = work_dir.get_path () + "/";
+            if (path_to_copy.has_prefix (wd)) {
+                path_to_copy = path_to_copy.substring (wd.length);
+            }
+        }
+        get_clipboard ().set_text (path_to_copy);
+    }
+
+    private void on_ctx_preview_show_folder () {
+        if (ctx_preview_item == null || ctx_preview_item.file_path == null) return;
+        show_file_in_folder (GLib.Path.get_dirname (ctx_preview_item.file_path));
+    }
+
+    private void on_ctx_preview_copy_content () {
+        if (ctx_preview_item == null || ctx_preview_item.file_path == null) return;
+        try {
+            uint8[] data;
+            FileUtils.get_data (ctx_preview_item.file_path, out data);
+            if (data.length > 1048576) {
+                show_toast (_("File too large to copy content"));
+                return;
+            }
+            string content = EncodingHelper.decode_to_utf8 (data);
+            get_clipboard ().set_text (content);
+            show_toast (_("File content copied"));
+        } catch (Error e) {
+            show_toast (_("Failed to read file"));
+        }
+    }
+
     // ─── 系统级辅助方法 ─────────────────────────────────────────────────────
 
-    private void show_file_in_folder (string path) {
-        UIHelpers.show_file_in_folder (this, path);
+    private bool show_file_in_folder (string path) {
+        bool ok = UIHelpers.show_file_in_folder (this, path);
+        if (!ok) show_toast (_("Failed to open file manager"));
+        return ok;
     }
 
     // ─── Options ─────────────────────────────────────────────────────────
@@ -4297,6 +4388,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // ─── Generate ────────────────────────────────────────────────────────
 
     private void on_generate_clicked () {
+        if (export_busy) return;
         if (items.size == 0) {
             show_toast (_("The queue is empty. Please check some files or add text content first"));
             return;
@@ -4349,28 +4441,14 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             try {
                 var file = dialog.save.end (res);
                 var path = file.get_path ();
+                // 无已知扩展名时补 .txt (有扩展名的格式直接按扩展名分发)
                 string lower = path.down ();
-                string fmt_name;
-                if (lower.has_suffix (".md")) {
-                    MultiFormatExporter.export_markdown (path, items, use_absolute, show_header, work_dir);
-                    fmt_name = _("Markdown");
-                } else if (lower.has_suffix (".jsonl")) {
-                    MultiFormatExporter.export_jsonl (path, items, use_absolute, show_header, work_dir);
-                    fmt_name = _("JSONL");
-                } else if (lower.has_suffix (".json")) {
-                    MultiFormatExporter.export_json (path, items, use_absolute, show_header, work_dir);
-                    fmt_name = _("JSON");
-                } else if (lower.has_suffix (".ipynb")) {
-                    MultiFormatExporter.export_ipynb (path, items, use_absolute, show_header, work_dir);
-                    fmt_name = _("Jupyter Notebook");
-                } else {
-                    if (!lower.has_suffix (".txt")) {
-                        path += ".txt";
-                    }
-                    FileGenerator.generate_file (path, items, use_absolute, show_header, work_dir);
-                    fmt_name = _("Merged Text");
+                if (!lower.has_suffix (".txt") && !lower.has_suffix (".md")
+                    && !lower.has_suffix (".json") && !lower.has_suffix (".jsonl")
+                    && !lower.has_suffix (".ipynb")) {
+                    path += ".txt";
                 }
-                show_toast (_("%s saved").printf (fmt_name));
+                start_export_to_file (path);
             } catch (Error e) {
                 if (e is GLib.IOError.CANCELLED || e is Gtk.DialogError.DISMISSED) {
                     return;
@@ -4380,16 +4458,120 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         });
     }
 
+    // ─── 导出忙碌态 ──────────────────────────────────────────────────────
+    // 生成/复制/ZIP 均在后台线程执行, 期间禁用全部导出入口并显示 spinner
+    // 防止重入; 完成后统一经 set_export_busy (false) 恢复按钮与 win action.
+
+    private bool export_busy = false;
+
+    private void set_export_busy (bool busy) {
+        export_busy = busy;
+        export_spinner.visible = busy;
+        export_spinner.spinning = busy;
+        btn_generate.sensitive = !busy;
+        btn_more_menu.sensitive = !busy;
+        btn_ai_toc.sensitive = !busy;
+        set_win_action_enabled ("generate", !busy);
+        set_win_action_enabled ("generate_to_clipboard", !busy);
+        set_win_action_enabled ("export_zip", !busy);
+    }
+
+    // items 浅拷贝快照: 导出期间用户仍可编辑列表, 后台线程只遍历快照,
+    // 约定导出期间不修改 ItemData 的字符串字段.
+    private Gee.ArrayList<ItemData> snapshot_items () {
+        var snapshot = new Gee.ArrayList<ItemData> ();
+        snapshot.add_all (items);
+        return snapshot;
+    }
+
+    // 合并文本 / 多格式导出: 主线程拿到目标路径后转交后台线程,
+    // 完成后 Idle 回主线程收尾 (toast / 错误弹窗).
+    private void start_export_to_file (string path) {
+        if (export_busy) return;
+        var snapshot = snapshot_items ();
+        bool use_abs = use_absolute;
+        bool header = show_header;
+        File? wd = work_dir;
+        string lower = path.down ();
+        set_export_busy (true);
+        try {
+            new GLib.Thread<void*> ("export", () => {
+                string err_msg = "";
+                string fmt_name = _("Merged Text");
+                try {
+                    if (lower.has_suffix (".md")) {
+                        MultiFormatExporter.export_markdown (path, snapshot, use_abs, header, wd);
+                        fmt_name = _("Markdown");
+                    } else if (lower.has_suffix (".jsonl")) {
+                        MultiFormatExporter.export_jsonl (path, snapshot, use_abs, header, wd);
+                        fmt_name = _("JSONL");
+                    } else if (lower.has_suffix (".json")) {
+                        MultiFormatExporter.export_json (path, snapshot, use_abs, header, wd);
+                        fmt_name = _("JSON");
+                    } else if (lower.has_suffix (".ipynb")) {
+                        MultiFormatExporter.export_ipynb (path, snapshot, use_abs, header, wd);
+                        fmt_name = _("Jupyter Notebook");
+                    } else {
+                        FileGenerator.generate_file (path, snapshot, use_abs, header, wd);
+                    }
+                } catch (Error e) {
+                    err_msg = e.message;
+                }
+
+                Idle.add (() => {
+                    set_export_busy (false);
+                    if (err_msg == "") {
+                        show_toast (_("%s saved").printf (fmt_name));
+                    } else {
+                        show_error (_("Save Failed"), err_msg);
+                    }
+                    return Source.REMOVE;
+                });
+                return null;
+            });
+        } catch (ThreadError e) {
+            set_export_busy (false);
+            show_error (_("Save Failed"), e.message);
+        }
+    }
+
     private void on_generate_to_clipboard_clicked () {
+        if (export_busy) return;
         if (items.size == 0) {
             show_toast (_("The queue is empty. Please check some files or add text content first"));
             return;
         }
 
+        var snapshot = snapshot_items ();
+        bool use_abs = use_absolute;
+        bool header = show_header;
+        File? wd = work_dir;
+        set_export_busy (true);
         try {
-            FileGenerator.generate_to_clipboard (items, use_absolute, show_header, work_dir, this.get_display ());
-            show_toast (_("Merged Text Copied to Clipboard"));
-        } catch (Error e) {
+            new GLib.Thread<void*> ("clipboard-export", () => {
+                string err_msg = "";
+                string cache_path = "";
+                try {
+                    cache_path = FileGenerator.generate_to_cache (snapshot, use_abs, header, wd);
+                } catch (Error e) {
+                    err_msg = e.message;
+                }
+
+                Idle.add (() => {
+                    set_export_busy (false);
+                    if (err_msg == "") {
+                        // Gdk.Clipboard 只能在主线程操作, 生成已在后台线程完成
+                        get_display ().get_clipboard ().set (typeof (File), File.new_for_path (cache_path));
+                        show_toast (_("Merged Text Copied to Clipboard"));
+                    } else {
+                        show_error (_("Copy Failed"), err_msg);
+                    }
+                    return Source.REMOVE;
+                });
+                return null;
+            });
+        } catch (ThreadError e) {
+            set_export_busy (false);
             show_error (_("Copy Failed"), e.message);
         }
     }
@@ -4397,6 +4579,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     // ─── ZIP 导出 ────────────────────────────────────────────────────────
 
     private void on_export_zip_clicked () {
+        if (export_busy) return;
         if (items.size == 0) {
             show_toast (_("The queue is empty. Please check some files or add text content first"));
             return;
@@ -4430,10 +4613,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 if (!path.has_suffix (".zip")) {
                     path += ".zip";
                 }
-                // ZIP 导出: 文件是真实文件 (不是 VLM 转写后的 markdown),
-                // 所以 use_absolute 只影响 README 中路径显示, 这里传 false 即可
-                ZipExporter.export_to_zip (path, items, show_header, work_dir);
-                show_toast (_("ZIP exported: %s").printf (GLib.Path.get_basename (path)));
+                start_zip_export (path);
             } catch (Error e) {
                 if (e is GLib.IOError.CANCELLED || e is Gtk.DialogError.DISMISSED) {
                     show_toast (_("Export Cancelled"));
@@ -4444,9 +4624,45 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         });
     }
 
+    // ZIP 打包 (含外部 zip 命令) 在后台线程执行, 避免 UI 冻结
+    private void start_zip_export (string path) {
+        if (export_busy) return;
+        var snapshot = snapshot_items ();
+        bool header = show_header;
+        File? wd = work_dir;
+        set_export_busy (true);
+        try {
+            new GLib.Thread<void*> ("zip-export", () => {
+                string err_msg = "";
+                try {
+                    // ZIP 导出: 文件是真实文件 (不是 VLM 转写后的 markdown),
+                    // 所以 use_absolute 只影响 README 中路径显示, 这里传 false 即可
+                    ZipExporter.export_to_zip (path, snapshot, header, wd);
+                } catch (Error e) {
+                    err_msg = e.message;
+                }
+
+                Idle.add (() => {
+                    set_export_busy (false);
+                    if (err_msg == "") {
+                        show_toast (_("ZIP exported: %s").printf (GLib.Path.get_basename (path)));
+                    } else {
+                        show_error (_("ZIP Export Failed"), err_msg);
+                    }
+                    return Source.REMOVE;
+                });
+                return null;
+            });
+        } catch (ThreadError e) {
+            set_export_busy (false);
+            show_error (_("ZIP Export Failed"), e.message);
+        }
+    }
+
     // ─── AI 阅读指南生成 ─────────────────────────────────────────────────
 
     private void on_ai_toc_clicked () {
+        if (export_busy) return;
         if (items.size == 0) {
             show_toast (_("The queue is empty. Please check some files or add text content first"));
             return;
@@ -4703,6 +4919,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
             win.present (this);
         } catch (Error e) {
             warning ("Failed to show shortcuts: %s", e.message);
+            show_toast (_("Failed to show shortcuts: %s").printf (e.message));
         }
     }
 
@@ -4740,7 +4957,9 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
     }
 
     private void show_error (string title, string msg) {
-        var d = new Adw.AlertDialog (title, msg);
+        // 正文统一过 humanize_error: 常见系统错误给人话文案,
+        // Git 输出去技术前缀, 超长/多行的库原始报错截断
+        var d = new Adw.AlertDialog (title, UIHelpers.humanize_error (msg));
         d.add_response ("ok", _("OK"));
         d.present (this);
     }

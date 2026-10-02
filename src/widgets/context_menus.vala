@@ -175,14 +175,7 @@ public class ContextMenus : GLib.Object {
 
         if (!item.is_dir) {
             var act_copy_content = new GLib.SimpleAction ("tree_copy_content", null);
-            bool is_likely_text = true;
-            string lower = item.path.down ();
-            string[] bin_exts = { ".pdf", ".docx", ".pptx", ".xlsx", ".zip", ".tar", ".gz",
-                                  ".png", ".jpg", ".jpeg", ".exe", ".so", ".dylib" };
-            foreach (var ext in bin_exts) {
-                if (lower.has_suffix (ext)) { is_likely_text = false; break; }
-            }
-            act_copy_content.set_enabled (is_likely_text);
+            act_copy_content.set_enabled (is_likely_text (item.path));
             act_copy_content.activate.connect (() => { on_copy_content (); });
             action_group.add_action (act_copy_content);
             menu_model.append (_("Copy File Content"), "tree.tree_copy_content");
@@ -200,6 +193,76 @@ public class ContextMenus : GLib.Object {
         }
 
         show_popover (parent, menu_model, action_group, "tree", gx, gy);
+    }
+
+    // ─── 预览区右键菜单 ──────────────────────────────────────────────
+    // 预览对象是单个 ItemData, 仅 file 类型展示路径相关动作;
+    // 动作与目录树/编排列表菜单保持同一套 (复制路径 / 文件管理器 / 复制内容 /
+    // 导出缓存 / 重跑 AI 转换), 由调用方传入各自实现.
+
+    public static void show_preview_menu (
+        Gtk.Widget parent,
+        ItemData item,
+        int gx,
+        int gy,
+        ContextMenuAction on_copy_path,
+        ContextMenuAction on_show_folder,
+        ContextMenuAction on_copy_content,
+        ContextMenuAction on_export_cache,
+        bool can_export_cache,
+        ContextMenuAction on_retry_preprocess,
+        bool can_retry_preprocess
+    ) {
+        var menu_model = new GLib.Menu ();
+        var action_group = new GLib.SimpleActionGroup ();
+
+        var section_file = new GLib.Menu ();
+
+        var act_copy_path = new GLib.SimpleAction ("pv_copy_path", null);
+        act_copy_path.activate.connect (() => { on_copy_path (); });
+        action_group.add_action (act_copy_path);
+        section_file.append (_("Copy Path"), "pv.pv_copy_path");
+
+        var act_show_folder = new GLib.SimpleAction ("pv_show_folder", null);
+        act_show_folder.activate.connect (() => { on_show_folder (); });
+        action_group.add_action (act_show_folder);
+        section_file.append (_("Show in File Manager"), "pv.pv_show_folder");
+
+        var act_copy_content = new GLib.SimpleAction ("pv_copy_content", null);
+        act_copy_content.set_enabled (is_likely_text (item.file_path));
+        act_copy_content.activate.connect (() => { on_copy_content (); });
+        action_group.add_action (act_copy_content);
+        section_file.append (_("Copy File Content"), "pv.pv_copy_content");
+
+        var act_export_cache = new GLib.SimpleAction ("pv_export_cache", null);
+        act_export_cache.set_enabled (can_export_cache);
+        act_export_cache.activate.connect (() => { on_export_cache (); });
+        action_group.add_action (act_export_cache);
+        section_file.append (_("Export Cache Folder"), "pv.pv_export_cache");
+
+        menu_model.append_section (null, section_file);
+
+        if (can_retry_preprocess) {
+            var act_retry = new GLib.SimpleAction ("pv_retry_ai", null);
+            act_retry.activate.connect (() => { on_retry_preprocess (); });
+            action_group.add_action (act_retry);
+            var section_retry = new GLib.Menu ();
+            section_retry.append (_("Re-run AI conversion"), "pv.pv_retry_ai");
+            menu_model.append_section (null, section_retry);
+        }
+
+        show_popover (parent, menu_model, action_group, "pv", gx, gy);
+    }
+
+    // 按扩展名粗判是否文本文件 (与 show_tree_menu 中的复制内容判定同规则)
+    private static bool is_likely_text (string path) {
+        string lower = path.down ();
+        string[] bin_exts = { ".pdf", ".docx", ".pptx", ".xlsx", ".zip", ".tar", ".gz",
+                              ".png", ".jpg", ".jpeg", ".exe", ".so", ".dylib" };
+        foreach (var ext in bin_exts) {
+            if (lower.has_suffix (ext)) return false;
+        }
+        return true;
     }
 
     private static void show_popover (Gtk.Widget parent, GLib.Menu menu_model,

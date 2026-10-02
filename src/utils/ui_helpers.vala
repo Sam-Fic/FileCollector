@@ -36,6 +36,31 @@ namespace UIHelpers {
         return s;
     }
 
+    // 把底层 Error 的技术性 message 清洗成用户可读文案。
+    // 对话框标题已翻译, 正文普遍直接拼 e.message (库原始英文), 这里统一处理:
+    // 常见系统错误映射为固定人话, Git 输出去技术前缀 (与 git_history_panel 同规则),
+    // 多行 stderr 压成首行, 超长正文截断。
+    public static string humanize_error (string raw) {
+        string s = raw.strip ();
+        if (s.contains ("Permission denied")) {
+            return _("Permission denied. Check the file's read/write permissions and try again.");
+        }
+        if (s.contains ("No space left on device")) {
+            return _("Disk is full. Free up some space and try again.");
+        }
+        if (s.contains ("No such file or directory")) {
+            return _("File not found. It may have been moved, renamed or deleted.");
+        }
+        if (s.contains ("Is a directory")) {
+            return _("The target path is a directory, not a file.");
+        }
+        if (s.has_prefix ("Git error:")) s = s.substring ("Git error:".length).strip ();
+        if (s.has_prefix ("fatal:")) s = s.substring ("fatal:".length).strip ();
+        if ("\n" in s) s = s.split ("\n")[0].strip () + " …";
+        if (s.length > 300) s = s.substring (0, 300).strip () + " …";
+        return s;
+    }
+
     public static string build_toc_prompt (string context) {
         return "你是一个高级软件架构师和文档专家。我将提供一个项目中的一系列文件路径及其开头部分的代码/内容摘要。\n" +
                "请你根据这些信息，为这些文件生成一份结构化的 Markdown 格式的「阅读指南与目录」，并包含「文件关联性分析」。\n" +
@@ -81,20 +106,23 @@ namespace UIHelpers {
         return sb.str;
     }
 
-    public static void show_file_in_folder (Gtk.Window parent, string path) {
+    // 返回是否成功唤起文件管理器, 失败时调用方负责给用户可见的提示。
+    public static bool show_file_in_folder (Gtk.Window parent, string path) {
         var file = File.new_for_path (path);
-        if (!file.query_exists ()) return;
+        if (!file.query_exists ()) return false;
 
         File target = file;
         if (file.query_file_type (FileQueryInfoFlags.NONE) != FileType.DIRECTORY) {
             target = file.get_parent ();
-            if (target == null) return;
+            if (target == null) return false;
         }
 
         try {
             Gtk.show_uri (parent, target.get_uri (), Gdk.CURRENT_TIME);
+            return true;
         } catch (Error e) {
             warning ("Failed to open folder: %s", e.message);
+            return false;
         }
     }
 

@@ -169,6 +169,7 @@ filecollector-windows-X.Y.Z-x64.zip
 | `Ctrl+O`       | 打开项目       |
 | `Ctrl+S`       | 保存项目       |
 | `Ctrl+N`       | 清空列表       |
+| `Ctrl+Shift+O` | 打开工作目录   |
 | `Ctrl+E`       | 添加外部文件   |
 | `Ctrl+I`       | 上方插入文本   |
 | `Ctrl+Shift+I` | 下方插入文本   |
@@ -177,9 +178,11 @@ filecollector-windows-X.Y.Z-x64.zip
 | `Delete`       | 删除选中项     |
 | `Ctrl+G`       | 生成合并文本   |
 | `Ctrl+Shift+C` | 生成到剪贴板   |
+| `Ctrl+Alt+E`   | 导出 ZIP       |
+| `Ctrl+Shift+G` | AI 阅读指南    |
 | `Ctrl+J`       | 显示/隐藏 AI 助手 |
 | `Ctrl+Shift+F` | 全局内容搜索   |
-| `Ctrl+,`       | 语言设置       |
+| `Ctrl+,`       | 偏好设置       |
 | `Ctrl+/`       | 显示键盘快捷键 |
 | `F1`           | 关于           |
 | `Ctrl+Q`       | 退出           |
