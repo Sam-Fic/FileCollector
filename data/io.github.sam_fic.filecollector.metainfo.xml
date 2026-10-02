@@ -25,6 +25,21 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="4.9.0" date="2026-10-02">
+      <description>
+        <p>UI/UX improvements across the main window:</p>
+        <ul>
+          <li>Merged text, clipboard and ZIP exports now run in a background thread with a busy indicator, so large collections no longer freeze the UI</li>
+          <li>Directory tree rows can be dragged into the orchestration list, reusing the same collection pipeline as external file drops</li>
+          <li>The preview area now has a context menu: copy path, show in file manager, copy content, export cache folder and re-run AI conversion</li>
+          <li>New keyboard shortcuts: open working directory (Ctrl+Shift+O), export ZIP (Ctrl+Alt+E) and AI reading guide (Ctrl+Shift+G); the shortcuts dialog gains several missing entries and now uses English source strings</li>
+          <li>More failure paths show user-visible feedback, and error dialogs translate common system errors into plain language</li>
+          <li>Empty states for the template manager and common phrases were redesigned as Adwaita status pages with guidance</li>
+          <li>Preferences: advanced sections are collapsed by default and the HTTP security warning now sits next to the API key field</li>
+          <li>The bottom action bar is visually grouped with separators, and the path options are hidden while the list is empty</li>
+        </ul>
+      </description>
+    </release>
     <release version="4.8.2" date="2026-10-02">
       <description>
         <p>Style gate, config hardening and documentation fixes:</p>
