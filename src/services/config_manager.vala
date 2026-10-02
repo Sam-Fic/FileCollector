@@ -586,7 +586,7 @@ public class ConfigManager : GLib.Object {
         var gen = new Json.Generator ();
         gen.set_root (AI.SchemaHelper.obj_to_node (root));
         gen.pretty = true;
-        atomic_write_json (gen, get_settings_file ());
+        atomic_write_json (gen, get_settings_file (), FileCreateFlags.PRIVATE);
     }
 
     // ─── 多模型配置方案 (ai_models) 读写 ─────────────────────────────────
@@ -1102,8 +1102,10 @@ public class ConfigManager : GLib.Object {
      * 原子写入 JSON 文件：先写临时文件再 rename 替换目标。
      * 写入中途崩溃（断电/被杀）只会留下临时文件，原文件保持完整，
      * 下次加载不会损坏。
+     * 含敏感内容的文件（settings.json 在明文 key 迁移窗口期短暂含密钥）
+     * 调用时应传 FileCreateFlags.PRIVATE (0600)，其余保持默认。
      */
-    public static void atomic_write_json (Json.Generator generator, string target_path) throws Error {
+    public static void atomic_write_json (Json.Generator generator, string target_path, FileCreateFlags flags = FileCreateFlags.NONE) throws Error {
         var target = File.new_for_path (target_path);
         var dir = target.get_parent ();
         // 临时文件与目标同目录，确保 rename 是同一文件系统上的原子操作。
@@ -1111,7 +1113,7 @@ public class ConfigManager : GLib.Object {
             Path.build_filename (dir != null ? dir.get_path () : ".", "." + target.get_basename () + ".tmp")
         );
 
-        var stream = tmp.replace (null, false, FileCreateFlags.NONE);
+        var stream = tmp.replace (null, false, flags);
         generator.to_stream (stream, null);
         stream.close ();
 
