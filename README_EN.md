@@ -1,7 +1,7 @@
 # FileCollector
 
 <div align="center">
-  <img src="data/io.github.sam_fic.filecollector.svg" alt="FileCollector" width="128" height="128">
+  <img src="data/icons/hicolor/scalable/apps/io.github.sam_fic.filecollector.svg" alt="FileCollector" width="128" height="128">
 </div>
 
 [简体中文](README.md)
@@ -162,7 +162,7 @@ For building from source, see the [Local Build Guide](docs/building/README.md), 
 └── io.github.sam_fic.filecollector.json   # Flatpak build manifest
 ```
 
-### Keyboard Shortcuts
+## Keyboard Shortcuts
 
 | Shortcut       | Action                  |
 | -------------- | ----------------------- |
