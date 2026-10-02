@@ -143,9 +143,12 @@ public class PhrasesPicker : GLib.Object {
         list_box.remove_all ();
 
         if (common_phrases.size == 0) {
-            var empty_label = new Gtk.Label (_("No Common Phrases Yet"));
-            empty_label.set_halign (Gtk.Align.CENTER);
-            list_box.append (empty_label);
+            // 空状态与主窗口各面板的 StatusPage 风格统一
+            var empty_page = new Adw.StatusPage ();
+            empty_page.set_icon_name ("insert-text-symbolic");
+            empty_page.set_title (_("No Common Phrases Yet"));
+            empty_page.set_description (_("Add a phrase to insert it between files from the picker."));
+            list_box.append (empty_page);
         } else {
             for (int i = 0; i < common_phrases.size; i++) {
                 var phrase = common_phrases.get (i);
@@ -195,6 +198,15 @@ public class PhrasesPicker : GLib.Object {
 
     private void refresh_phrases_list (Gtk.ListBox list_box) {
         list_box.remove_all ();
+        if (common_phrases.size == 0) {
+            // 管理窗口空态: 原来完全空白, 无任何引导
+            var empty_page = new Adw.StatusPage ();
+            empty_page.set_icon_name ("insert-text-symbolic");
+            empty_page.set_title (_("No Common Phrases Yet"));
+            empty_page.set_description (_("Add a phrase to insert it between files from the picker."));
+            list_box.append (empty_page);
+            return;
+        }
         for (int i = 0; i < common_phrases.size; i++) {
             var phrase = common_phrases.get (i);
             var row = new Adw.ActionRow ();

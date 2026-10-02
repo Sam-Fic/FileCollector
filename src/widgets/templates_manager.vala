@@ -6,6 +6,7 @@ public class TemplatesManager : GLib.Object {
     private Gtk.Window? parent_window;
     private Adw.Dialog dialog;
     private Gtk.ListBox list_box;
+    private Gtk.Stack templates_stack;
     private Gee.ArrayList<PromptTemplate> templates;
 
     public TemplatesManager (Gtk.Window? parent) {
@@ -49,8 +50,25 @@ public class TemplatesManager : GLib.Object {
         list_box.set_vexpand (true);
         box.append (list_box);
 
+        // 列表页 / 空状态页切换: 空态给引导动作, 不再是整屏空白
+        templates_stack = new Gtk.Stack ();
+        templates_stack.set_transition_type (Gtk.StackTransitionType.CROSSFADE);
+        templates_stack.set_vexpand (true);
+        templates_stack.add_named (box, "list");
+
+        var empty_page = new Adw.StatusPage ();
+        empty_page.set_icon_name ("document-new-symbolic");
+        empty_page.set_title (_("No Templates Yet"));
+        empty_page.set_description (
+            _("Create a template to reuse command ID, insert texts and AI prompt in the AI assistant input box."));
+        var empty_add_btn = new Gtk.Button.with_label (_("Add Template"));
+        empty_add_btn.add_css_class ("suggested-action");
+        empty_add_btn.clicked.connect (show_add_dialog);
+        empty_page.set_child (empty_add_btn);
+        templates_stack.add_named (empty_page, "empty");
+
         var scrolled = new Gtk.ScrolledWindow ();
-        scrolled.set_child (box);
+        scrolled.set_child (templates_stack);
         scrolled.set_vexpand (true);
         toolbar_view.set_content (scrolled);
         dialog.set_child (toolbar_view);
@@ -61,6 +79,7 @@ public class TemplatesManager : GLib.Object {
 
     private void refresh_list () {
         UIHelpers.clear_container (list_box);
+        templates_stack.visible_child_name = (templates.size == 0) ? "empty" : "list";
 
         foreach (var tpl in templates) {
             var row = new Adw.ActionRow ();
