@@ -29,11 +29,12 @@ jobs:
             ninja-build \
             valac
 
-      # 固定 tag 构建, 避免上游 master 变动导致规则漂移
+      # 固定 tag 构建, 避免上游 master 变动导致规则漂移;
+      # meson setup 必须显式指定源码目录, 否则会把当前仓库误当作源码配置
       - name: Build vala-lint
         run: |
           git clone --depth 1 --branch 0.1.0 https://github.com/vala-lang/vala-lint.git /tmp/vala-lint
-          meson setup /tmp/vala-lint/build --buildtype=release
+          meson setup /tmp/vala-lint/build --buildtype=release /tmp/vala-lint
           meson compile -C /tmp/vala-lint/build src/io.elementary.vala-lint
 
       - name: Run vala-lint
