@@ -67,138 +67,181 @@ public class ShortcutsHelper : GLib.Object {
     }
 
     // 快捷键帮助界面 (AdwShortcutsDialog) 的 UI 定义.
-    // 顶部的 _("...") 仅为 gettext 提取标记, 实际返回的 XML 中标题已用 translatable="yes" 标记.
+    // 源串统一为英文 (与项目其他 UI 字符串一致), zh_CN 由 .po 提供;
+    // XML 内嵌字符串不被 xgettext 扫描, 顶部 _() 标记即提取锚点, 需与 XML 保持一致.
     public static string build_ui () {
+        _("Keyboard Shortcuts");
         _("Common Operations");
         _("List Operations");
         _("Application");
-        _("Generate to Clipboard");
+        _("Undo");
+        _("Redo");
         _("Open Project");
+        _("Save Project");
+        _("Save Project As...");
+        _("Open Working Directory");
         _("Add External Files");
         _("Toggle AI Panel");
+        _("Global Search");
         _("Insert Text Above");
         _("Insert Text Below");
+        _("Move Up");
+        _("Move Down");
+        _("Delete");
         _("Generate Merged Text");
-        _("Apply Language Settings");
+        _("Generate to Clipboard");
+        _("Export as ZIP");
+        _("AI Reading Guide");
+        _("Preferences");
         _("Keyboard Shortcuts...");
         _("About");
         _("Quit");
         return """<?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <object class="AdwShortcutsDialog" id="sw">
-    <property name="title" translatable="yes">键盘快捷键</property>
+    <property name="title" translatable="yes">Keyboard Shortcuts</property>
     <child>
       <object class="AdwShortcutsSection">
-        <property name="title" translatable="yes">常用操作</property>
+        <property name="title" translatable="yes">Common Operations</property>
         <child>
           <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">撤销</property>
+            <property name="title" translatable="yes">Undo</property>
             <property name="action-name">win.undo</property>
           </object>
         </child>
         <child>
           <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">重做</property>
+            <property name="title" translatable="yes">Redo</property>
             <property name="action-name">win.redo</property>
           </object>
         </child>
         <child>
           <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">打开项目</property>
+            <property name="title" translatable="yes">Open Project</property>
             <property name="accelerator">&lt;Control&gt;o</property>
           </object>
         </child>
         <child>
           <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">保存项目</property>
+            <property name="title" translatable="yes">Save Project</property>
             <property name="accelerator">&lt;Control&gt;s</property>
           </object>
         </child>
         <child>
           <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">添加外部文件</property>
+            <property name="title" translatable="yes">Save Project As...</property>
+            <property name="accelerator">&lt;Control&gt;&lt;Shift&gt;s</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">Open Working Directory</property>
+            <property name="accelerator">&lt;Control&gt;&lt;Shift&gt;o</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">Add External Files</property>
             <property name="action-name">win.add_external_files</property>
           </object>
         </child>
         <child>
           <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">切换 AI 面板</property>
+            <property name="title" translatable="yes">Toggle AI Panel</property>
             <property name="action-name">win.toggle_ai_panel</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">Global Search</property>
+            <property name="action-name">win.global_search</property>
           </object>
         </child>
       </object>
     </child>
     <child>
       <object class="AdwShortcutsSection">
-        <property name="title" translatable="yes">列表操作</property>
+        <property name="title" translatable="yes">List Operations</property>
         <child>
           <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">上方插入文本</property>
+            <property name="title" translatable="yes">Insert Text Above</property>
             <property name="action-name">win.insert_text</property>
           </object>
         </child>
         <child>
           <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">下方插入文本</property>
+            <property name="title" translatable="yes">Insert Text Below</property>
             <property name="action-name">win.insert_text_no_header</property>
           </object>
         </child>
         <child>
           <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">上移</property>
+            <property name="title" translatable="yes">Move Up</property>
             <property name="action-name">win.move_up</property>
           </object>
         </child>
         <child>
           <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">下移</property>
+            <property name="title" translatable="yes">Move Down</property>
             <property name="action-name">win.move_down</property>
           </object>
         </child>
         <child>
           <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">删除</property>
+            <property name="title" translatable="yes">Delete</property>
             <property name="action-name">win.delete_item</property>
           </object>
         </child>
         <child>
           <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">生成合并文本</property>
+            <property name="title" translatable="yes">Generate Merged Text</property>
             <property name="action-name">win.generate</property>
           </object>
         </child>
         <child>
           <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">生成到剪贴板</property>
+            <property name="title" translatable="yes">Generate to Clipboard</property>
             <property name="action-name">win.generate_to_clipboard</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">Export as ZIP</property>
+            <property name="action-name">win.export_zip</property>
+          </object>
+        </child>
+        <child>
+          <object class="AdwShortcutsItem">
+            <property name="title" translatable="yes">AI Reading Guide</property>
+            <property name="action-name">win.ai_reading_guide</property>
           </object>
         </child>
       </object>
     </child>
     <child>
       <object class="AdwShortcutsSection">
-        <property name="title" translatable="yes">应用程序</property>
+        <property name="title" translatable="yes">Application</property>
         <child>
           <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">语言设置</property>
+            <property name="title" translatable="yes">Preferences</property>
             <property name="accelerator">&lt;Control&gt;comma</property>
           </object>
         </child>
         <child>
           <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">键盘快捷键</property>
+            <property name="title" translatable="yes">Keyboard Shortcuts...</property>
             <property name="accelerator">&lt;Control&gt;slash</property>
           </object>
         </child>
         <child>
           <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">关于</property>
+            <property name="title" translatable="yes">About</property>
             <property name="accelerator">F1</property>
           </object>
         </child>
         <child>
           <object class="AdwShortcutsItem">
-            <property name="title" translatable="yes">退出</property>
+            <property name="title" translatable="yes">Quit</property>
             <property name="accelerator">&lt;Control&gt;q</property>
           </object>
         </child>
