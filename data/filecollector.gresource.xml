@@ -13,6 +13,7 @@
          Icons) 不在此图标库中。 -->
     <file alias="icons/hicolor/scalable/actions/xsi-git-symbolic.svg" preprocess="xml-stripblanks">icons/hicolor/scalable/actions/xsi-git-symbolic.svg</file>
     <file alias="icons/hicolor/scalable/actions/xsi-text-case-symbolic.svg" preprocess="xml-stripblanks">icons/hicolor/scalable/actions/xsi-text-case-symbolic.svg</file>
+    <file alias="icons/hicolor/scalable/actions/ai-slop-symbolic.svg" preprocess="xml-stripblanks">icons/hicolor/scalable/actions/ai-slop-symbolic.svg</file>
     <file alias="icons/hicolor/scalable/apps/io.github.sam_fic.filecollector.svg" preprocess="xml-stripblanks">icons/hicolor/scalable/apps/io.github.sam_fic.filecollector.svg</file>
     <file alias="icons/hicolor/scalable/apps/io.github.sam_fic.filecollector-symbolic.svg" preprocess="xml-stripblanks">icons/hicolor/scalable/apps/io.github.sam_fic.filecollector-symbolic.svg</file>
     <!-- AppStream 元数据: About 对话框经 from_appdata 读取 (开发者署名/官网/
