@@ -2,33 +2,8 @@ public class BinaryConverter : GLib.Object {
     public const int MAX_IMAGE_DIMENSION = 2048;
 
     // ─── 捆绑工具解析 ────────────────────────────────────────────────
-    // Windows 便携包把 poppler 工具 (pdftoppm/pdftotext) 放在主程序同目录
-    // (bin/); 绝对路径优先, 找不到回退裸名 PATH 搜索 (Linux/macOS 现状)。
-
-    // 解析捆绑的外部工具, 找不到返回 null (调用方回退裸名 + SpawnFlags.SEARCH_PATH)。
-    public static string? resolve_bundled_tool (string exe_name) {
-        string exe = Platform.get_executable_path ();
-        if (exe == "." || exe.length == 0) return null;
-        var candidate = Path.build_filename (Path.get_dirname (exe), exe_name);
-        return FileUtils.test (candidate, FileTest.EXISTS) ? candidate : null;
-    }
-
-    // poppler 工具专用 launcher: 中文 PDF 需要 CMap 数据, 运行时把
-    // POPPLER_DATADIR 指向便携包内 share/poppler (打包脚本已捆绑)。
-    public static SubprocessLauncher new_poppler_launcher () throws Error {
-        var launcher = new SubprocessLauncher (
-            SubprocessFlags.STDOUT_PIPE | SubprocessFlags.STDERR_PIPE
-        );
-        string exe = Platform.get_executable_path ();
-        if (exe != "." && exe.length > 0) {
-            var data_dir = Path.build_filename (
-                Path.get_dirname (exe), "..", "share", "poppler");
-            if (FileUtils.test (data_dir, FileTest.IS_DIR)) {
-                launcher.setenv ("POPPLER_DATADIR", data_dir, true);
-            }
-        }
-        return launcher;
-    }
+    // resolve_bundled_tool / new_poppler_launcher 位于 Platform (无 GDK 依赖,
+    // 便于单元测试链接); 这里仅保留 soffice 探测链 (纯 FileUtils 逻辑)。
 
     // 解析 soffice 可执行文件。探测顺序:
     //   1. 转换器包约定布局: <exe>/../tools/LibreOffice/program/soffice.exe
@@ -218,9 +193,9 @@ public class BinaryConverter : GLib.Object {
             // 诊断信息写到 stderr, 原实现丢弃 stderr 只打印退出码, 无法诊断。
             // Windows 便携包用捆绑的 pdftoppm (绝对路径 + POPPLER_DATADIR),
             // 其余平台回退裸名 PATH 搜索。
-            string? tool = resolve_bundled_tool ("pdftoppm.exe");
+            string? tool = Platform.resolve_bundled_tool ("pdftoppm.exe");
             string[] argv = { tool ?? "pdftoppm", "-png", "-r", "200", pdf_path, prefix };
-            var launcher = new_poppler_launcher ();
+            var launcher = Platform.new_poppler_launcher ();
             var proc = launcher.spawnv (argv);
             string out_str, err_str;
             proc.communicate_utf8 (null, null, out out_str, out err_str);

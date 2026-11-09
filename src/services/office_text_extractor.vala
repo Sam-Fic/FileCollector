@@ -184,9 +184,9 @@ public class OfficeTextExtractor : GLib.Object {
     }
 
     private static string extract_pdf (string path) throws Error {
-        string? tool = BinaryConverter.resolve_bundled_tool ("pdftotext.exe");
+        string? tool = Platform.resolve_bundled_tool ("pdftotext.exe");
         string[] argv = { tool ?? "pdftotext", "-layout", "-enc", "UTF-8", path, "-" };
-        var launcher = BinaryConverter.new_poppler_launcher ();
+        var launcher = Platform.new_poppler_launcher ();
         var proc = launcher.spawnv (argv);
         string out_str, err_str;
         proc.communicate_utf8 (null, null, out out_str, out err_str);

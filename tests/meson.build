@@ -172,16 +172,13 @@ test_search_query_parser_exe = executable('test_search_query_parser',
 test('test_search_query_parser', test_search_query_parser_exe)
 
 # ─── 12. OfficeTextExtractor (纯 Vala ZIP/XML 解析; PDF 分支依赖外部
-#     pdftotext, 属集成验证不在此覆盖). 链接 binary_converter (PDF 工具
-#     解析与 poppler launcher) + platform (可执行文件路径), 两者均无
-#     GTK/ConfigManager 依赖.
+#     pdftotext, 属集成验证不在此覆盖). poppler 工具解析位于 platform
+#     (无 GDK 依赖), 因此测试闭包不含 binary_converter / gtk4.
 office_text_extractor_src = files(join_paths(src_dir, 'services', 'office_text_extractor.vala'))
-binary_converter_src      = files(join_paths(src_dir, 'services', 'binary_converter.vala'))
 platform_src              = files(join_paths(src_dir, 'utils',    'platform.vala'))
 test_office_text_extractor_exe = executable('test_office_text_extractor',
   'test_office_text_extractor.vala',
   office_text_extractor_src,
-  binary_converter_src,
   platform_src,
   dependencies: [glib_dep, gio_dep, gee_dep],
 )
