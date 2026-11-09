@@ -179,8 +179,8 @@ done
 
 OTOL_OUTPUT="$(otool -L "${MACOS_PATH}"/* "${GIO_MODULES_DIR}"/*.so "${PIXBUF_LOADERS_DIR}"/*.so)"
 if echo "${OTOL_OUTPUT}" | grep -Eq '(/opt/homebrew|/usr/local)/(lib|opt)/'; then
-  echo "Homebrew runtime references remain in the app bundle (matching lines):" >&2
-  echo "${OTOL_OUTPUT}" | grep -nE '(/opt/homebrew|/usr/local)/(lib|opt)/' >&2
+  echo "Homebrew runtime references remain in the app bundle (with owning file):" >&2
+  echo "${OTOL_OUTPUT}" | grep -B3 -E '(/opt/homebrew|/usr/local)/(lib|opt)/' >&2
   exit 1
 fi
 
