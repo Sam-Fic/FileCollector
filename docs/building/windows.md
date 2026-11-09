@@ -51,6 +51,25 @@ dist/filecollector-windows-<meson.build 中的版本>-x64.zip
 dist/filecollector-windows-<meson.build 中的版本>-x64.zip.sha256
 ```
 
+## LibreOffice 转换器包（可选）
+
+主包不捆绑 LibreOffice（体积原因）。Office 文档的**视觉转换**链路（soffice → PDF → pdftoppm → VLM）依赖 LibreOffice，通过独立的转换器包交付：
+
+```bash
+tools/build-converter-package.sh
+```
+
+脚本下载官方 LibreOffice MSI（版本固定于脚本内 `LO_VERSION`），用 `msiexec /a` 管理员解包（不写注册表、不进 Program Files），打包为：
+
+```text
+dist/filecollector-converter-windows-<LO_VERSION>-x64.zip
+dist/filecollector-converter-windows-<LO_VERSION>-x64.zip.sha256
+```
+
+布局为 `tools/LibreOffice/program/soffice.exe`，解压到便携包根目录（与 `bin/` 同级）即生效；应用通过 `BinaryConverter.resolve_soffice()` 自动探测。CI 中该包在 main/tag 推送时构建，tag 推送时随 Release 发布。
+
+注意：`msiexec` 的 `/a` 参数从 bash 直接传入会被 MSYS2 改写为路径（与 `--prefix=/usr` 同类陷阱），脚本通过 `cmd //c` 复合字符串绕过。
+
 ## 试运行
 
 将 ZIP 解压后，始终通过下列启动器启动：

@@ -108,6 +108,35 @@ test -f /usr/bin/msys-2.0.dll
 cp /usr/bin/zip.exe "${STAGING_DIR}/bin/zip.exe"
 cp /usr/bin/msys-2.0.dll "${STAGING_DIR}/bin/msys-2.0.dll"
 
+# 二进制预处理 (视觉转换模式) 需要 poppler 工具: pdftoppm 把 PDF 渲染成页图
+# 送 VLM, pdftotext 供 "文本抽取" 模式抽纯文本。其依赖 (cairo/freetype/
+# fontconfig/jpeg/png/tiff) GTK 已带, collect_dlls.py 递归收集剩余部分。
+test -f "${MSYS_PREFIX}/bin/pdftoppm.exe"
+test -f "${MSYS_PREFIX}/bin/pdftotext.exe"
+cp "${MSYS_PREFIX}/bin/pdftoppm.exe" "${STAGING_DIR}/bin/pdftoppm.exe"
+cp "${MSYS_PREFIX}/bin/pdftotext.exe" "${STAGING_DIR}/bin/pdftotext.exe"
+python3 tools/collect_dlls.py \
+  "${STAGING_DIR}/bin/pdftoppm.exe" "${STAGING_DIR}/bin/pdftotext.exe" \
+  "${STAGING_DIR}/bin"
+
+# poppler 数据文件 (CJK CID 字体 CMap 等): 中文 PDF 没有它, pdftoppm/pdftotext
+# 会输出乱码或空文本。优先取 MSYS2 环境内的 share/poppler; 没有则下载上游
+# poppler-data 补齐。
+if [[ -d "${MSYS_PREFIX}/share/poppler" ]]; then
+  cp -r "${MSYS_PREFIX}/share/poppler" "${STAGING_DIR}/share/poppler"
+else
+  readonly POPPLER_DATA_VERSION="0.4.12"
+  curl --fail --location --retry 3 --output /tmp/poppler-data.tar.gz \
+    "https://poppler.freedesktop.org/releases/poppler-data-${POPPLER_DATA_VERSION}.tar.gz"
+  tar -xzf /tmp/poppler-data.tar.gz -C /tmp
+  mkdir -p "${STAGING_DIR}/share/poppler"
+  # 上游 tarball 顶层即 cidToUnicode/ cMap/ unicodeMap/ 三目录 (无 share/ 嵌套)
+  for d in cidToUnicode cMap unicodeMap; do
+    cp -r "/tmp/poppler-data-${POPPLER_DATA_VERSION}/${d}" "${STAGING_DIR}/share/poppler/${d}"
+  done
+fi
+test -d "${STAGING_DIR}/share/poppler/cidToUnicode"
+
 cat > "${STAGING_DIR}/bin/filecollector-launch.bat" <<'BAT'
 @echo off
 set "GDK_PIXBUF_MODULEDIR=%~dp0..\lib\gdk-pixbuf-2.0\2.10.0\loaders"
@@ -129,6 +158,8 @@ unzip -l "${PACKAGE_PATH}" | grep -Eq 'lib/gio/modules/libgiognutls\.dll'
 unzip -l "${PACKAGE_PATH}" | grep -Eq 'share/glib-2\.0/schemas/gschemas\.compiled'
 unzip -l "${PACKAGE_PATH}" | grep -Eq 'locale/zh_CN/LC_MESSAGES/filecollector\.mo'
 unzip -l "${PACKAGE_PATH}" | grep -Eq 'bin/zip\.exe'
+unzip -l "${PACKAGE_PATH}" | grep -Eq 'bin/pdftoppm\.exe'
+unzip -l "${PACKAGE_PATH}" | grep -Eq 'bin/pdftotext\.exe'
 # 再校验 ZIP 本体, 防止打包环节漏拷文件。
 python3 tools/verify_windows_package.py "${PACKAGE_PATH}"
 sha256sum "${PACKAGE_PATH}" > "${PACKAGE_PATH}.sha256"

@@ -324,6 +324,14 @@ FileCollector can automatically convert binary files into Markdown format, elimi
 - **Document files** (PDF, DOCX, PPTX, XLSX, ODT, ODP, ODS, RTF, etc.): First converted to PDF via LibreOffice, then rendered as image sequences via `pdftoppm`, and sent page-by-page to VLM.
 - **Conversion cache**: Converted results are cached in the `.filecollector_cache/` directory under the working directory. The system uses SHA256 file hashes to determine whether re-conversion is needed, avoiding redundant processing.
 - **Configurable extensions**: In the AI Settings dialog, you can customize the list of binary file extensions allowed for VLM processing. Changes automatically trigger re-evaluation of the preprocessing queue.
+- **Transparent failure reasons**: When conversion fails, the queue row and preview area show the concrete reason (e.g., missing LibreOffice) instead of a bare "conversion failed".
+
+### Processing mode: Visual conversion / Text extraction
+
+Choose how binary documents are processed via the **Processing Mode** dropdown in **AI Settings → VLM**:
+
+- **Visual conversion** (default): document → PDF → page images → VLM/OCR, preserving charts, formulas, and table layouts. Office documents need LibreOffice — Windows users can download the standalone **converter package** (Release asset `filecollector-converter-windows-x64-*.zip`) and extract it into the portable package root (alongside `bin/`); the app auto-detects `tools/LibreOffice/program/soffice.exe`. If the official LibreOffice is already installed, no converter package is needed — it is auto-detected as well.
+- **Text extraction**: Pure local parsing of DOCX/XLSX/PPTX/ODT/ODP/ODS (ZIP+XML) and PDF (built-in `pdftotext`) — **no network, no AI credentials required**, finishes in seconds; the trade-off is losing charts, formulas, and embedded images, so it suits text-only documents. Scanned PDFs that yield no text automatically fall back to the visual conversion flow. Results of both modes are tagged separately in the cache; after switching modes, click "retry" on existing items to re-run with the new mode.
 
 ### VLM Providers
 

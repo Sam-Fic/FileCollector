@@ -324,6 +324,14 @@ FileCollector 支持自动将二进制文件转换为 Markdown 格式，无需�
 - **文档文件**（PDF、DOCX、PPTX、XLSX、ODT、ODP、ODS、RTF 等）：先通过 LibreOffice 转换为 PDF，再通过 `pdftoppm` 渲染为图片序列，逐页发送给 VLM。
 - **转换缓存**：转换结果缓存在工作目录下的 `.filecollector_cache/` 目录中，基于文件 SHA256 哈希判断是否需要重新转换，避免重复处理。
 - **可配置扩展名**：在 AI 设置对话框中可自定义允许被 VLM 处理的二进制文件扩展名列表，修改后自动重新评估预处理队列。
+- **失败原因透明**：转换失败时队列行与预览区会显示具体原因（如缺少 LibreOffice），不再只提示"转换失败"。
+
+### 处理方式：视觉转换 / 文本抽取
+
+在 **AI 设置 → VLM** 的 **处理方式** 下拉中可选两种二进制文档处理流程：
+
+- **视觉转换**（默认）：文档 → PDF → 页面图片 → VLM/OCR，保留图表、公式、表格等视觉结构。Office 文档需要 LibreOffice —— Windows 用户可下载独立的**转换器包**（Release 附件 `filecollector-converter-windows-x64-*.zip`），解压到便携包根目录（与 `bin/` 同级）即可，应用会自动探测 `tools/LibreOffice/program/soffice.exe`；已安装官方 LibreOffice 的用户无需转换器包，应用同样自动探测。
+- **文本抽取**：纯本地解析 DOCX/XLSX/PPTX/ODT/ODP/ODS（ZIP+XML 结构）与 PDF（内置 `pdftotext`），**无需联网、无需 AI 凭据**，秒级完成；代价是丢失图表、公式与嵌入图片，仅适合纯文字型文档。扫描版 PDF 抽不出文本时自动回退视觉转换流程。两种模式的结果在缓存中分别标记，互不污染，切换模式后对已有条目点"重新转换"即可按新模式重跑。
 
 ### VLM 服务商
 

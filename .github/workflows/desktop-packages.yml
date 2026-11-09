@@ -165,6 +165,43 @@ jobs:
             dist/filecollector-windows-*-x64.zip.sha256
           if-no-files-found: error
 
+  # 可选的 LibreOffice 转换器包 (Office→PDF 视觉转换链路): 主包体积不变,
+  # 用户按需下载解压到便携包根目录。LO_VERSION 固定于脚本内, 升级时手动更新。
+  # PR 不构建 (350MB 下载纯耗时); main/tag 上构建, tag 时随 Release 发布。
+  converter-package:
+    name: Build Windows LibreOffice converter package
+    runs-on: windows-latest
+    if: github.event_name != 'pull_request'
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up MSYS2 UCRT64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: >-
+            unzip
+            zip
+
+      - name: Build LibreOffice converter package
+        run: |
+          chmod +x tools/build-converter-package.sh
+          tools/build-converter-package.sh
+
+      - name: Upload converter package
+        uses: actions/upload-artifact@v4
+        with:
+          name: filecollector-windows-converter-x64
+          path: |
+            dist/filecollector-converter-windows-*-x64.zip
+            dist/filecollector-converter-windows-*-x64.zip.sha256
+          if-no-files-found: error
+
   macos:
     name: Build macOS app bundle (ARM64)
     runs-on: macos-latest
@@ -188,7 +225,7 @@ jobs:
 
   publish:
     name: Publish desktop packages
-    needs: [lint, deb, flatpak, windows, macos]
+    needs: [lint, deb, flatpak, windows, macos, converter-package]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     permissions:
@@ -216,6 +253,12 @@ jobs:
           name: filecollector-windows-x64
           path: release-assets
 
+      - name: Download Windows converter package
+        uses: actions/download-artifact@v4
+        with:
+          name: filecollector-windows-converter-x64
+          path: release-assets
+
       - name: Download macOS package
         uses: actions/download-artifact@v4
         with:
@@ -228,8 +271,9 @@ jobs:
           test "$(find release-assets -maxdepth 1 -name '*.deb' -type f | wc -l)" -eq 1
           test "$(find release-assets -maxdepth 1 -name '*.flatpak' -type f | wc -l)" -eq 1
           test "$(find release-assets -maxdepth 1 -name 'filecollector-windows-*-x64.zip' -type f | wc -l)" -eq 1
+          test "$(find release-assets -maxdepth 1 -name 'filecollector-converter-windows-*-x64.zip' -type f | wc -l)" -eq 1
           test "$(find release-assets -maxdepth 1 -name 'filecollector-macos-*-arm64.zip' -type f | wc -l)" -eq 1
-          test "$(find release-assets -maxdepth 1 -name '*.sha256' -type f | wc -l)" -eq 3
+          test "$(find release-assets -maxdepth 1 -name '*.sha256' -type f | wc -l)" -eq 4
 
       - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v2

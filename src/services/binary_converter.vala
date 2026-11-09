@@ -1,6 +1,60 @@
 public class BinaryConverter : GLib.Object {
     public const int MAX_IMAGE_DIMENSION = 2048;
 
+    // ─── 捆绑工具解析 ────────────────────────────────────────────────
+    // Windows 便携包把 poppler 工具 (pdftoppm/pdftotext) 放在主程序同目录
+    // (bin/); 绝对路径优先, 找不到回退裸名 PATH 搜索 (Linux/macOS 现状)。
+
+    // 解析捆绑的外部工具, 找不到返回 null (调用方回退裸名 + SpawnFlags.SEARCH_PATH)。
+    public static string? resolve_bundled_tool (string exe_name) {
+        string exe = Platform.get_executable_path ();
+        if (exe == "." || exe.length == 0) return null;
+        var candidate = Path.build_filename (Path.get_dirname (exe), exe_name);
+        return FileUtils.test (candidate, FileTest.EXISTS) ? candidate : null;
+    }
+
+    // poppler 工具专用 launcher: 中文 PDF 需要 CMap 数据, 运行时把
+    // POPPLER_DATADIR 指向便携包内 share/poppler (打包脚本已捆绑)。
+    public static SubprocessLauncher new_poppler_launcher () throws Error {
+        var launcher = new SubprocessLauncher (
+            SubprocessFlags.STDOUT_PIPE | SubprocessFlags.STDERR_PIPE
+        );
+        string exe = Platform.get_executable_path ();
+        if (exe != "." && exe.length > 0) {
+            var data_dir = Path.build_filename (
+                Path.get_dirname (exe), "..", "share", "poppler");
+            if (FileUtils.test (data_dir, FileTest.IS_DIR)) {
+                launcher.setenv ("POPPLER_DATADIR", data_dir, true);
+            }
+        }
+        return launcher;
+    }
+
+    // 解析 soffice 可执行文件。探测顺序:
+    //   1. 转换器包约定布局: <exe>/../tools/LibreOffice/program/soffice.exe
+    //   2. Windows 常见安装路径 (官方安装器默认目录, soffice.exe 不进 PATH)
+    //   3. null → 调用方回退裸名 PATH 搜索 (Linux/macOS 现状)
+    public static string? resolve_soffice () {
+        string exe = Platform.get_executable_path ();
+        if (exe != "." && exe.length > 0) {
+            var portable = Path.build_filename (
+                Path.get_dirname (exe), "..", "tools", "LibreOffice",
+                "program", "soffice.exe");
+            if (FileUtils.test (portable, FileTest.EXISTS)) return portable;
+        }
+        string[] roots = {
+            GLib.Environment.get_variable ("ProgramFiles"),
+            GLib.Environment.get_variable ("ProgramFiles(x86)")
+        };
+        foreach (unowned string? root in roots) {
+            if (root == null || root.length == 0) continue;
+            var candidate = Path.build_filename (
+                root, "LibreOffice", "program", "soffice.exe");
+            if (FileUtils.test (candidate, FileTest.EXISTS)) return candidate;
+        }
+        return null;
+    }
+
     // 复用临时基目录, 避免每次转换都创建/销毁顶层临时目录.
     // 子目录以互斥锁保护的自增计数器命名, 保证 VLM 队列并发调用时不冲突.
     private static string? temp_base_dir = null;
@@ -75,14 +129,15 @@ public class BinaryConverter : GLib.Object {
         return "image/png";
     }
 
-    public static string[]? convert_to_base64_images (string path) {
+    public static string[]? convert_to_base64_images (string path) throws Error {
         string pdf_path = path;
         string lower = path.down ();
         string? tmp_pdf = null;
 
         if (!lower.has_suffix (".pdf")) {
+            // soffice 缺失/转换失败会抛出带指引的错误 (NOT_FOUND/FAILED),
+            // 由调用方捕获后作为失败原因展示
             tmp_pdf = convert_office_to_pdf (path);
-            if (tmp_pdf == null) return null;
             pdf_path = tmp_pdf;
         }
 
@@ -97,7 +152,7 @@ public class BinaryConverter : GLib.Object {
         return result;
     }
 
-    private static string? convert_office_to_pdf (string src) {
+    private static string convert_office_to_pdf (string src) throws Error {
         // 复用基目录, 在其中创建本次任务的子目录, 避免并发冲突.
         // 子目录名使用互斥锁保护的自增计数器, 保证 VLM 队列多线程下唯一.
         string? tmp_base = get_temp_base ();
@@ -109,40 +164,45 @@ public class BinaryConverter : GLib.Object {
                 // 子目录创建失败时回退到独立 mkdtemp, 保证转换流程能继续
                 task_dir = DirUtils.make_tmp ("fc_pdf_XXXXXX");
                 if (task_dir == null) {
-                    warning ("Failed to create tmp dir for PDF");
-                    return null;
+                    throw new IOError.FAILED (_("Failed to create tmp dir for PDF conversion"));
                 }
             }
         } else {
             // 基目录创建失败时回退到独立 mkdtemp
             task_dir = DirUtils.make_tmp ("fc_pdf_XXXXXX");
             if (task_dir == null) {
-                warning ("Failed to create tmp dir for PDF");
-                return null;
+                throw new IOError.FAILED (_("Failed to create tmp dir for PDF conversion"));
             }
         }
 
-        string[] argv = {"soffice", "--headless", "--convert-to", "pdf", "--outdir", task_dir, src};
         try {
+            // 转换器包 / 官方安装路径命中 → 绝对路径; 否则裸名 PATH 搜索
+            string[] argv = { resolve_soffice () ?? "soffice", "--headless",
+                              "--convert-to", "pdf", "--outdir", task_dir, src };
             int status;
             string stdout_str, stderr_str;
             Process.spawn_sync (null, argv, null, SpawnFlags.SEARCH_PATH, null,
                                 out stdout_str, out stderr_str, out status);
-            if (status == 0) {
-                string basename = Path.get_basename (src);
-                int dot = basename.last_index_of (".");
-                string pdf_name = (dot > 0 ? basename.substring (0, dot) : basename) + ".pdf";
-                return Path.build_filename (task_dir, pdf_name);
-            } else {
+            if (status != 0) {
                 // 捕获 soffice 的 stderr 输出, 便于诊断转换失败原因
                 // (如文件损坏/格式不支持/LibreOffice 未安装等)
-                warning ("LibreOffice conversion failed (status %d): %s",
-                         status, (stderr_str ?? "").strip ());
+                throw new IOError.FAILED (_("LibreOffice conversion failed (exit %d): %s").printf (
+                    status, (stderr_str ?? "").strip ()));
             }
+            string basename = Path.get_basename (src);
+            int dot = basename.last_index_of (".");
+            string pdf_name = (dot > 0 ? basename.substring (0, dot) : basename) + ".pdf";
+            return Path.build_filename (task_dir, pdf_name);
+        } catch (SpawnError e) {
+            // 裸名搜索也找不到: Windows 上既没有转换器包也没装 LibreOffice。
+            // 失败路径必须清理本次的 task_dir, 否则每次尝试都泄漏一个目录。
+            cleanup_dir (task_dir);
+            throw new IOError.NOT_FOUND (_(
+                "LibreOffice is required to convert Office documents. Download the converter package (see README) or install LibreOffice, then retry."));
         } catch (Error e) {
-            warning ("LibreOffice conversion failed: %s", e.message);
+            cleanup_dir (task_dir);
+            throw e;
         }
-        return null;
     }
 
     private static string[]? render_pdf_to_base64_images (string pdf_path) {
@@ -153,22 +213,24 @@ public class BinaryConverter : GLib.Object {
         }
 
         string prefix = Path.build_filename (tmp_dir, "page");
-        string[] argv = {"pdftoppm", "-png", "-r", "200", pdf_path, prefix};
         try {
-            int status;
-            string stdout_str, stderr_str;
             // 捕获 stderr: pdftoppm 失败时 (如 PDF 损坏/poppler 未安装) 会把
             // 诊断信息写到 stderr, 原实现丢弃 stderr 只打印退出码, 无法诊断。
-            Process.spawn_sync (null, argv, null, SpawnFlags.SEARCH_PATH, null,
-                                out stdout_str, out stderr_str, out status);
-            if (status != 0) {
-                warning ("pdftoppm failed (status %d): %s",
-                         status, (stderr_str ?? "").strip ());
+            // Windows 便携包用捆绑的 pdftoppm (绝对路径 + POPPLER_DATADIR),
+            // 其余平台回退裸名 PATH 搜索。
+            string? tool = resolve_bundled_tool ("pdftoppm.exe");
+            string[] argv = { tool ?? "pdftoppm", "-png", "-r", "200", pdf_path, prefix };
+            var launcher = new_poppler_launcher ();
+            var proc = launcher.spawnv (argv);
+            string out_str, err_str;
+            proc.communicate_utf8 (null, null, out out_str, out err_str);
+            if (!proc.get_successful ()) {
+                warning (_("pdftoppm failed: %s"), (err_str ?? "").strip ());
                 cleanup_dir (tmp_dir);
                 return null;
             }
         } catch (Error e) {
-            warning ("pdftoppm failed: %s", e.message);
+            warning (_("pdftoppm failed: %s"), e.message);
             cleanup_dir (tmp_dir);
             return null;
         }
@@ -216,9 +278,10 @@ public class BinaryConverter : GLib.Object {
      *     返回临时 PDF 路径, is_temp = true. 调用方处理完毕后须调用
      *     cleanup_dir(Path.get_dirname(result)) 清理临时目录.
      *
-     * 返回 null 表示无法解析/转换失败.
+     * soffice 缺失/转换失败时抛出带指引的错误 (NOT_FOUND/FAILED),
+     * 不再返回 null —— 调用方捕获后作为失败原因展示。
      */
-    public static string? resolve_upload_source (string path, out bool is_temp) {
+    public static string resolve_upload_source (string path, out bool is_temp) throws Error {
         is_temp = false;
         string lower = path.down ();
 
@@ -228,13 +291,11 @@ public class BinaryConverter : GLib.Object {
             lower.has_suffix (".jpeg") || lower.has_suffix (".webp") ||
             lower.has_suffix (".bmp") || lower.has_suffix (".tiff") ||
             lower.has_suffix (".tif")) {
-            is_temp = false;
             return path;
         }
 
         // 其余 (Office 等): 转 PDF 后上传
-        string? tmp_pdf = convert_office_to_pdf (path);
-        if (tmp_pdf == null) return null;
+        string tmp_pdf = convert_office_to_pdf (path);
         is_temp = true;
         return tmp_pdf;
     }

@@ -122,6 +122,13 @@ public class ConfigManager : GLib.Object {
     public const string PROVIDER_OPENAI = "openai";
     public const string PROVIDER_PADDLEOCR = "paddleocr";
 
+    // 二进制文件处理模式:
+    //   vlm  = 视觉转换 (soffice → pdftoppm → VLM/OCR, 保图表/公式/表格, 默认)
+    //   text = 文本抽取 (纯本地解析 OOXML/ODF + pdftotext, 离线且无需凭据,
+    //          但丢失图表/公式/嵌入图片)
+    public const string BINARY_MODE_VLM = "vlm";
+    public const string BINARY_MODE_TEXT = "text";
+
     public struct AISettings {
         public bool enabled;
         public string profile_name;  // 当前激活的 ai_models 配置方案名, 空串表示尚未选择
@@ -346,6 +353,39 @@ public class ConfigManager : GLib.Object {
             write_settings_root_unlocked (root);
         } catch (Error e) {
             warning ("Failed to save allowed_binary_extensions: %s", e.message);
+        } finally {
+            config_mutex.unlock ();
+        }
+    }
+
+    // ─── 二进制文件处理模式 (视觉转换 / 文本抽取) ────────────────────────
+
+    public static string get_binary_process_mode () {
+        config_mutex.lock ();
+        try {
+            var root = load_settings_root_unlocked ();
+            if (root != null && root.has_member ("binary_process_mode")) {
+                string mode = root.get_string_member ("binary_process_mode");
+                if (mode == BINARY_MODE_TEXT) return BINARY_MODE_TEXT;
+            }
+        } catch (Error e) {
+            warning ("Failed to load binary_process_mode: %s", e.message);
+        } finally {
+            config_mutex.unlock ();
+        }
+        return BINARY_MODE_VLM;
+    }
+
+    public static void save_binary_process_mode (string mode) {
+        config_mutex.lock ();
+        try {
+            Json.Object root = load_settings_root_unlocked () ?? new Json.Object ();
+            // 非法值一律落回默认, 防止手改配置文件后两条管线都走不到
+            root.set_string_member ("binary_process_mode",
+                mode == BINARY_MODE_TEXT ? BINARY_MODE_TEXT : BINARY_MODE_VLM);
+            write_settings_root_unlocked (root);
+        } catch (Error e) {
+            warning ("Failed to save binary_process_mode: %s", e.message);
         } finally {
             config_mutex.unlock ();
         }

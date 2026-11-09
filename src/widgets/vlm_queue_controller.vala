@@ -102,7 +102,9 @@ public class VlmQueueController : GLib.Object {
 
     // ─── 内部 ──────────────────────────────────────────────────────────
 
-    private void on_task_completed (string file_path, string? md, PreprocessStatus status, bool from_cache) {
+    private void on_task_completed (
+        string file_path, string? md, PreprocessStatus status, bool from_cache, string? error_message
+    ) {
         var items = app_state.items;
         for (int i = 0; i < items.size; i++) {
             var it = items.get (i);
@@ -110,6 +112,8 @@ public class VlmQueueController : GLib.Object {
                 if (md != null) it.preprocessed_content = md;
                 it.preprocess_status = status;
                 it.from_cache = from_cache;
+                // FAILED 时带用户可读原因; 其它状态清空旧原因防止残留
+                it.preprocess_error = (status == PreprocessStatus.FAILED) ? error_message : null;
                 // 合并刷新: 批量预处理完成时每个文件完成都会触发, 直接 refresh_list
                 // 会形成 N 次 O(n) 扫描 + 末尾预览级联. 委托给 Window 合并到 150ms 窗口
                 // 只刷新一次.

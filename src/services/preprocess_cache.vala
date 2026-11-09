@@ -70,7 +70,10 @@ public class PreprocessCache : GLib.Object {
         }
     }
 
-    public string? get_cached_markdown (string abs_path, string current_hash) {
+    // flow: 产生该结果的处理管线 ("vlm" 视觉转换 / "text" 文本抽取)。
+    // 同一文件两种模式的产物不同, 命中条件必须匹配; 旧缓存条目无 flow 字段
+    // 视为 "vlm", 保证向后兼容。
+    public string? get_cached_markdown (string abs_path, string current_hash, string flow = "vlm") {
         cache_mutex.lock ();
         string? result = null;
         string rel_path = get_rel_path (abs_path);
@@ -78,7 +81,7 @@ public class PreprocessCache : GLib.Object {
         if (manifest.has_member (rel_path)) {
             var entry = manifest.get_object_member (rel_path);
             string cached_hash = entry.get_string_member_with_default ("hash", "");
-            if (cached_hash == current_hash) {
+            if (cached_hash == current_hash && entry_flow (entry) == flow) {
                 string? md_path = resolve_md_path (entry, cached_hash);
                 if (md_path != null && FileUtils.test (md_path, FileTest.EXISTS)) {
                     try {
@@ -112,7 +115,7 @@ public class PreprocessCache : GLib.Object {
      * 旧版缓存条目未记录 quick 字段时会 miss, 此时调用方回退到 get_cached_markdown
      * (走 SHA256 路径) 以兼容既有磁盘缓存.
      */
-    public string? get_cached_markdown_quick (string abs_path, string quick_fp) {
+    public string? get_cached_markdown_quick (string abs_path, string quick_fp, string flow = "vlm") {
         cache_mutex.lock ();
         string? result = null;
         string rel_path = get_rel_path (abs_path);
@@ -120,7 +123,7 @@ public class PreprocessCache : GLib.Object {
         if (manifest.has_member (rel_path)) {
             var entry = manifest.get_object_member (rel_path);
             string cached_quick = entry.get_string_member_with_default ("quick", "");
-            if (cached_quick == quick_fp) {
+            if (cached_quick == quick_fp && entry_flow (entry) == flow) {
                 string? md_path = resolve_md_path (entry, entry.get_string_member_with_default ("hash", ""));
                 if (md_path != null && FileUtils.test (md_path, FileTest.EXISTS)) {
                     try {
@@ -136,7 +139,7 @@ public class PreprocessCache : GLib.Object {
         return result;
     }
 
-    public void save_markdown (string abs_path, string current_hash, string markdown_content) {
+    public void save_markdown (string abs_path, string current_hash, string markdown_content, string flow = "vlm") {
         string rel_path = get_rel_path (abs_path);
         // 扁平结构: 以 hash 命名的独立子文件夹 cache_dir/{hash}/, 内含 content.md 与
         // (可选) imgs/; markdown 内相对路径 "imgs/xxx.jpg" 相对 {hash}/ 基点, 可正确
@@ -154,6 +157,8 @@ public class PreprocessCache : GLib.Object {
             entry.set_string_member ("quick", compute_file_hash_fast (abs_path));
             // 新结构标记: 缓存子文件夹名 (= hash), 读取时据此定位独立目录
             entry.set_string_member ("cache_subdir", current_hash);
+            // 产生该结果的处理管线 ("vlm"/"text"), 命中条件按 flow 匹配
+            entry.set_string_member ("flow", flow);
             entry.set_boolean_member ("has_images", has_imgs_for (current_hash));
             entry.set_int_member ("timestamp", new DateTime.now_utc ().to_unix ());
             manifest.set_member (rel_path, AI.SchemaHelper.obj_to_node (entry));
@@ -162,6 +167,11 @@ public class PreprocessCache : GLib.Object {
             warning ("Save cache failed: %s", e.message);
         }
         cache_mutex.unlock ();
+    }
+
+    // 条目的 flow 归一: 旧条目无该字段视为 "vlm" (历史行为即视觉转换)
+    private static string entry_flow (Json.Object entry) {
+        return entry.get_string_member_with_default ("flow", "vlm");
     }
 
     // 将缓存图片落盘到 cache_dir/{hash}/imgs/<relpath>, 供 markdown 内相对路径引用.

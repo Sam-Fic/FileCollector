@@ -3557,6 +3557,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                 case PreprocessStatus.FAILED:
                     show_action_bar = true;
                     btn_retry_preprocess.tooltip_text = _("AI conversion failed\nClick to retry conversion");
+                    if (item.preprocess_error != null && item.preprocess_error.length > 0) {
+                        string reason = item.preprocess_error.replace ("\n", " ");
+                        if (reason.length > 120) reason = reason.substring (0, 120) + "…";
+                        btn_retry_preprocess.tooltip_text += "\n\n" + reason;
+                    }
                     break;
                 case PreprocessStatus.PROCESSING:
                     btn_retry_preprocess.tooltip_text = _("Processing...");
@@ -3590,7 +3595,15 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                     apply_preview_content_full (item, _("Processing..."));
                     break;
                 case PreprocessStatus.FAILED:
-                    apply_preview_content_full (item, _("[AI conversion failed; click the retry button on the toolbar to reconvert]"));
+                    {
+                        string placeholder = _("[AI conversion failed; click the retry button on the toolbar to reconvert]");
+                        if (item.preprocess_error != null && item.preprocess_error.length > 0) {
+                            string reason = item.preprocess_error.replace ("\n", " ");
+                            if (reason.length > 200) reason = reason.substring (0, 200) + "…";
+                            placeholder += "\n" + _("Reason: %s").printf (reason);
+                        }
+                        apply_preview_content_full (item, placeholder);
+                    }
                     break;
                 case PreprocessStatus.CHECKING:
                     apply_preview_content_full (item, _("[Checking cache...]"));
@@ -3991,6 +4004,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
         item.preprocessed_content = null;
         item.from_cache = false;
+        item.preprocess_error = null;
         item.preprocess_status = PreprocessStatus.PENDING;
 
         refresh_list ();
@@ -4024,6 +4038,7 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
                         item.preprocess_status = PreprocessStatus.NONE;
                         item.preprocessed_content = null;
                         item.from_cache = false;
+                        item.preprocess_error = null;
                     }
                 }
 

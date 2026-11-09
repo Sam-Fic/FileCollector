@@ -2693,3 +2693,135 @@ msgstr "正在预处理 0/0 个文件..."
 #: src/widgets/vlm_queue_controller.vala:146
 msgid "Cancel All"
 msgstr "取消全部"
+
+# ── 二进制预处理: 双模式 + 失败原因透出 (2026-11 新增) ──
+# 注: 本批次由人工补录 (本机无 msgmerge), 后续重新生成 .pot 时请逐条核对
+
+#: src/services/binary_converter.vala
+msgid "Failed to create tmp dir for PDF conversion"
+msgstr "创建 PDF 转换临时目录失败"
+
+#: src/services/binary_converter.vala
+#, c-format
+msgid "LibreOffice conversion failed (exit %d): %s"
+msgstr "LibreOffice 转换失败 (退出码 %d): %s"
+
+#: src/services/binary_converter.vala
+msgid "LibreOffice is required to convert Office documents. Download the converter package (see README) or install LibreOffice, then retry."
+msgstr "转换 Office 文档需要 LibreOffice：请下载转换器包（见 README）或安装 LibreOffice 后重试。"
+
+#: src/services/binary_converter.vala
+#, c-format
+msgid "pdftoppm failed: %s"
+msgstr "pdftoppm 失败: %s"
+
+#: src/services/binary_preprocessor.vala
+msgid "Multimodal AI is disabled or credential is empty, cannot convert binary files"
+msgstr "多模态 AI 未启用或凭据为空, 无法转换二进制文件"
+
+#: src/services/vlm_task_runner.vala
+msgid "Multimodal AI is disabled in settings"
+msgstr "多模态 AI 在设置中未启用"
+
+#: src/services/vlm_task_runner.vala
+msgid "Multimodal AI credential is empty, cannot convert binary files"
+msgstr "多模态 AI 凭据为空, 无法转换二进制文件"
+
+#: src/services/vlm_task_runner.vala
+#, c-format
+msgid "Image load failed: %s"
+msgstr "图片加载失败: %s"
+
+#: src/services/vlm_task_runner.vala
+#, c-format
+msgid "Document render failed: %s"
+msgstr "文档渲染失败: %s"
+
+#: src/services/office_text_extractor.vala
+#, c-format
+msgid "File too large for text extraction: %s"
+msgstr "文件过大, 无法进行文本抽取: %s"
+
+#: src/services/office_text_extractor.vala
+msgid "Unsupported format for text extraction"
+msgstr "该格式不支持文本抽取"
+
+#: src/services/office_text_extractor.vala
+msgid "Not a valid DOCX (missing word/document.xml)"
+msgstr "不是有效的 DOCX (缺少 word/document.xml)"
+
+#: src/services/office_text_extractor.vala
+msgid "Not a valid XLSX (no worksheet content)"
+msgstr "不是有效的 XLSX (无工作表内容)"
+
+#: src/services/office_text_extractor.vala
+msgid "Not a valid PPTX (no slides)"
+msgstr "不是有效的 PPTX (无幻灯片)"
+
+#: src/services/office_text_extractor.vala
+msgid "Not a valid ODF document (missing content.xml)"
+msgstr "不是有效的 ODF 文档 (缺少 content.xml)"
+
+#: src/services/office_text_extractor.vala
+#, c-format
+msgid "pdftotext failed: %s"
+msgstr "pdftotext 失败: %s"
+
+#: src/services/office_text_extractor.vala
+msgid "PDF appears to be scanned (no extractable text)"
+msgstr "PDF 疑似扫描件 (无可抽取文本)"
+
+#: src/services/office_text_extractor.vala
+msgid "Not a ZIP container (EOCD not found)"
+msgstr "不是 ZIP 容器 (未找到 EOCD)"
+
+#: src/services/office_text_extractor.vala
+msgid "ZIP64 archives are not supported"
+msgstr "不支持 ZIP64 归档"
+
+#: src/services/office_text_extractor.vala
+msgid "Encrypted ZIP entries are not supported"
+msgstr "不支持加密的 ZIP 条目"
+
+#: src/services/office_text_extractor.vala
+#, c-format
+msgid "Unsupported ZIP compression method %u"
+msgstr "不支持的 ZIP 压缩方法 %u"
+
+#: src/services/office_text_extractor.vala
+msgid "ZIP deflate decompression failed"
+msgstr "ZIP deflate 解压失败"
+
+#: src/services/office_text_extractor.vala
+msgid "Corrupted ZIP container"
+msgstr "ZIP 容器已损坏"
+
+#: src/services/office_text_extractor.vala
+#, c-format
+msgid "Text truncated (over %s)"
+msgstr "文本已截断 (超过 %s)"
+
+#: src/cli.vala
+msgid "Text extracted locally"
+msgstr "本地文本抽取完成"
+
+#: src/widgets/preferences_dialog.vala
+msgid "Processing Mode"
+msgstr "处理方式"
+
+#: src/widgets/preferences_dialog.vala
+msgid "Visual conversion (keeps charts, formulas, tables)"
+msgstr "视觉转换 (保留图表/公式/表格)"
+
+#: src/widgets/preferences_dialog.vala
+msgid "Text extraction (fast, offline, text only)"
+msgstr "文本抽取 (快速离线, 仅文本)"
+
+#: src/widgets/preferences_dialog.vala
+msgid "Visual conversion renders documents to images and needs LibreOffice for Office files; text extraction parses Office/PDF locally without AI credentials."
+msgstr "视觉转换把文档渲染为图片, Office 文件需要 LibreOffice; 文本抽取在本地直接解析 Office/PDF, 无需 AI 凭据。"
+
+#: src/window.vala
+#, c-format
+msgid "Reason: %s"
+msgstr "原因: %s"

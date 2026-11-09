@@ -362,13 +362,18 @@ public class CliController : GLib.Object {
                 item.preprocessed_content = md;
                 item.preprocess_status = PreprocessStatus.COMPLETED;
                 item.from_cache = from_cache;
+                item.preprocess_error = null;
                 stdout.printf (_("  ↳ %s: %s\n"),
-                    from_cache ? _("Reused from cache") : _("VLM conversion called"),
+                    from_cache ? _("Reused from cache")
+                    : (ConfigManager.get_binary_process_mode () == ConfigManager.BINARY_MODE_TEXT)
+                        ? _("Text extracted locally")
+                        : _("VLM conversion called"),
                     file.get_basename ());
             } catch (Error e) {
                 stderr.printf (_("  ⚠ Preprocessing %s failed: %s\n"),
                     file.get_basename (), e.message);
                 item.preprocess_status = PreprocessStatus.FAILED;
+                item.preprocess_error = e.message;
             }
         }
         return true;

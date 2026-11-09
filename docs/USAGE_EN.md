@@ -120,6 +120,8 @@ After selecting a working directory, use the search box at the top of the left-s
 
 Both **AI Assistant (Sidebar)** and **Vision-Language Model (VLM)** in "Settings → AI Settings" support **Model Profiles**: you can pre-configure multiple model setups and switch between them instantly from a dropdown menu.
 
+The VLM section also has a **Processing Mode** dropdown that selects the pipeline for binary documents: **Visual conversion** (default — documents are rendered to images and sent to VLM/OCR, keeping charts/formulas/tables; Office files need LibreOffice — Windows users can download the converter package from Release assets and extract it into the portable package root) or **Text extraction** (parses Office/PDF locally — fast, offline, no AI credentials required, but charts/formulas/embedded images are lost; scanned PDFs automatically fall back to visual conversion). Cached results are tagged per mode; after switching, click "retry" on existing items to re-run with the new mode.
+
 **Config file location**: `~/.config/filecollector/settings.json`
 
 #### Config file format

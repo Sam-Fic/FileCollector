@@ -128,6 +128,7 @@ sources = files(
   'src/services/binary_converter.vala',
   'src/services/token_estimator.vala',
   'src/services/binary_preprocessor.vala',
+  'src/services/office_text_extractor.vala',
   'src/services/config_manager.vala',
   'src/services/file_content_reader.vala',
   'src/services/file_generator.vala',
