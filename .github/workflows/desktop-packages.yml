@@ -167,7 +167,7 @@ jobs:
 
   macos:
     name: Build macOS app bundle (ARM64)
-    runs-on: macos-15-arm64
+    runs-on: macos-latest
     steps:
       - name: Check out source
         uses: actions/checkout@v4
