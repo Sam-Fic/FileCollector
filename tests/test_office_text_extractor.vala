@@ -136,13 +136,14 @@ class ZipBuilder : GLib.Object {
         uint8[] out_buf = new uint8[input.length * 2 + 4096];
         size_t bytes_read;
         size_t bytes_written;
-        // 第一次: 喂入全部输入 (zlib 在输入耗尽后仍需显式 FLUSH 才输出终止流)
+        // 第一次: 喂入全部输入
         comp.convert (input, out_buf, GLib.ConverterFlags.NONE, out bytes_read, out bytes_written);
         out_acc.append (out_buf[0 : (int) bytes_written]);
-        // 带 FLUSH 循环收尾, 直到 FINISHED
+        // INPUT_AT_END 告知输入结束 -> zlib 执行 Z_FINISH 输出终止流并返回 FINISHED
+        // (FLUSH 只是同步刷新内部缓冲, 不会终止 deflate 流)
         bool finished = false;
         for (int i = 0; i < 4 && !finished; i++) {
-            var res = comp.convert (new uint8[0], out_buf, GLib.ConverterFlags.FLUSH,
+            var res = comp.convert (new uint8[0], out_buf, GLib.ConverterFlags.INPUT_AT_END,
                                     out bytes_read, out bytes_written);
             out_acc.append (out_buf[0 : (int) bytes_written]);
             finished = (res == GLib.ConverterResult.FINISHED);
