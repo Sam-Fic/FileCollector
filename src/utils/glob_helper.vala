@@ -4,12 +4,12 @@ public class GlobHelper : GLib.Object {
 
     public static bool match_glob (string pattern, string text) {
         // 归一分隔符: Windows 上 AI 给出的模式与路径可能是反斜杠形式
-        pattern = pattern.replace ("\\", "/");
-        if (!pattern.contains ("**")) {
-            var spec = new PatternSpec (pattern.down ());
+        string norm_pattern = pattern.replace ("\\", "/");
+        if (!norm_pattern.contains ("**")) {
+            var spec = new PatternSpec (norm_pattern.down ());
             return spec.match_string (text.down ());
         }
-        return match_glob_recursive (pattern.down (), text.down ());
+        return match_glob_recursive (norm_pattern.down (), text.down ());
     }
 
     private static bool match_glob_recursive (string pattern, string text) {
