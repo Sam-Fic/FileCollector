@@ -177,10 +177,10 @@ for dylib in "${MACOS_PATH}"/*.dylib; do
   install_name_tool -id "@executable_path/$(basename "${dylib}")" "${dylib}"
 done
 
-if otool -L "${MACOS_PATH}"/* "${GIO_MODULES_DIR}"/*.so "${PIXBUF_LOADERS_DIR}"/*.so \
-   | grep -Eq '(/opt/homebrew|/usr/local)/(lib|opt)/'; then
-  echo "Homebrew runtime references remain in the app bundle:" >&2
-  otool -L "${MACOS_PATH}"/* >&2
+OTOL_OUTPUT="$(otool -L "${MACOS_PATH}"/* "${GIO_MODULES_DIR}"/*.so "${PIXBUF_LOADERS_DIR}"/*.so)"
+if echo "${OTOL_OUTPUT}" | grep -Eq '(/opt/homebrew|/usr/local)/(lib|opt)/'; then
+  echo "Homebrew runtime references remain in the app bundle (matching lines):" >&2
+  echo "${OTOL_OUTPUT}" | grep -nE '(/opt/homebrew|/usr/local)/(lib|opt)/' >&2
   exit 1
 fi
 
