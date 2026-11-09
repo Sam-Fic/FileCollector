@@ -410,7 +410,38 @@ public class FileCollectorApp : Adw.Application {
         setup_i18n (locale_dir);
     }
 
+#if MACOS
+    // .app 由 Finder/双击启动时没有任何 shell 环境, 而包内的 GIO TLS 模块、
+    // pixbuf loaders、fontconfig 配置都是运行时按目录/文件动态加载的组件,
+    // 必须在首次使用前指向 bundle 内副本, 否则干净机器上 HTTPS (AI 功能)、
+    // 图片加载、SVG 图标、字体扫描全部失效。TLS 后端与 pixbuf loader 均为
+    // 懒加载, main() 里设置时机足够早; CLI 与二次实例同样经过 main()。
+    private static void setup_macos_bundle_env () {
+        string exe = Platform.get_executable_path ();
+        if (exe == "." || exe.length == 0) return;
+        string resources = Path.build_filename (Path.get_dirname (exe), "..", "Resources");
+
+        var gio_dir = Path.build_filename (resources, "lib", "gio", "modules");
+        if (FileUtils.test (Path.build_filename (gio_dir, "libgiognutls.so"), FileTest.EXISTS)) {
+            GLib.Environment.set_variable ("GIO_MODULE_DIR", gio_dir, true);
+        }
+
+        var pixbuf_cache = Path.build_filename (resources, "lib", "gdk-pixbuf-2.0", "2.10.0", "loaders.cache");
+        if (FileUtils.test (pixbuf_cache, FileTest.EXISTS)) {
+            GLib.Environment.set_variable ("GDK_PIXBUF_MODULE_FILE", pixbuf_cache, true);
+        }
+
+        var fonts_conf = Path.build_filename (resources, "etc", "fonts", "fonts.conf");
+        if (FileUtils.test (fonts_conf, FileTest.EXISTS)) {
+            GLib.Environment.set_variable ("FONTCONFIG_FILE", fonts_conf, true);
+        }
+    }
+#endif
+
     public static int main (string[] args) {
+#if MACOS
+        setup_macos_bundle_env ();
+#endif
         var app = new FileCollectorApp ();
         int ret = app.run (args);
         // 清理 BinaryConverter 复用的临时基目录, 防止 /tmp 下泄漏
