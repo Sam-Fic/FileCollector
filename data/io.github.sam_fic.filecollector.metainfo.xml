@@ -25,6 +25,17 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="4.9.2" date="2026-11-10">
+      <description>
+        <p>macOS package fixes:</p>
+        <ul>
+          <li>Fixed the macOS bundle failing to launch on Macs without Homebrew: the dylib dependency closure now covers @rpath transitive references (brotli, webp, cmark-gfm) and removes all build-machine rpaths</li>
+          <li>Bundled the GIO TLS module, gdk-pixbuf loader plugins and fontconfig configuration, so AI over HTTPS, image loading and SVG icons work out of the box; the app points these runtime components at its bundle on startup</li>
+          <li>Bundle now declares macOS 15+ (matching the Homebrew bottle deployment target), enables Retina rendering and ships a generated Dock icon</li>
+          <li>Added a static Mach-O dependency audit plus font/runtime smoke checks to the packaging pipeline so broken bundles fail CI instead of reaching users</li>
+        </ul>
+      </description>
+    </release>
     <release version="4.9.1" date="2026-11-09">
       <description>
         <p>AI assistant button icon update:</p>
