@@ -496,7 +496,7 @@ public class OfficeTextExtractor : GLib.Object {
                     throw new IOError.FAILED (_("ZIP deflate decompression failed"));
                 }
                 if (n == 0) break;
-                bb.add (buf[0:(int) n]);
+                bb.add (buf[0 : (int) n]);
             }
             return bb.free_to_bytes ().get_data ();
         }
