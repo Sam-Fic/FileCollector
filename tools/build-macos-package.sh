@@ -93,14 +93,23 @@ test -n "$(find "${PIXBUF_LOADERS_DIR}" -name 'libpixbufloader-*.so' -print -qui
 # 生成 pixbuf loaders 缓存并把模块路径改写为 @executable_path 相对形式
 # (dlopen 支持 @executable_path 展开, GTK 便携包的标准做法)。
 # 必须在 fix_rpaths 之前执行: query-loaders 会 dlopen 每个 staged loader,
-# 此时其依赖还是 Homebrew 绝对路径, 在 CI 上可以解析; 改写后 dlopen 会
-# 相对 query-loaders 自身解析而失败。改写仅影响 Mach-O 依赖, cache 只记录
+# 此时其依赖还是 Homebrew 路径, 在 CI 上可以解析; 改写后 dlopen 会相对
+# query-loaders 自身解析而失败。改写仅影响 Mach-O 依赖, cache 只记录
 # 模块路径与格式签名, 不受影响。
+# librsvg 的 svg loader 以 @rpath 引用 librsvg, query-loaders 进程自身的
+# rpath 解析不到它, 不补会因 dlopen 失败被排除出缓存 (query-loaders 对
+# 加载失败的模块只告警不报错)。临时补 rpath, fix_rpaths 随后统一删除。
+for so in "${PIXBUF_LOADERS_DIR}"/*.so; do
+  install_name_tool -add_rpath "${BREW_PREFIX}/lib" "${so}" >/dev/null 2>&1 || true
+done
 "${BREW_PREFIX}/bin/gdk-pixbuf-query-loaders" "${PIXBUF_LOADERS_DIR}"/*.so \
   > "${PIXBUF_CACHE_FILE}"
 sed -i '' "s|${PIXBUF_LOADERS_DIR}|@executable_path/../Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders|g" \
   "${PIXBUF_CACHE_FILE}"
 grep -q '@executable_path/../Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders' "${PIXBUF_CACHE_FILE}"
+if ! grep -q 'libpixbufloader_svg' "${PIXBUF_CACHE_FILE}"; then
+  echo "WARNING: SVG pixbuf loader missing from loaders.cache (GTK4 >= 4.21 renders themed SVG icons natively; raw SVG file loading will degrade)" >&2
+fi
 
 cp -R "${BREW_PREFIX}/etc/fonts/." "${FONTCONFIG_DIR}/"
 test -f "${FONTCONFIG_DIR}/fonts.conf"
@@ -164,18 +173,12 @@ ${ICON_PLIST_ENTRY}
 EOF
 
 # 收集链接期与 @rpath/@loader_path 依赖闭包, 统一改写为 @executable_path。
-# 输入包括主程序和两个动态加载的模块目录, 共享同一个收集表。
+# 输入包括主程序和两个动态加载的模块目录, 共享同一个收集表;
+# LC_ID (install name) 也一并统一为相对引用 (含 dylib 型的 svg loader)。
 python3 tools/fix_rpaths.py "${MACOS_PATH}" \
   "${MACOS_PATH}/${APP_NAME}" \
   "${GIO_MODULES_DIR}"/*.so \
   "${PIXBUF_LOADERS_DIR}"/*.so
-
-# Homebrew 的 opt/ symlinks 可能留下绝对 install ID。GIO/pixbuf 模块按路径
-# dlopen, LC_ID 不参与解析, 只有 MacOS/ 下的 dylib 需要统一为相对 ID。
-for dylib in "${MACOS_PATH}"/*.dylib; do
-  [[ -f "${dylib}" ]] || continue
-  install_name_tool -id "@executable_path/$(basename "${dylib}")" "${dylib}"
-done
 
 OTOL_OUTPUT="$(otool -L "${MACOS_PATH}"/* "${GIO_MODULES_DIR}"/*.so "${PIXBUF_LOADERS_DIR}"/*.so)"
 if echo "${OTOL_OUTPUT}" | grep -Eq '(/opt/homebrew|/usr/local)/(lib|opt)/'; then

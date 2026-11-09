@@ -13,6 +13,8 @@
   otool -L 的旧方案看不到 LC_RPATH, 曾导致发布包在无 Homebrew 的机器上
   dyld 报 "Library not loaded" 无法启动;
 - @loader_path/<name>、已指向 @executable_path 但目标缺失的依赖: 同样收集;
+- 有 LC_ID (install name) 的文件统一改为 @executable_path/<basename>
+  (注意: install_name_tool -change 不改 LC_ID, -id 才改);
 - 所有收集到的文件删除 LC_RPATH, 避免残留指向构建机的绝对路径;
 - 未识别的依赖路径一律报错退出, 由打包流程在签名前兜底失败。
 """
@@ -35,12 +37,26 @@ def run_checked(args, what):
     return result.stdout
 
 
-def list_loads(target):
-    """otool -L 的依赖路径列表 (跳过首行自身)。"""
+def list_install_id(target):
+    """otool -D 提取 LC_ID (install name); 无 LC_ID 的 Mach-O (可执行文件 /
+    bundle 型模块) 返回 None。"""
+    lines = run_checked(["otool", "-D", target],
+                        "otool -D " + target).strip().splitlines()
+    # 输出形如 "<path>:\n<install id>"; 只有首行说明没有 LC_ID
+    if len(lines) >= 2:
+        return lines[1].strip()
+    return None
+
+
+def list_loads(target, install_id):
+    """otool -L 的依赖路径列表, 跳过文件名头行与 LC_ID 自引用行。
+
+    注意: LC_ID 是文件自己的 install name 而非依赖, install_name_tool
+    -change 也不会改它 (需用 -id), 混入依赖列表会造成假残留。"""
     deps = []
     for line in run_checked(["otool", "-L", target], "otool -L " + target).splitlines()[1:]:
         dep = line.split("(")[0].strip()
-        if dep:
+        if dep and dep != install_id:
             deps.append(dep)
     return deps
 
@@ -131,12 +147,9 @@ class Collector:
     def process(self, target):
         # LC_RPATH 参与本次 @rpath 解析, 必须在删除前读取
         target_rpaths = list_rpaths(target)
-        deps = list_loads(target)
-        self.processed.append(target)
-        print("[fix_rpaths] %s: %d deps" % (os.path.basename(target), len(deps)))
-        for dep in deps:
+        install_id = list_install_id(target)
+        for dep in list_loads(target, install_id):
             if dep.startswith(SYSTEM_PREFIXES):
-                print("[fix_rpaths]   system: %s" % dep)
                 continue
             name, source = self.resolve_source(dep, target, target_rpaths)
             if name is None:
@@ -145,30 +158,35 @@ class Collector:
                     "not found via LC_RPATH %s nor under %s"
                     % (dep, target, target_rpaths or "[]", ", ".join(HOMEBREW_ROOTS)))
             if source is not None:
-                print("[fix_rpaths]   collect: %s" % dep)
                 self.ensure_collected(name, source)
-            else:
-                print("[fix_rpaths]   known: %s" % dep)
             if not dep.startswith("@executable_path/"):
                 run_checked(
                     ["install_name_tool", "-change", dep,
                      "@executable_path/" + name, target],
                     "install_name_tool -change %s" % dep)
-                print("[fix_rpaths]   rewrite: %s -> @executable_path/%s" % (dep, name))
+        # 统一 LC_ID (有 install name 的文件; -change 不覆盖 LC_ID)
+        relative_id = "@executable_path/" + os.path.basename(target)
+        if install_id is not None and install_id != relative_id:
+            run_checked(
+                ["install_name_tool", "-id", relative_id, target],
+                "install_name_tool -id " + target)
         # 清理指向构建机的 LC_RPATH (含 meson 注入的构建期 rpath)
         for rpath in target_rpaths:
             run_checked(
                 ["install_name_tool", "-delete_rpath", rpath, target],
                 "install_name_tool -delete_rpath %s" % rpath)
+        self.processed.append(target)
 
     def verify(self):
-        """终检: 所有处理过的文件不得再持有 @rpath/@loader_path/Homebrew 依赖。"""
+        """终检: 所有处理过的文件不得再持有 @rpath/@loader_path/Homebrew
+        依赖或指向构建机的 LC_ID。"""
         leftovers = []
         for target in self.processed:
-            for dep in list_loads(target):
-                if dep.startswith(SYSTEM_PREFIXES):
-                    continue
-                if dep.startswith("@executable_path/"):
+            install_id = list_install_id(target)
+            if install_id is not None and not install_id.startswith("@executable_path/"):
+                leftovers.append("%s (install id) -> %s" % (os.path.basename(target), install_id))
+            for dep in list_loads(target, install_id):
+                if dep.startswith(SYSTEM_PREFIXES) or dep.startswith("@executable_path/"):
                     continue
                 leftovers.append("%s -> %s" % (os.path.basename(target), dep))
         if leftovers:
