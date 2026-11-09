@@ -55,7 +55,10 @@ install -d \
   "${STAGING_DIR}/share/icons"
 
 cp "${BUILD_DIR}/filecollector.exe" "${STAGING_DIR}/bin/filecollector.exe"
-python3 tools/collect_dlls.py "${STAGING_DIR}/bin/filecollector.exe" "${STAGING_DIR}/bin"
+# --min 20 是防呆线: 一个 GTK4 应用的运行时闭包不可能少于 20 个 DLL。
+# 历史上 collect_dlls.py 写死 /mingw64, 迁到 UCRT64 后静默收集 0 个 DLL
+# 却仍然出包发布, 导致用户启动时连续弹「找不到 xxx.dll」。
+python3 tools/collect_dlls.py --min 20 "${STAGING_DIR}/bin/filecollector.exe" "${STAGING_DIR}/bin"
 
 cp -r data "${STAGING_DIR}/share/data"
 if [[ -d "${INSTALL_ROOT}/usr/share/locale" ]]; then
@@ -65,6 +68,11 @@ fi
 # Dynamically loaded GTK/GIO components are not visible to ldd and must be staged explicitly.
 cp ${MSYS_PREFIX}/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.dll \
   "${STAGING_DIR}/lib/gdk-pixbuf-2.0/2.10.0/loaders/"
+# 图像加载器由 GDK 运行时 dlopen, 主 exe 的 ldd 看不到它们;
+# 单独递归收集一次, 否则 AVIF/HEIF/SVG 加载器会因缺 libavif/libheif/librsvg 而失效。
+python3 tools/collect_dlls.py \
+  "${STAGING_DIR}"/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.dll \
+  "${STAGING_DIR}/bin"
 cp ${MSYS_PREFIX}/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache \
   "${STAGING_DIR}/lib/gdk-pixbuf-2.0/2.10.0/"
 cp ${MSYS_PREFIX}/share/glib-2.0/schemas/gschemas.compiled \
@@ -89,6 +97,9 @@ set "GIO_MODULE_DIR=%~dp0..\lib\gio\modules"
 start "" "%~dp0filecollector.exe" %*
 BAT
 
+# 打包前用 PE 导入表做依赖闭包校验, 任何一个非系统 DLL 缺失都直接失败。
+python3 tools/verify_windows_package.py "${STAGING_DIR}"
+
 PACKAGE_PATH="${DIST_DIR}/filecollector-windows-${VERSION}-x64.zip"
 (
   cd "${STAGING_DIR}"
@@ -98,6 +109,8 @@ unzip -l "${PACKAGE_PATH}" | grep -Eq 'bin/filecollector\.exe'
 unzip -l "${PACKAGE_PATH}" | grep -Eq 'bin/filecollector-launch\.bat'
 unzip -l "${PACKAGE_PATH}" | grep -Eq 'lib/gio/modules/libgiognutls\.dll'
 unzip -l "${PACKAGE_PATH}" | grep -Eq 'share/glib-2\.0/schemas/gschemas\.compiled'
+# 再校验 ZIP 本体, 防止打包环节漏拷文件。
+python3 tools/verify_windows_package.py "${PACKAGE_PATH}"
 sha256sum "${PACKAGE_PATH}" > "${PACKAGE_PATH}.sha256"
 
 echo "Built ${PACKAGE_PATH}"

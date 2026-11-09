@@ -34,7 +34,9 @@ chmod +x tools/build-windows-package.sh
 tools/build-windows-package.sh
 ```
 
-脚本会下载并静态编译 cmark-gfm，运行 Meson 单元测试，收集 MinGW 动态库、GTK 动态模块、GSettings schema、完整 Adwaita/hicolor 图标主题，以及项目实际使用的两个 XApp symbolic 图标。然后它会验证所有源码引用的 symbolic 图标都能在包内主题中解析。
+脚本会下载并静态编译 cmark-gfm，运行 Meson 单元测试，递归收集 UCRT64 运行时 DLL（含 GTK 图像加载器的间接依赖）、GTK 动态模块、GSettings schema、完整 Adwaita/hicolor 图标主题，以及项目实际使用的两个 XApp symbolic 图标。然后它会验证所有源码引用的 symbolic 图标都能在包内主题中解析，并在打包前后用 `tools/verify_windows_package.py` 对全部 PE 文件做导入表闭包校验；运行时 DLL 数量不足或存在未解析的非系统 DLL 时，构建直接失败。
+
+排错提示：DLL 收集脚本按 `MSYSTEM_PREFIX` 判定运行时目录，并用 `ldd` 递归解析依赖。若本地构建得到的 `bin/` 里几乎没有 DLL，先确认是在 MSYS2 **UCRT64** 终端中执行（`echo $MSYSTEM_PREFIX` 应为 `/ucrt64`），以及 `ldd staging/bin/filecollector.exe` 能正常解析。
 
 产物为：
 

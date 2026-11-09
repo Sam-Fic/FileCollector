@@ -128,7 +128,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Set up MSYS2 MINGW64
+      - name: Set up MSYS2 UCRT64
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
