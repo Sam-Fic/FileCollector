@@ -90,6 +90,8 @@ class Collector:
         os.makedirs(dest, exist_ok=True)
         # basename -> bundle 内路径; 已收集的依赖不再重复拷贝
         self.collected = {}
+        # 处理过的 Mach-O 列表 (终检用)
+        self.processed = []
 
     def ensure_collected(self, name, source):
         """把 source 收集为 dest/<name>, 并递归处理它自身的依赖。"""
@@ -129,8 +131,12 @@ class Collector:
     def process(self, target):
         # LC_RPATH 参与本次 @rpath 解析, 必须在删除前读取
         target_rpaths = list_rpaths(target)
-        for dep in list_loads(target):
+        deps = list_loads(target)
+        self.processed.append(target)
+        print("[fix_rpaths] %s: %d deps" % (os.path.basename(target), len(deps)))
+        for dep in deps:
             if dep.startswith(SYSTEM_PREFIXES):
+                print("[fix_rpaths]   system: %s" % dep)
                 continue
             name, source = self.resolve_source(dep, target, target_rpaths)
             if name is None:
@@ -139,17 +145,35 @@ class Collector:
                     "not found via LC_RPATH %s nor under %s"
                     % (dep, target, target_rpaths or "[]", ", ".join(HOMEBREW_ROOTS)))
             if source is not None:
+                print("[fix_rpaths]   collect: %s" % dep)
                 self.ensure_collected(name, source)
+            else:
+                print("[fix_rpaths]   known: %s" % dep)
             if not dep.startswith("@executable_path/"):
                 run_checked(
                     ["install_name_tool", "-change", dep,
                      "@executable_path/" + name, target],
                     "install_name_tool -change %s" % dep)
+                print("[fix_rpaths]   rewrite: %s -> @executable_path/%s" % (dep, name))
         # 清理指向构建机的 LC_RPATH (含 meson 注入的构建期 rpath)
         for rpath in target_rpaths:
             run_checked(
                 ["install_name_tool", "-delete_rpath", rpath, target],
                 "install_name_tool -delete_rpath %s" % rpath)
+
+    def verify(self):
+        """终检: 所有处理过的文件不得再持有 @rpath/@loader_path/Homebrew 依赖。"""
+        leftovers = []
+        for target in self.processed:
+            for dep in list_loads(target):
+                if dep.startswith(SYSTEM_PREFIXES):
+                    continue
+                if dep.startswith("@executable_path/"):
+                    continue
+                leftovers.append("%s -> %s" % (os.path.basename(target), dep))
+        if leftovers:
+            raise RuntimeError("unrewritten dependencies remain:\n  " +
+                               "\n  ".join(leftovers))
 
 
 def main():
@@ -161,6 +185,7 @@ def main():
     collector = Collector(dest)
     for target in sys.argv[2:]:
         collector.process(target)
+    collector.verify()
     print("collected %d dylibs into %s" % (len(collector.collected), dest))
 
 
