@@ -10,7 +10,8 @@ using Gee;
 //
 // 设计上走外部 `zip` 命令而不是 libzip 是因为:
 //   - 项目已有 git/soffice/pdftoppm 等用 Process.spawn_sync 的先例
-//   - 零额外依赖 (系统装 libreoffice 时通常也带了 zip)
+//   - 零额外依赖 (Linux 上系统装 libreoffice 时通常也带了 zip;
+//     Windows 便携包由 tools/build-windows-package.sh 捆绑 zip.exe)
 //   - 不会因为 libzip 版本差异出 ABI 兼容问题
 public class ZipExporter : GLib.Object {
 
@@ -135,15 +136,26 @@ public class ZipExporter : GLib.Object {
     }
 
     private static string compute_relative_path (string abs_path, File? work_dir) {
-        if (work_dir == null) {
-            // 没有工作目录: 用去掉前导 / 的全路径, 避免同名冲突
-            var p = abs_path;
-            while (p.has_prefix ("/")) p = p.substring (1);
-            return p;
+        if (work_dir != null && work_dir.get_path () != null) {
+            // GIO 的相对路径计算按规范路径比较, Windows 反斜杠与 Unix 正斜杠
+            // 皆可 (原实现 has_prefix (wd + "/") 在 Windows 上恒不命中,
+            // 导致所有文件都落入 _external/)
+            var rel = work_dir.get_relative_path (File.new_for_path (abs_path));
+            if (rel != null) {
+                return rel.replace ("\\", "/");
+            }
         }
-        var wd = work_dir.get_path ();
-        if (wd != null && abs_path.has_prefix (wd + "/")) {
-            return abs_path.substring (wd.length + 1);
+        if (work_dir == null) {
+            // 没有工作目录: 用去掉前导分隔符的全路径, 避免同名冲突。
+            // Windows 的盘符冒号必须一并去掉, 否则 "C:/..." 会被
+            // Path.build_filename 当作绝对路径 (最后的绝对分量胜出),
+            // dest 直接指回源文件, 复制自身必然失败。
+            var p = abs_path.replace ("\\", "/");
+            while (p.has_prefix ("/")) p = p.substring (1);
+#if WINDOWS
+            p = p.replace (":", "");
+#endif
+            return p;
         }
         // 文件在工作目录外: 用 _external/<basename>-<hash> 隔离
         // 注释之前写"<basename>-<hash>"但代码未实现 hash, 同名外部文件

@@ -30,6 +30,11 @@ public class GitService : GLib.Object {
 
     public static string run_git (string work_dir, string[] args) throws GLib.Error {
         string[] argv = { git_executable () };
+        // 非 ASCII 文件名默认被 core.quotePath 转成 "\346\226\207..." 八进制
+        // 转义, status/log 解析端按原样取路径后存在性检查必然失败, 中文
+        // 文件会被静默漏掉。统一关闭转义, 输出保持原始 UTF-8。
+        argv += "-c";
+        argv += "core.quotePath=false";
         foreach (var a in args) argv += a;
 
         var launcher = new SubprocessLauncher (

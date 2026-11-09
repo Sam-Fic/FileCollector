@@ -2683,12 +2683,17 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     // 确保指定文件路径的所有父目录都已加载到树中
     private void ensure_path_loaded (string abs_path) {
-        if (work_dir == null || !abs_path.has_prefix (work_dir.get_path () + "/")) return;
+        if (work_dir == null) return;
+        // Windows 上 get_path() 返回反斜杠路径, 归一为 "/" 后再做前缀比较
+        // 与层级切分, 否则懒加载判断恒不命中
+        string wd_path = (work_dir.get_path () ?? "").replace ("\\", "/");
+        string norm = abs_path.replace ("\\", "/");
+        if (!norm.has_prefix (wd_path + "/")) return;
         if (root_store.get_n_items () == 0) return;
         ensure_path_token++;
         uint my_token = ensure_path_token;
 
-        string rel = abs_path.substring (work_dir.get_path ().length + 1);
+        string rel = norm.substring (wd_path.length + 1);
         string[] parts = rel.split ("/");
         var current = (DirectoryItem) root_store.get_item (0);
 
@@ -4057,9 +4062,11 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (ctx_item == null || ctx_item.file_path == null) return;
         string path_to_copy = ctx_item.file_path;
         if (!ctx_item.force_absolute && work_dir != null && !use_absolute) {
-            string wd = work_dir.get_path () + "/";
-            if (path_to_copy.has_prefix (wd)) {
-                path_to_copy = path_to_copy.substring (wd.length);
+            // 归一分隔符: Windows 反斜杠路径对 wd + "/" 前缀恒不命中
+            string wd = (work_dir.get_path () ?? "").replace ("\\", "/") + "/";
+            string norm = path_to_copy.replace ("\\", "/");
+            if (norm.has_prefix (wd)) {
+                path_to_copy = norm.substring (wd.length);
             }
         }
         get_clipboard ().set_text (path_to_copy);
@@ -4149,9 +4156,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (ctx_tree_item == null) return;
         string path_to_copy = ctx_tree_item.path;
         if (work_dir != null) {
-            string wd = work_dir.get_path () + "/";
-            if (path_to_copy.has_prefix (wd)) {
-                path_to_copy = path_to_copy.substring (wd.length);
+            string wd = (work_dir.get_path () ?? "").replace ("\\", "/") + "/";
+            string norm = path_to_copy.replace ("\\", "/");
+            if (norm.has_prefix (wd)) {
+                path_to_copy = norm.substring (wd.length);
             }
         }
         get_clipboard ().set_text (path_to_copy);
@@ -4329,9 +4337,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
         if (ctx_preview_item == null || ctx_preview_item.file_path == null) return;
         string path_to_copy = ctx_preview_item.file_path;
         if (work_dir != null) {
-            string wd = work_dir.get_path () + "/";
-            if (path_to_copy.has_prefix (wd)) {
-                path_to_copy = path_to_copy.substring (wd.length);
+            string wd = (work_dir.get_path () ?? "").replace ("\\", "/") + "/";
+            string norm = path_to_copy.replace ("\\", "/");
+            if (norm.has_prefix (wd)) {
+                path_to_copy = norm.substring (wd.length);
             }
         }
         get_clipboard ().set_text (path_to_copy);
@@ -5100,8 +5109,10 @@ public class FileCollectorWindow : Adw.ApplicationWindow {
 
     private string get_display_path (ItemData data) {
         if (data.force_absolute || use_absolute || work_dir == null) return data.file_path;
-        var wd_path = work_dir.get_path () + "/";
-        if (data.file_path.has_prefix (wd_path)) return data.file_path.substring (wd_path.length);
+        // 归一分隔符, Windows 反斜杠路径下前缀判断恒不命中
+        var wd_path = (work_dir.get_path () ?? "").replace ("\\", "/") + "/";
+        var norm = data.file_path.replace ("\\", "/");
+        if (norm.has_prefix (wd_path)) return norm.substring (wd_path.length);
         return data.file_path;
     }
 

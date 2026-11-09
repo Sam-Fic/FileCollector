@@ -438,9 +438,19 @@ public class FileCollectorApp : Adw.Application {
     }
 #endif
 
+#if WINDOWS
+    [CCode (cname = "win32_console_init")]
+    private static extern void win32_console_init ();
+#endif
+
     public static int main (string[] args) {
 #if MACOS
         setup_macos_bundle_env ();
+#endif
+#if WINDOWS
+        // GUI 子系统 exe 在 cmd/PowerShell 里跑 CLI 时 stdout 无句柄,
+        // 先检测并接管父进程控制台 (管道环境下为空操作)
+        win32_console_init ();
 #endif
         var app = new FileCollectorApp ();
         int ret = app.run (args);

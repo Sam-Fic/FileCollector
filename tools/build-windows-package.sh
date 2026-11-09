@@ -21,6 +21,12 @@ fi
 MSYS_PREFIX="${MSYSTEM_PREFIX:-/ucrt64}"
 export PYTHONUTF8=1
 export LANG=C.UTF-8
+# meson --prefix=/usr 会被 MSYS2 参数转换改写为 MSYS2 安装根下的真实路径
+# (实测 --prefix=/usr → --prefix=D:/<msys2根>/usr), locale 因此被装进
+# install-windows/a/_temp/msys64/usr/... 错误嵌套路径, 打包时静默丢掉全部
+# 翻译 (v4.9.1 及之前的 Windows 包均为纯英文界面)。排除这两类参数;
+# cmark 的 -DCMAKE_INSTALL_PREFIX=/ucrt64 指向真实环境根, 不在排除之列。
+export MSYS2_ARG_CONV_EXCL="/usr;--prefix"
 export PKG_CONFIG_PATH="${MSYS_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
 export CPATH="${MSYS_PREFIX}/include:${CPATH:-}"
 export LIBRARY_PATH="${MSYS_PREFIX}/lib:${LIBRARY_PATH:-}"
@@ -64,6 +70,9 @@ cp -r data "${STAGING_DIR}/share/data"
 if [[ -d "${INSTALL_ROOT}/usr/share/locale" ]]; then
   cp -r "${INSTALL_ROOT}/usr/share/locale" "${STAGING_DIR}/locale"
 fi
+# 翻译缺失曾静默出包 (v4.9.1 及之前的 Windows 包均为纯英文界面, 见上方
+# MSYS2_ARG_CONV_EXCL 注释), 此处硬性卡关: .mo 不在 staging 直接构建失败。
+test -f "${STAGING_DIR}/locale/zh_CN/LC_MESSAGES/filecollector.mo"
 
 # Dynamically loaded GTK/GIO components are not visible to ldd and must be staged explicitly.
 cp ${MSYS_PREFIX}/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.dll \
@@ -90,6 +99,15 @@ python3 tools/verify_gnome_icon_theme.py "${STAGING_DIR}/share/icons"
 cp ${MSYS_PREFIX}/lib/gio/modules/libgiognutls.dll "${STAGING_DIR}/lib/gio/modules/"
 python3 tools/collect_dlls.py "${STAGING_DIR}/lib/gio/modules/libgiognutls.dll" "${STAGING_DIR}/bin"
 
+# zip_exporter 通过外部 zip 命令打包, 普通用户机器没有 Info-ZIP, 便携包
+# 必须自带。MSYS2 的 zip 位于 msys 层 (/usr/bin), 依赖 msys-2.0.dll;
+# 两者都要进 bin/ (CreateProcess 搜索调用方 exe 所在目录优先于 PATH,
+# zip_exporter 的裸 "zip" 命令无需改 PATH 即可命中)。
+test -f /usr/bin/zip.exe
+test -f /usr/bin/msys-2.0.dll
+cp /usr/bin/zip.exe "${STAGING_DIR}/bin/zip.exe"
+cp /usr/bin/msys-2.0.dll "${STAGING_DIR}/bin/msys-2.0.dll"
+
 cat > "${STAGING_DIR}/bin/filecollector-launch.bat" <<'BAT'
 @echo off
 set "GDK_PIXBUF_MODULEDIR=%~dp0..\lib\gdk-pixbuf-2.0\2.10.0\loaders"
@@ -109,6 +127,8 @@ unzip -l "${PACKAGE_PATH}" | grep -Eq 'bin/filecollector\.exe'
 unzip -l "${PACKAGE_PATH}" | grep -Eq 'bin/filecollector-launch\.bat'
 unzip -l "${PACKAGE_PATH}" | grep -Eq 'lib/gio/modules/libgiognutls\.dll'
 unzip -l "${PACKAGE_PATH}" | grep -Eq 'share/glib-2\.0/schemas/gschemas\.compiled'
+unzip -l "${PACKAGE_PATH}" | grep -Eq 'locale/zh_CN/LC_MESSAGES/filecollector\.mo'
+unzip -l "${PACKAGE_PATH}" | grep -Eq 'bin/zip\.exe'
 # 再校验 ZIP 本体, 防止打包环节漏拷文件。
 python3 tools/verify_windows_package.py "${PACKAGE_PATH}"
 sha256sum "${PACKAGE_PATH}" > "${PACKAGE_PATH}.sha256"
