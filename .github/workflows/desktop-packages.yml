@@ -131,7 +131,7 @@ jobs:
       - name: Set up MSYS2 MINGW64
         uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
+          msystem: UCRT64
           update: true
           install: >-
             mingw-w64-x86_64-blueprint-compiler
@@ -167,7 +167,7 @@ jobs:
 
   macos:
     name: Build macOS app bundle (ARM64)
-    runs-on: macos-14
+    runs-on: macos-15-arm64
     steps:
       - name: Check out source
         uses: actions/checkout@v4

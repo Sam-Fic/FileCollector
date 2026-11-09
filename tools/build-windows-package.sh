@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build a self-contained Windows x64 portable ZIP in an MSYS2 MINGW64 shell.
+# Build a self-contained Windows x64 portable ZIP in an MSYS2 UCRT64 shell.
 set -euo pipefail
 
 readonly BUILD_DIR="build-windows"
@@ -17,11 +17,13 @@ if [[ -z "${VERSION}" ]]; then
   exit 1
 fi
 
+# MSYS2 前缀: 兼容 MINGW64/UCRT64, 默认 UCRT64 (MINGW64 已被 MSYS2 弃用, GTK4 等包已迁往 UCRT64)
+MSYS_PREFIX="${MSYSTEM_PREFIX:-/ucrt64}"
 export PYTHONUTF8=1
 export LANG=C.UTF-8
-export PKG_CONFIG_PATH="/mingw64/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
-export CPATH="/mingw64/include:${CPATH:-}"
-export LIBRARY_PATH="/mingw64/lib:${LIBRARY_PATH:-}"
+export PKG_CONFIG_PATH="${MSYS_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+export CPATH="${MSYS_PREFIX}/include:${CPATH:-}"
+export LIBRARY_PATH="${MSYS_PREFIX}/lib:${LIBRARY_PATH:-}"
 
 rm -rf "${BUILD_DIR}" "${STAGING_DIR}" "${DIST_DIR}" "${INSTALL_ROOT}" "${CMARK_SOURCE}" "${CMARK_BUILD}"
 mkdir -p "${DIST_DIR}"
@@ -32,7 +34,7 @@ tar -xzf "${CMARK_ARCHIVE}" -C /tmp
 
 cmake -S "${CMARK_SOURCE}" -B "${CMARK_BUILD}" \
   -G Ninja \
-  -DCMAKE_INSTALL_PREFIX=/mingw64 \
+  -DCMAKE_INSTALL_PREFIX=${MSYS_PREFIX} \
   -DCMARK_TESTS=OFF \
   -DCMARK_STATIC=ON \
   -DCMARK_SHARED=OFF \
@@ -61,23 +63,23 @@ if [[ -d "${INSTALL_ROOT}/usr/share/locale" ]]; then
 fi
 
 # Dynamically loaded GTK/GIO components are not visible to ldd and must be staged explicitly.
-cp /mingw64/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.dll \
+cp ${MSYS_PREFIX}/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.dll \
   "${STAGING_DIR}/lib/gdk-pixbuf-2.0/2.10.0/loaders/"
-cp /mingw64/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache \
+cp ${MSYS_PREFIX}/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache \
   "${STAGING_DIR}/lib/gdk-pixbuf-2.0/2.10.0/"
-cp /mingw64/share/glib-2.0/schemas/gschemas.compiled \
+cp ${MSYS_PREFIX}/share/glib-2.0/schemas/gschemas.compiled \
   "${STAGING_DIR}/share/glib-2.0/schemas/"
 # 打包完整 GNOME 图标主题（含全部 symbolic SVG），而非仅应用图标。
 # 这样 Windows 与 GNOME 桌面使用同一套 Adwaita 图标名称和视觉语言。
-cp -r /mingw64/share/icons/Adwaita "${STAGING_DIR}/share/icons/"
-cp -r /mingw64/share/icons/hicolor "${STAGING_DIR}/share/icons/"
+cp -r ${MSYS_PREFIX}/share/icons/Adwaita "${STAGING_DIR}/share/icons/"
+cp -r ${MSYS_PREFIX}/share/icons/hicolor "${STAGING_DIR}/share/icons/"
 # 叠加项目随附的原始 XApp symbolic 图标，保留 xsi-* 的既有界面语义。
 cp -r data/icons/hicolor/. "${STAGING_DIR}/share/icons/hicolor/"
 test -f "${STAGING_DIR}/share/icons/Adwaita/index.theme"
 test -f "${STAGING_DIR}/share/icons/hicolor/index.theme"
 test -n "$(find "${STAGING_DIR}/share/icons/Adwaita" -type f -name '*-symbolic.svg' -print -quit)"
 python3 tools/verify_gnome_icon_theme.py "${STAGING_DIR}/share/icons"
-cp /mingw64/lib/gio/modules/libgiognutls.dll "${STAGING_DIR}/lib/gio/modules/"
+cp ${MSYS_PREFIX}/lib/gio/modules/libgiognutls.dll "${STAGING_DIR}/lib/gio/modules/"
 python3 tools/collect_dlls.py "${STAGING_DIR}/lib/gio/modules/libgiognutls.dll" "${STAGING_DIR}/bin"
 
 cat > "${STAGING_DIR}/bin/filecollector-launch.bat" <<'BAT'

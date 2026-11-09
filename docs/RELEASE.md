@@ -92,7 +92,7 @@ git push origin vX.Y.Z
 | --- | --- | --- |
 | Linux amd64 | `filecollector_X.Y.Z_amd64.deb` + `.sha256` | Ubuntu 26.04 容器 |
 | Flatpak | `filecollector-X.Y.Z.flatpak` | GNOME 50 SDK |
-| Windows x64 | `filecollector-windows-X.Y.Z-x64.zip` + `.sha256` | MSYS2 MINGW64 |
+| Windows x64 | `filecollector-windows-X.Y.Z-x64.zip` + `.sha256` | MSYS2 UCRT64 |
 | macOS ARM64 | `filecollector-macos-X.Y.Z-arm64.zip` + `.sha256` | macOS 14 (Apple Silicon) |
 
 CI 工作流配置见 `.github/workflows/desktop-packages.yml`。CI 构建规则的详细说明见 [桌面端自动打包与发布](GITHUB_ACTIONS_DESKTOP.md)。

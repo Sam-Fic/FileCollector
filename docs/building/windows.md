@@ -4,7 +4,7 @@
 
 ## 构建环境
 
-在 **MSYS2 MINGW64** 终端中执行。CI 使用 `windows-latest` 与 MINGW64 工具链，建议本地也使用相同环境。
+在 **MSYS2 UCRT64** 终端中执行。CI 使用 `windows-latest` 与 UCRT64 工具链，建议本地也使用相同环境。
 
 ```bash
 pacman -Syu

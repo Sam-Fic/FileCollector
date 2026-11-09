@@ -20,7 +20,7 @@ chmod +x tools/build-macos-package.sh
 tools/build-macos-package.sh
 ```
 
-脚本会在 `macos-14` CI 环境同类的 Apple Silicon 环境中构建、运行测试、创建 `FileCollector.app`、复制运行时库和完整 Adwaita/hicolor 图标主题，并叠加两个项目实际使用的 XApp symbolic 图标。它会使用 ad-hoc 签名检查 bundle 完整性。
+脚本会在 `macos-15-arm64` CI 环境同类的 Apple Silicon 环境中构建、运行测试、创建 `FileCollector.app`、复制运行时库和完整 Adwaita/hicolor 图标主题，并叠加两个项目实际使用的 XApp symbolic 图标。它会使用 ad-hoc 签名检查 bundle 完整性。
 
 产物为：
 
