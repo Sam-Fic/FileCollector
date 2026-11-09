@@ -33,7 +33,9 @@ static void run (string name, TrialFunc f) {
 // ─── ZIP fixture 写入器 ──────────────────────────────────────────────
 
 class ZipBuilder : GLib.Object {
-    private GLib.BytesBuilder body = new GLib.BytesBuilder ();
+    // vala 0.56 的 glib vapi 没有 GLib.BytesBuilder: 分块收集, finish 时手工拼接
+    private Gee.ArrayList<uint8[]> body = new Gee.ArrayList<uint8[]> ();
+    private uint32 written = 0;
     private Gee.ArrayList<EntryMeta> entries = new Gee.ArrayList<EntryMeta> ();
 
     private class EntryMeta : GLib.Object {
@@ -62,7 +64,7 @@ class ZipBuilder : GLib.Object {
         meta.method = method;
         meta.comp_size = (uint32) stored_data.length;
         meta.uncomp_size = uncomp_size;
-        meta.offset = (uint32) body.get_length ();
+        meta.offset = written;
         entries.add (meta);
 
         uint8[] nb = name.data;
@@ -76,12 +78,12 @@ class ZipBuilder : GLib.Object {
         u32 (uncomp_size);
         u16 ((uint16) nb.length);
         u16 (0);           // extra len
-        body.add (nb);
-        body.add (stored_data);
+        push (nb);
+        push (stored_data);
     }
 
     public uint8[] finish () {
-        uint32 cd_offset = (uint32) body.get_length ();
+        uint32 cd_offset = written;
         foreach (var m in entries) {
             uint8[] nb = m.name.data;
             u32 (0x02014b50u);
@@ -99,9 +101,9 @@ class ZipBuilder : GLib.Object {
             u16 (0);             // internal attrs
             u32 (0);             // external attrs
             u32 (m.offset);
-            body.add (nb);
+            push (nb);
         }
-        uint32 cd_size = (uint32) body.get_length () - cd_offset;
+        uint32 cd_size = written - cd_offset;
         u32 (0x06054b50u);
         u16 (0); u16 (0);        // disk numbers
         u16 ((uint16) entries.size);
@@ -109,15 +111,30 @@ class ZipBuilder : GLib.Object {
         u32 (cd_size);
         u32 (cd_offset);
         u16 (0);                 // comment len
-        return body.free_to_bytes ().get_data ();
+        return concat ();
+    }
+
+    private void push (uint8[] piece) {
+        body.add (piece);
+        written += (uint32) piece.length;
+    }
+
+    private uint8[] concat () {
+        uint8[] result = new uint8[written];
+        int off = 0;
+        foreach (var piece in body) {
+            GLib.Memory.copy ((void*) ((uint8*) result + off), (void*) piece, (size_t) piece.length);
+            off += piece.length;
+        }
+        return result;
     }
 
     private void u16 (uint16 v) {
-        body.add (new uint8[] { (uint8) (v & 0xFF), (uint8) ((v >> 8) & 0xFF) });
+        push (new uint8[] { (uint8) (v & 0xFF), (uint8) ((v >> 8) & 0xFF) });
     }
 
     private void u32 (uint32 v) {
-        body.add (new uint8[] {
+        push (new uint8[] {
             (uint8) (v & 0xFF), (uint8) ((v >> 8) & 0xFF),
             (uint8) ((v >> 16) & 0xFF), (uint8) ((v >> 24) & 0xFF)
         });
@@ -128,7 +145,8 @@ class ZipBuilder : GLib.Object {
         size_t bytes_read;
         size_t bytes_written;
         uint8[] out_buf = new uint8[input.length * 2 + 4096];
-        var res = comp.convert (input, out bytes_read, out_buf, out bytes_written);
+        var res = comp.convert (input, out_buf, GLib.ConverterFlags.NONE,
+                                out bytes_read, out bytes_written);
         if (bytes_read != input.length || res != GLib.ConverterResult.FINISHED) {
             error ("fixture deflate incomplete (read %s/%s)",
                    bytes_read.to_string (), input.length.to_string ());
@@ -268,12 +286,10 @@ static void test_error_paths () throws Error {
     // 完全不是 ZIP 的垃圾数据
     expect_not_supported ("garbage.docx", "definitely not a zip archive........".data);
     // ZIP64: EOCD 中 cd_offset = 0xFFFFFFFF
-    var bb = new GLib.BytesBuilder ();
-    bb.add (new uint8[] {
+    expect_not_supported ("zip64.xlsx", new uint8[] {
         0x50, 0x4b, 0x05, 0x06, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00,
         0x01, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00
     });
-    expect_not_supported ("zip64.xlsx", bb.free_to_bytes ().get_data ());
     // 加密条目: central directory flags bit0 = 1
     var builder = new ZipBuilder ();
     builder.add_stored ("word/document.xml", "<w:document/>".data, 0x0001);

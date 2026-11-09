@@ -75,7 +75,7 @@ public class OfficeTextExtractor : GLib.Object {
     // ─── 各格式抽取 ───────────────────────────────────────────────────
 
     private static string extract_docx (ZipReader zip) throws Error {
-        var entry = zip.get ("word/document.xml");
+        var entry = zip.find ("word/document.xml");
         if (entry == null) {
             throw new IOError.NOT_SUPPORTED (_("Not a valid DOCX (missing word/document.xml)"));
         }
@@ -91,13 +91,13 @@ public class OfficeTextExtractor : GLib.Object {
 
     private static string extract_xlsx (ZipReader zip) throws Error {
         var shared = new Gee.ArrayList<string> ();
-        var sst = zip.get ("xl/sharedStrings.xml");
+        var sst = zip.find ("xl/sharedStrings.xml");
         if (sst != null) {
             string xml = bytes_to_utf8 (sst.data);
-            foreach (unowned string si in extract_blocks (xml, "si")) {
+            foreach (string si in extract_blocks (xml, "si")) {
                 // <si> 内可能是单个 <t> 或富文本 <r><t>..</t></r> 多段: 拼接全部 <t>
                 var sb2 = new StringBuilder ();
-                foreach (unowned string t in extract_tag_contents (si, "t")) {
+                foreach (string t in extract_tag_contents (si, "t")) {
                     sb2.append (t);
                 }
                 shared.add (decode_entities (sb2.str));
@@ -117,12 +117,12 @@ public class OfficeTextExtractor : GLib.Object {
         int sheet_idx = 0;
         foreach (var sheet in sheets) {
             sheet_idx++;
-            if (sb.length > 0) sb.append ("\n");
+            if (sb.len > 0) sb.append ("\n");
             sb.append ("## Sheet ").append (sheet_idx.to_string ()).append ("\n");
             string xml = bytes_to_utf8 (sheet.data);
-            foreach (unowned string row in extract_blocks (xml, "row")) {
+            foreach (string row in extract_blocks (xml, "row")) {
                 var cells = new Gee.ArrayList<string> ();
-                foreach (unowned string cell in extract_blocks (row, "c")) {
+                foreach (string cell in extract_blocks (row, "c")) {
                     // t="s" → sharedStrings 索引; 其余读 <v> 原值
                     var vs = extract_tag_contents (cell, "v");
                     string val = vs.size > 0 ? vs.get (0) : "";
@@ -154,7 +154,7 @@ public class OfficeTextExtractor : GLib.Object {
         int n = 0;
         foreach (var slide in slides) {
             n++;
-            if (sb.length > 0) sb.append ("\n");
+            if (sb.len > 0) sb.append ("\n");
             sb.append ("## Slide ").append (n.to_string ()).append ("\n");
             string xml = bytes_to_utf8 (slide.data);
             string t = xml.replace ("</a:tc>", "\t")
@@ -167,7 +167,7 @@ public class OfficeTextExtractor : GLib.Object {
 
     // ODF 家族共用 content.xml; 电子表格额外处理单元格/行边界
     private static string extract_odf (ZipReader zip, bool spreadsheet) throws Error {
-        var entry = zip.get ("content.xml");
+        var entry = zip.find ("content.xml");
         if (entry == null) {
             throw new IOError.NOT_SUPPORTED (_("Not a valid ODF document (missing content.xml)"));
         }
@@ -405,7 +405,7 @@ public class OfficeTextExtractor : GLib.Object {
             parse (data);
         }
 
-        public ZipEntry? get (string name) {
+        public ZipEntry? find (string name) {
             return map[name];
         }
 
@@ -485,10 +485,14 @@ public class OfficeTextExtractor : GLib.Object {
         }
 
         private uint8[] inflate (uint8[] raw) throws Error {
+            // 注意: vala 0.56 的 glib vapi 没有 GLib.BytesBuilder, 用分块收集后
+            // 手工拼接; ZlibDecompressor 构造参数复用 ZlibCompressorFormat 枚举
+            // (0.56 vapi 无独立的 ZlibDecompressorFormat 绑定)。
             var mins = new MemoryInputStream.from_data (raw);
-            var decomp = new GLib.ZlibDecompressor (GLib.ZlibDecompressorFormat.RAW);
+            var decomp = new GLib.ZlibDecompressor (GLib.ZlibCompressorFormat.RAW);
             var cis = new GLib.ConverterInputStream (mins, decomp);
-            var bb = new GLib.BytesBuilder ();
+            var chunks = new Gee.ArrayList<uint8[]> ();
+            size_t total = 0;
             var buf = new uint8[64 * 1024];
             while (true) {
                 ssize_t n = cis.read (buf);
@@ -496,9 +500,17 @@ public class OfficeTextExtractor : GLib.Object {
                     throw new IOError.FAILED (_("ZIP deflate decompression failed"));
                 }
                 if (n == 0) break;
-                bb.add (buf[0 : (int) n]);
+                uint8[] piece = buf[0 : (int) n];
+                chunks.add (piece);
+                total += piece.length;
             }
-            return bb.free_to_bytes ().get_data ();
+            uint8[] result = new uint8[total];
+            int off = 0;
+            foreach (var piece in chunks) {
+                GLib.Memory.copy ((void*) ((uint8*) result + off), (void*) piece, (size_t) piece.length);
+                off += piece.length;
+            }
+            return result;
         }
 
         private static Error corrupted () {
