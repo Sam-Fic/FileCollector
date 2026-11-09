@@ -132,16 +132,25 @@ class ZipBuilder : GLib.Object {
 
     private static uint8[] deflate_bytes (uint8[] input) throws Error {
         var comp = new GLib.ZlibCompressor (GLib.ZlibCompressorFormat.RAW);
+        var out_acc = new GLib.ByteArray ();
+        uint8[] out_buf = new uint8[input.length * 2 + 4096];
         size_t bytes_read;
         size_t bytes_written;
-        uint8[] out_buf = new uint8[input.length * 2 + 4096];
-        var res = comp.convert (input, out_buf, GLib.ConverterFlags.NONE,
-                                out bytes_read, out bytes_written);
-        if (bytes_read != input.length || res != GLib.ConverterResult.FINISHED) {
-            error ("fixture deflate incomplete (read %s/%s)",
-                   bytes_read.to_string (), input.length.to_string ());
+        // 第一次: 喂入全部输入 (zlib 在输入耗尽后仍需显式 FLUSH 才输出终止流)
+        comp.convert (input, out_buf, GLib.ConverterFlags.NONE, out bytes_read, out bytes_written);
+        out_acc.append (out_buf[0 : (int) bytes_written]);
+        // 带 FLUSH 循环收尾, 直到 FINISHED
+        bool finished = false;
+        for (int i = 0; i < 4 && !finished; i++) {
+            var res = comp.convert (new uint8[0], out_buf, GLib.ConverterFlags.FLUSH,
+                                    out bytes_read, out bytes_written);
+            out_acc.append (out_buf[0 : (int) bytes_written]);
+            finished = (res == GLib.ConverterResult.FINISHED);
         }
-        return out_buf[0 : (int) bytes_written];
+        if (!finished) {
+            error ("fixture deflate not finished after flush");
+        }
+        return out_acc.steal ();
     }
 }
 
