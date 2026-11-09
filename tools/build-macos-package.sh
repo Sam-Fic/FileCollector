@@ -90,6 +90,18 @@ test -f "${GIO_MODULES_DIR}/libgiognutls.so"
 cp "${BREW_PREFIX}"/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.so "${PIXBUF_LOADERS_DIR}/"
 test -n "$(find "${PIXBUF_LOADERS_DIR}" -name 'libpixbufloader-*.so' -print -quit)"
 
+# 生成 pixbuf loaders 缓存并把模块路径改写为 @executable_path 相对形式
+# (dlopen 支持 @executable_path 展开, GTK 便携包的标准做法)。
+# 必须在 fix_rpaths 之前执行: query-loaders 会 dlopen 每个 staged loader,
+# 此时其依赖还是 Homebrew 绝对路径, 在 CI 上可以解析; 改写后 dlopen 会
+# 相对 query-loaders 自身解析而失败。改写仅影响 Mach-O 依赖, cache 只记录
+# 模块路径与格式签名, 不受影响。
+"${BREW_PREFIX}/bin/gdk-pixbuf-query-loaders" "${PIXBUF_LOADERS_DIR}"/*.so \
+  > "${PIXBUF_CACHE_FILE}"
+sed -i '' "s|${PIXBUF_LOADERS_DIR}|@executable_path/../Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders|g" \
+  "${PIXBUF_CACHE_FILE}"
+grep -q '@executable_path/../Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders' "${PIXBUF_CACHE_FILE}"
+
 cp -R "${BREW_PREFIX}/etc/fonts/." "${FONTCONFIG_DIR}/"
 test -f "${FONTCONFIG_DIR}/fonts.conf"
 # 干净机器上没有 /opt/homebrew/etc/fonts: 依赖 Homebrew 路径的 cachedir 会
@@ -164,14 +176,6 @@ for dylib in "${MACOS_PATH}"/*.dylib; do
   [[ -f "${dylib}" ]] || continue
   install_name_tool -id "@executable_path/$(basename "${dylib}")" "${dylib}"
 done
-
-# 生成 pixbuf loaders 缓存并把模块路径改写为 @executable_path 相对形式
-# (dlopen 支持 @executable_path 展开, GTK 便携包的标准做法)。
-"${BREW_PREFIX}/bin/gdk-pixbuf-query-loaders" "${PIXBUF_LOADERS_DIR}"/*.so \
-  > "${PIXBUF_CACHE_FILE}"
-sed -i '' "s|${PIXBUF_LOADERS_DIR}|@executable_path/../Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders|g" \
-  "${PIXBUF_CACHE_FILE}"
-grep -q '@executable_path/../Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders' "${PIXBUF_CACHE_FILE}"
 
 if otool -L "${MACOS_PATH}"/* "${GIO_MODULES_DIR}"/*.so "${PIXBUF_LOADERS_DIR}"/*.so \
    | grep -Eq '(/opt/homebrew|/usr/local)/(lib|opt)/'; then
