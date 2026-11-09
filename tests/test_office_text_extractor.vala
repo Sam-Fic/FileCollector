@@ -33,8 +33,8 @@ static void run (string name, TrialFunc f) {
 // ─── ZIP fixture 写入器 ──────────────────────────────────────────────
 
 class ZipBuilder : GLib.Object {
-    // vala 0.56 的 glib vapi 没有 GLib.BytesBuilder: 分块收集, finish 时手工拼接
-    private Gee.ArrayList<uint8[]> body = new Gee.ArrayList<uint8[]> ();
+    // vala 0.56 的 glib vapi 没有 GLib.BytesBuilder: 用 GLib.ByteArray 累积
+    private GLib.ByteArray body = new GLib.ByteArray ();
     private uint32 written = 0;
     private Gee.ArrayList<EntryMeta> entries = new Gee.ArrayList<EntryMeta> ();
 
@@ -111,22 +111,12 @@ class ZipBuilder : GLib.Object {
         u32 (cd_size);
         u32 (cd_offset);
         u16 (0);                 // comment len
-        return concat ();
+        return body.steal ();
     }
 
     private void push (uint8[] piece) {
-        body.add (piece);
+        body.append (piece);
         written += (uint32) piece.length;
-    }
-
-    private uint8[] concat () {
-        uint8[] result = new uint8[written];
-        int off = 0;
-        foreach (var piece in body) {
-            GLib.Memory.copy ((void*) ((uint8*) result + off), (void*) piece, (size_t) piece.length);
-            off += piece.length;
-        }
-        return result;
     }
 
     private void u16 (uint16 v) {

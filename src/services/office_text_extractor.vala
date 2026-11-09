@@ -485,14 +485,15 @@ public class OfficeTextExtractor : GLib.Object {
         }
 
         private uint8[] inflate (uint8[] raw) throws Error {
-            // 注意: vala 0.56 的 glib vapi 没有 GLib.BytesBuilder, 用分块收集后
-            // 手工拼接; ZlibDecompressor 构造参数复用 ZlibCompressorFormat 枚举
-            // (0.56 vapi 无独立的 ZlibDecompressorFormat 绑定)。
+            // 注意: vala 0.56 的 glib vapi 没有 GLib.BytesBuilder, 用
+            // GLib.ByteArray 累积; ZlibDecompressor 构造参数复用
+            // ZlibCompressorFormat 枚举 (0.56 vapi 无独立的
+            // ZlibDecompressorFormat 绑定)。
             var mins = new MemoryInputStream.from_data (raw);
             var decomp = new GLib.ZlibDecompressor (GLib.ZlibCompressorFormat.RAW);
             var cis = new GLib.ConverterInputStream (mins, decomp);
-            var chunks = new Gee.ArrayList<uint8[]> ();
-            size_t total = 0;
+            // Gee 泛型不支持数组类型参数, 二进制累积用 GLib.ByteArray
+            var out_buf = new GLib.ByteArray ();
             var buf = new uint8[64 * 1024];
             while (true) {
                 ssize_t n = cis.read (buf);
@@ -500,17 +501,9 @@ public class OfficeTextExtractor : GLib.Object {
                     throw new IOError.FAILED (_("ZIP deflate decompression failed"));
                 }
                 if (n == 0) break;
-                uint8[] piece = buf[0 : (int) n];
-                chunks.add (piece);
-                total += piece.length;
+                out_buf.append (buf[0 : (int) n]);
             }
-            uint8[] result = new uint8[total];
-            int off = 0;
-            foreach (var piece in chunks) {
-                GLib.Memory.copy ((void*) ((uint8*) result + off), (void*) piece, (size_t) piece.length);
-                off += piece.length;
-            }
-            return result;
+            return out_buf.steal ();
         }
 
         private static Error corrupted () {
