@@ -104,7 +104,9 @@ public class VLMTaskRunner : GLib.Object {
         // 更新了 vlm_runner.work_dir, local_work_dir 持有的 GFile 也不会被释放.
         File? local_work_dir = work_dir;
 
-        // 1. 检查缓存
+        // 1. 检查缓存 (flow 匹配当前处理模式: vlm/text 两种产物互不命中)
+        string flow = (ConfigManager.get_binary_process_mode () == ConfigManager.BINARY_MODE_TEXT)
+            ? "text" : "vlm";
         string? cached_md = null;
         string hash = "";
         bool hash_valid = false;
@@ -113,11 +115,11 @@ public class VLMTaskRunner : GLib.Object {
             string quick = PreprocessCache.compute_file_hash_fast (file_path);
             if (local_work_dir != null) {
                 var cache = new PreprocessCache (local_work_dir.get_path ());
-                cached_md = cache.get_cached_markdown_quick (file_path, quick);
+                cached_md = cache.get_cached_markdown_quick (file_path, quick, flow);
                 if (cached_md == null) {
                     hash = PreprocessCache.compute_file_hash (file_path);
                     hash_valid = true;
-                    cached_md = cache.get_cached_markdown (file_path, hash);
+                    cached_md = cache.get_cached_markdown (file_path, hash, flow);
                 }
             } else {
                 hash = PreprocessCache.compute_file_hash (file_path);
@@ -135,7 +137,7 @@ public class VLMTaskRunner : GLib.Object {
         if (cached_md != null) {
             string md = cached_md;
             Idle.add (() => {
-                manager.task_completed (file_path, md, PreprocessStatus.COMPLETED, true);
+                manager.task_completed (file_path, md, PreprocessStatus.COMPLETED, true, null);
                 return Source.REMOVE;
             });
             manager.notify_finished (file_path);
@@ -144,9 +146,27 @@ public class VLMTaskRunner : GLib.Object {
 
         // 2. 标记为 PROCESSING (主线程接收信号后更新 UI)
         Idle.add (() => {
-            manager.task_completed (file_path, null, PreprocessStatus.PROCESSING, false);
+            manager.task_completed (file_path, null, PreprocessStatus.PROCESSING, false, null);
             return Source.REMOVE;
         });
+
+        // 1.5 "文本抽取" 模式: 支持的格式直接本地抽纯文本, 不需要 VLM 凭据与
+        //     网络。内部自行判断模式 (vlm 模式直接返回 null); 抽取失败 (含
+        //     扫描版 PDF 抽空) 返回 null, 继续走下方视觉转换/OCR 流程兜底。
+        {
+            PreprocessCache? cache = (local_work_dir != null)
+                ? new PreprocessCache (local_work_dir.get_path ()) : null;
+            string? text_md = BinaryPreprocessor.try_extract_text_document (
+                file_path, hash_valid ? hash : null, cache);
+            if (text_md != null) {
+                Idle.add (() => {
+                    manager.task_completed (file_path, text_md, PreprocessStatus.COMPLETED, false, null);
+                    return Source.REMOVE;
+                });
+                manager.notify_finished (file_path);
+                return;
+            }
+        }
 
         var settings = ConfigManager.load_multimodal_ai_settings ();
 
@@ -155,8 +175,11 @@ public class VLMTaskRunner : GLib.Object {
             ? settings.paddleocr_token.length > 0
             : settings.api_key.length > 0;
         if (!settings.enabled || !has_credential) {
+            string why = (!settings.enabled)
+                ? _("Multimodal AI is disabled in settings")
+                : _("Multimodal AI credential is empty, cannot convert binary files");
             Idle.add (() => {
-                manager.task_completed (file_path, null, PreprocessStatus.FAILED, false);
+                manager.task_completed (file_path, null, PreprocessStatus.FAILED, false, why);
                 return Source.REMOVE;
             });
             manager.notify_finished (file_path);
@@ -170,10 +193,7 @@ public class VLMTaskRunner : GLib.Object {
                 // ── PaddleOCR 云端路径 ──
                 // 上传原文件 (PDF/图片直传, Office 先转 PDF), 轮询并合并 Markdown.
                 bool is_temp;
-                string? upload_source = BinaryConverter.resolve_upload_source (file_path, out is_temp);
-                if (upload_source == null) {
-                    throw new IOError.FAILED (_("Failed to prepare upload source for %s").printf (file_path));
-                }
+                string upload_source = BinaryConverter.resolve_upload_source (file_path, out is_temp);
                 try {
                     // 仅在哈希有效且有工作目录时构造缓存实例, 供配图落盘与 md 保存复用
                     PreprocessCache? pd_cache = (local_work_dir != null && hash_valid)
@@ -197,12 +217,13 @@ public class VLMTaskRunner : GLib.Object {
 
                 if (ItemData.is_image_file (file_path)) {
                     string? b64 = BinaryConverter.convert_image_to_base64 (file_path);
-                    if (b64 == null) throw new IOError.FAILED ("Image load failed");
+                    if (b64 == null) throw new IOError.FAILED (_("Image load failed: %s").printf (file_path));
                     base64_images = { b64 };
                     mime_types = { BinaryConverter.get_output_mime_for_image (file_path) };
                 } else {
+                    // soffice/pdftoppm 缺失或转换失败时抛出带指引的错误
                     string[]? images = BinaryConverter.convert_to_base64_images (file_path);
-                    if (images == null) throw new IOError.FAILED ("Document render failed");
+                    if (images == null) throw new IOError.FAILED (_("Document render failed: %s").printf (file_path));
                     base64_images = images;
                     mime_types = new string[images.length];
                     for (int i = 0; i < images.length; i++) mime_types[i] = "image/png";
@@ -230,13 +251,15 @@ public class VLMTaskRunner : GLib.Object {
             }
 
             Idle.add (() => {
-                manager.task_completed (file_path, md, PreprocessStatus.COMPLETED, false);
+                manager.task_completed (file_path, md, PreprocessStatus.COMPLETED, false, null);
                 return Source.REMOVE;
             });
         } catch (Error e) {
             warning ("VLM Task failed: %s", e.message);
+            // 失败原因透传给 UI: 队列行/预览占位/tooltip 展示, 不再丢弃 e.message
+            string fail_msg = e.message;
             Idle.add (() => {
-                manager.task_completed (file_path, null, PreprocessStatus.FAILED, false);
+                manager.task_completed (file_path, null, PreprocessStatus.FAILED, false, fail_msg);
                 return Source.REMOVE;
             });
         }

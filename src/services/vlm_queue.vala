@@ -11,11 +11,13 @@ public class VLMQueueManager : GLib.Object {
     public signal void state_changed (bool has_tasks);
     // 工作线程的结果回送信号. 主线程接收后, 在 items 中按 file_path 查找 ItemData
     // 并更新其属性. md 为 null 表示无内容更新 (PROCESSING/FAILED 阶段).
+    // error_message 仅在 status == FAILED 时有意义, 为用户可读的失败原因.
     public signal void task_completed (
         string file_path,
         string? preprocessed_content,
         PreprocessStatus status,
-        bool from_cache
+        bool from_cache,
+        string? error_message
     );
 
     private Gee.LinkedList<string> pending_queue;
@@ -182,8 +184,9 @@ public class VLMQueueManager : GLib.Object {
             }
         } catch (ThreadError e) {
             warning ("Failed to create VLM thread: %s", e.message);
+            string err = e.message;
             Idle.add (() => {
-                task_completed (file_path, null, PreprocessStatus.FAILED, false);
+                task_completed (file_path, null, PreprocessStatus.FAILED, false, err);
                 finish_task (file_path);
                 return Source.REMOVE;
             });

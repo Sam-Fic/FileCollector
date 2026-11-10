@@ -28,8 +28,10 @@ public class PreferencesDialog : GLib.Object {
 
     private Gee.ArrayList<ConfigManager.VLMProfile> vlm_profiles;
     private bool switching_vlm_profile = false;
+    private bool switching_mm_mode = false;
 
     private Switch chk_mm_enabled;
+    private Adw.ComboRow combo_mm_process_mode;
     private Adw.ComboRow combo_mm_provider;
     private Adw.ComboRow combo_vlm_profile;
     private EntryRow edit_mm_base_url;
@@ -227,6 +229,31 @@ public class PreferencesDialog : GLib.Object {
         mm_enabled_row.add_suffix (chk_mm_enabled);
         mm_enabled_row.set_activatable_widget (chk_mm_enabled);
         mm_group.add (mm_enabled_row);
+
+        // ── 二进制处理方式下拉: 视觉转换 (默认, 保图表/公式/表格) / 文本抽取
+        //    (快速离线, 无需凭据, 但丢失图表/公式/嵌入图片)。立即持久化,
+        //    两条管线在下次预处理时读取。
+        var process_mode_model = new StringList (new string[] {
+            _("Visual conversion (keeps charts, formulas, tables)"),
+            _("Text extraction (fast, offline, text only)")
+        });
+        combo_mm_process_mode = new Adw.ComboRow ();
+        combo_mm_process_mode.set_title (_("Processing Mode"));
+        combo_mm_process_mode.set_subtitle (_(
+            "Visual conversion renders documents to images and needs LibreOffice for Office files; text extraction parses Office/PDF locally without AI credentials."));
+        combo_mm_process_mode.set_model (process_mode_model);
+        mm_group.add (combo_mm_process_mode);
+        switching_mm_mode = true;
+        combo_mm_process_mode.set_selected (
+            ConfigManager.get_binary_process_mode () == ConfigManager.BINARY_MODE_TEXT ? 1 : 0);
+        switching_mm_mode = false;
+        combo_mm_process_mode.notify["selected"].connect (() => {
+            if (switching_mm_mode) return;
+            ConfigManager.save_binary_process_mode (
+                combo_mm_process_mode.get_selected () == 1
+                    ? ConfigManager.BINARY_MODE_TEXT : ConfigManager.BINARY_MODE_VLM);
+            ai_settings_changed ();
+        });
 
         // ── VLM 模型配置方案下拉: 预置存于配置文件 vlm_models 数组, 双向同步
         var mm_profile_row = new ComboRow ();

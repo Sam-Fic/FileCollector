@@ -206,11 +206,19 @@ public class QueueListFactory : GLib.Object {
                 }
             });
 
+            // 监听失败原因变化: FAILED 状态下行内显示简短原因
+            ulong error_handler_id = data.notify["preprocess-error"].connect (() => {
+                if (list_item != null && list_item.get_item () != null) {
+                    render_row (list_item, data, label, icon);
+                }
+            });
+
             // 将句柄 ID 与所监视的数据模型指针弱挂载到 ListItem 容器上,
             // 供 unbind 时双重校验安全剥离信号
             list_item.set_data<ulong> ("content_notify_id", handler_id);
             list_item.set_data<ulong> ("status_notify_id", status_handler_id);
             list_item.set_data<ulong> ("cache_notify_id", cache_handler_id);
+            list_item.set_data<ulong> ("error_notify_id", error_handler_id);
             list_item.set_data<ulong> ("position_notify_id", pos_handler);
             list_item.set_data<ItemData> ("monitored_data_ptr", data);
         });
@@ -222,6 +230,7 @@ public class QueueListFactory : GLib.Object {
             ulong handler_id = list_item.get_data<ulong> ("content_notify_id");
             ulong status_handler_id = list_item.get_data<ulong> ("status_notify_id");
             ulong cache_handler_id = list_item.get_data<ulong> ("cache_notify_id");
+            ulong error_handler_id = list_item.get_data<ulong> ("error_notify_id");
             ulong pos_handler = list_item.get_data<ulong> ("position_notify_id");
             var data = list_item.get_data<ItemData> ("monitored_data_ptr");
 
@@ -235,6 +244,9 @@ public class QueueListFactory : GLib.Object {
             if (cache_handler_id != 0 && data != null && GLib.SignalHandler.is_connected (data, cache_handler_id)) {
                 GLib.SignalHandler.disconnect (data, cache_handler_id);
             }
+            if (error_handler_id != 0 && data != null && GLib.SignalHandler.is_connected (data, error_handler_id)) {
+                GLib.SignalHandler.disconnect (data, error_handler_id);
+            }
             if (pos_handler != 0 && GLib.SignalHandler.is_connected (list_item, pos_handler)) {
                 GLib.SignalHandler.disconnect (list_item, pos_handler);
             }
@@ -243,6 +255,7 @@ public class QueueListFactory : GLib.Object {
             list_item.set_data ("content_notify_id", null);
             list_item.set_data ("status_notify_id", null);
             list_item.set_data ("cache_notify_id", null);
+            list_item.set_data ("error_notify_id", null);
             list_item.set_data ("position_notify_id", null);
             list_item.set_data ("monitored_data_ptr", null);
             var unbind_box = list_item.get_child () as Gtk.Box;
@@ -299,6 +312,12 @@ public class QueueListFactory : GLib.Object {
                             break;
                         case PreprocessStatus.FAILED:
                             display_name += _(" [Conversion failed]");
+                            if (data.preprocess_error != null && data.preprocess_error.length > 0) {
+                                // 队列行空间有限: 单行 + 截断, 完整原因在预览/tooltip
+                                string reason = data.preprocess_error.replace ("\n", " ").strip ();
+                                if (reason.length > 50) reason = reason.substring (0, 50) + "…";
+                                display_name += " " + reason;
+                            }
                             break;
                     }
                 }

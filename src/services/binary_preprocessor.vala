@@ -15,11 +15,15 @@ public class BinaryPreprocessor : GLib.Object {
     ) throws Error {
         from_cache = false;
 
+        // 0. 当前处理模式对应的缓存 flow 标记 (同一文件两种模式产物不同)
+        string flow = (ConfigManager.get_binary_process_mode () == ConfigManager.BINARY_MODE_TEXT)
+            ? "text" : "vlm";
+
         // 1. 先走轻量指纹 (size:mtime) 快速命中缓存, 避免对大文件 (PDF/图片) 计算 SHA256.
         //    命中即返回, 未命中 (含旧版无 quick 字段的缓存) 再回退到完整 SHA256 路径.
         string quick = PreprocessCache.compute_file_hash_fast (item.file_path);
         var cache = new PreprocessCache (work_dir_path);
-        string? cached = cache.get_cached_markdown_quick (item.file_path, quick);
+        string? cached = cache.get_cached_markdown_quick (item.file_path, quick, flow);
         if (cached != null) {
             from_cache = true;
             return cached;
@@ -36,11 +40,21 @@ public class BinaryPreprocessor : GLib.Object {
             warning ("Hash computation failed for %s: %s", item.file_path, e.message);
         }
         if (hash_valid) {
-            cached = cache.get_cached_markdown (item.file_path, hash);
+            cached = cache.get_cached_markdown (item.file_path, hash, flow);
             if (cached != null) {
                 from_cache = true;
                 return cached;
             }
+        }
+
+        // 2.5 "文本抽取" 模式: 支持的格式直接本地抽纯文本, 不需要 VLM 凭据与
+        //     网络, 因此放在凭据检查之前。抽取失败 (含扫描版 PDF 抽空) 返回
+        //     null, 继续走下方视觉转换/OCR 流程兜底。vlm 模式下此函数直接
+        //     返回 null, 不改变现有行为。
+        string? text_md = try_extract_text_document (
+            item.file_path, hash_valid ? hash : null, cache);
+        if (text_md != null) {
+            return text_md;
         }
 
         // 3. Load VLM settings
@@ -50,7 +64,7 @@ public class BinaryPreprocessor : GLib.Object {
             : settings.api_key.length > 0;
         if (!settings.enabled || !has_credential) {
             throw new IOError.FAILED (
-                "多模态 AI 未启用或凭据为空, 无法转换二进制文件"
+                _("Multimodal AI is disabled or credential is empty, cannot convert binary files")
             );
         }
 
@@ -59,10 +73,7 @@ public class BinaryPreprocessor : GLib.Object {
         if (settings.provider == ConfigManager.PROVIDER_PADDLEOCR) {
             // PaddleOCR 云端路径: 上传原文件, 轮询并合并 Markdown
             bool is_temp;
-            string? upload_source = BinaryConverter.resolve_upload_source (item.file_path, out is_temp);
-            if (upload_source == null) {
-                throw new IOError.FAILED ("准备上传源失败: " + item.file_path);
-            }
+            string upload_source = BinaryConverter.resolve_upload_source (item.file_path, out is_temp);
             try {
                 var client = new PaddleOCRClient (settings.paddleocr_token, settings.timeout);
                 // 仅在哈希有效时传入缓存, 使配图落盘到对应缓存子文件夹
@@ -109,7 +120,7 @@ public class BinaryPreprocessor : GLib.Object {
 
         // 7. Save to cache (仅在 hash 有效时保存, 避免空 hash 污染 manifest)
         if (hash_valid) {
-            cache.save_markdown (item.file_path, hash, md);
+            cache.save_markdown (item.file_path, hash, md, flow);
         }
 
         return md;
@@ -122,13 +133,45 @@ public class BinaryPreprocessor : GLib.Object {
         ItemData item, string? work_dir_path
     ) throws Error {
         if (work_dir_path == null) return null;
+        // 按当前处理模式匹配 flow 标记 (两种模式的产物互不命中)
+        string flow = (ConfigManager.get_binary_process_mode () == ConfigManager.BINARY_MODE_TEXT)
+            ? "text" : "vlm";
         // 先轻量指纹命中, 未命中回退 SHA256 路径 (兼容旧缓存)
         string quick = PreprocessCache.compute_file_hash_fast (item.file_path);
         var cache = new PreprocessCache (work_dir_path);
-        string? cached = cache.get_cached_markdown_quick (item.file_path, quick);
+        string? cached = cache.get_cached_markdown_quick (item.file_path, quick, flow);
         if (cached != null) return cached;
         string hash = PreprocessCache.compute_file_hash (item.file_path);
-        return cache.get_cached_markdown (item.file_path, hash);
+        return cache.get_cached_markdown (item.file_path, hash, flow);
+    }
+
+    // "文本抽取" 模式入口: 支持的格式本地抽纯文本并写入缓存 (flow=text)。
+    // 返回 null 表示未抽取成功 —— 模式非 text / 格式不支持 / 抽取失败
+    // (含扫描版 PDF 抽空), 调用方应继续走视觉转换/OCR 流程兜底。
+    // 本分支不需要 VLM 凭据与网络, 调用点必须放在凭据检查之前。
+    public static string? try_extract_text_document (
+        string file_path, string? hash, PreprocessCache? cache
+    ) {
+        if (ConfigManager.get_binary_process_mode () != ConfigManager.BINARY_MODE_TEXT) {
+            return null;
+        }
+        int dot = file_path.last_index_of (".");
+        if (dot < 0) return null;
+        if (!OfficeTextExtractor.supports (file_path.substring (dot).down ())) {
+            return null;
+        }
+        try {
+            string md = OfficeTextExtractor.extract_markdown (file_path);
+            if (cache != null && hash != null) {
+                cache.save_markdown (file_path, hash, md, "text");
+            }
+            return md;
+        } catch (Error e) {
+            // 抽取失败一律回退 (不抛出), 原因留日志供诊断
+            warning ("Text extraction failed for %s, falling back to visual/OCR: %s",
+                     file_path, e.message);
+            return null;
+        }
     }
 
     // 默认提示词 (基于 file_path 字符串, 不依赖 ItemData GObject)

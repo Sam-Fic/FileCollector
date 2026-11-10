@@ -7,7 +7,7 @@
 //
 // 注意: 真实 executor 模式 (参考 vlm_task_runner.vala):
 //   1. 在 worker 线程上执行实际工作
-//   2. 通过 Idle.add 在主线程上发射 manager.task_completed (path, md, status, from_cache)
+//   2. 通过 Idle.add 在主线程上发射 manager.task_completed (path, md, status, from_cache, error)
 //   3. 调用 manager.notify_finished (path) 释放并发槽
 // 测试用 executor 必须遵循同样模式。
 
@@ -43,7 +43,7 @@ void pump_loop (uint ms = 200) {
 // 模拟立即完成的 executor: 在 Idle 上发 task_completed, 然后释放槽
 void immediate_executor (string path, VLMQueueManager m) {
     Idle.add (() => {
-        m.task_completed (path, "md-for-" + path, PreprocessStatus.COMPLETED, false);
+        m.task_completed (path, "md-for-" + path, PreprocessStatus.COMPLETED, false, null);
         return Source.REMOVE;
     });
     m.notify_finished (path);
@@ -116,7 +116,7 @@ void test_max_concurrency () {
         lock.unlock ();
 
         Idle.add (() => {
-            m.task_completed (path, "md", PreprocessStatus.COMPLETED, false);
+            m.task_completed (path, "md", PreprocessStatus.COMPLETED, false, null);
             return Source.REMOVE;
         });
         m.notify_finished (path);
@@ -146,7 +146,7 @@ void test_wait_for_completion () {
     mgr.executor = (path, m) => {
         Thread.usleep (100 * 1000); // 100ms
         Idle.add (() => {
-            m.task_completed (path, "md", PreprocessStatus.COMPLETED, false);
+            m.task_completed (path, "md", PreprocessStatus.COMPLETED, false, null);
             return Source.REMOVE;
         });
         m.notify_finished (path);
@@ -190,7 +190,7 @@ void test_wait_for_completion_timeout () {
         Thread.usleep (2000 * 1000); // 2 秒
         // 测试结束后才通知, 避免线程泄漏
         Idle.add (() => {
-            m.task_completed (path, "md", PreprocessStatus.COMPLETED, false);
+            m.task_completed (path, "md", PreprocessStatus.COMPLETED, false, null);
             return Source.REMOVE;
         });
         m.notify_finished (path);
@@ -227,7 +227,7 @@ void test_cancel_clears_pending () {
         lock.unlock ();
         Thread.usleep (100 * 1000);
         Idle.add (() => {
-            m.task_completed (path, "md", PreprocessStatus.COMPLETED, false);
+            m.task_completed (path, "md", PreprocessStatus.COMPLETED, false, null);
             return Source.REMOVE;
         });
         m.notify_finished (path);
@@ -258,7 +258,7 @@ void test_pause_resume () {
     mgr.executor = (path, m) => {
         Thread.usleep (20 * 1000);
         Idle.add (() => {
-            m.task_completed (path, "md", PreprocessStatus.COMPLETED, false);
+            m.task_completed (path, "md", PreprocessStatus.COMPLETED, false, null);
             return Source.REMOVE;
         });
         m.notify_finished (path);
@@ -313,7 +313,7 @@ void test_bg_threads_cleanup () {
     mgr.executor = (path, m) => {
         Thread.usleep (30 * 1000);
         Idle.add (() => {
-            m.task_completed (path, "md", PreprocessStatus.COMPLETED, false);
+            m.task_completed (path, "md", PreprocessStatus.COMPLETED, false, null);
             return Source.REMOVE;
         });
         m.notify_finished (path);

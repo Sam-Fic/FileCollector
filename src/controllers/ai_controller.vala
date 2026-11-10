@@ -903,8 +903,13 @@ public class AIController : GLib.Object {
     // ─── 静态辅助方法 ────────────────────────────────────────────────
 
     private static string rel_path (string root, string full) {
-        if (full.has_prefix (root)) {
-            string r = full.substring (root.length);
+        // 归一分隔符为 "/": Windows 反斜杠路径下 substring 会产出
+        // "\src\main.vala" 形式, 回传给 AI 后再解析会被 Path.is_absolute
+        // 误判为绝对路径 (Windows 下 "\x" 也算绝对)
+        string r = full.replace ("\\", "/");
+        string base_r = root.replace ("\\", "/");
+        if (r.has_prefix (base_r)) {
+            r = r.substring (base_r.length);
             while (r.has_prefix ("/")) r = r.substring (1);
             return r.length > 0 ? r : full;
         }
@@ -912,8 +917,11 @@ public class AIController : GLib.Object {
     }
 
     private static string normalize_path (string path) {
+        // 统一分隔符为 "/": Windows 上 get_path() 返回反斜杠路径, 若不归一,
+        // 沙箱前缀比较 (allowed + "/") 永远不命中, AI 文件工具全部误判越界
+        string p = path.replace ("\\", "/");
         var stack = new Gee.ArrayList<string> ();
-        foreach (unowned string part in path.split ("/")) {
+        foreach (unowned string part in p.split ("/")) {
             if (part == "" || part == ".") continue;
             if (part == "..") {
                 if (stack.size > 0) stack.remove_at (stack.size - 1);
@@ -922,7 +930,7 @@ public class AIController : GLib.Object {
             }
         }
         string joined = string.joinv ("/", (string[]) stack.to_array ());
-        return path.has_prefix ("/") ? "/" + joined : joined;
+        return p.has_prefix ("/") ? "/" + joined : joined;
     }
 
     private string? resolve_ai_path (string path) {

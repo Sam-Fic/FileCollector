@@ -83,7 +83,9 @@ public class ContextMenus : GLib.Object {
                 can_retry_vlm = false;
             }
             if (it.item_type == "file" && work_dir != null && it.file_path != null) {
-                if (!it.file_path.has_prefix (work_dir.get_path () + "/")) {
+                // GIO 的 File.has_prefix 按规范路径比较, 跨平台兼容两种分隔符
+                // (原 has_prefix (wd + "/") 字符串手术在 Windows 上恒不命中)
+                if (!File.new_for_path (it.file_path).has_prefix (work_dir)) {
                     has_external = true;
                 }
             }

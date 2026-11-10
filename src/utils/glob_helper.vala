@@ -3,11 +3,13 @@ using Gee;
 public class GlobHelper : GLib.Object {
 
     public static bool match_glob (string pattern, string text) {
-        if (!pattern.contains ("**")) {
-            var spec = new PatternSpec (pattern.down ());
+        // 归一分隔符: Windows 上 AI 给出的模式与路径可能是反斜杠形式
+        string norm_pattern = pattern.replace ("\\", "/");
+        if (!norm_pattern.contains ("**")) {
+            var spec = new PatternSpec (norm_pattern.down ());
             return spec.match_string (text.down ());
         }
-        return match_glob_recursive (pattern.down (), text.down ());
+        return match_glob_recursive (norm_pattern.down (), text.down ());
     }
 
     private static bool match_glob_recursive (string pattern, string text) {
@@ -99,7 +101,9 @@ public class GlobHelper : GLib.Object {
                     }
                 }
                 var child_path = Path.build_filename (current_dir, info.get_name ());
-                string rel = child_path.substring (base_dir.length);
+                // 归一分隔符: Windows 上 build_filename 产出反斜杠路径, 前导 "\"
+                // 剥不掉, 且 "**/*.py" 这类按 "/" 分段的模式永不命中
+                string rel = child_path.substring (base_dir.length).replace ("\\", "/");
                 if (rel.has_prefix ("/")) rel = rel.substring (1);
 
                 if (match_glob (pattern, rel)) {

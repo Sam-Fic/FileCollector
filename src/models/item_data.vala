@@ -18,6 +18,8 @@ public class ItemData : GLib.Object {
     public PreprocessStatus preprocess_status { get; set; default = PreprocessStatus.NONE; }
     public string? preprocessed_content { get; set; }
     public bool from_cache { get; set; default = false; }
+    // 预处理失败原因 (FAILED 状态下展示); 重试/状态重置时必须一并清空
+    public string? preprocess_error { get; set; }
     public int start_line { get; set; default = 0; }
     public int end_line { get; set; default = 0; }
 

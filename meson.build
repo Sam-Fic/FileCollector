@@ -128,6 +128,7 @@ sources = files(
   'src/services/binary_converter.vala',
   'src/services/token_estimator.vala',
   'src/services/binary_preprocessor.vala',
+  'src/services/office_text_extractor.vala',
   'src/services/config_manager.vala',
   'src/services/file_content_reader.vala',
   'src/services/file_generator.vala',
@@ -163,8 +164,10 @@ sources = files(
 )
 
 # win32_dpapi_shim.c 仅 Windows 构建需要 (DPAPI 封装), 其它平台不存在该文件。
+# win32_console_shim.c 仅 Windows 构建需要 (GUI 子系统下的 CLI 控制台接管)。
 if host_machine.system() == 'windows'
   sources += files('src/win32_dpapi_shim.c')
+  sources += files('src/win32_console_shim.c')
 endif
 
 # macos_keychain_shim.c 仅 macOS 构建需要 (SecItem* 封装), 其它平台不存在该文件。

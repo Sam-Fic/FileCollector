@@ -322,8 +322,22 @@ public class CliController : GLib.Object {
         return true;
     }
 
+    // 输入路径解析 (--select-file / --load): 相对路径先按进程 cwd 查找
+    // (旧行为, 兼容既有脚本), 找不到且设置了 --work-dir 时再按 work_dir
+    // 解析 (README 完整工作流示例的约定)。输出路径 (--save / --export)
+    // 不在此列, 保持相对 cwd 不变。
+    private string resolve_input_path (string path) {
+        if (Path.is_absolute (path) || work_dir == null) return path;
+        if (FileUtils.test (path, FileTest.EXISTS)) return path;
+        try {
+            var resolved = work_dir.resolve_relative_path (path);
+            if (resolved.query_exists ()) return resolved.get_path ();
+        } catch (Error e) { }
+        return path;
+    }
+
     private bool add_file (string path) {
-        var file = File.new_for_path (path);
+        var file = File.new_for_path (resolve_input_path (path));
         if (!file.query_exists ()) {
             stderr.printf (_("Error: File does not exist: %s\n"), path);
             return false;
@@ -348,13 +362,18 @@ public class CliController : GLib.Object {
                 item.preprocessed_content = md;
                 item.preprocess_status = PreprocessStatus.COMPLETED;
                 item.from_cache = from_cache;
+                item.preprocess_error = null;
                 stdout.printf (_("  ↳ %s: %s\n"),
-                    from_cache ? _("Reused from cache") : _("VLM conversion called"),
+                    from_cache ? _("Reused from cache")
+                    : (ConfigManager.get_binary_process_mode () == ConfigManager.BINARY_MODE_TEXT)
+                        ? _("Text extracted locally")
+                        : _("VLM conversion called"),
                     file.get_basename ());
             } catch (Error e) {
                 stderr.printf (_("  ⚠ Preprocessing %s failed: %s\n"),
                     file.get_basename (), e.message);
                 item.preprocess_status = PreprocessStatus.FAILED;
+                item.preprocess_error = e.message;
             }
         }
         return true;
@@ -441,7 +460,8 @@ public class CliController : GLib.Object {
     }
 
     private bool load_project (string path) {
-        var file = File.new_for_path (path);
+        string resolved = resolve_input_path (path);
+        var file = File.new_for_path (resolved);
         if (!file.query_exists ()) {
             stderr.printf (_("Error: Project file does not exist: %s\n"), path);
             return false;
@@ -450,7 +470,7 @@ public class CliController : GLib.Object {
         try {
             string content;
             size_t len;
-            FileUtils.get_contents (path, out content, out len);
+            FileUtils.get_contents (resolved, out content, out len);
             var parser = new Json.Parser ();
             parser.load_from_data (content);
 
