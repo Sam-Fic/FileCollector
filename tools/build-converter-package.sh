@@ -86,10 +86,16 @@ test -d "${WORK_DIR}/staging/tools/LibreOffice/presets"
 PACKAGE_PATH="${DIST_DIR}/filecollector-converter-windows-x64-${LO_VERSION}.zip"
 (
   cd "${WORK_DIR}/staging"
-  zip -r "../../${PACKAGE_PATH}" tools
+  # -q 关闭逐文件 "adding:" 输出 (本包一万多个文件, 输出量足以把 CI 的日志
+  # 管道冲断, zip 随之收到 SIGPIPE 以 141 退出); stdout 直接丢弃, 彻底
+  # 不与日志管道耦合。
+  zip -q -r "../../${PACKAGE_PATH}" tools > /dev/null
 )
-unzip -l "${PACKAGE_PATH}" | grep -Eq 'tools/LibreOffice/program/soffice\.exe'
-unzip -l "${PACKAGE_PATH}" | grep -Eq 'tools/LibreOffice/program/soffice\.bin'
+# 清单校验不能用 `unzip -l | grep -q`: grep 匹配即退出, unzip 还在写输出
+# 会收到 SIGPIPE, 在 set -o pipefail 下整个脚本以 141 退出。
+unzip -Z1 "${PACKAGE_PATH}" > "${WORK_DIR}/archive-listing.txt"
+grep -E 'tools/LibreOffice/program/soffice\.exe' "${WORK_DIR}/archive-listing.txt" > /dev/null
+grep -E 'tools/LibreOffice/program/soffice\.bin' "${WORK_DIR}/archive-listing.txt" > /dev/null
 sha256sum "${PACKAGE_PATH}" > "${PACKAGE_PATH}.sha256"
 
 du -h "${PACKAGE_PATH}"
