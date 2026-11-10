@@ -68,13 +68,22 @@ jobs:
             --env DEBIAN_FRONTEND=noninteractive \
             ubuntu:26.04 \
             bash -euc '
-              APT_OPTS="-o Acquire::Retries=5 \
-                        -o Acquire::http::Timeout=30 \
-                        -o Acquire::https::Timeout=30 \
+              APT_OPTS="-o Acquire::Retries=3 \
+                        -o Acquire::http::Timeout=20 \
+                        -o Acquire::https::Timeout=20 \
                         -o Acquire::Queue-Mode=access \
                         -o Acquire::ForceIPv4=true \
                         -o Acquire::Languages=none \
                         -o Binary::apt::APT::Keep-Downloaded-Packages=true"
+
+              # archive.ubuntu.com 在部分时段劣化 (实测串行下载 349 个包耗 23
+              # 分钟, 单包空等 95s)。GitHub runner 本身就跑在 Azure 上, 换
+              # Azure CDN 镜像通常快一个数量级; 保留 Canonical 主站作为兜底
+              # 源, 主源缺包时 apt 会自动去备源取。
+              cp /etc/apt/sources.list.d/ubuntu.sources \
+                 /etc/apt/sources.list.d/ubuntu-fallback.sources
+              sed -i "s|http://archive.ubuntu.com/ubuntu/|http://azure.archive.ubuntu.com/ubuntu/|g" \
+                /etc/apt/sources.list.d/ubuntu.sources
 
               apt-get ${APT_OPTS} update
               apt-get ${APT_OPTS} install -y --no-install-recommends \
