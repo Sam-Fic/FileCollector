@@ -147,6 +147,18 @@ BAT
 # 打包前用 PE 导入表做依赖闭包校验, 任何一个非系统 DLL 缺失都直接失败。
 python3 tools/verify_windows_package.py "${STAGING_DIR}"
 
+# i18n 运行时冒烟: --help 走完整 gettext 链 (bindtextdomain -> zh_CN.mo 加载)。
+# 曾出过: .mo 在包里、清单校验也过, 但 gettext 运行时根本没加载译文, 语言
+# 设置/跟随系统在用户侧永远只有英文 (Windows 下 gettext 在 locale 为 "C" 时
+# 忽略 LANGUAGE)。这里真实运行主程序验证译文可达, 而不是只看清单。
+echo "Running i18n runtime smoke test (LANG=zh_CN.UTF-8 --help -> Chinese) ..."
+HELP_OUT="$(cd "${STAGING_DIR}/bin" && LANG=zh_CN.UTF-8 ./filecollector.exe --help 2>/dev/null || true)"
+if ! printf '%s\n' "${HELP_OUT}" | grep -q '命令行模式'; then
+  echo "i18n smoke test failed: --help output is not Chinese with LANG=zh_CN.UTF-8" >&2
+  printf '%s\n' "${HELP_OUT}" | head -5 >&2
+  exit 1
+fi
+
 PACKAGE_PATH="${DIST_DIR}/filecollector-windows-${VERSION}-x64.zip"
 (
   cd "${STAGING_DIR}"

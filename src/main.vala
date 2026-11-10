@@ -134,10 +134,37 @@ public class FileCollectorApp : Adw.Application {
         var lang_setting = FileCollectorWindow.load_settings_language ();
         if (lang_setting == "en") {
             GLib.Environment.set_variable ("LANGUAGE", "en", true);
+#if WINDOWS
+            // Windows 的 gettext 只在当前 locale 非 "C" 时才读取 LANGUAGE
+            // (GNU gettext 的既定行为); 而此环境在无 LANG/LC_* 变量时 locale
+            // 落回 "C", LANGUAGE 被整体忽略 -> 语言设置永远只有英文。
+            // 实测须同时设 LANG 让 locale 脱离 "C":
+            //   仅 LANGUAGE=zh_CN                 -> 英文
+            //   LANGUAGE=zh_CN + LANG=zh_CN.UTF-8 -> 中文
+            // zh 用 "zh_CN.UTF-8" 是为了与 locale/ 下的目录名一致 (gettext
+            // 按 LANG 值逐级尝试 zh_CN -> zh 查找 .mo), 且 UCRT 可解析。
+            GLib.Environment.set_variable ("LANG", "en", true);
+#endif
         } else if (lang_setting == "zh") {
             GLib.Environment.set_variable ("LANGUAGE", "zh_CN", true);
+#if WINDOWS
+            GLib.Environment.set_variable ("LANG", "zh_CN.UTF-8", true);
+#endif
         } else {
             GLib.Environment.unset_variable ("LANGUAGE");
+#if WINDOWS
+            // 跟随系统: 此 gettext 构建在没有 LANG/LC_* 变量时拿不到 Windows
+            // 的用户语言 (locale 落回 "C" -> 英文, 见上方注释), 因此把 Windows
+            // 用户 locale 翻成 Unix 风格名字 (zh-CN -> "zh_CN") 喂给 LANG。
+            // 无条件覆盖而非仅在缺失时补设: GUI 重启子进程会继承上一会话写入
+            // 的 LANG, 若仅在缺失时补设, 从 zh/en 切回"跟随系统"会残留旧值。
+            var sys_locale = GLib.Win32.getlocale ();
+            if (sys_locale != null && sys_locale.length > 0 && sys_locale != "C") {
+                GLib.Environment.set_variable ("LANG", sys_locale + ".UTF-8", true);
+            } else {
+                GLib.Environment.unset_variable ("LANG");
+            }
+#endif
         }
 
         Intl.setlocale (LocaleCategory.ALL, "");
