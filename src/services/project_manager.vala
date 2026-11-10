@@ -1,6 +1,24 @@
 using Gee;
 
 public class ProjectManager : GLib.Object {
+
+    // 项目文件里勾选路径的归一化: Flet 版可能写正斜杠或相对 work_dir 的路径,
+    // 而本版勾选匹配 (path in checked_files, CheckStateModel) 是字符串精确比较,
+    // 必须转成 File.get_path () 的规范形态才能命中; 无法解析时原样返回。
+    public static string? canonicalize_checked_path (string path, File? work_dir) {
+        if (path == "") return null;
+        try {
+            var f = File.new_for_path (path);
+            if (!GLib.Path.is_absolute (path) && work_dir != null) {
+                f = work_dir.resolve_relative_path (path);
+            }
+            var canonical = f.get_path ();
+            return (canonical != null && canonical != "") ? canonical : path;
+        } catch (Error e) {
+            return path;
+        }
+    }
+
     public static void load_project_file (
         string file_path,
         Gee.ArrayList<ItemData> items,
@@ -61,8 +79,12 @@ public class ProjectManager : GLib.Object {
         if (checked_arr != null) {
             for (int i = 0; i < checked_arr.get_length (); i++) {
                 var p = checked_arr.get_string_element (i);
-                if (File.new_for_path (p).query_exists ()) {
-                    checked_paths.add (p);
+                // Flet 旧文件可能是对象数组等非字符串元素, get_string_element
+                // 对其返回 null, 跳过而不是把 null 收进集合
+                if (p == null || p == "") continue;
+                var canonical = canonicalize_checked_path (p, work_dir);
+                if (canonical != null && File.new_for_path (canonical).query_exists ()) {
+                    checked_paths.add (canonical);
                 }
             }
         }

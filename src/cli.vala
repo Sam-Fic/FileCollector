@@ -512,7 +512,13 @@ public class CliController : GLib.Object {
             if (checked_arr != null) {
                 for (int i = 0; i < checked_arr.get_length (); i++) {
                     var p = checked_arr.get_string_element (i);
-                    checked_paths.add (p);
+                    // Flet 旧文件可能是对象数组等非字符串元素, get_string_element
+                    // 对其返回 null, 跳过而不是把 null 收进集合
+                    if (p == null || p == "") continue;
+                    var canonical = ProjectManager.canonicalize_checked_path (p, work_dir);
+                    if (canonical != null) {
+                        checked_paths.add (canonical);
+                    }
                 }
             }
 
