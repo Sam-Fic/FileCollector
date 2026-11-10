@@ -82,6 +82,12 @@ desktop.ini
 *.pyc
 __pycache__/
 
+# WorkBuddy / agent workspace data (project memory, session plans).
+# Local-only: never commit, but do not delete either — the agent runtime
+# relies on these files across sessions.
+.workbuddy/
+.zcode/
+
 # Package management
 *.egg-info/
 

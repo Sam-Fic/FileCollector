@@ -25,6 +25,21 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="4.10.0" date="2026-11-10">
+      <description>
+        <p>Binary (Office/PDF) processing rework for Windows, plus a batch of platform-specific bug fixes:</p>
+        <ul>
+          <li>Two processing modes for binary files: visual conversion (default, keeps charts, formulas and table layout) and optional offline text extraction that needs no AI credentials</li>
+          <li>New Office text extractor: a self-contained ZIP reader plus OOXML/ODF text extraction, PDF via pdftotext, with automatic fallback to visual/OCR for scanned documents that contain no text layer</li>
+          <li>The Windows portable package now bundles poppler (pdftoppm and pdftotext, including the poppler-data CMaps needed for Chinese PDFs), restoring the PDF-to-image pipeline used by visual conversion</li>
+          <li>New optional LibreOffice converter package is published with every release; it enables Office-to-PDF conversion without installing LibreOffice system-wide</li>
+          <li>Fixed the portable package shipping with no translations at all (it was English-only through v4.9.1), and made the AI assistant's file tools, ZIP export, file tree lazy-loading and glob matching work correctly on Windows</li>
+          <li>Non-ASCII filenames are no longer mangled by git's octal escaping, and a Windows console shim makes CLI output readable from cmd and PowerShell</li>
+          <li>Failure reasons are now surfaced end to end: queue rows, preview placeholders and retry tooltips all show why a task failed</li>
+          <li>CI now builds the converter package and runs a real docx-to-PDF conversion against it, so packages that cannot actually start LibreOffice fail the build instead of reaching users</li>
+        </ul>
+      </description>
+    </release>
     <release version="4.9.2" date="2026-11-10">
       <description>
         <p>macOS package fixes:</p>
