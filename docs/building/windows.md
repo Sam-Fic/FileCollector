@@ -62,8 +62,8 @@ tools/build-converter-package.sh
 脚本下载官方 LibreOffice MSI（版本固定于脚本内 `LO_VERSION`），用 `msiexec /a` 管理员解包（不写注册表、不进 Program Files），打包为：
 
 ```text
-dist/filecollector-converter-windows-<LO_VERSION>-x64.zip
-dist/filecollector-converter-windows-<LO_VERSION>-x64.zip.sha256
+dist/filecollector-converter-windows-x64-<LO_VERSION>.zip
+dist/filecollector-converter-windows-x64-<LO_VERSION>.zip.sha256
 ```
 
 布局为 `tools/LibreOffice/program/soffice.exe`，解压到便携包根目录（与 `bin/` 同级）即生效；应用通过 `BinaryConverter.resolve_soffice()` 自动探测。CI 中该包在 main/tag 推送时构建，tag 推送时随 Release 发布。

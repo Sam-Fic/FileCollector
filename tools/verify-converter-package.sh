@@ -10,7 +10,24 @@
 # 这里做真实端到端: 解包 → 造最小 docx → soffice headless 转 PDF → 校验产物。
 set -euo pipefail
 
-PACKAGE_PATH="${1:?usage: verify-converter-package.sh <converter-package.zip>}"
+PACKAGE_PATH="${1:-}"
+if [[ -z "${PACKAGE_PATH}" ]]; then
+  # 未指定则自动定位 dist 下唯一的转换器包 (产物名带版本号, 不能用
+  # "*-x64.zip" 这类固定后缀的通配, 容易和实际文件名对不上)
+  shopt -s nullglob
+  candidates=(dist/filecollector-converter-windows-x64-*.zip)
+  shopt -u nullglob
+  if [[ ${#candidates[@]} -ne 1 ]]; then
+    echo "expected exactly one converter package in dist/, found ${#candidates[@]}" >&2
+    exit 1
+  fi
+  PACKAGE_PATH="${candidates[0]}"
+fi
+if [[ ! -f "${PACKAGE_PATH}" ]]; then
+  echo "converter package not found: ${PACKAGE_PATH}" >&2
+  exit 1
+fi
+
 readonly WORK_DIR="converter-smoke"
 readonly LO_DIR="${WORK_DIR}/unpack/tools/LibreOffice"
 readonly SOFFICE="${LO_DIR}/program/soffice.com"
