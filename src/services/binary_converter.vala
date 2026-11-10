@@ -152,22 +152,43 @@ public class BinaryConverter : GLib.Object {
 
         try {
             // 转换器包 / 官方安装路径命中 → 绝对路径; 否则裸名 PATH 搜索
-            string[] argv = { resolve_soffice () ?? "soffice", "--headless",
-                              "--convert-to", "pdf", "--outdir", task_dir, src };
+            string[] argv = { resolve_soffice () ?? "soffice" };
+
+            // 每个任务用独立的 LibreOffice 用户配置目录。共用默认 profile 时,
+            // 第二个 soffice 会把请求转交给已有实例 (单实例 IPC) 后立刻返回,
+            // 本任务拿不到 PDF —— 实测 3 个并发转换必丢 1 个。profile 放在
+            // task_dir 内, 随任务目录一起清理。
+            // g_filename_to_uri 负责 percent-encoding: 路径含空格时
+            // LibreOffice 会拒绝启动 (实测 exit=0xE0000003, 无输出)。
+            string? profile_uri = build_profile_uri (
+                Path.build_filename (task_dir, "loprofile"));
+            if (profile_uri != null) {
+                argv.append ("-env:UserInstallation=" + profile_uri);
+            }
+
+            argv.append ("--headless");
+            argv.append ("--convert-to");
+            argv.append ("pdf");
+            argv.append ("--outdir");
+            argv.append (task_dir);
+            argv.append (src);
+
             int status;
             string stdout_str, stderr_str;
             Process.spawn_sync (null, argv, null, SpawnFlags.SEARCH_PATH, null,
                                 out stdout_str, out stderr_str, out status);
-            if (status != 0) {
-                // 捕获 soffice 的 stderr 输出, 便于诊断转换失败原因
-                // (如文件损坏/格式不支持/LibreOffice 未安装等)
-                throw new IOError.FAILED (_("LibreOffice conversion failed (exit %d): %s").printf (
-                    status, (stderr_str ?? "").strip ()));
-            }
             string basename = Path.get_basename (src);
             int dot = basename.last_index_of (".");
             string pdf_name = (dot > 0 ? basename.substring (0, dot) : basename) + ".pdf";
-            return Path.build_filename (task_dir, pdf_name);
+            string pdf_path = Path.build_filename (task_dir, pdf_name);
+            if (status != 0 || !FileUtils.test (pdf_path, FileTest.EXISTS)) {
+                // 捕获 soffice 的 stderr 输出, 便于诊断转换失败原因
+                // (如文件损坏/格式不支持/LibreOffice 未安装等)。
+                // 退出码为 0 但没有产物同样算失败 (串台/静默失败)。
+                throw new IOError.FAILED (_("LibreOffice conversion failed (exit %d): %s").printf (
+                    status, (stderr_str ?? "").strip ()));
+            }
+            return pdf_path;
         } catch (SpawnError e) {
             // 裸名搜索也找不到: Windows 上既没有转换器包也没装 LibreOffice。
             // 失败路径必须清理本次的 task_dir, 否则每次尝试都泄漏一个目录。
@@ -177,6 +198,18 @@ public class BinaryConverter : GLib.Object {
         } catch (Error e) {
             cleanup_dir (task_dir);
             throw e;
+        }
+    }
+
+    // 本地目录 → file:// URL。g_filename_to_uri 会做 percent-encoding:
+    // 路径含空格时未编码的 URL 会被 LibreOffice 直接拒绝 (实测启动失败)。
+    // 非绝对路径/非法字符时返回 null, 调用方退化为不传 -env:UserInstallation。
+    private static string? build_profile_uri (string dir) {
+        try {
+            return GLib.Filename.to_uri (dir, null);
+        } catch (GLib.ConvertError e) {
+            warning ("Failed to build profile URI for %s: %s", dir, e.message);
+            return null;
         }
     }
 
