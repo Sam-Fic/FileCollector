@@ -44,20 +44,40 @@ jobs:
   deb:
     name: Build DEB (amd64)
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - name: Check out source
         uses: actions/checkout@v4
 
+      # 复用上次下载的 .deb。apt 归档里已有同版本包时不会重复拉取,
+      # 官方源抖动时这一层缓存能兜住 (源不可用时 apt 才会真正报错)。
+      - name: Cache apt package archives
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/apt-cache
+          key: apt-cache-ubuntu-26.04-v1
+          restore-keys: apt-cache-ubuntu-26.04-
+
       - name: Build and validate DEB package
         run: |
+          mkdir -p "${RUNNER_TEMP}/apt-cache"
           docker run --rm \
             --volume "${GITHUB_WORKSPACE}:/workspace" \
+            --volume "${RUNNER_TEMP}/apt-cache:/var/cache/apt/archives" \
             --workdir /workspace \
             --env DEBIAN_FRONTEND=noninteractive \
             ubuntu:26.04 \
             bash -euc '
-              apt-get update
-              apt-get install -y --no-install-recommends \
+              APT_OPTS="-o Acquire::Retries=5 \
+                        -o Acquire::http::Timeout=30 \
+                        -o Acquire::https::Timeout=30 \
+                        -o Acquire::Queue-Mode=access \
+                        -o Acquire::ForceIPv4=true \
+                        -o Acquire::Languages=none \
+                        -o Binary::apt::APT::Keep-Downloaded-Packages=true"
+
+              apt-get ${APT_OPTS} update
+              apt-get ${APT_OPTS} install -y --no-install-recommends \
                 build-essential \
                 ca-certificates \
                 dpkg-dev \
@@ -77,6 +97,11 @@ jobs:
                 python3 \
                 valac \
                 blueprint-compiler
+
+              # 容器内以 root 运行, 归档目录要放开权限才能被 runner 用户
+              # (actions/cache) 读取保存
+              chmod -R a+rwX /var/cache/apt/archives
+
               chmod +x tools/build-deb.sh
               tools/build-deb.sh
             '
