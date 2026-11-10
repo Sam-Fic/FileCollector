@@ -501,7 +501,11 @@ public class CliController : GLib.Object {
             checked_paths.clear ();
             checked_dirs.clear ();
 
-            var checked_arr = root.has_member ("checked_files") ? root.get_array_member ("checked_files") : null;
+            // 字段名兼容: 本版写 checked_files, Flet 版写 checked_entries. 优先读自己的,
+            // 缺失时回退到另一个, 两个版本互相打开项目时勾选状态不丢.
+            var checked_arr = root.has_member ("checked_files")
+                ? root.get_array_member ("checked_files")
+                : (root.has_member ("checked_entries") ? root.get_array_member ("checked_entries") : null);
             if (checked_arr != null) {
                 for (int i = 0; i < checked_arr.get_length (); i++) {
                     var p = checked_arr.get_string_element (i);
