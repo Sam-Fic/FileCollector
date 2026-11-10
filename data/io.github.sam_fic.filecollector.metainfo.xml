@@ -25,6 +25,16 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="4.10.1" date="2026-11-11">
+      <description>
+        <p>Project file compatibility fixes:</p>
+        <ul>
+          <li>Project files saved by the Flet edition now open without losing the checked state: the loader accepts both checked_files and checked_entries field names</li>
+          <li>Checked paths are normalized on load (forward slashes and work-dir-relative paths), so tree checkmarks still match when the two editions serialize paths differently</li>
+          <li>Malformed or non-string entries in the checked list are skipped instead of crashing the loader</li>
+        </ul>
+      </description>
+    </release>
     <release version="4.10.0" date="2026-11-10">
       <description>
         <p>Binary (Office/PDF) processing rework for Windows, plus a batch of platform-specific bug fixes:</p>
