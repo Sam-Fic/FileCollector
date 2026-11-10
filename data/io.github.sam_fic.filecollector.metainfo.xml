@@ -25,6 +25,17 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="4.10.2" date="2026-11-11">
+      <description>
+        <p>Fix the interface language setting and follow-system language on Windows:</p>
+        <ul>
+          <li>Choosing Chinese or English in preferences now takes effect on the Windows portable package: gettext ignored the LANGUAGE variable whenever the locale fell back to "C" (the default when no LANG/LC_* variable is set), so the setting appeared to do nothing; the app now sets LANG alongside LANGUAGE</li>
+          <li>"Follow System" now actually follows the Windows user locale (e.g. zh-CN): the bundled gettext build cannot see the Windows locale on its own, so the app resolves it via g_win32_getlocale and feeds it to LANG</li>
+          <li>The resolved locale survives application restarts (previously the locale env left behind by a restart chain could pin the old language), while a deliberately set external LANG is still respected</li>
+          <li>Windows packaging CI now runs a runtime i18n smoke test (CLI --help must come out in Chinese), so a broken translation chain fails the build instead of reaching users</li>
+        </ul>
+      </description>
+    </release>
     <release version="4.10.1" date="2026-11-11">
       <description>
         <p>Project file compatibility fixes:</p>
