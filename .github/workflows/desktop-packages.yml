@@ -193,6 +193,14 @@ jobs:
           chmod +x tools/build-converter-package.sh
           tools/build-converter-package.sh
 
+      # 只校验 zip 清单是不够的: 曾经出现过"包能打出来、清单也过, 但 LibreOffice
+      # 起不来"的回归 (staging 漏了根目录的 presets/ 启动必需项)。
+      # 这里真跑一次 docx -> PDF 转换, 把这类问题挡在 CI。
+      - name: Smoke test converter package
+        run: |
+          chmod +x tools/verify-converter-package.sh
+          tools/verify-converter-package.sh dist/filecollector-converter-windows-*-x64.zip
+
       - name: Upload converter package
         uses: actions/upload-artifact@v4
         with:

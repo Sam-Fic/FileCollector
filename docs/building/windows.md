@@ -68,7 +68,11 @@ dist/filecollector-converter-windows-<LO_VERSION>-x64.zip.sha256
 
 布局为 `tools/LibreOffice/program/soffice.exe`，解压到便携包根目录（与 `bin/` 同级）即生效；应用通过 `BinaryConverter.resolve_soffice()` 自动探测。CI 中该包在 main/tag 推送时构建，tag 推送时随 Release 发布。
 
-注意：`msiexec` 的 `/a` 参数从 bash 直接传入会被 MSYS2 改写为路径（与 `--prefix=/usr` 同类陷阱），脚本通过 `cmd //c` 复合字符串绕过。
+包内已内置 MSVC 运行时（`msvcp140*.dll` / `vcruntime140*.dll`），用户机器**无需**安装 VC++ 2015-2022 发行版。
+
+注意：`msiexec` 的 `/a` 参数从 bash 直接传入会被 MSYS2 改写为路径（与 `--prefix=/usr` 同类陷阱），`cmd //c` 复合字符串的嵌套引号同样会污染路径（实测 msi 报 2203，路径变成 `D:\"D:\"...\"`）。脚本改用 PowerShell `Start-Process` 逐参数传递，并用 `-Wait` 取真实退出码。
+
+MSIX/管理员解包的落盘布局与完整安装不同：`program/`、`share/` 与 `presets/` 平铺在解包根（没有 `LibreOffice/` 嵌套层）。其中 **`presets/` 是 LibreOffice 启动必需项**——缺它时引导阶段直接失败（`The application cannot be started. / User installation could not be completed.`，exit 77），转换根本走不到文档加载。脚本因此把三者一起 staging；`tools/verify-converter-package.sh` 会真的跑一次 docx → PDF 转换来兜住这类回归（只校验 zip 清单是不够的）。
 
 ## 试运行
 
