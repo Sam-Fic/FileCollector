@@ -25,6 +25,18 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="4.10.3" date="2026-11-12">
+      <description>
+        <p>Follow-up fixes for language handling and project file compatibility:</p>
+        <ul>
+          <li>The Chinese / English / Follow System language preference now applies to command-line entry points (--help, --load, --export) and secondary instances too; pure CLI invocations previously skipped language setup entirely</li>
+          <li>Explicitly choosing Chinese or English now clears LC_ALL and LC_MESSAGES (they outrank LANG and could force the interface back to English); "Follow System" respects a real external locale and handles Windows locale names carrying script suffixes</li>
+          <li>Windows packaging CI now checks the full language chain from a clean environment: five smoke cases drive the packaged binary through a temporary settings file instead of injecting LANG, cover the LC_ALL=C case, and time out instead of hanging</li>
+          <li>Project file loading falls back to checked_entries whenever checked_files is missing or is not an array, skips null entries in checked_dirs, common phrases and workspace snapshots, and no longer resolves relative checked paths against the process working directory when work_dir is missing</li>
+          <li>GUI and CLI project loaders now produce the same checked-path set, backed by a new unit test covering field fallback, null entries, forward slashes, relative paths and a missing work_dir</li>
+        </ul>
+      </description>
+    </release>
     <release version="4.10.2" date="2026-11-11">
       <description>
         <p>Fix the interface language setting and follow-system language on Windows:</p>

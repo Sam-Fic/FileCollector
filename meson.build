@@ -1,5 +1,5 @@
 project('filecollector', 'vala', 'c',
-  version: '4.10.2',
+  version: '4.10.3',
   meson_version: '>= 0.62.0'
 )
 
