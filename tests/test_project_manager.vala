@@ -31,9 +31,11 @@ void assert_eq_str (string desc, string expected, string actual) {
     else fail (desc, @"期望 '$expected', 实际 '$actual'");
 }
 
-private static string tmp_dir = "";
-private static string real_file = "";
-private static string expected_path = "";
+// Vala 不允许在命名空间级给 owned 字段带初始化器 (会被 valac 拒绝),
+// 统一由 setup_fixture() 在 main() 里赋值。
+private static string tmp_dir;
+private static string real_file;
+private static string expected_path;
 
 private static void setup_fixture () throws Error {
     tmp_dir = GLib.Path.build_filename (
