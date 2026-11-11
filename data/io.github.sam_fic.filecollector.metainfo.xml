@@ -32,7 +32,7 @@
           <li>Choosing Chinese or English in preferences now takes effect on the Windows portable package: gettext ignored the LANGUAGE variable whenever the locale fell back to "C" (the default when no LANG/LC_* variable is set), so the setting appeared to do nothing; the app now sets LANG alongside LANGUAGE</li>
           <li>"Follow System" now actually follows the Windows user locale (e.g. zh-CN): the bundled gettext build cannot see the Windows locale on its own, so the app resolves it via g_win32_getlocale and feeds it to LANG</li>
           <li>The resolved locale survives application restarts (previously the locale env left behind by a restart chain could pin the old language), while a deliberately set external LANG is still respected</li>
-          <li>Windows packaging CI now runs a runtime i18n smoke test (CLI --help must come out in Chinese), so a broken translation chain fails the build instead of reaching users</li>
+          <li>Windows packaging CI now runs a runtime i18n smoke test that checks the packaged binary can load the zh_CN catalog for CLI --help; it validates catalog reachability, not the preference or follow-system language paths (that coverage lands in the following patch release)</li>
         </ul>
       </description>
     </release>
@@ -40,7 +40,7 @@
       <description>
         <p>Project file compatibility fixes:</p>
         <ul>
-          <li>Project files saved by the Flet edition now open without losing the checked state: the loader accepts both checked_files and checked_entries field names</li>
+          <li>Project files saved by the Flet edition no longer lose checked state when entries are path strings: the loader accepts both checked_files and checked_entries field names, and falls back when checked_files is missing or is not an array</li>
           <li>Checked paths are normalized on load (forward slashes and work-dir-relative paths), so tree checkmarks still match when the two editions serialize paths differently</li>
           <li>Malformed or non-string entries in the checked list are skipped instead of crashing the loader</li>
         </ul>

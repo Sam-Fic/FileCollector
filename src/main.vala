@@ -78,6 +78,93 @@ public class FileCollectorApp : Adw.Application {
         setup_app_icon_resource ();
     }
 
+    // 语言环境必须在 GApplication 启动之前统一准备: startup() 早于
+    // command_line(), 而纯 CLI 分支会在 command_line() 里直接 return。
+    // 把设置留在 command_line() 会让 --help / --load / --export 全部跳过它。
+    private static void apply_language_environment () {
+        var lang_setting = FileCollectorWindow.load_settings_language ();
+        if (lang_setting == "en") {
+            GLib.Environment.set_variable ("LANGUAGE", "en", true);
+#if WINDOWS
+            // Windows 的 gettext 只在当前 locale 非 "C" 时才读取 LANGUAGE
+            // (GNU gettext 既定行为); 无 LANG/LC_* 时 locale 落回 "C",
+            // LANGUAGE 被整体忽略 -> 语言设置永远只有英文。
+            // LC_ALL / LC_MESSAGES 优先级高于 LANG, 必须一并摘掉, 否则从
+            // Git Bash / MSYS2 (常见 LC_ALL=C) 启动时设置依旧失效。
+            GLib.Environment.set_variable ("LANG", "en", true);
+            GLib.Environment.unset_variable ("LC_ALL");
+            GLib.Environment.unset_variable ("LC_MESSAGES");
+            GLib.Environment.set_variable ("FILECOLLECTOR_LANG_MANAGED", "1", true);
+#endif
+        } else if (lang_setting == "zh") {
+            GLib.Environment.set_variable ("LANGUAGE", "zh_CN", true);
+#if WINDOWS
+            GLib.Environment.set_variable ("LANG", "zh_CN.UTF-8", true);
+            GLib.Environment.unset_variable ("LC_ALL");
+            GLib.Environment.unset_variable ("LC_MESSAGES");
+            GLib.Environment.set_variable ("FILECOLLECTOR_LANG_MANAGED", "1", true);
+#endif
+        } else {
+            GLib.Environment.unset_variable ("LANGUAGE");
+#if WINDOWS
+            follow_windows_system_locale ();
+#endif
+        }
+
+        Intl.setlocale (LocaleCategory.ALL, "");
+        setup_i18n_default ();
+    }
+
+#if WINDOWS
+    // "C" / "C.*" / "POSIX" / 空都不表达语言偏好, 可由应用覆盖。
+    private static bool is_placeholder_locale (string? value) {
+        string v = value ?? "";
+        return v == "" || v == "C" || v == "POSIX" || v.has_prefix ("C.");
+    }
+
+    // g_win32_getlocale() 无环境变量时返回 "xx_YY" 或 "xx_YY@Latn"。
+    // POSIX locale 名里 codeset 必须排在 @modifier 之前, 直接拼
+    // "xx_YY@Latn" + ".UTF-8" 会得到 UCRT 无法解析的垃圾值。
+    private static string build_windows_lang (string sys_locale) {
+        string base_name = sys_locale;
+        string modifier = "";
+        int at = base_name.index_of ("@");
+        if (at > 0) {
+            modifier = base_name.substring (at);
+            base_name = base_name.substring (0, at);
+        }
+        if (base_name.contains (".")) return base_name + modifier;
+        return base_name + ".UTF-8" + modifier;
+    }
+
+    private static void follow_windows_system_locale () {
+        // g_win32_getlocale() 按 LC_ALL -> LC_MESSAGES -> LANG 原样返回首个
+        // 非空值, 只有三者全空才查 GetThreadLocale。重启子进程带着上一会话
+        // 写入的 LANG (再拼 .UTF-8 会得到垃圾值), Git Bash 还会塞
+        // LANG=C.UTF-8, 所以取系统 locale 前必须把三个变量全部摘掉。
+        bool lang_is_ours = GLib.Environment.get_variable ("FILECOLLECTOR_LANG_MANAGED") != null;
+        bool external_override =
+            !is_placeholder_locale (GLib.Environment.get_variable ("LC_ALL")) ||
+            !is_placeholder_locale (GLib.Environment.get_variable ("LC_MESSAGES")) ||
+            (!lang_is_ours && !is_placeholder_locale (GLib.Environment.get_variable ("LANG")));
+        if (external_override) return;  // 用户在 shell 里明确设了真实语言, 尊重
+
+        GLib.Environment.unset_variable ("LC_ALL");
+        GLib.Environment.unset_variable ("LC_MESSAGES");
+        GLib.Environment.unset_variable ("LANG");
+        // 不恢复被摘掉的变量: 能走到这里说明它们要么由本应用写入, 要么是
+        // "C"/空; 恢复 C 会反过来压过 LANG, 让 gettext 再次忽略 LANGUAGE。
+        var sys_locale = GLib.Win32.getlocale ();
+        if (sys_locale != null && sys_locale.length > 0 && sys_locale != "C") {
+            GLib.Environment.set_variable ("LANG", build_windows_lang (sys_locale), true);
+            GLib.Environment.set_variable ("FILECOLLECTOR_LANG_MANAGED", "1", true);
+        } else {
+            GLib.Environment.unset_variable ("LANG");
+            GLib.Environment.unset_variable ("FILECOLLECTOR_LANG_MANAGED");
+        }
+    }
+#endif
+
     protected override int command_line (ApplicationCommandLine command_line) {
         var args = command_line.get_arguments ();
 
@@ -124,84 +211,11 @@ public class FileCollectorApp : Adw.Application {
             return 0;
         }
 
+        // 语言环境已在 main() 里统一准备, GUI / CLI / 二次实例走同一条链路。
         if (!force_gui && has_cli_args) {
-            Intl.setlocale (LocaleCategory.ALL, "");
-            setup_i18n_default ();
             var cli = new CliController ();
             return cli.run (filtered_args);
         }
-
-        var lang_setting = FileCollectorWindow.load_settings_language ();
-        if (lang_setting == "en") {
-            GLib.Environment.set_variable ("LANGUAGE", "en", true);
-#if WINDOWS
-            // Windows 的 gettext 只在当前 locale 非 "C" 时才读取 LANGUAGE
-            // (GNU gettext 的既定行为); 而此环境在无 LANG/LC_* 变量时 locale
-            // 落回 "C", LANGUAGE 被整体忽略 -> 语言设置永远只有英文。
-            // 实测须同时设 LANG 让 locale 脱离 "C":
-            //   仅 LANGUAGE=zh_CN                 -> 英文
-            //   LANGUAGE=zh_CN + LANG=zh_CN.UTF-8 -> 中文
-            // zh 用 "zh_CN.UTF-8" 是为了与 locale/ 下的目录名一致 (gettext
-            // 按 LANG 值逐级尝试 zh_CN -> zh 查找 .mo), 且 UCRT 可解析。
-            GLib.Environment.set_variable ("LANG", "en", true);
-            GLib.Environment.set_variable ("FILECOLLECTOR_LANG_MANAGED", "1", true);
-#endif
-        } else if (lang_setting == "zh") {
-            GLib.Environment.set_variable ("LANGUAGE", "zh_CN", true);
-#if WINDOWS
-            GLib.Environment.set_variable ("LANG", "zh_CN.UTF-8", true);
-            GLib.Environment.set_variable ("FILECOLLECTOR_LANG_MANAGED", "1", true);
-#endif
-        } else {
-            GLib.Environment.unset_variable ("LANGUAGE");
-#if WINDOWS
-            // 跟随系统: 此 gettext 构建在没有 LANG/LC_* 变量时拿不到 Windows
-            // 的用户语言 (locale 落回 "C" -> 英文, 见上方注释), 因此把 Windows
-            // 用户 locale 翻成 Unix 风格名字 (zh-CN -> "zh_CN") 喂给 LANG。
-            //
-            // g_win32_getlocale() 的实现是: 有 LANG/LC_* 环境变量时原样返回
-            // 其值, 只有全空才查 Windows (GetThreadLocale)。重启子进程总带着
-            // 上一会话写入的 LANG (拼 .UTF-8 会得到垃圾值), Git Bash 还会塞
-            // LANG=C.UTF-8 —— 所以先临时摘掉这三个变量, 强制走 Win32 路径。
-            //
-            // FILECOLLECTOR_LANG_MANAGED 标记 LANG 是否由本应用写入:
-            //   - 有标记 (重启链路) -> 无条件覆盖, 保证 zh/en 切回"跟随系统"
-            //     时不会残留旧语言;
-            //   - 无标记但 LANG 是 "C"/"C.*"/"POSIX" (Git Bash 默认, 不表达
-            //     语言偏好) -> 视同未设置, 覆盖为系统 locale;
-            //   - 无标记且 LANG 有真实语言 (用户在 shell 里故意设的) -> 尊重。
-            bool lang_is_ours = GLib.Environment.get_variable ("FILECOLLECTOR_LANG_MANAGED") != null;
-            string inherited = GLib.Environment.get_variable ("LANG") ?? "";
-            bool lang_is_c = inherited == "C" || inherited.has_prefix ("C.") || inherited == "POSIX";
-            if (lang_is_ours || inherited.length == 0 || lang_is_c) {
-                string? saved_lc_all = GLib.Environment.get_variable ("LC_ALL");
-                string? saved_lc_msg = GLib.Environment.get_variable ("LC_MESSAGES");
-                string? saved_lang = GLib.Environment.get_variable ("LANG");
-                GLib.Environment.unset_variable ("LC_ALL");
-                GLib.Environment.unset_variable ("LC_MESSAGES");
-                GLib.Environment.unset_variable ("LANG");
-                var sys_locale = GLib.Win32.getlocale ();
-                if (saved_lc_all != null) {
-                    GLib.Environment.set_variable ("LC_ALL", saved_lc_all, true);
-                }
-                if (saved_lc_msg != null) {
-                    GLib.Environment.set_variable ("LC_MESSAGES", saved_lc_msg, true);
-                }
-                if (saved_lang != null) {
-                    GLib.Environment.set_variable ("LANG", saved_lang, true);
-                }
-                if (sys_locale != null && sys_locale.length > 0 && !sys_locale.has_prefix ("C")) {
-                    GLib.Environment.set_variable ("LANG", sys_locale + ".UTF-8", true);
-                    GLib.Environment.set_variable ("FILECOLLECTOR_LANG_MANAGED", "1", true);
-                } else {
-                    GLib.Environment.unset_variable ("LANG");
-                }
-            }
-#endif
-        }
-
-        Intl.setlocale (LocaleCategory.ALL, "");
-        setup_i18n_default ();
 
         activate ();
 
@@ -512,6 +526,9 @@ public class FileCollectorApp : Adw.Application {
         // 先检测并接管父进程控制台 (管道环境下为空操作)
         win32_console_init ();
 #endif
+        // 必须在 app.run() 之前: startup() 与纯 CLI 分支都早于 command_line()
+        // 的自定义逻辑, 语言设置放在那里会漏掉 CLI 入口。
+        apply_language_environment ();
         var app = new FileCollectorApp ();
         int ret = app.run (args);
         // 清理 BinaryConverter 复用的临时基目录, 防止 /tmp 下泄漏

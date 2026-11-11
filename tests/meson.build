@@ -183,3 +183,20 @@ test_office_text_extractor_exe = executable('test_office_text_extractor',
   dependencies: [glib_dep, gio_dep, gee_dep],
 )
 test('test_office_text_extractor', test_office_text_extractor_exe)
+
+# ─── 13. ProjectManager 项目文件加载 (字段兼容 / 路径归一化 / null 防御) ───
+# load_project_file 依赖 ItemData / WorkspaceSnapshot / ConfigManager.atomic_write_json,
+# 后者由 stubs.vala 提供; 源文件闭包与 test_app_state 保持一致。
+project_manager_src = files(join_paths(src_dir, 'services', 'project_manager.vala'))
+test_project_manager_exe = executable('test_project_manager',
+  'test_project_manager.vala',
+  project_manager_src,
+  app_state_src,
+  item_data_src,
+  token_estimator_src,
+  workspace_snapshot_src,
+  directory_item_src,
+  stubs_src,
+  dependencies: [glib_dep, gio_dep, gee_dep, json_dep, m_dep],
+)
+test('test_project_manager', test_project_manager_exe)

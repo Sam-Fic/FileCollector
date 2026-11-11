@@ -501,32 +501,18 @@ public class CliController : GLib.Object {
             checked_paths.clear ();
             checked_dirs.clear ();
 
-            // 字段名兼容: 本版写 checked_files, Flet 版写 checked_entries. 优先读自己的,
-            // 缺失时回退到另一个, 两个版本互相打开项目时勾选状态不丢.
-            Json.Array? checked_arr = null;
-            if (root.has_member ("checked_files")) {
-                checked_arr = root.get_array_member ("checked_files");
-            } else if (root.has_member ("checked_entries")) {
-                checked_arr = root.get_array_member ("checked_entries");
-            }
-            if (checked_arr != null) {
-                for (int i = 0; i < checked_arr.get_length (); i++) {
-                    var p = checked_arr.get_string_element (i);
-                    // Flet 旧文件可能是对象数组等非字符串元素, get_string_element
-                    // 对其返回 null, 跳过而不是把 null 收进集合
-                    if (p == null || p == "") continue;
-                    var canonical = ProjectManager.canonicalize_checked_path (p, work_dir);
-                    if (canonical != null) {
-                        checked_paths.add (canonical);
-                    }
+            // 与 ProjectManager.load_project_file 共用字段兼容 / null 防御 / 路径
+            // 归一化规则, 并同样按存在性过滤, 保证 GUI 与 CLI 加载结果一致,
+            // 也不会把不存在的路径经 --save 写回项目文件。
+            foreach (var p in ProjectManager.read_string_array (root, "checked_files", "checked_entries")) {
+                var canonical = ProjectManager.canonicalize_checked_path (p, work_dir);
+                if (canonical != null && File.new_for_path (canonical).query_exists ()) {
+                    checked_paths.add (canonical);
                 }
             }
 
-            var checked_dirs_arr = root.has_member ("checked_dirs") ? root.get_array_member ("checked_dirs") : null;
-            if (checked_dirs_arr != null) {
-                for (int i = 0; i < checked_dirs_arr.get_length (); i++) {
-                    checked_dirs.add (checked_dirs_arr.get_string_element (i));
-                }
+            foreach (var d in ProjectManager.read_string_array (root, "checked_dirs", "")) {
+                checked_dirs.add (d);
             }
 
             var items_arr = root.has_member ("items") ? root.get_array_member ("items") : null;
@@ -571,11 +557,8 @@ public class CliController : GLib.Object {
             }
 
             common_phrases.clear ();
-            var phrases_arr = root.has_member ("common_phrases") ? root.get_array_member ("common_phrases") : null;
-            if (phrases_arr != null) {
-                for (int i = 0; i < phrases_arr.get_length (); i++) {
-                    common_phrases.add (phrases_arr.get_string_element (i));
-                }
+            foreach (var phrase in ProjectManager.read_string_array (root, "common_phrases", "")) {
+                common_phrases.add (phrase);
             }
 
             stdout.printf (_("✓ Loaded from project file: %s (%d items)\n"), path, items.size);

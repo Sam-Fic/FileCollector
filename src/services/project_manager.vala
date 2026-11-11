@@ -3,20 +3,53 @@ using Gee;
 public class ProjectManager : GLib.Object {
 
     // 项目文件里勾选路径的归一化: Flet 版可能写正斜杠或相对 work_dir 的路径,
-    // 而本版勾选匹配 (path in checked_files, CheckStateModel) 是字符串精确比较,
-    // 必须转成 File.get_path () 的规范形态才能命中; 无法解析时原样返回。
+    // 而本版勾选匹配 (path in checked_files) 是字符串精确比较, 必须转成
+    // File.get_path () 的规范形态才能命中。
+    //
+    // 关键边界: File.new_for_path () 内部会 g_canonicalize_filename (path, NULL),
+    // 相对路径在 relative_to == NULL 时会被绑到当前工作目录。work_dir 缺失时
+    // 绝不能让它按 CWD 解析 —— 便携包双击启动的 CWD 是任意的, 会勾错同名文件,
+    // 还会被 CLI 的 --save 写回项目文件。此时返回 null, 由调用方丢弃该条目。
     public static string? canonicalize_checked_path (string path, File? work_dir) {
         if (path == "") return null;
         try {
-            var f = File.new_for_path (path);
-            if (!GLib.Path.is_absolute (path) && work_dir != null) {
+            File f;
+            if (GLib.Path.is_absolute (path)) {
+                f = File.new_for_path (path);
+            } else if (work_dir != null) {
                 f = work_dir.resolve_relative_path (path);
+            } else {
+                return null;
             }
             var canonical = f.get_path ();
-            return (canonical != null && canonical != "") ? canonical : path;
+            return (canonical != null && canonical != "") ? canonical : null;
         } catch (Error e) {
-            return path;
+            return null;
         }
+    }
+
+    // 字符串数组读取的统一规则, GUI (load_project_file) 与 CLI (load_project)
+    // 共用: 取到 Json.Array 才算命中, 命中失败继续回退到 fallback 字段;
+    // 非字符串元素会被 get_string_element 返回 null, 一律跳过, 不能塞进集合。
+    // fallback 传 "" 表示无回退字段。
+    public static Gee.ArrayList<string> read_string_array (
+        Json.Object obj, string primary, string fallback
+    ) {
+        var result = new Gee.ArrayList<string> ();
+        Json.Array? arr = null;
+        if (obj.has_member (primary)) {
+            arr = obj.get_array_member (primary);
+        }
+        if (arr == null && fallback != "" && obj.has_member (fallback)) {
+            arr = obj.get_array_member (fallback);
+        }
+        if (arr == null) return result;
+        for (int i = 0; i < arr.get_length (); i++) {
+            var value = arr.get_string_element (i);
+            if (value == null || value == "") continue;
+            result.add (value);
+        }
+        return result;
     }
 
     public static void load_project_file (
@@ -68,32 +101,18 @@ public class ProjectManager : GLib.Object {
         use_absolute = root.get_boolean_member_with_default ("use_absolute", false);
         show_header = root.get_boolean_member_with_default ("show_header", false);
 
-        // 字段名兼容: 本版写 checked_files, Flet 版写 checked_entries. 优先读自己的,
-        // 缺失时回退到另一个, 两个版本互相打开项目时勾选状态不丢.
-        Json.Array? checked_arr = null;
-        if (root.has_member ("checked_files")) {
-            checked_arr = root.get_array_member ("checked_files");
-        } else if (root.has_member ("checked_entries")) {
-            checked_arr = root.get_array_member ("checked_entries");
-        }
-        if (checked_arr != null) {
-            for (int i = 0; i < checked_arr.get_length (); i++) {
-                var p = checked_arr.get_string_element (i);
-                // Flet 旧文件可能是对象数组等非字符串元素, get_string_element
-                // 对其返回 null, 跳过而不是把 null 收进集合
-                if (p == null || p == "") continue;
-                var canonical = canonicalize_checked_path (p, work_dir);
-                if (canonical != null && File.new_for_path (canonical).query_exists ()) {
-                    checked_paths.add (canonical);
-                }
+        // checked_files / checked_entries 兼容 + 路径归一化; GUI 与 CLI 走同一套规则。
+        foreach (var p in read_string_array (root, "checked_files", "checked_entries")) {
+            var canonical = canonicalize_checked_path (p, work_dir);
+            if (canonical != null && File.new_for_path (canonical).query_exists ()) {
+                checked_paths.add (canonical);
             }
         }
 
-        var checked_dirs_arr = root.has_member ("checked_dirs") ? root.get_array_member ("checked_dirs") : null;
-        if (checked_dirs_arr != null) {
-            for (int i = 0; i < checked_dirs_arr.get_length (); i++) {
-                checked_dirs.add (checked_dirs_arr.get_string_element (i));
-            }
+        // 目录勾选只做 null / 类型防御, 不改路径形态: checked_dirs 在 UI 里
+        // 与 checked_files 的生成路径不同, 贸然归一化会改变既有树状态语义。
+        foreach (var d in read_string_array (root, "checked_dirs", "")) {
+            checked_dirs.add (d);
         }
 
         var items_arr = root.has_member ("items") ? root.get_array_member ("items") : null;
@@ -127,11 +146,8 @@ public class ProjectManager : GLib.Object {
         }
 
         common_phrases.clear ();
-        var phrases_arr = root.has_member ("common_phrases") ? root.get_array_member ("common_phrases") : null;
-        if (phrases_arr != null) {
-            for (int i = 0; i < phrases_arr.get_length (); i++) {
-                common_phrases.add (phrases_arr.get_string_element (i));
-            }
+        foreach (var phrase in read_string_array (root, "common_phrases", "")) {
+            common_phrases.add (phrase);
         }
 
         // 工作区快照（向后兼容：旧工程文件无 snapshots 字段时为空）
@@ -179,17 +195,16 @@ public class ProjectManager : GLib.Object {
                     }
                 }
 
-                var scp = so.has_member ("checked_files") ? so.get_array_member ("checked_files") : null;
-                if (scp != null) {
-                    for (int j = 0; j < scp.get_length (); j++) snap.checked_paths.add (scp.get_string_element (j));
+                // 快照同样兼容 checked_entries 并做 null 防御; 路径不做归一化,
+                // 保留保存时的原样, 避免恢复快照时改变既有勾选语义。
+                foreach (var p in read_string_array (so, "checked_files", "checked_entries")) {
+                    snap.checked_paths.add (p);
                 }
-                var scd = so.has_member ("checked_dirs") ? so.get_array_member ("checked_dirs") : null;
-                if (scd != null) {
-                    for (int j = 0; j < scd.get_length (); j++) snap.checked_dirs.add (scd.get_string_element (j));
+                foreach (var d in read_string_array (so, "checked_dirs", "")) {
+                    snap.checked_dirs.add (d);
                 }
-                var sph = so.has_member ("common_phrases") ? so.get_array_member ("common_phrases") : null;
-                if (sph != null) {
-                    for (int j = 0; j < sph.get_length (); j++) snap.common_phrases.add (sph.get_string_element (j));
+                foreach (var ph in read_string_array (so, "common_phrases", "")) {
+                    snap.common_phrases.add (ph);
                 }
 
                 snap.ai_mode = so.get_string_member_with_default ("ai_mode", "default");

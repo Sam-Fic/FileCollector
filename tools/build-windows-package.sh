@@ -147,17 +147,64 @@ BAT
 # 打包前用 PE 导入表做依赖闭包校验, 任何一个非系统 DLL 缺失都直接失败。
 python3 tools/verify_windows_package.py "${STAGING_DIR}"
 
-# i18n 运行时冒烟: --help 走完整 gettext 链 (bindtextdomain -> zh_CN.mo 加载)。
-# 曾出过: .mo 在包里、清单校验也过, 但 gettext 运行时根本没加载译文, 语言
-# 设置/跟随系统在用户侧永远只有英文 (Windows 下 gettext 在 locale 为 "C" 时
-# 忽略 LANGUAGE)。这里真实运行主程序验证译文可达, 而不是只看清单。
-echo "Running i18n runtime smoke test (LANG=zh_CN.UTF-8 --help -> Chinese) ..."
-HELP_OUT="$(cd "${STAGING_DIR}/bin" && LANG=zh_CN.UTF-8 ./filecollector.exe --help 2>/dev/null || true)"
-if ! printf '%s\n' "${HELP_OUT}" | grep -q '命令行模式'; then
-  echo "i18n smoke test failed: --help output is not Chinese with LANG=zh_CN.UTF-8" >&2
-  printf '%s\n' "${HELP_OUT}" | head -5 >&2
-  exit 1
+# ─── i18n 运行时冒烟 ──────────────────────────────────────────────────
+# 验证"应用自己"能把偏好设置 / 跟随系统落地, 而不只是 .mo 文件存在。
+# 旧写法用外部 LANG=zh_CN.UTF-8 跑 --help, 恰好绕过了 CLI 分支的语言设置,
+# 测不到设置不生效的回归。这里用干净环境 + 临时 XDG_CONFIG_HOME 里的
+# settings.json 驱动, 由应用自己完成 locale 解析。
+SMOKE_TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "${SMOKE_TMP_DIR}"' EXIT
+mkdir -p "${SMOKE_TMP_DIR}/filecollector"
+# Windows 原生 exe 不认 MSYS2 的 POSIX 路径; -m 产出 C:/... 形式, GLib 可解析
+# 且不会被 MSYS2 当成 POSIX 绝对路径改写。
+if command -v cygpath >/dev/null 2>&1; then
+  SMOKE_CONFIG_HOME="$(cygpath -m "${SMOKE_TMP_DIR}")"
+else
+  SMOKE_CONFIG_HOME="$(cd "${SMOKE_TMP_DIR}" && pwd -W)"
 fi
+SMOKE_SETTINGS="${SMOKE_TMP_DIR}/filecollector/settings.json"
+SMOKE_ERR="${SMOKE_TMP_DIR}/help.stderr"
+
+# $1 用例名, $2 期望语言 (zh|en), $3 额外的 env 赋值 (可为空)
+run_i18n_smoke () {
+  local label="$1" expected="$2" extra="$3" out
+  # env -u 清掉所有外部语言变量; timeout 防止 GUI 子系统 exe 挂起拖死 CI。
+  if ! out="$(cd "${STAGING_DIR}/bin" && env -u LANG -u LC_ALL -u LC_MESSAGES \
+        -u LANGUAGE -u FILECOLLECTOR_LANG_MANAGED \
+        XDG_CONFIG_HOME="${SMOKE_CONFIG_HOME}" ${extra} \
+        timeout 30 ./filecollector.exe --help 2>"${SMOKE_ERR}")"; then
+    echo "i18n smoke [${label}]: filecollector.exe failed or timed out" >&2
+    sed -n '1,20p' "${SMOKE_ERR}" >&2
+    return 1
+  fi
+  # 用 bash 字符串匹配, 不经过管道: 避免 pipefail 下 grep -q 的 SIGPIPE(141) 误报。
+  if [[ "${expected}" == "zh" && "${out}" != *"命令行模式"* ]] ||
+     [[ "${expected}" == "en" && ( "${out}" != *"CLI Mode"* || "${out}" == *"命令行模式"* ) ]]; then
+    echo "i18n smoke [${label}]: --help language mismatch (expected ${expected})" >&2
+    printf '%s\n' "${out}" >&2
+    sed -n '1,10p' "${SMOKE_ERR}" >&2
+    return 1
+  fi
+  echo "i18n smoke [${label}]: OK"
+}
+
+echo '{"language": "zh"}' > "${SMOKE_SETTINGS}"
+run_i18n_smoke "preferences=zh, clean env" zh ""
+
+echo '{"language": "en"}' > "${SMOKE_SETTINGS}"
+run_i18n_smoke "preferences=en, clean env" en ""
+
+# LC_ALL 优先级高于 LANG: 应用显式选中文时必须能压过外部 LC_ALL=C。
+echo '{"language": "zh"}' > "${SMOKE_SETTINGS}"
+run_i18n_smoke "preferences=zh, LC_ALL=C" zh "LC_ALL=C"
+
+# 跟随系统分支不得覆盖用户在 shell 里明确设置的真实语言。
+echo '{}' > "${SMOKE_SETTINGS}"
+run_i18n_smoke "follow-system, external LANG respected" zh "LANG=zh_CN.UTF-8"
+
+# 干净环境走 g_win32_getlocale; CI runner 是 en-US, 应回退到英文原文。
+echo '{}' > "${SMOKE_SETTINGS}"
+run_i18n_smoke "follow-system, clean env" en ""
 
 PACKAGE_PATH="${DIST_DIR}/filecollector-windows-${VERSION}-x64.zip"
 (
