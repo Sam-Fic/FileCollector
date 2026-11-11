@@ -113,6 +113,14 @@ jobs:
 
               chmod +x tools/build-deb.sh
               tools/build-deb.sh
+
+              # CI 此前只跑 vala-lint 与各平台打包, tests/ 从未被编译执行,
+              # 新增的单元测试等于没验证。deb 容器依赖齐全, 在这里编译并
+              # 运行项目文件加载单测; --no-rebuild 避免把其它测试 (部分依赖
+              # zip/unzip 等外部命令) 一并拉进来导致误报。
+              meson setup build-test --prefix=/usr
+              meson compile -C build-test test_project_manager
+              meson test -C build-test --no-rebuild test_project_manager --print-errorlogs
             '
 
       - name: Upload DEB package
