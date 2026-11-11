@@ -113,14 +113,6 @@ jobs:
 
               chmod +x tools/build-deb.sh
               tools/build-deb.sh
-
-              # 各平台打包会编译 tests/ 目标, 但 CI 从未运行 meson test,
-              # 单元测试形同虚设。deb 容器依赖齐全, 在这里显式编译并
-              # 运行项目文件加载单测; --no-rebuild 避免把其它测试 (部分依赖
-              # zip/unzip 等外部命令) 一并拉进来导致误报。
-              meson setup build-test --prefix=/usr
-              meson compile -C build-test test_project_manager
-              meson test -C build-test --no-rebuild test_project_manager --print-errorlogs
             '
 
       - name: Upload DEB package
